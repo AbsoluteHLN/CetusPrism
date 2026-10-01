@@ -1,0 +1,960 @@
+/* CetusPrism — HLN UI System v3.5 integration layer
+   Bridges the harness design-token aliases (--dsw-alias-*) onto the official
+   v3.5 Algorithmic Vector tokens (--hln-ui-*) declared by
+   /hln-ui-v3.5/hln-ui-system-v3.5.css on :root[data-hln-theme]. Selector
+   specificity (html body[...]) keeps these definitions ahead of the
+   application stylesheet regardless of injection order; the !important flag
+   on token values is the second guard.
+
+   v3.5 ships eight native themes (six algorithmic dark planes, two light
+   planes), so there is no integration palette here: every mapping below
+   points at var(--hln-ui-*), re-resolves per selected theme, and serves dark
+   and light cards alike. Literal constants left in this file are platform
+   conventions (Windows titlebar). Zero blur, zero offset shadows, zero
+   clip-path cuts: the v3.5 dist owns surfaces, background drawing
+   (data-hln-bg-motion), and motion (data-hln-motion); this file keeps only
+   the alias mapping and genuine app-specific fixes for markup the dist
+   cannot see. */
+
+html {
+  /* Fallback only: the boot script's inline colorScheme follows the live
+     preference and overrides this before first paint. */
+  color-scheme: dark;
+}
+
+/* Alias mapping: the single dark base block. Native light themes
+   (alabaster-studio, bauhaus-compiler) re-point the same var() references,
+   so no second palette block exists. */
+html body {
+  /* Surfaces: the base fill stays translucent so the #root background
+     artwork reads through as texture. */
+  --dsw-alias-bg-base: color-mix(in srgb, var(--hln-ui-bg-0) 55%, transparent) !important;
+  --dsw-specific-sidebar-fill: color-mix(in srgb, var(--hln-ui-bg-1) 82%, transparent) !important;
+  --dsw-alias-bg-layer-1: var(--hln-ui-bg-1) !important;
+  --dsw-alias-bg-layer-2: var(--hln-ui-bg-2) !important;
+  --dsw-alias-bg-layer-3: color-mix(in srgb, var(--hln-ui-bg-2) 55%, var(--hln-ui-bg-1)) !important;
+  --dsw-alias-bg-module-platform: var(--hln-ui-bg-2) !important;
+  --dsw-alias-bg-multi-select: var(--hln-ui-bg-1) !important;
+  --dsw-alias-bg-overlay: var(--hln-ui-bg-2) !important;
+  --dsw-alias-bg-mask-1: rgb(0 0 0 / 55%) !important;
+  --dsw-alias-bg-mask-2: rgb(0 0 0 / 28%) !important;
+  --dsw-alias-bg-mask-3: rgb(0 0 0 / 65%) !important;
+  --dsw-alias-bg-mask-photo: color-mix(in srgb, var(--hln-ui-bg-0) 90%, transparent) !important;
+  --dsw-alias-bg-mask-drop: color-mix(in srgb, var(--hln-ui-bg-0) 72%, transparent) !important;
+  --dsw-alias-bg-skeleton: color-mix(in srgb, var(--hln-ui-accent) 7%, transparent) !important;
+
+  /* Lines: hairline greys from --hln-ui-line, emphasis levels tinted by the
+     accent at the weight the alias name promises. */
+  --dsw-alias-border-inverted: color-mix(in srgb, var(--hln-ui-line) 80%, transparent) !important;
+  --dsw-alias-border-inverted2: color-mix(in srgb, var(--hln-ui-line) 90%, transparent) !important;
+  --dsw-alias-border-l1: color-mix(in srgb, var(--hln-ui-line) 55%, transparent) !important;
+  --dsw-alias-border-l2: var(--hln-ui-line) !important;
+  --dsw-alias-border-l2-darkmode-thin: color-mix(in srgb, var(--hln-ui-line) 65%, transparent) !important;
+  --dsw-alias-border-l3: color-mix(in srgb, var(--hln-ui-accent) 22%, transparent) !important;
+  --dsw-alias-border-l4: color-mix(in srgb, var(--hln-ui-accent) 36%, transparent) !important;
+
+  /* Brand: accent fills, on-accent ink is the theme's own base plane (the
+     v3.5 control contract colors primary controls with --hln-ui-bg-0). */
+  --dsw-alias-brand-primary: var(--hln-ui-accent) !important;
+  --dsw-alias-brand-primary-new-colorprimary-new-color: var(--hln-ui-accent) !important;
+  --dsw-alias-brand-text: var(--hln-ui-text) !important;
+  --dsw-alias-brand-primary-invert: var(--hln-ui-bg-0) !important;
+  --dsw-alias-button-primary-fill: var(--hln-ui-accent) !important;
+  --dsw-alias-button-primary-hover: var(--hln-ui-accent-strong, var(--hln-ui-accent)) !important;
+  --dsw-alias-button-primary-dimmed: color-mix(in srgb, var(--hln-ui-accent) 16%, transparent) !important;
+  --dsw-alias-button-info-fill: var(--hln-ui-accent) !important;
+  --dsw-alias-button-info-hover: var(--hln-ui-accent-strong, var(--hln-ui-accent)) !important;
+  --dsw-alias-button-contrast-fill: var(--hln-ui-text) !important;
+  --dsw-alias-button-elevated-fill: var(--hln-ui-bg-2) !important;
+  --dsw-alias-button-floating-fill: color-mix(in srgb, var(--hln-ui-bg-1) 94%, transparent) !important;
+  --dsw-alias-button-floating-hover: var(--hln-ui-bg-2) !important;
+  --dsw-alias-button-ghost-active-border: color-mix(in srgb, var(--hln-ui-accent) 55%, transparent) !important;
+  --dsw-alias-button-ghost-active-fill: color-mix(in srgb, var(--hln-ui-accent) 12%, transparent) !important;
+  --dsw-alias-button-ghost-active-hover: color-mix(in srgb, var(--hln-ui-accent) 20%, transparent) !important;
+  --dsw-alias-button-tool-bar-fill: color-mix(in srgb, var(--hln-ui-bg-1) 92%, transparent) !important;
+  --dsw-alias-button-tool-bar-fill-invisible: color-mix(in srgb, var(--hln-ui-bg-0) 60%, transparent) !important;
+  --dsw-alias-button-tool-bar-hover: color-mix(in srgb, var(--hln-ui-bg-2) 96%, transparent) !important;
+
+  /* Interactive hovers: faint accent washes per the v3.5 control hover. */
+  --dsw-alias-interactive-bg-hover: color-mix(in srgb, var(--hln-ui-accent) 6%, transparent) !important;
+  --dsw-alias-interactive-bg-hover-accent: color-mix(in srgb, var(--hln-ui-accent) 14%, transparent) !important;
+  --dsw-alias-interactive-bg-active: color-mix(in srgb, var(--hln-ui-accent) 18%, transparent) !important;
+  --dsw-alias-interactive-bg-hover-danger: color-mix(in srgb, var(--hln-ui-danger) 14%, transparent) !important;
+  --dsw-alias-interactive-bg-hover-solid: var(--hln-ui-bg-2) !important;
+
+  /* Labels: full ink / muted / faint, all from the theme ramp. */
+  --dsw-alias-label-primary: var(--hln-ui-text) !important;
+  --dsw-alias-label-primary-bluish: var(--hln-ui-text) !important;
+  --dsw-alias-label-primary-dimmed: var(--hln-ui-text-muted) !important;
+  --dsw-alias-label-primary-foreground: var(--hln-ui-bg-0) !important;
+  --dsw-alias-label-primary-inverted: var(--hln-ui-bg-1) !important;
+  --dsw-alias-label-secondary: var(--hln-ui-text-muted) !important;
+  --dsw-alias-label-tertiary: var(--hln-ui-text-faint) !important;
+  --dsw-alias-label-caption: var(--hln-ui-text-faint) !important;
+  --dsw-alias-label-dimmed: color-mix(in srgb, var(--hln-ui-text-faint) 60%, var(--hln-ui-bg-1)) !important;
+
+  /* Markdown / code surfaces */
+  --dsw-alias-markdown-citation: var(--hln-ui-bg-1) !important;
+  --dsw-alias-markdown-code-block: color-mix(in srgb, var(--hln-ui-bg-1) 75%, var(--hln-ui-bg-0)) !important;
+  --dsw-alias-markdown-code-block-banner: var(--hln-ui-bg-2) !important;
+  --dsw-alias-markdown-code-segment-selected: var(--hln-ui-bg-2) !important;
+  --dsw-alias-markdown-code-segment-unselected: var(--hln-ui-bg-1) !important;
+  --dsw-alias-markdown-inline-code: var(--hln-ui-bg-2) !important;
+  --dsw-alias-markdown-placeholder: var(--hln-ui-bg-2) !important;
+  --dsw-alias-markdown-tag: var(--hln-ui-bg-2) !important;
+
+  /* Status colors */
+  --dsw-alias-state-business-primary: var(--hln-ui-accent) !important;
+  --dsw-alias-state-business-tertiary: color-mix(in srgb, var(--hln-ui-accent) 12%, transparent) !important;
+  --dsw-alias-state-error-primary: var(--hln-ui-danger) !important;
+  --dsw-alias-state-error-secondary: var(--hln-ui-danger) !important;
+  --dsw-alias-state-success-primary: var(--hln-ui-success) !important;
+  --dsw-alias-state-success-secondary: var(--hln-ui-success) !important;
+  --dsw-alias-state-success-tertiary: color-mix(in srgb, var(--hln-ui-success) 12%, transparent) !important;
+  --dsw-alias-state-warn-label: var(--hln-ui-warning) !important;
+  --dsw-alias-state-warn-primary: var(--hln-ui-warning) !important;
+  --dsw-alias-state-warn-secondary: var(--hln-ui-warning) !important;
+  --dsw-alias-state-warn-tertiary: color-mix(in srgb, var(--hln-ui-warning) 12%, transparent) !important;
+
+  /* Documents, links, diffs, idle: the aliases the first integration pass
+     never mapped, whose stock values stayed DeepSeek blue / platform grey and
+     read as the one panel that did not follow a theme switch. */
+  --dsw-alias-bg-document-preview: var(--hln-ui-bg-1) !important;
+  --dsw-alias-label-document-preview: var(--hln-ui-text-muted) !important;
+  --dsw-alias-link: var(--hln-ui-accent) !important;
+  --dsw-alias-state-idle-primary: color-mix(in srgb, var(--hln-ui-text-faint) 70%, transparent) !important;
+  --dsw-alias-code-diff-added: color-mix(in srgb, var(--hln-ui-success) 14%, transparent) !important;
+  --dsw-alias-code-diff-deleted: color-mix(in srgb, var(--hln-ui-danger) 12%, transparent) !important;
+  --dsw-alias-file-diff-added-bg: color-mix(in srgb, var(--hln-ui-success) 16%, var(--hln-ui-bg-1)) !important;
+  --dsw-alias-file-diff-added-gutter: color-mix(in srgb, var(--hln-ui-success) 10%, var(--hln-ui-bg-1)) !important;
+  --dsw-alias-file-diff-added-marker: var(--hln-ui-success) !important;
+  --dsw-alias-file-diff-deleted-bg: color-mix(in srgb, var(--hln-ui-danger) 12%, var(--hln-ui-bg-1)) !important;
+  --dsw-alias-file-diff-deleted-gutter: color-mix(in srgb, var(--hln-ui-danger) 8%, var(--hln-ui-bg-1)) !important;
+  --dsw-alias-file-diff-deleted-marker: var(--hln-ui-danger) !important;
+  --dsw-specific-bubble-highlight: color-mix(in srgb, var(--hln-ui-accent) 16%, var(--hln-ui-bg-1)) !important;
+  --dsw-specific-login-input: color-mix(in srgb, var(--hln-ui-bg-1, #10141a) 88%, var(--hln-ui-bg-2, #171c24)) !important;
+  --dsw-specific-menu: var(--hln-ui-panel-bg, var(--hln-ui-bg-1)) !important;
+
+  /* Overlays, scrollbars */
+  --dsw-alias-toast-bg: var(--hln-ui-bg-1) !important;
+  --dsw-alias-tooltip-bg: var(--hln-ui-bg-2) !important;
+  --dsw-alias-scrollbar-bg-l1: var(--hln-ui-bg-2) !important;
+  --dsw-alias-scrollbar-bg-l2: var(--hln-ui-line) !important;
+  --dsw-alias-scrollbar-hover-l1: color-mix(in srgb, var(--hln-ui-accent) 40%, transparent) !important;
+  --dsw-alias-scrollbar-hover-l2: color-mix(in srgb, var(--hln-ui-accent) 55%, transparent) !important;
+
+  /* Specific surfaces the aliases don't cover: the composer input capsule,
+     dropdown selectors, tips, and sidebar nav rows. */
+  --dsw-specific-input-major: color-mix(in srgb, var(--hln-ui-bg-1, #10141a) 92%, transparent) !important;
+  --dsw-specific-selector: color-mix(in srgb, var(--hln-ui-bg-2, #171c24) 70%, transparent) !important;
+  --dsw-specific-tip: color-mix(in srgb, var(--hln-ui-bg-1, #10141a) 85%, transparent) !important;
+  --dsw-specific-bubble: color-mix(in srgb, var(--hln-ui-bg-1, #10141a) 88%, transparent) !important;
+  --dsw-specific-sidebar-nav-item-hover: color-mix(in srgb, var(--hln-ui-bg-2, #171c24) 60%, transparent) !important;
+  --dsw-specific-sidebar-nav-item-active: color-mix(in srgb, var(--hln-ui-accent, #38bdf8) 12%, var(--hln-ui-bg-1, #10141a)) !important;
+  --dsw-specific-sidebar-nav-item-active-accent: color-mix(in srgb, var(--hln-ui-accent, #38bdf8) 16%, transparent) !important;
+
+  /* Typography: v3.5 display stack for UI, technical stack for code. #root
+     carries the font/CJK modes, so the stacks below it resolve with the
+     selected CJK face. */
+  --dsw-font-family: var(--hln-ui-font-display) !important;
+  --ds-font-family-code: var(--hln-ui-font-technical) !important;
+
+  /* Kinetics: v3.5 timing and easing */
+  --ds-ease-in-out: var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)) !important;
+  --ds-transition-duration: var(--hln-ui-duration-fast, 180ms) !important;
+  --ds-transition-duration-fast: 100ms !important;
+  --ds-transition-duration-slow: 220ms !important;
+}
+
+/* ---------- Shell surfaces ---------- */
+
+html body {
+  background: var(--hln-ui-bg-image, none), var(--hln-ui-bg-0);
+  color: var(--hln-ui-text);
+  letter-spacing: var(--hln-ui-cjk-tracking, 0.015em);
+}
+
+/* The app root must not paint its own opaque surface over the shell backdrop */
+html body #root[data-hln-ui-root] {
+  background: transparent;
+  min-height: 100vh;
+}
+
+/* ---------- Background layering ---------- */
+
+/* The v3.5 engine draws each data-hln-bg-motion preset on the #root pseudos
+   inside an isolated stacking context and lifts #root's direct children above
+   them (z-index 0 vs 1), so the engine owns the layering outright. The shell
+   fills above stay semi-transparent via --dsw-alias-bg-base and
+   --dsw-specific-sidebar-fill, so each preset reads through the glass while
+   text and panels stay crisp. */
+
+/* One-motion contract. The engine stacks two animated layers per preset:
+   the ::before scene and an ::after pulse that paints a full-width hairline
+   at 38% height crossing a full-height line at 61.8% width over the whole
+   #root — it ignores every panel edge and shows through the translucent
+   sidebar. CetusPrism ships one motion layer: the pulse layer is removed for
+   every preset, and the default tensor-stream scene is retuned to a pinned
+   hairline grid whose only moving element is one slow accent band. */
+html body #root[data-hln-ui-root][data-hln-bg-motion]::after {
+  content: none;
+}
+
+html body #root[data-hln-bg-motion='tensor-stream']::before {
+  background-image:
+    linear-gradient(90deg, color-mix(in srgb, var(--hln-ui-line) 32%, transparent) 1px, transparent 1px),
+    linear-gradient(180deg, color-mix(in srgb, var(--hln-ui-line) 32%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--hln-ui-accent) 14%, transparent) 50%, transparent 100%);
+  background-size: 48px 48px, 48px 48px, 380px 100%;
+  opacity: 0.5;
+  animation: hln-cetus-band-glide 52s linear infinite;
+}
+
+/* The band sweeps fully offscreen on both ends, so the infinite loop has no
+   visible jump; the two grid layers stay pinned at 0 0. */
+@keyframes hln-cetus-band-glide {
+  from {
+    background-position: 0 0, 0 0, -380px 0;
+  }
+
+  to {
+    background-position: 0 0, 0 0, calc(100% + 380px) 0;
+  }
+}
+
+/* ---------- Control alignment (v3.5 control contract) ---------- */
+
+/* App markup does not carry [data-hln-ui-control]; these rules align native
+   controls with it: square corners, hairline hover, 1.5px focus outline.
+   aria-checked controls (switches) keep their round shape; component classes
+   outrank the element selectors, so styled buttons keep their own fills. */
+html body button:not([aria-checked]),
+html body [role="button"]:not([aria-checked]),
+html body input,
+html body textarea,
+html body select {
+  border-radius: 0 !important;
+}
+
+html body button:not([aria-checked]),
+html body [role='button']:not([aria-checked]) {
+  font-family: var(--hln-ui-font-form, var(--hln-ui-font-current, inherit));
+  letter-spacing: 0.02em;
+  transition:
+    border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    background-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* The official control hover: accent-tinted border and a faint wash. */
+html body button:not([aria-checked]):hover {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+}
+
+/* Native selects take the hairline field treatment. */
+html body select {
+  appearance: none;
+  background-color: color-mix(in srgb, var(--hln-ui-bg-1) 90%, transparent);
+  border: 1px solid var(--hln-ui-line);
+  color: var(--hln-ui-text);
+  padding: 6px 28px 6px 10px;
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 11px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath fill='none' stroke='%238b9bb0' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+html body select:hover {
+  border-color: var(--hln-ui-accent);
+}
+
+/* v3.5 focus contract: 1.5px outline in the focus color, no ring shadow
+   (the v2.3 --hln-ui-focus-ring token no longer exists). */
+html body button:focus-visible,
+html body input:focus-visible,
+html body textarea:focus-visible,
+html body select:focus-visible,
+html body a:focus-visible,
+html body [tabindex]:focus-visible {
+  outline: 1.5px solid var(--hln-ui-focus);
+  outline-offset: var(--hln-ui-focus-offset, 2px);
+}
+
+/* Text caret and selection carry the accent */
+html body ::selection {
+  background: color-mix(in srgb, var(--hln-ui-accent) 28%, transparent);
+  color: var(--hln-ui-text);
+}
+
+html body input,
+html body textarea {
+  caret-color: var(--hln-ui-accent);
+}
+
+/* ---------- Precision linear scrollbar ---------- */
+
+html ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+html ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html ::-webkit-scrollbar-thumb {
+  background: var(--hln-ui-line);
+  border-radius: 0;
+}
+
+html ::-webkit-scrollbar-thumb:hover {
+  background: var(--hln-ui-accent);
+}
+
+html ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ---------- Settings nav selected state ---------- */
+
+/* The stock dark token (rgb(67,69,74)) reads as near-invisible against the
+   theme plane, so the selected cell takes the accent tint plus a left hairline
+   bar. Scoped to dialogs that mark the current nav row with
+   aria-current="true" (the settings panel). */
+html body [role='dialog'] [aria-current='true'] {
+  background: color-mix(in srgb, var(--hln-ui-accent) 14%, transparent);
+  color: var(--hln-ui-text);
+  box-shadow: inset 2px 0 0 0 var(--hln-ui-accent);
+}
+
+/* ---------- Settings dialog: HLN selection grids ---------- */
+
+/* The HLN theme/font/motion cards are buttons in the runtime bundle's grid;
+   they read as the v3.5 linear card: square 1px hairline surface, open
+   negative space, accent hover, accent selected state via aria-pressed.
+   Scoped to the dialog so other surfaces keep their bare composition. */
+
+html body [role='dialog'] button[class*='card'] {
+  border-radius: 0;
+  border: 1px solid var(--hln-ui-line);
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 88%, transparent);
+  transition:
+    border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    background-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+html body [role='dialog'] button[class*='card']:hover:not([aria-pressed='true']) {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+  color: var(--hln-ui-text);
+  background: color-mix(in srgb, var(--hln-ui-accent) 6%, var(--hln-ui-bg-1));
+}
+
+html body [role='dialog'] button[class*='card'][aria-pressed='true'] {
+  border-color: var(--hln-ui-accent);
+  color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 12%, var(--hln-ui-bg-1));
+}
+
+/* The three row selectors (Agent 预设 / 权限 / 语言) take the same chip
+   treatment so dropdown triggers and cards read as one family. */
+html body [role='dialog'] button[class*='selector'] {
+  border: 1px solid var(--hln-ui-line);
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 70%, transparent);
+  color: var(--hln-ui-text-muted);
+  transition:
+    border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    background-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+html body [role='dialog'] button[class*='selector']:hover {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+  color: var(--hln-ui-text);
+  background: color-mix(in srgb, var(--hln-ui-accent) 6%, transparent);
+}
+
+/* Utility buttons (打开配置文件) drop their stock grays for the same
+   hairline + accent-hover language. */
+html body [role='dialog'] button[class*='_outline_'] {
+  border-color: var(--hln-ui-line);
+  color: var(--hln-ui-text-muted);
+}
+
+html body [role='dialog'] button[class*='_outline_']:hover {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+  color: var(--hln-ui-text);
+  background: color-mix(in srgb, var(--hln-ui-accent) 6%, transparent);
+}
+
+/* ---------- Settings dialog: Agent 预设 roster cards ---------- */
+
+/* The preset roster cards are <li> elements, so the global control alignment
+   never reached them. They join the card family with the same square hairline
+   surface, accent hover, and accent selected state as the selection grids. */
+html body [role='dialog'] li[class*='card'] {
+  border-radius: 0;
+  border: 1px solid var(--hln-ui-line);
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 88%, transparent);
+  transition:
+    border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    background-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+html body [role='dialog'] li[class*='card']:hover:not([class*='cardActive']):not([class*='cardBroken']) {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+  background: color-mix(in srgb, var(--hln-ui-accent) 6%, var(--hln-ui-bg-1));
+}
+
+html body [role='dialog'] li[class*='cardActive'] {
+  border-color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 10%, var(--hln-ui-bg-1));
+}
+
+/* A broken preset keeps its damage color through hover. */
+html body [role='dialog'] li[class*='cardBroken'],
+html body [role='dialog'] li[class*='cardBroken']:hover {
+  border-color: var(--hln-ui-danger);
+}
+
+/* 当前使用 rides as the accent hairline chip instead of the stock white pill. */
+html body [role='dialog'] [class*='inUse'] {
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--hln-ui-accent) 65%, transparent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 14%, transparent);
+  color: var(--hln-ui-accent);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* 内置 stays a quiet technical tag. */
+html body [role='dialog'] [class*='badge'] {
+  border-radius: 0;
+  border-color: var(--hln-ui-line);
+  background: color-mix(in srgb, var(--hln-ui-bg-2) 60%, transparent);
+  color: var(--hln-ui-text-faint);
+  letter-spacing: 0.08em;
+}
+
+/* Footer icon buttons: hover leaves the stock gray for the accent tint. */
+html body [role='dialog'] button[class*='iconButton']:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--hln-ui-accent) 10%, transparent);
+  color: var(--hln-ui-text);
+}
+
+/* The conversational-authoring entry keeps its dashed "a preset appears
+   here" edge, tinted into the accent family. */
+html body [role='dialog'] button[class*='creatorButton'] {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 35%, var(--hln-ui-line));
+  color: var(--hln-ui-text-muted);
+}
+
+html body [role='dialog'] button[class*='creatorButton']:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+  background: color-mix(in srgb, var(--hln-ui-accent) 6%, transparent);
+  color: var(--hln-ui-text);
+}
+
+/* ---------- Dialog entrance & settings surfaces (account / usage / about) ---------- */
+
+/* Every role=dialog surface mounts through one theme-owned entrance — a short
+   rise-and-fade on the engine's motion tokens — so the settings panel, the
+   platform overlay, and sign-in share the enter choreography the v3.5 pages
+   already get from data-hln-motion. The `backwards` fill keeps no retained
+   transform after the run, so fixed descendants never gain a containing
+   block. */
+html body [role='dialog'] {
+  animation: hln-cetus-dialog-in var(--hln-ui-duration-standard, 240ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)) backwards;
+}
+
+@keyframes hln-cetus-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body [role='dialog'] {
+    animation: none;
+  }
+}
+
+/* The settings pages compose rounded DSW surfaces that predate the v3.5
+   control contract, and inside a dialog they read as a foreign style. These
+   hooks match the CSS-module local names (hash prefixes are build-stable),
+   scoped to dialogs, and align the stock surfaces with the v3.5 linear
+   language: square corners, hairline edges, token fills. */
+
+/* Info and balance cards (account identity and balances, about, usage
+   stats). The usage `.cards` grid wrapper is excluded — only the cards
+   themselves take the surface. */
+html body [role='dialog'] div[class*='card']:not([class*='cards']),
+html body [role='dialog'] div[class*='Card'] {
+  border-radius: 0;
+  border: 1px solid var(--hln-ui-line);
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 88%, transparent);
+}
+
+/* Anchor controls (查询用量 / 充值) escape the global button squaring because
+   they render as <a>; they join the official control language here. */
+html body [role='dialog'] a[class*='linkButton'] {
+  border-radius: 0;
+  border: 1px solid var(--hln-ui-line);
+  background: transparent;
+  color: var(--hln-ui-text-muted);
+  transition:
+    border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    background-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+html body [role='dialog'] a[class*='linkButton']:hover:not([class*='primary']) {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+  background: color-mix(in srgb, var(--hln-ui-accent) 6%, transparent);
+  color: var(--hln-ui-text);
+}
+
+/* The primary anchor (充值) is the page's one accent-solid control; the ink
+   derives from bg-0 tinted toward the accent so contrast holds across every
+   engine palette. */
+html body [role='dialog'] a[class*='linkButton'][class*='primary'] {
+  border-color: var(--hln-ui-accent);
+  background: var(--hln-ui-accent);
+  color: color-mix(in srgb, var(--hln-ui-accent) 15%, var(--hln-ui-bg-0));
+  font-weight: 600;
+}
+
+html body [role='dialog'] a[class*='linkButton'][class*='primary']:hover {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 72%, var(--hln-ui-bg-0));
+  background: color-mix(in srgb, var(--hln-ui-accent) 86%, var(--hln-ui-bg-0));
+}
+
+html body [role='dialog'] a[class*='linkButton'][aria-disabled='true'] {
+  opacity: 0.45;
+}
+
+/* 发行版 tag and the usage range toggle join the chip and control family. */
+html body [role='dialog'] [class*='channelTag'] {
+  border-radius: 0;
+  border: 1px solid color-mix(in srgb, var(--hln-ui-line) 80%, transparent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 8%, transparent);
+  color: var(--hln-ui-text-muted);
+}
+
+html body [role='dialog'] button[class*='rangeButton'] {
+  border-radius: 0;
+  border: 1px solid var(--hln-ui-line);
+  background: transparent;
+  color: var(--hln-ui-text-muted);
+}
+
+html body [role='dialog'] button[class*='rangeButton']:not([class*='rangeButtonActive']):hover {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+  color: var(--hln-ui-text);
+}
+
+html body [role='dialog'] button[class*='rangeButtonActive'] {
+  border-color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 12%, transparent);
+  color: var(--hln-ui-accent);
+}
+
+/* The usage session table: square container with hairline row separators. */
+html body [role='dialog'] [class*='table'] {
+  border-radius: 0;
+  border: 1px solid var(--hln-ui-line);
+}
+
+html body [role='dialog'] [class*='table'] [class*='row'] {
+  border-bottom: 1px solid color-mix(in srgb, var(--hln-ui-line) 60%, transparent);
+}
+
+html body [role='dialog'] [class*='table'] [class*='row']:last-child {
+  border-bottom: none;
+}
+
+/* ---------- Dialog panel & popovers ---------- */
+
+/* The dialog panel takes the v3.5 [data-hln-ui-surface] anatomy: square
+   panel fill with a 1px hairline edge, no blur, no shadow. */
+html body [role='dialog'] {
+  border-radius: 0;
+  border: 1px solid var(--hln-ui-line);
+  background: var(--hln-ui-panel-bg, var(--hln-ui-bg-1));
+  position: relative;
+}
+
+/* Flyout panels portal to body as direct children and carry their own fixed
+   coordinates (left/top inline from useAnchoredPosition). The relative above
+   outranks their module class and drops them into document flow below the
+   fold — the context meter once opened 866px offscreen and stretched the
+   document into an unusable scrollbar. */
+html body > [role='dialog'] {
+  position: fixed;
+}
+
+/* Popover surfaces (tooltips, confirm dialogs) square off under the same
+   geometry rule as the dialog panel. */
+html body [role='tooltip'],
+html body [role='alertdialog'] {
+  border-radius: 0;
+}
+
+/* ---------- Floating menus (v3.5 surface anatomy) ---------- */
+
+/* Composer flyouts — the model/effort menu, the slash-command popup, account
+   menus — portal outside #root and read only mapped tokens; pin them to the
+   v3.5 surface anatomy (square, hairline, panel fill) so every floating card
+   belongs to the same family as the dialog panels. The mapped
+   --dsw-specific-menu keeps their fill theme-driven. */
+html body [role='menu'],
+html body [role='listbox'],
+html body [role='menu'] [role='menuitem'],
+html body [role='menu'] [role='menuitemradio'] {
+  border-radius: 0;
+}
+
+html body [role='menu'],
+html body [role='listbox'] {
+  border: 1px solid var(--hln-ui-line);
+  background: var(--hln-ui-panel-bg, var(--hln-ui-bg-1));
+  box-shadow: none;
+}
+
+/* Menu rows take the official control hover: faint accent wash, accent ink
+   while checked — the same state language as the settings nav. */
+html body [role='menu'] [role='menuitemradio']:hover:not([disabled]),
+html body [role='menu'] [role='menuitem']:hover:not([disabled]) {
+  background: color-mix(in srgb, var(--hln-ui-accent) 7%, transparent);
+}
+
+html body [role='menu'] [role='menuitemradio'][aria-checked='true'] {
+  color: var(--hln-ui-accent);
+}
+
+/* ---------- Composer card ---------- */
+
+/* The composer card takes the v3.5 large-surface anatomy: square panel with
+   the hairline line-color edge, no blur, no glow. The fill rides
+   --dsw-specific-input-major, mapped above. */
+html body #root [data-composer-card] {
+  border-radius: 0;
+  border-color: var(--hln-ui-line);
+  background: var(--dsw-specific-input-major);
+  transition: border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* The pick-a-workspace dashed ring squares off with the card: same SVG dash
+   mask at radius 0. */
+html body #root [data-composer-card]::after {
+  border-radius: 0;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='none' stroke='black' stroke-width='2' stroke-dasharray='4 4'/%3E%3C/svg%3E");
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='none' stroke='black' stroke-width='2' stroke-dasharray='4 4'/%3E%3C/svg%3E");
+}
+
+/* The frame lights while the textarea holds focus: the accent hairline only. */
+html body #root [data-composer-card]:focus-within {
+  border-color: var(--hln-ui-accent);
+}
+
+/* ---------- Desktop titlebar (frameless Electron shell) ---------- */
+
+/* The desktop shell runs with frame: false; this strip owns window dragging
+   and the Windows-convention controls, styled in the v3.5 [data-hln-ui-bar]
+   language (panel band + hairline). It mounts only when the preload bridge is
+   present — the same condition that sets the body flag reserving the strip
+   height inside the app frame. A plain browser tab mounts neither. */
+
+html body[data-dsh-desktop] #root [class*='frame'] {
+  padding-top: 36px;
+}
+
+.dsh-titlebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483000;
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  background: var(--hln-ui-bg-1);
+  border-bottom: 1px solid var(--hln-ui-line);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.dsh-titlebar-controls {
+  display: flex;
+  align-items: stretch;
+  -webkit-app-region: no-drag;
+}
+
+.dsh-titlebar-btn {
+  width: 46px;
+  display: grid;
+  place-items: center;
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: var(--hln-ui-text-muted);
+  cursor: default;
+  transition:
+    background var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.dsh-titlebar-btn svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.1;
+}
+
+.dsh-titlebar-btn:hover {
+  background: rgb(255 255 255 / 9%);
+  color: var(--hln-ui-text);
+}
+
+.dsh-titlebar-btn:active {
+  background: rgb(255 255 255 / 14%);
+}
+
+.dsh-titlebar-btn.close:hover {
+  background: #e81123;
+  color: #ffffff;
+}
+
+/* The maximize glyph mirrors the live window state: restore squares while
+   maximized, the single square otherwise. */
+.dsh-titlebar svg path[data-maximized] {
+  display: none;
+}
+
+.dsh-titlebar.dsh-titlebar-maximized svg path[data-maximized] {
+  display: block;
+}
+
+.dsh-titlebar.dsh-titlebar-maximized svg path:not([data-maximized]) {
+  display: none;
+}
+
+/* ---------- Sidebar composition (v3.5 large-surface language) ---------- */
+
+/* The sidebar column is the app's largest bare fill; this layer articulates it
+   with the v3.5 subtractive anatomy: a 1px structural hairline and the bar
+   rule under the brand, no inset highlights, no texture, no corner brackets.
+   Selectors hook the app's hashed CSS-module classes (stable per build);
+   `frame` is verified unique in the document. */
+
+html body #root [class*='frame'] > [class*='sidebarCol'] {
+  position: relative;
+  border-right: 1px solid var(--hln-ui-line);
+}
+
+/* Logo row reads as the official [data-hln-ui-bar]: hairline under the brand
+   plus the 38.2% golden-section accent rule. */
+html body #root [class*='frame'] [class*='_wVi6q_logoRow'] {
+  position: relative;
+  border-bottom: 1px solid var(--hln-ui-line);
+}
+
+html body #root [class*='frame'] [class*='_wVi6q_logoRow']::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 38.2%;
+  height: 1px;
+  background: var(--hln-ui-accent);
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* 新会话 as an official control: solid surface fill (a translucent wash over
+   the animated backdrop reads as a murky gray slab), hairline border,
+   accent-tinted hover. */
+html body #root [class*='frame'] button[class*='_wVi6q_newSession'] {
+  background: var(--hln-ui-bg-2);
+  border: 1px solid var(--hln-ui-line);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  transition:
+    background-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+html body #root [class*='frame'] button[class*='_wVi6q_newSession']:hover {
+  background: color-mix(in srgb, var(--hln-ui-accent) 6%, var(--hln-ui-bg-2));
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+}
+
+/* Workspace section header: the zone boundary under the 新会话 button is a
+   fading hairline (short accent anchor at the left, dissolving right) —
+   present enough to separate the two zones, too quiet to read as a rule. */
+html body #root [class*='frame'] [class*='iklpWW_sectionHeader'] {
+  border-radius: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--hln-ui-line) 65%, transparent);
+  background-image: linear-gradient(90deg,
+    color-mix(in srgb, var(--hln-ui-accent) 30%, transparent) 0,
+    color-mix(in srgb, var(--hln-ui-line) 60%, transparent) 64px,
+    transparent 82%);
+  background-size: 100% 1px;
+  background-position: 0 0;
+  background-repeat: no-repeat;
+  padding-top: 9px;
+  padding-bottom: 6px;
+}
+
+html body #root [class*='frame'] [class*='iklpWW_sectionLabel'] {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--hln-ui-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The label's accent tick echoes the official section-header rule. */
+html body #root [class*='frame'] [class*='iklpWW_sectionLabel']::before {
+  content: '';
+  width: 10px;
+  height: 2px;
+  background: var(--hln-ui-accent);
+}
+
+/* Empty session list: a quiet placeholder frame — dashed edge, faint hatch. */
+html body #root [class*='frame'] [class*='iklpWW_empty'] {
+  border: 1px dashed color-mix(in srgb, var(--hln-ui-line) 80%, transparent);
+  background-image: repeating-linear-gradient(135deg,
+    transparent 0 7px,
+    color-mix(in srgb, var(--hln-ui-accent) 3%, transparent) 7px 8px);
+  text-align: center;
+  padding: 22px 12px;
+  color: var(--hln-ui-text-faint);
+}
+
+/* Session and workspace rows take the accent hover: a faint accent wash on
+   the row itself. The rail that marks the hovered row is the
+   [data-row-key]::before bar from the interaction-rails section — row-scoped
+   by DOM attribute, never by list child. The former `> *` border rules here
+   matched each workspace `groupSection` wrapper (header + child sessions),
+   painting one rail across the whole expanded group; wrappers carry no
+   data-row-key, so they no longer match anything. */
+html body #root [class*='frame'] [class*='iklpWW_list']:not([class*='iklpWW_listArea']) [data-row-key]:hover {
+  background: color-mix(in srgb, var(--hln-ui-accent) 6%, transparent);
+}
+
+/* Footer sits on a hairline; the settings trigger becomes a quiet official
+   control: 36px row, tracked label at muted ink that brightens on hover with
+   the accent left rail. */
+html body #root [class*='frame'] [class*='_wVi6q_footArea'] {
+  border-top: 1px solid color-mix(in srgb, var(--hln-ui-line) 65%, transparent);
+  padding-top: 8px;
+}
+
+html body #root [class*='frame'] button[class*='_7XWK3a_trigger'] {
+  width: 100%;
+  justify-content: center;
+  height: 38px;
+  box-sizing: border-box;
+  padding: 0 12px;
+  color: var(--hln-ui-text-muted);
+  transition:
+    background var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+html body #root [class*='frame'] button[class*='_7XWK3a_trigger'] svg {
+  width: 18px;
+  height: 18px;
+}
+
+html body #root [class*='frame'] [class*='Cajd5a_triggerLabel'] {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--hln-ui-text-muted);
+  transition: color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+html body #root [class*='frame'] button[class*='_7XWK3a_trigger']:hover {
+  background: color-mix(in srgb, var(--hln-ui-accent) 7%, transparent);
+  box-shadow: inset 2px 0 0 0 var(--hln-ui-accent);
+  color: var(--hln-ui-text);
+}
+
+html body #root [class*='frame'] button[class*='_7XWK3a_trigger']:hover [class*='Cajd5a_triggerLabel'] {
+  color: var(--hln-ui-text);
+}
+
+/* ---------- Interaction rails (v3.5 control channel) ---------- */
+
+/* Session and workspace rows: an accent rail grows in at the left edge on
+   hover, mirroring the selected nav row's inset bar — the hover-side twin of
+   the official rail-draw motion. Rows are static/visible with free ::before
+   pseudos (verified against the live DOM); the bar animates transform only. */
+html body #root [data-row-key] {
+  position: relative;
+}
+html body #root [data-row-key]::before {
+  content: '';
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 0;
+  width: 2px;
+  background: var(--hln-ui-accent);
+  transform: scaleY(0);
+  transform-origin: center;
+  transition: transform var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+  pointer-events: none;
+}
+html body #root [data-row-key]:hover::before {
+  transform: scaleY(1);
+}
+
+/* Titlebar window controls: a hairline accent underline sweeps in from the
+   left on hover — the same expanding rule the official control hover uses
+   (the bar sits outside [data-hln-ui-root], so the engine's reduced-motion
+   block does not cover it — the block below does). */
+html body .dsh-titlebar-btn {
+  position: relative;
+}
+html body .dsh-titlebar-btn::after {
+  content: '';
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  bottom: 2px;
+  height: 1.5px;
+  background: var(--hln-ui-accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+  pointer-events: none;
+}
+html body .dsh-titlebar-btn:hover::after {
+  transform: scaleX(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body .dsh-titlebar,
+  html body .dsh-titlebar * {
+    animation: none !important;
+    transition: none !important;
+  }
+  html body .dsh-titlebar-btn::after {
+    content: none;
+  }
+}

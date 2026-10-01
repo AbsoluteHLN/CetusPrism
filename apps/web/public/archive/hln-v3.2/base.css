@@ -1,0 +1,594 @@
+/* ProjectHLN UI System v3.2 - Base Subtractive Linear Layer (base.css)
+   Features:
+   - Subtractive Linear Architecture: Zero glass blur, zero box shadows, zero polygon clip-paths,
+     zero corner brackets. Surfaces and controls are articulated by pure 1px structural hairlines.
+   - 5 Curated Typography Profiles (geometric, grotesque, editorial, technical, display)
+   - 6 Curated Linear Motion Variants (line-extend, plane-glide, axis-reveal, rail-draw, type-in, page-shift)
+   - 5 Curated Linear Ambient Backgrounds (horizon-rule, axial-cross, parallel-lines, fine-grain-line, quiet) */
+
+:root {
+  --hln-ui-motion-fast: var(--hln-ui-duration-fast, 180ms);
+  --hln-ui-motion-standard: var(--hln-ui-duration-standard, 320ms);
+  --hln-ui-motion-slow: var(--hln-ui-duration-slow, 480ms);
+  --hln-ui-motion-ease: var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+  --hln-ui-motion-stagger: var(--hln-ui-motion-stagger, 32ms);
+}
+
+[data-hln-ui-root],
+[data-hln-ui-root] *,
+[data-hln-ui-root] *::before,
+[data-hln-ui-root] *::after {
+  box-sizing: border-box;
+}
+
+[data-hln-ui-root] {
+  min-width: 0;
+  min-height: 0;
+  color: var(--hln-ui-text);
+  background:
+    var(--hln-ui-bg-image, none),
+    var(--hln-ui-bg-0);
+  font-family: var(--hln-ui-font-current, var(--hln-ui-font-body, system-ui, sans-serif));
+  font-size: 14px;
+  line-height: 1.55;
+  font-size-adjust: from-font;
+  font-feature-settings: "tnum" 1, "zero" 1, "kern" 1;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: var(--hln-ui-cjk-tracking, 0.015em);
+  position: relative;
+}
+
+@supports not (font-size-adjust: from-font) {
+  [data-hln-ui-root] {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+}
+
+/* ==========================================================================
+   1. Curated Typography Matrix (5 Linear Profiles + 6 CJK Hanzi Modes)
+   ========================================================================== */
+[data-hln-ui-root][data-hln-font="geometric"],
+[data-hln-font="geometric"] {
+  --hln-ui-font-cjk-auto: var(--hln-ui-font-cjk-hei);
+  --hln-ui-cjk-heading-tracking: 0.02em;
+  --hln-ui-cjk-heading-weight: 600;
+  --hln-ui-font-current: var(--hln-ui-font-geometric);
+  font-family: var(--hln-ui-font-geometric);
+}
+
+[data-hln-ui-root][data-hln-font="grotesque"],
+[data-hln-font="grotesque"] {
+  --hln-ui-font-cjk-auto: var(--hln-ui-font-cjk-hei);
+  --hln-ui-cjk-heading-tracking: 0.015em;
+  --hln-ui-cjk-heading-weight: 600;
+  --hln-ui-font-current: var(--hln-ui-font-neo-grotesque);
+  font-family: var(--hln-ui-font-neo-grotesque);
+}
+
+[data-hln-ui-root][data-hln-font="editorial"],
+[data-hln-font="editorial"] {
+  --hln-ui-font-cjk-auto: var(--hln-ui-font-cjk-song);
+  --hln-ui-cjk-heading-tracking: 0.04em;
+  --hln-ui-cjk-heading-weight: 600;
+  --hln-ui-font-current: var(--hln-ui-font-editorial);
+  font-family: var(--hln-ui-font-editorial);
+}
+
+[data-hln-ui-root][data-hln-font="technical"],
+[data-hln-font="technical"] {
+  --hln-ui-font-cjk-auto: var(--hln-ui-font-cjk-mono);
+  --hln-ui-cjk-heading-tracking: 0.015em;
+  --hln-ui-cjk-heading-weight: 600;
+  --hln-ui-font-current: var(--hln-ui-font-technical);
+  font-family: var(--hln-ui-font-technical);
+}
+
+[data-hln-ui-root][data-hln-font="display"],
+[data-hln-font="display"] {
+  --hln-ui-font-cjk-auto: var(--hln-ui-font-cjk-display);
+  --hln-ui-cjk-heading-tracking: 0.03em;
+  --hln-ui-cjk-heading-weight: 700;
+  --hln-ui-font-current: var(--hln-ui-font-display);
+  font-family: var(--hln-ui-font-display);
+}
+
+[data-hln-ui-root][data-hln-cjk-font="auto"],
+[data-hln-cjk-font="auto"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-auto, var(--hln-ui-font-cjk-hei));
+}
+
+[data-hln-ui-root][data-hln-cjk-font="hei"],
+[data-hln-cjk-font="hei"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-hei);
+  --hln-ui-cjk-tracking: 0.015em;
+  --hln-ui-cjk-heading-tracking: 0.02em;
+  --hln-ui-cjk-heading-weight: 600;
+}
+
+[data-hln-ui-root][data-hln-cjk-font="display"],
+[data-hln-cjk-font="display"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-display);
+  --hln-ui-cjk-tracking: 0.02em;
+  --hln-ui-cjk-heading-tracking: 0.03em;
+  --hln-ui-cjk-heading-weight: 700;
+}
+
+[data-hln-ui-root][data-hln-cjk-font="song"],
+[data-hln-cjk-font="song"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-song);
+  --hln-ui-cjk-tracking: 0.025em;
+  --hln-ui-cjk-heading-tracking: 0.04em;
+  --hln-ui-cjk-heading-weight: 600;
+}
+
+[data-hln-ui-root][data-hln-cjk-font="kai"],
+[data-hln-cjk-font="kai"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-kai);
+  --hln-ui-cjk-tracking: 0.025em;
+  --hln-ui-cjk-heading-tracking: 0.035em;
+  --hln-ui-cjk-heading-weight: 600;
+}
+
+[data-hln-ui-root][data-hln-cjk-font="mono"],
+[data-hln-cjk-font="mono"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-mono);
+  --hln-ui-cjk-tracking: 0.01em;
+  --hln-ui-cjk-heading-tracking: 0.015em;
+  --hln-ui-cjk-heading-weight: 600;
+}
+
+[data-hln-ui-root][data-hln-cjk-font="fangsong"],
+[data-hln-cjk-font="fangsong"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-fangsong);
+  --hln-ui-cjk-tracking: 0.03em;
+  --hln-ui-cjk-heading-tracking: 0.04em;
+  --hln-ui-cjk-heading-weight: 600;
+}
+
+[data-hln-ui-root][data-hln-font],
+[data-hln-ui-root][data-hln-cjk-font] {
+  --hln-ui-font-cjk-active: var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-auto, var(--hln-ui-font-cjk-hei)));
+  --hln-ui-font-geometric: "Futura", "Century Gothic", "Bahnschrift", "Inter", var(--hln-ui-font-cjk-active), sans-serif;
+  --hln-ui-font-neo-grotesque: "Inter", "Helvetica Neue", "Arial", var(--hln-ui-font-cjk-active), sans-serif;
+  --hln-ui-font-editorial: "Aptos Display", "Book Antiqua", "Georgia", var(--hln-ui-font-cjk-active), serif;
+  --hln-ui-font-technical: "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, var(--hln-ui-font-cjk-active), monospace;
+  --hln-ui-font-display: "DIN Alternate", "Bahnschrift", "Futura", var(--hln-ui-font-cjk-active), sans-serif;
+  --hln-ui-font-body: var(--hln-ui-font-neo-grotesque);
+  --hln-ui-font-title: var(--hln-ui-font-geometric);
+  --hln-ui-font-form: var(--hln-ui-font-neo-grotesque);
+  --hln-ui-font-label: var(--hln-ui-font-technical);
+}
+
+/* ==========================================================================
+   2. Focus-Visible Contract (Minimalist 1.5px Linear Ring)
+   ========================================================================== */
+[data-hln-ui-root] :where(button, input, textarea, select, a, [tabindex]):focus-visible {
+  outline: 1.5px solid var(--hln-ui-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+/* ==========================================================================
+   3. Topbar & Horizon Rule
+   ========================================================================== */
+[data-hln-ui-bar] {
+  display: flex;
+  align-items: center;
+  gap: var(--hln-ui-space-2, 8px);
+  padding: 0 var(--hln-ui-space-4, 16px);
+  min-height: var(--hln-ui-topbar-height, 52px);
+  background: var(--hln-ui-bg-1);
+  border-bottom: 1px solid var(--hln-ui-line);
+  position: relative;
+}
+
+[data-hln-ui-bar]::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 38.2%;
+  height: 1px;
+  background: var(--hln-ui-accent);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   4. Subtractive Linear Surfaces (Zero Corner Ornaments, Zero Blur)
+   ========================================================================== */
+[data-hln-ui-surface] {
+  background: var(--hln-ui-panel-bg, var(--hln-ui-bg-1));
+  border: 1px solid var(--hln-ui-line);
+  border-radius: 0px;
+  box-shadow: none;
+  backdrop-filter: none;
+  clip-path: none;
+  position: relative;
+  transition:
+    border-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    background-color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+[data-hln-ui-surface]::before,
+[data-hln-ui-surface]::after {
+  content: none;
+  display: none;
+}
+
+/* ==========================================================================
+   5. Minimalist Linear Controls & Expanding Rule Hover
+   ========================================================================== */
+[data-hln-ui-control] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hln-ui-space-2, 8px);
+  min-height: var(--hln-ui-control-height, 38px);
+  padding: 0 var(--hln-ui-space-3, 12px);
+  border: 1px solid var(--hln-ui-line);
+  border-radius: 0px;
+  clip-path: none;
+  color: var(--hln-ui-text);
+  background: transparent;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.1;
+  text-align: center;
+  vertical-align: middle;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  position: relative;
+  touch-action: manipulation;
+  transition:
+    transform var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    background-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    border-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+/* Linear bottom rule that expands from 0% to 100% on hover */
+[data-hln-ui-control]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 0%;
+  height: 1.5px;
+  background: var(--hln-ui-accent);
+  transition: width var(--hln-ui-duration-standard) var(--hln-ui-ease);
+  pointer-events: none;
+}
+
+[data-hln-ui-control]:hover {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 58%, var(--hln-ui-line));
+  background: color-mix(in srgb, var(--hln-ui-accent) 6%, transparent);
+  color: var(--hln-ui-text);
+  transform: translate3d(0, -1px, 0);
+}
+
+[data-hln-ui-control]:active {
+  transform: translate3d(0, 0, 0);
+  background: color-mix(in srgb, var(--hln-ui-accent) 12%, transparent);
+}
+
+[data-hln-ui-control]:hover::after {
+  width: 100%;
+}
+
+[data-hln-ui-root] .icon-button[data-hln-ui-control] {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+[data-hln-ui-root] .icon-button[data-hln-ui-control]::after {
+  display: none;
+}
+[data-hln-ui-root] .icon-button[data-hln-ui-control]:hover {
+  border-color: var(--hln-ui-accent);
+  color: var(--hln-ui-accent);
+}
+
+[data-hln-ui-control][data-variant="primary"],
+[data-hln-ui-control][data-variant="accent"],
+[data-hln-ui-control][data-active="true"] {
+  background: var(--hln-ui-accent);
+  color: var(--hln-ui-bg-0);
+  border-color: var(--hln-ui-accent);
+  font-weight: 600;
+}
+
+[data-hln-ui-control][data-variant="primary"]::after,
+[data-hln-ui-control][data-variant="accent"]::after,
+[data-hln-ui-control][data-active="true"]::after {
+  display: none;
+}
+
+[data-hln-ui-control][data-shape="rail"],
+[data-hln-ui-control][data-variant="quiet"],
+[data-hln-ui-control][data-variant="ghost"] {
+  border: none;
+  border-bottom: 1px solid var(--hln-ui-line);
+  padding-inline: 8px;
+}
+
+[data-hln-ui-control]:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   6. Precision Linear Scrollbar & Open Underline Input Fields
+   ========================================================================== */
+[data-hln-ui-scroll] {
+  overflow: auto;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar-thumb {
+  background: var(--hln-ui-line);
+  border-radius: 0px;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar-thumb:hover {
+  background: var(--hln-ui-accent);
+}
+
+[data-hln-ui-field] {
+  width: 100%;
+  min-height: var(--hln-ui-field-height, 38px);
+  padding: 0 8px;
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 12.5px;
+  color: var(--hln-ui-text);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--hln-ui-line);
+  border-radius: 0px;
+  box-shadow: none;
+  transition:
+    border-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    background-color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+[data-hln-ui-field]:hover {
+  border-bottom-color: color-mix(in srgb, var(--hln-ui-accent) 60%, var(--hln-ui-line));
+}
+
+[data-hln-ui-field]:focus {
+  outline: none;
+  border-bottom-color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 4%, transparent);
+  box-shadow: 0 1px 0 var(--hln-ui-accent);
+}
+
+/* ==========================================================================
+   7. Curated Linear Kinetics (6 Poised Motion Presets with Stagger)
+   ========================================================================== */
+[data-hln-motion="panel"],
+[data-hln-motion="item"],
+[data-hln-motion="control"] {
+  will-change: opacity, transform, clip-path;
+}
+
+[data-hln-motion="panel"][data-hln-motion-state="enter"] {
+  animation: hln-v32-plane-glide var(--hln-ui-motion-standard) var(--hln-ui-motion-ease) both;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * 60ms);
+}
+
+[data-hln-motion="item"][data-hln-motion-state="enter"] {
+  animation: hln-v32-item-enter var(--hln-ui-motion-standard) var(--hln-ui-motion-ease) both;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * var(--hln-ui-motion-stagger, 32ms));
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="line-extend"] {
+  animation: hln-v32-line-extend 460ms var(--hln-ui-motion-ease) both;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * var(--hln-ui-motion-stagger, 32ms));
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="plane-glide"] {
+  animation: hln-v32-plane-glide 420ms var(--hln-ui-motion-ease) both;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * var(--hln-ui-motion-stagger, 32ms));
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="axis-reveal"] {
+  animation: hln-v32-axis-reveal 440ms var(--hln-ui-motion-ease) both;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * var(--hln-ui-motion-stagger, 32ms));
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="rail-draw"] {
+  animation: hln-v32-line-extend 420ms var(--hln-ui-motion-ease) both;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * var(--hln-ui-motion-stagger, 32ms));
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="type-in"] {
+  animation: hln-v32-type-in 360ms steps(12, end) both;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * var(--hln-ui-motion-stagger, 32ms));
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="page-shift"] {
+  animation: hln-v32-page-shift 440ms var(--hln-ui-motion-ease) both;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * var(--hln-ui-motion-stagger, 32ms));
+}
+
+@keyframes hln-v32-plane-glide {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes hln-v32-item-enter {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes hln-v32-line-extend {
+  0%   { opacity: 0; clip-path: inset(0 100% calc(100% - 1px) 0); }
+  45%  { opacity: 1; clip-path: inset(0 0 calc(100% - 1px) 0); }
+  100% { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+
+@keyframes hln-v32-axis-reveal {
+  from { opacity: 0; clip-path: inset(0 100% 0 0); transform: translate3d(-8px, 0, 0); }
+  to   { opacity: 1; clip-path: inset(0 0 0 0); transform: translate3d(0, 0, 0); }
+}
+
+@keyframes hln-v32-type-in {
+  from { opacity: 0; clip-path: inset(0 100% 0 0); }
+  to   { opacity: 1; clip-path: inset(0 0 0 0); }
+}
+
+@keyframes hln-v32-page-shift {
+  from { opacity: 0; transform: translate3d(20px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+/* ==========================================================================
+   8. Curated Linear Ambient Backgrounds (5 Minimalist Horizon Presets)
+   ========================================================================== */
+[data-hln-ui-root][data-hln-bg-motion] {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-hln-ui-root][data-hln-bg-motion]::before,
+[data-hln-ui-root][data-hln-bg-motion]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform, opacity, background-position;
+}
+
+[data-hln-ui-root][data-hln-bg-motion] > :not(.hln-stochastic-canvas) {
+  position: relative;
+  z-index: 1;
+}
+
+[data-hln-ui-root] > .hln-stochastic-canvas {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+/* 1. horizon-rule: Golden ratio 61.8% horizon rule + slow linear luminance sweep */
+[data-hln-ui-root][data-hln-bg-motion="horizon-rule"]::before {
+  background-image:
+    linear-gradient(180deg, transparent 61.75%, color-mix(in srgb, var(--hln-ui-accent) 26%, transparent) 61.8%, transparent 61.85%),
+    linear-gradient(180deg, color-mix(in srgb, var(--hln-ui-line) 42%, transparent) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 120px;
+  opacity: 0.65;
+  animation: hln-v32-bg-horizon-drift 20s linear infinite;
+}
+[data-hln-ui-root][data-hln-bg-motion="horizon-rule"]::after {
+  background:
+    linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--hln-ui-accent) 10%, transparent) 50%, transparent 100%);
+  background-size: 45% 100%;
+  background-repeat: no-repeat;
+  opacity: 0.45;
+  animation: hln-v32-bg-linear-sweep 12s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* 2. axial-cross: Single architectural origin crosshair at (61.8%, 38.2%) */
+[data-hln-ui-root][data-hln-bg-motion="axial-cross"]::before {
+  background-image:
+    linear-gradient(90deg, transparent 61.75%, color-mix(in srgb, var(--hln-ui-accent) 24%, transparent) 61.8%, transparent 61.85%),
+    linear-gradient(180deg, transparent 38.15%, color-mix(in srgb, var(--hln-ui-accent) 24%, transparent) 38.2%, transparent 38.25%);
+  opacity: 0.65;
+}
+[data-hln-ui-root][data-hln-bg-motion="axial-cross"]::after {
+  background:
+    radial-gradient(circle at 61.8% 38.2%, transparent 18%, color-mix(in srgb, var(--hln-ui-accent) 18%, transparent) 18.15%, transparent 18.4%);
+  opacity: 0.55;
+  animation: hln-v32-bg-axial-breathe 8s ease-in-out infinite alternate;
+}
+
+/* 3. parallel-lines: Wide 96px vertical architectural columns */
+[data-hln-ui-root][data-hln-bg-motion="parallel-lines"]::before {
+  background-image:
+    linear-gradient(90deg, color-mix(in srgb, var(--hln-ui-line) 55%, transparent) 1px, transparent 1px);
+  background-size: 96px 100%;
+  opacity: 0.52;
+  animation: hln-v32-bg-column-glide 18s linear infinite;
+}
+
+/* 4. fine-grain-line: Clean 64px horizontal & vertical architectural baseline */
+[data-hln-ui-root][data-hln-bg-motion="fine-grain-line"]::before {
+  background-image:
+    linear-gradient(90deg, color-mix(in srgb, var(--hln-ui-line) 42%, transparent) 1px, transparent 1px),
+    linear-gradient(180deg, color-mix(in srgb, var(--hln-ui-line) 42%, transparent) 1px, transparent 1px);
+  background-size: 64px 64px;
+  opacity: 0.48;
+  animation: hln-v32-bg-grid-glide 22s linear infinite;
+}
+
+/* 5. quiet: Pure flat matte canvas */
+[data-hln-ui-root][data-hln-bg-motion="quiet"]::before,
+[data-hln-ui-root][data-hln-bg-motion="quiet"]::after {
+  opacity: 0;
+  animation: none;
+}
+
+@keyframes hln-v32-bg-horizon-drift {
+  0%   { background-position: 0 0, 0 0; }
+  100% { background-position: 0 0, 0 120px; }
+}
+
+@keyframes hln-v32-bg-linear-sweep {
+  0%   { background-position: -60% 0; }
+  100% { background-position: 160% 0; }
+}
+
+@keyframes hln-v32-bg-axial-breathe {
+  0%   { opacity: 0.32; transform: scale(0.985); }
+  100% { opacity: 0.65; transform: scale(1.015); }
+}
+
+@keyframes hln-v32-bg-column-glide {
+  0%   { background-position: 0 0; }
+  100% { background-position: 96px 0; }
+}
+
+@keyframes hln-v32-bg-grid-glide {
+  0%   { background-position: 0 0, 0 0; }
+  100% { background-position: 64px 64px, 64px 64px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-hln-ui-root] *,
+  [data-hln-ui-root] *::before,
+  [data-hln-ui-root] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

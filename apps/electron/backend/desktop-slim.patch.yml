@@ -1,0 +1,22 @@
+# The desktop build ships without the Office document preview. The
+# LibreOffice kit binary behind it is 330M — a third of the whole installed
+# size — and the office preview tab is its only consumer. Disabling the
+# office-to-pdf row stops the loader from importing the office-to-pdf host
+# service (the only libreoffice-kit importer), which lets pack-tauri prune the
+# kit packages from the deployed runtime. The office-to-pdf package itself
+# stays: dsh-api-remotes imports its `/remote` client stub, which only depends
+# on zod.
+#
+# The document-preview plugin itself stays mounted: its text/code/markdown/
+# image/pdf viewers need no host service, and it is the only registrant of the
+# `text` tab type that claims `dsh-resource://file/**` — disabling it made
+# every file mention and attachment open fail with "no registered tab type
+# claims" (the 无法打开文件 dialog). Office documents degrade to a per-file
+# conversion error inside the preview tab, reported by the office viewer's
+# failure line.
+#
+# To restore Office previews on the desktop: provide the office-to-pdf host
+# service (which reimports the LibreOffice kit) and rebuild the installer.
+- id: office-to-pdf
+  name: '@deepseek-ai/dsh-office-to-pdf'
+  disabled: true

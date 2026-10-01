@@ -1,0 +1,73 @@
+CLAUDE.local.md
+.env
+# Machine-local: this distribution's packaging output and machine-internal
+# boundary/skill notes never ship in the public tree.
+apps/electron/dist/
+.zcode/
+DSH开发边界.md
+.agents/skills/cetusprism-dev/
+.agents/notes/implemented/feature/2026-10-01-cetus-*
+.agents/notes/implemented/feature/2026-09-30-reasoning-effort-catalog-not-probe*
+.agents/notes/implemented/feature/2026-09-29-hln-v35-re-integration*
+apps/desktop/.env.windows
+apps/desktop/.env.macos
+apps/desktop/*.p12
+node_modules/
+lib/
+*.tsbuildinfo
+pnpm-debug.log
+.pnpm-store/
+.cache/
+verify-evidence/
+# kalcirite layout keys: the single scratch root, the cargo build cache of the
+# desktop shell (regenerable via apps/electron/scripts/build-shell.mjs), and
+# the machine-local superseded-work archive.
+temp/
+apps/electron/src-tauri/target/
+dev-docs/archive/
+examples/*/*.jsonl
+.storages/
+.sessions/
+examples/*/.sessions/
+coverage/
+.coverage-times.json
+.doc-typecheck-*/
+.node-next-types-*/
+.oxlint-contract-*/
+.oxlintrc.contract-*.json
+oxlint-contract-*.ts
+.humanize/
+tmp/
+.claude/commands/
+.claude/launch.json
+.claude/settings.json
+.vscode/
+.DS_Store
+.idea
+mise.toml
+dist-exe/
+/dist/
+apps/desktop/.desktop-build/
+python/sdk-runtime/src/deepseek_harness_runtime/runtime/
+python/**/__pycache__/
+python/**/.pytest_cache/
+packages/**/__pycache__/
+apps/web/dist/
+.artifacts/
+.dsh-build/
+.playwright-mcp/
+.orig
+.worktrees/
+worktrees/
+.agents/worktrees/
+.typert-*/
+native/system/test/bin/
+配置说明.md
+
+# Upstream development-process artifacts, not part of the product tree:
+# agent notes/skills, recorded-session test fixtures, and schema release history.
+.agents/
+snapshots/
+docs/persistence-changes/
+.github/workflows.disabled/
+.github/dependabot.yml

@@ -1,0 +1,68 @@
+/** `settings.hln` namespace dictionaries (the HLN selection row's copy). */
+
+/** Simplified Chinese dictionary (the key-set source of truth). */
+export const hlnZh = {
+  'hln.title': 'HLN 界面风格',
+  'hln.theme': '主题',
+  'hln.font': '字体',
+  'hln.cjk': '中文字体',
+  'hln.bg': '背景效果',
+  'theme.singularity-cyan': '奇点青',
+  'theme.tensor-amber': '张量琥珀',
+  'theme.veridian-stream': '翠流',
+  'theme.synapse-violet': '突触紫',
+  'theme.cobalt-manifold': '钴蓝流形',
+  'theme.titanium-oxide': '钛白氧化',
+  'theme.alabaster-studio': '雪花石膏',
+  'theme.bauhaus-compiler': '包豪斯编译',
+  'cjk.auto': '自动',
+  'cjk.hei': '黑体',
+  'cjk.display': '标题',
+  'cjk.song': '宋体',
+  'cjk.kai': '楷体',
+  'cjk.mono': '等宽',
+  'cjk.fangsong': '仿宋',
+  'motion.tensor-stream': '张量数据流',
+  'motion.neural-dag': '神经格架',
+  'motion.fourier-harmonics': '谐波干涉',
+  'motion.procedural-matrix': '程序矩阵',
+  'motion.simplex-contour': '单纯形等高',
+  'motion.clock-bus': '同步总线',
+  'motion.swiss-vector': '瑞士向量',
+  'motion.quiet': '静默',
+} satisfies Record<string, string>
+
+/** The settings.hln namespace key union. */
+export type HlnKey = keyof typeof hlnZh
+
+/** English dictionary, checked complete against the zh key set. */
+export const hlnEn = {
+  'hln.title': 'HLN Interface Style',
+  'hln.theme': 'Theme',
+  'hln.font': 'Font',
+  'hln.cjk': 'Chinese font',
+  'hln.bg': 'Background effects',
+  'theme.singularity-cyan': 'Singularity Cyan',
+  'theme.tensor-amber': 'Tensor Amber',
+  'theme.veridian-stream': 'Veridian Stream',
+  'theme.synapse-violet': 'Synapse Violet',
+  'theme.cobalt-manifold': 'Cobalt Manifold',
+  'theme.titanium-oxide': 'Titanium Oxide',
+  'theme.alabaster-studio': 'Alabaster Studio',
+  'theme.bauhaus-compiler': 'Bauhaus Compiler',
+  'cjk.auto': 'Auto',
+  'cjk.hei': 'Hei',
+  'cjk.display': 'Display',
+  'cjk.song': 'Song',
+  'cjk.kai': 'Kai',
+  'cjk.mono': 'Mono',
+  'cjk.fangsong': 'Fangsong',
+  'motion.tensor-stream': 'Tensor Stream',
+  'motion.neural-dag': 'Neural DAG',
+  'motion.fourier-harmonics': 'Fourier Harmonics',
+  'motion.procedural-matrix': 'Procedural Matrix',
+  'motion.simplex-contour': 'Simplex Contour',
+  'motion.clock-bus': 'Clock Bus',
+  'motion.swiss-vector': 'Swiss Vector',
+  'motion.quiet': 'Quiet',
+} satisfies Record<HlnKey, string>

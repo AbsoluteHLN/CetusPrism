@@ -1,0 +1,642 @@
+/* ProjectHLN UI System v3.2 - Subtractive Linear Architecture Layer (linear.css)
+   Grand, spacious, linear layout components built by subtracting decorative boxes from v3 & v2.
+   All sections are articulated via continuous 1px horizontal and vertical structural hairlines. */
+
+[data-hln-ui-root][data-hln-ui-version="v3.2"] :where(h1, h2, h3, h4) {
+  font-family: var(--hln-ui-font-current, var(--hln-ui-font-geometric));
+  font-weight: var(--hln-ui-cjk-heading-weight, 600);
+  letter-spacing: var(--hln-ui-cjk-heading-tracking, 0.02em);
+  text-wrap: balance;
+}
+
+/* ==========================================================================
+   1. Open Linear Workbench & Grand Horizon Band (.hln-v32-shell)
+   ========================================================================== */
+.hln-v32-shell {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  padding: 0 var(--hln-ui-content-gutter, 24px);
+  overflow: hidden;
+}
+
+.hln-v32-horizon {
+  display: grid;
+  grid-template-columns: minmax(0, 1.618fr) repeat(3, minmax(130px, 0.54fr));
+  align-items: center;
+  border-bottom: 1px solid var(--hln-ui-line);
+  padding: 16px 0;
+  gap: 0;
+  position: relative;
+}
+
+/* Subtle 1px golden ratio horizon traveler */
+.hln-v32-horizon::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 18%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--hln-ui-accent), transparent);
+  animation: hln-v32-horizon-scan 9s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes hln-v32-horizon-scan {
+  0%   { transform: translate3d(0%, 0, 0); opacity: 0.45; }
+  50%  { opacity: 0.95; }
+  100% { transform: translate3d(420%, 0, 0); opacity: 0.45; }
+}
+
+.hln-v32-horizon__lead {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 20px;
+}
+
+.hln-v32-horizon__kicker {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hln-ui-accent);
+}
+
+.hln-v32-horizon__title {
+  margin: 0;
+  font-family: var(--hln-ui-font-current, var(--hln-ui-font-geometric));
+  font-size: clamp(18px, 1.8vw, 24px);
+  font-weight: var(--hln-ui-cjk-heading-weight, 600);
+  letter-spacing: var(--hln-ui-cjk-heading-tracking, 0.015em);
+  color: var(--hln-ui-text);
+}
+
+.hln-v32-horizon__stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 20px;
+  border-left: 1px solid var(--hln-ui-line);
+  position: relative;
+  transition:
+    border-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    background-color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-horizon__stat::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 0;
+  width: 1px;
+  height: 0%;
+  background: var(--hln-ui-accent);
+  transition: height var(--hln-ui-duration-standard) var(--hln-ui-ease);
+}
+
+.hln-v32-horizon__stat:hover {
+  background: color-mix(in srgb, var(--hln-ui-accent) 3.5%, transparent);
+}
+
+.hln-v32-horizon__stat:hover::before {
+  height: 100%;
+}
+
+.hln-v32-horizon__stat small {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hln-ui-text-muted);
+  transition: color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-horizon__stat:hover small {
+  color: var(--hln-ui-accent);
+}
+
+.hln-v32-horizon__stat strong {
+  font-family: var(--hln-ui-font-geometric);
+  font-size: clamp(20px, 1.9vw, 26px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.08;
+  color: var(--hln-ui-text);
+  letter-spacing: -0.02em;
+  transition: transform var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-horizon__stat:hover strong {
+  transform: translate3d(3px, 0, 0);
+}
+
+.hln-v32-horizon__stat strong em {
+  font-style: normal;
+  font-family: var(--hln-ui-font-technical);
+  font-size: 11px;
+  color: var(--hln-ui-accent);
+  margin-left: 4px;
+}
+
+/* ==========================================================================
+   2. Three-Column Open Linear Architecture (.hln-v32-columns)
+   Separated purely by continuous 1px vertical hairlines (no card boxes!)
+   ========================================================================== */
+.hln-v32-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.hln-v32-col {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding: 22px 24px;
+  border-right: 1px solid var(--hln-ui-line);
+  min-height: 0;
+  overflow: auto;
+  transition: border-color var(--hln-ui-duration-standard) var(--hln-ui-ease);
+}
+
+.hln-v32-col:first-child {
+  padding-left: 4px;
+}
+
+.hln-v32-col:last-child {
+  border-right: none;
+  padding-right: 4px;
+}
+
+.hln-v32-sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--hln-ui-line);
+  position: relative;
+}
+
+.hln-v32-sec-head::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  width: 28px;
+  height: 1.5px;
+  background: var(--hln-ui-accent);
+  transition: width 380ms var(--hln-ui-ease);
+}
+
+.hln-v32-col:hover .hln-v32-sec-head::after {
+  width: 61.8%;
+}
+
+.hln-v32-sec-head h3 {
+  margin: 0;
+  font-family: var(--hln-ui-font-current, var(--hln-ui-font-geometric));
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--hln-ui-text);
+}
+
+.hln-v32-sec-head span {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--hln-ui-text-muted);
+  transition: color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-col:hover .hln-v32-sec-head span {
+  color: var(--hln-ui-accent);
+}
+
+/* ==========================================================================
+   3. Minimalist Linear Section Blocks (.hln-v32-group)
+   ========================================================================== */
+.hln-v32-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.hln-v32-label {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hln-ui-text-muted);
+}
+
+.hln-v32-btn-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hln-v32-btn-row [data-hln-ui-control] {
+  width: 100%;
+  padding-inline: 8px;
+  font-size: 11.5px;
+  line-height: 1;
+  text-align: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.hln-v32-col .segmented {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 100%;
+}
+
+.hln-v32-col .segmented [data-hln-ui-control] {
+  width: 100%;
+  padding-inline: 6px;
+  font-size: 11px;
+  line-height: 1;
+  text-align: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.hln-v32-field-stack {
+  display: grid;
+  gap: 14px;
+}
+
+.hln-v32-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+}
+
+.hln-v32-field-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 0%;
+  height: 1.5px;
+  background: var(--hln-ui-accent);
+  transition: width var(--hln-ui-duration-standard) var(--hln-ui-ease);
+  pointer-events: none;
+}
+
+.hln-v32-field-row:hover::after,
+.hln-v32-field-row:focus-within::after {
+  width: 100%;
+}
+
+.hln-v32-field-row > span {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--hln-ui-text-muted);
+  transition: color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-field-row:hover > span,
+.hln-v32-field-row:focus-within > span {
+  color: var(--hln-ui-accent);
+}
+
+/* ==========================================================================
+   4. Open Linear Vector Artboard (.hln-v32-artboard)
+   ========================================================================== */
+.hln-v32-artboard {
+  position: relative;
+  padding: 16px 0;
+  border-top: 1px solid color-mix(in srgb, var(--hln-ui-line) 65%, transparent);
+  border-bottom: 1px solid var(--hln-ui-line);
+  transition: border-color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-artboard:hover {
+  border-bottom-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+}
+
+.hln-v32-artboard svg {
+  width: 100%;
+  height: 112px;
+  display: block;
+  overflow: visible;
+}
+
+.hln-v32-artboard svg line[stroke-dasharray] {
+  animation: hln-v32-dash-march 8s linear infinite;
+}
+
+.hln-v32-artboard svg circle {
+  transition:
+    cx 220ms var(--hln-ui-ease),
+    cy 220ms var(--hln-ui-ease),
+    r 220ms var(--hln-ui-ease);
+}
+
+.hln-v32-artboard:hover svg circle:first-of-type {
+  stroke: var(--hln-ui-accent);
+}
+
+@keyframes hln-v32-dash-march {
+  to { stroke-dashoffset: -24; }
+}
+
+.hln-v32-artboard__caption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10.5px;
+  color: var(--hln-ui-text-muted);
+}
+
+.hln-v32-artboard__caption strong {
+  color: var(--hln-ui-accent);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   5. Open Linear Operator Rows & Minimalist Sequence (.hln-v32-operator-list)
+   ========================================================================== */
+.hln-v32-operator-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--hln-ui-line);
+}
+
+.hln-v32-operator-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 4px 11px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--hln-ui-line) 75%, transparent);
+  font-family: var(--hln-ui-font-technical);
+  font-size: 11.5px;
+  position: relative;
+  cursor: pointer;
+  transition:
+    padding-left var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    background-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    border-color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-operator-row::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 0;
+  height: 1px;
+  background: var(--hln-ui-accent);
+  transition: width var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-operator-row:hover {
+  padding-left: 12px;
+  background: color-mix(in srgb, var(--hln-ui-accent) 4%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--hln-ui-accent) 48%, var(--hln-ui-line));
+}
+
+.hln-v32-operator-row:hover::before {
+  width: 8px;
+}
+
+.hln-v32-operator-row span {
+  color: var(--hln-ui-text-muted);
+  transition: color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-operator-row:hover span {
+  color: var(--hln-ui-text);
+}
+
+.hln-v32-operator-row strong {
+  color: var(--hln-ui-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition:
+    color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    transform var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-operator-row:hover strong {
+  color: var(--hln-ui-accent);
+  transform: translate3d(-2px, 0, 0);
+}
+
+.hln-v32-operator-row.is-highlight strong {
+  color: var(--hln-ui-accent);
+}
+
+.hln-v32-sequence {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  position: relative;
+  padding-left: 16px;
+  border-left: 1px solid var(--hln-ui-line);
+}
+
+/* Subtle vertical linear pulse along the sequence rail */
+.hln-v32-sequence::after {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: 0;
+  width: 1px;
+  height: 28%;
+  background: linear-gradient(180deg, transparent, var(--hln-ui-accent), transparent);
+  animation: hln-v32-rail-pulse 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes hln-v32-rail-pulse {
+  0%   { top: 0%; opacity: 0.25; }
+  50%  { opacity: 0.9; }
+  100% { top: 72%; opacity: 0.25; }
+}
+
+.hln-v32-step {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  padding: 4px 6px 4px 0;
+  cursor: pointer;
+  transition: transform var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-step:hover {
+  transform: translate3d(3px, 0, 0);
+}
+
+.hln-v32-step::before {
+  content: "";
+  position: absolute;
+  left: -19.5px;
+  top: 9px;
+  width: 6px;
+  height: 6px;
+  background: var(--hln-ui-bg-0);
+  border: 1px solid var(--hln-ui-line-strong);
+  transition:
+    background-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    border-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    transform var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-step:hover::before,
+.hln-v32-step.is-active::before {
+  background: var(--hln-ui-accent);
+  border-color: var(--hln-ui-accent);
+  transform: scale(1.18);
+}
+
+.hln-v32-step__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hln-v32-step__body strong {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--hln-ui-text);
+  transition: color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v32-step:hover .hln-v32-step__body strong,
+.hln-v32-step.is-active .hln-v32-step__body strong {
+  color: var(--hln-ui-accent);
+}
+
+.hln-v32-step__body small {
+  font-size: 11px;
+  color: var(--hln-ui-text-muted);
+}
+
+.hln-v32-step__meta {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10.5px;
+  color: var(--hln-ui-accent);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Minimalist single-line progress rule with square caliper rider */
+.hln-v32-line-meter {
+  position: relative;
+  height: 2px;
+  width: 100%;
+  background: var(--hln-ui-line);
+}
+
+.hln-v32-line-meter > i {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--line-fill, 61.8%);
+  background: var(--hln-ui-accent);
+  transition: width 220ms var(--hln-ui-ease);
+}
+
+.hln-v32-line-meter > i::after {
+  content: "";
+  position: absolute;
+  right: -3px;
+  top: -2.5px;
+  width: 6px;
+  height: 7px;
+  background: var(--hln-ui-bg-0);
+  border: 1px solid var(--hln-ui-accent);
+}
+
+/* ==========================================================================
+   9. Mathematical Ratio Caliper Preset Strip (.hln-v32-ratio-strip)
+   ========================================================================== */
+.hln-v32-ratio-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--hln-ui-line);
+  border-top: none;
+  background: color-mix(in srgb, var(--hln-ui-bg-0) 64%, transparent);
+}
+
+.hln-v32-ratio-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  border-right: 1px solid var(--hln-ui-line);
+  background: transparent;
+  color: var(--hln-ui-text-muted);
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  cursor: pointer;
+  position: relative;
+  transition:
+    color 160ms var(--hln-ui-ease),
+    background-color 160ms var(--hln-ui-ease);
+}
+
+.hln-v32-ratio-pill:last-child {
+  border-right: none;
+}
+
+.hln-v32-ratio-pill::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 1.5px;
+  background: var(--hln-ui-accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 200ms var(--hln-ui-ease);
+}
+
+.hln-v32-ratio-pill:hover,
+.hln-v32-ratio-pill[data-active="true"] {
+  color: var(--hln-ui-text);
+  background: color-mix(in srgb, var(--hln-ui-accent) 7%, transparent);
+}
+
+.hln-v32-ratio-pill:hover::after,
+.hln-v32-ratio-pill[data-active="true"]::after {
+  transform: scaleX(1);
+}
+
+.hln-v32-ratio-pill strong {
+  color: var(--hln-ui-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 900px) {
+  .hln-v32-horizon {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .hln-v32-columns {
+    grid-template-columns: 1fr;
+    overflow: auto;
+  }
+  .hln-v32-col {
+    border-right: none;
+    border-bottom: 1px solid var(--hln-ui-line);
+    padding-inline: 0;
+  }
+}

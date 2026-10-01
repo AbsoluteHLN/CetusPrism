@@ -1,0 +1,101 @@
+/* ProjectHLN UI System v3.5 - Algorithmic Vector, AI-Native, Procedural & Data-Stream Tokens (tokens.css)
+   Built upon the v3 Euclidean mathematical paradigm, extended for AI topology, procedural kernels,
+   and continuous vector data-stream interfaces. Zero game terminology. */
+
+:root,
+[data-hln-ui-root] {
+  /* ==========================================================================
+     1. Mathematical, Geometric & Algorithmic Constants
+     ========================================================================== */
+  --hln-ui-phi: 1.6180339887;
+  --hln-ui-phi-inv: 0.6180339887;
+  --hln-ui-phi-comp: 0.3819660112;
+  --hln-ui-sqrt2: 1.4142135623;
+  --hln-ui-sqrt3: 1.7320508075;
+  --hln-ui-pi: 3.1415926535;
+  --hln-ui-e: 2.7182818284;
+
+  /* ==========================================================================
+     2. Curated Chinese (CJK Hanzi) Typography Stacks & Bilingual Pairing
+     ========================================================================== */
+  --hln-ui-font-cjk-hei: "HarmonyOS Sans SC", "MiSans", "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", "Noto Sans SC", "Microsoft YaHei UI", "Microsoft YaHei";
+  --hln-ui-font-cjk-display: "Alibaba PuHuiTi 3.0", "HarmonyOS Sans SC", "MiSans", "OPPOSans", "PingFang SC", "Source Han Sans SC", "Noto Sans SC", "Microsoft YaHei UI";
+  --hln-ui-font-cjk-song: "Source Han Serif SC", "Noto Serif SC", "Songti SC", "STZhongsong", "FZNewShuSong-Z10S", "SimSun";
+  --hln-ui-font-cjk-kai: "LXGW WenKai", "LXGW WenKai Screen", "Kaiti SC", "STKaiti", "FangSong_GB2312", "KaiTi";
+  --hln-ui-font-cjk-fangsong: "FZFSJW--GB1-0", "FangSong_GB2312", "STFangsong", "FangSong", "LXGW WenKai", "Noto Serif SC";
+  --hln-ui-font-cjk-mono: "Sarasa Mono SC", "Sarasa Term SC", "HarmonyOS Sans SC", "Source Han Sans HW SC", "Noto Sans Mono CJK SC", "PingFang SC", "Microsoft YaHei UI";
+
+  --hln-ui-font-cjk-active: var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-auto, var(--hln-ui-font-cjk-hei)));
+  --hln-ui-cjk-tracking: 0.015em;
+  --hln-ui-cjk-heading-tracking: 0.025em;
+  --hln-ui-cjk-heading-weight: 600;
+
+  /* ==========================================================================
+     3. Paired Latin × CJK Algorithmic Typography Stacks
+     ========================================================================== */
+  --hln-ui-font-geometric: "Space Grotesk", "Futura", "Century Gothic", "Bahnschrift", "Inter", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-hei)), sans-serif;
+  --hln-ui-font-display: "Chakra Petch", "Rajdhani", "DIN Alternate", "Bahnschrift", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-display)), sans-serif;
+  --hln-ui-font-neo-grotesque: "Inter", "Helvetica Neue", "Arial", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-hei)), sans-serif;
+  --hln-ui-font-cyber-mono: "JetBrains Mono", "Share Tech Mono", "Cascadia Code", "Consolas", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-mono)), monospace;
+  --hln-ui-font-berlin: "Space Grotesk", "Eurostile", "Bank Gothic", "Bahnschrift", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-kai)), sans-serif;
+  --hln-ui-font-condensed: "Bahnschrift Condensed", "Arial Narrow", "Roboto Condensed", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-display)), sans-serif;
+  --hln-ui-font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-hei)), sans-serif;
+  --hln-ui-font-technical: "JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-mono)), monospace;
+  --hln-ui-font-classic: "Palatino Linotype", "Book Antiqua", "Georgia", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-song)), serif;
+  --hln-ui-font-fangsong: var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-fangsong)), serif;
+  --hln-ui-font-editorial: "Aptos Display", "Futura", "Optima", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-song)), sans-serif;
+  --hln-ui-font-label: "JetBrains Mono", "Bahnschrift", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-hei)), monospace;
+
+  --hln-ui-font-title: var(--hln-ui-font-geometric);
+  --hln-ui-font-form: var(--hln-ui-font-neo-grotesque);
+  --hln-ui-font-current: var(--hln-ui-font-geometric);
+
+  /* ==========================================================================
+     4. Vector Geometry, Spacing & Data-Stream Timing Tokens
+     ========================================================================== */
+  --hln-ui-space-1: 4px;
+  --hln-ui-space-2: 8px;
+  --hln-ui-space-3: 12px;
+  --hln-ui-space-4: 16px;
+  --hln-ui-space-5: 24px;
+  --hln-ui-space-6: 32px;
+
+  --hln-ui-radius-xs: 0px;
+  --hln-ui-radius-sm: 2px;
+  --hln-ui-radius-md: 2px;
+  --hln-ui-radius-lg: 4px;
+
+  --hln-ui-hairline: 1px;
+  --hln-ui-blur: 0px;
+  --hln-ui-topbar-height: 52px;
+  --hln-ui-control-height: 36px;
+  --hln-ui-field-height: 36px;
+
+  --hln-ui-duration-fast: 160ms;
+  --hln-ui-duration-standard: 300ms;
+  --hln-ui-duration-slow: 520ms;
+  --hln-ui-stream-speed: 3.2s;
+  --hln-ui-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --hln-ui-ease-spring: linear(0, 0.42, 0.84, 1.03, 0.99, 1);
+  --hln-ui-motion-stagger: 28ms;
+
+  /* Default Theme Fallback (Singularity Cyan) */
+  color-scheme: dark;
+  --hln-ui-bg-0: #090d14;
+  --hln-ui-bg-1: #0f1622;
+  --hln-ui-bg-2: #151f30;
+  --hln-ui-panel-bg: rgba(15, 22, 34, 0.82);
+  --hln-ui-text: #eef4fc;
+  --hln-ui-text-muted: #94a7c0;
+  --hln-ui-text-faint: #5f738f;
+  --hln-ui-line: #233247;
+  --hln-ui-line-strong: #375072;
+  --hln-ui-accent: #00f0ff;
+  --hln-ui-accent-cool: #6366f1;
+  --hln-ui-focus: #00f0ff;
+  --hln-ui-success: #10b981;
+  --hln-ui-warning: #f59e0b;
+  --hln-ui-danger: #ef4444;
+  --hln-ui-shadow: none;
+  --hln-ui-bg-image: none;
+}

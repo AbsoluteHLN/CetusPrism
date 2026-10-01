@@ -1,0 +1,92 @@
+/* HLN selection row: option cards in three-column grids, matching the
+ * CetusPrism settings look. Selected cards take the accent hairline border
+ * and accent-tinted fill per the v3.5 vector contract (no glow, no corner
+ * cut); hover mirrors the official control hover. */
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 0;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l2);
+}
+
+.title {
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.groupLabel {
+  font-family: var(--hln-ui-font-technical, var(--ds-font-family-code, monospace));
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  letter-spacing: 0.04em;
+  text-align: left;
+  color: var(--hln-ui-text-muted);
+  background: color-mix(in srgb, var(--hln-ui-bg-1, #10141a) 88%, transparent);
+  border: 1px solid var(--hln-ui-line, #222a36);
+  cursor: pointer;
+  transition:
+    border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    background-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+.card:hover {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+  color: var(--hln-ui-text);
+  background: color-mix(in srgb, var(--hln-ui-accent) 6%, var(--hln-ui-bg-1, #10141a));
+}
+
+.card[aria-pressed='true'] {
+  border-color: var(--hln-ui-accent);
+  color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 12%, var(--hln-ui-bg-1, #10141a));
+}
+
+/* Two-color theme swatch: the theme's own plane + its accent, the official
+   registry's swatch pair. */
+.swatchPair {
+  display: inline-flex;
+  flex: none;
+  width: 22px;
+  height: 14px;
+  border: 1px solid var(--hln-ui-line, #222a36);
+}
+
+.swatchShade,
+.swatchAccent {
+  display: inline-block;
+  flex: 1;
+}
+
+/* Font cards preview their own type mode in the label itself. */
+.fontCard {
+  gap: 8px;
+}
+
+.fontSample {
+  margin-left: auto;
+  font-family: var(--ds-font-family, inherit);
+  font-size: 12px;
+  opacity: 0.7;
+}

@@ -1,0 +1,15 @@
+{
+  "name": "@deepseek-ai/dsh-electron",
+  "version": "1.6.2-prelease-2026-10-2-A",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-shell.mjs",
+    "dist:win": "node scripts/build-shell.mjs && node scripts/pack-tauri.mjs && node scripts/make-installer.mjs",
+    "dist:linux": "node scripts/build-deb.mjs"
+  },
+  "devDependencies": {
+    "electron-builder": "25.1.8"
+  }
+}

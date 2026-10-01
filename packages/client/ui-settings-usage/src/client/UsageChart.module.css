@@ -1,0 +1,151 @@
+/* The usage trend chart: a token-only card like the section's other blocks.
+ * Color comes from design tokens only — the two series read as the business
+ * (brand blue) and success (green) aliases in both themes. */
+
+.chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-skeleton);
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.title {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rangeToggle {
+  display: flex;
+  flex: none;
+  border-radius: 8px;
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.rangeButton,
+.rangeButtonActive {
+  border: none;
+  outline: none;
+  padding: 1px 10px;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.rangeButton:focus-visible,
+.rangeButtonActive:focus-visible {
+  box-shadow: 0 0 0 2px var(--dsw-alias-border-l3);
+}
+
+.rangeButtonActive {
+  background: var(--dsw-alias-interactive-bg-hover-solid);
+  color: var(--dsw-alias-label-primary);
+}
+
+.body {
+  display: flex;
+  gap: 8px;
+}
+
+.yAxis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: none;
+  min-width: 32px;
+  text-align: right;
+  font-size: 10px;
+  line-height: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.plotSvg {
+  display: block;
+  flex: 1;
+  width: 100%;
+  height: 180px;
+}
+
+.grid {
+  stroke: var(--dsw-alias-border-l2);
+  stroke-width: 1;
+}
+
+.seriesInput,
+.seriesOutput {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.seriesInput {
+  stroke: var(--dsw-alias-state-business-primary);
+}
+
+.seriesOutput {
+  stroke: var(--dsw-alias-state-success-primary);
+}
+
+.xAxis {
+  display: flex;
+  justify-content: space-between;
+  margin-left: 40px;
+  font-size: 10px;
+  line-height: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.legend {
+  display: flex;
+  gap: 12px;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+}
+
+.legendDotInput {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.legendDotOutput {
+  background: var(--dsw-alias-state-success-primary);
+}
+
+.emptyNote {
+  padding: 24px 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+}

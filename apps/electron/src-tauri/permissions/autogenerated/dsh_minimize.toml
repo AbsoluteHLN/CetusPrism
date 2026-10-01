@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dsh-minimize"
+description = "Enables the dsh_minimize command without any pre-configured scope."
+commands.allow = ["dsh_minimize"]
+
+[[permission]]
+identifier = "deny-dsh-minimize"
+description = "Denies the dsh_minimize command without any pre-configured scope."
+commands.deny = ["dsh_minimize"]

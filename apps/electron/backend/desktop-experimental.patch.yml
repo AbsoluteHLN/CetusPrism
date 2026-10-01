@@ -1,0 +1,37 @@
+# The desktop build enables the experimental Agent Teams feature set: the
+# durable roster/task-DAG host service, the model-facing team tools, and the
+# browser conversation-header Team action. These three rows restate
+# `packages/experimental/agent-team-profile/cordis.patch.yml` (the canonical
+# home of the composition and its limits); restating rather than bundling is
+# the desktop's ordinary layer mechanism, because a `--patch` overlay cannot
+# add a bundle layer to the auto-initialized `web` profile.
+#
+# The profile bundle also disables the direct subagent delegation rows so
+# coordination stays on the Team tools; the Web bundle patch already disables
+# those same rows in the host plane, so this overlay needs no disable block.
+#
+# Rows land in the host plane, so every session on the desktop sees the team
+# tools — matching the experimental bundle's process-wide composition. The
+# packages themselves ship in the runtime closure already (apps/cli depends on
+# the profile bundle); this overlay only mounts their rows.
+#
+# To turn Agent Teams off on the desktop: remove this file from the
+# `--patch` chain in backend/entry.mjs and rebuild the installer.
+- insert:
+    - id: agent-team
+      name: '@deepseek-ai/dsh-experimental-agent-team'
+      config:
+        maxMembers: 8
+        maxTasks: 256
+        maxPendingMessagesPerMember: 64
+        maxMessageBytes: 65536
+        disposalTimeoutMs: 5000
+
+    - id: tool-agent-team
+      name: '@deepseek-ai/dsh-experimental-tool-agent-team'
+      config:
+        freshProvider: spawn
+        forkProvider: fork
+
+    - id: ui-agent-team
+      name: '@deepseek-ai/dsh-experimental-client-ui-agent-team'

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "CetusPrism",
+  "version": "../package.json",
+  "identifier": "com.cetusprism.desktop",
+  "build": {
+    "frontendDist": "./frontend"
+  },
+  "app": {
+    "withGlobalTauri": false,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [],
+    "icon": [
+      "../build/icon.ico",
+      "icons/icon-32.png",
+      "icons/icon-64.png",
+      "icons/icon-128.png",
+      "icons/icon-256.png"
+    ]
+  }
+}

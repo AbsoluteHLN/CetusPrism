@@ -1,0 +1,17 @@
+{
+  "repository": "https://github.com/deepseek-ai/deepseek-harness",
+  "license": "MIT",
+  "upstreamVersion": "0.1.7-rc.2",
+  "productVersion": "1.5.8",
+  "alignmentPolicy": "Record upstream separately; do not replace product version with upstream version.",
+  "lastVerifiedCommit": "477b4f420553e8a52c2fbccc464d7561b239c443",
+  "notes": {
+    "baseline": "This distribution was built from the dsh-v0.1.7-rc.1 sources (commit ca58174).",
+    "verified": "On 2026-09-28 the dsh-v0.1.7-rc.2 sources (commit 477b4f420553e8a52c2fbccc464d7561b239c443) were downloaded and reviewed against this tree.",
+    "mergeDecision": "rc.2 is not merged in this release. The upstream delta is large (scheduled tasks/reminders, desktop onboarding, keyboard shortcuts, dynamic tool additions, and roughly 2,850 changed files), while this distribution carries extensive local modifications across the same client packages. Merging requires a deliberate rebase of those customizations onto rc.2, tracked as follow-up work; this file records the verified upstream state, not a merged state.",
+    "referenceSources": {
+      "upstreamV0_1_7_rc1": "temp/upstream/dsh-v0.1.7-rc.1.tar.gz",
+      "upstreamV0_1_7_rc2": "temp/upstream/dsh-v0.1.7-rc.2.tar.gz"
+    }
+  }
+}

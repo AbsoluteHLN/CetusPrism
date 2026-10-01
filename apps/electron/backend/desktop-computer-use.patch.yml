@@ -1,0 +1,25 @@
+# The desktop build mounts the computer-use seam: the registration service, the
+# per-session foreground policy home, and the experimental native Cua Driver
+# provider, whose 56 `cua_driver_native__*` tools drive the local Windows
+# desktop, plus nothing else — the browser-surface client modules
+# (`ui-sidebar-computer`, `ui-computer-foreground`) are already mounted by the
+# web-app bundle patch, and the runtime deploys the three host packages through
+# the CLI's dependency closure.
+#
+# The provider has no configuration fields; its input tools default to
+# background delivery (UIA/PostMessage, no focus steal), and the policy plugin
+# lets the user forbid the foreground per session through the composer toggle
+# or the `/foreground` command. Native import or an occupied computer-use
+# registration fails activation loud and rolls back.
+#
+# To remove computer use from the desktop: delete this file, remove the
+# `--patch` argument from backend/entry.mjs, and rebuild the installer.
+- insert:
+    - id: computer-use
+      name: '@deepseek-ai/dsh-computer-use'
+
+    - id: computer-use-policy
+      name: '@deepseek-ai/dsh-computer-use-policy'
+
+    - id: computer-use-cua-driver-native
+      name: '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native'

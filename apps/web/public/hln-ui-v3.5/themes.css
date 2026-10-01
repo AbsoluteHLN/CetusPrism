@@ -1,0 +1,187 @@
+/* ProjectHLN UI System v3.5 - 8 Curated Algorithmic Vector, AI-Native & Data-Stream Themes (themes.css)
+   Every theme enforces --hln-ui-blur: 0px for crisp vector rendering and high-contrast legibility.
+   Zero game terminology. */
+
+/* 1. Singularity Cyan (Default Dark) — Deep carbon-obsidian + electric vector cyan & indigo stream */
+:root[data-hln-theme="singularity-cyan"],
+[data-hln-ui-root][data-hln-theme="singularity-cyan"] {
+  color-scheme: dark;
+  --hln-ui-bg-0: #090d14;
+  --hln-ui-bg-1: #0f1622;
+  --hln-ui-bg-2: #151f30;
+  --hln-ui-panel-bg: rgba(15, 22, 34, 0.82);
+  --hln-ui-text: #eef4fc;
+  --hln-ui-text-muted: #94a7c0;
+  --hln-ui-text-faint: #5f738f;
+  --hln-ui-line: #233247;
+  --hln-ui-line-strong: #375072;
+  --hln-ui-accent: #00f0ff;
+  --hln-ui-accent-cool: #6366f1;
+  --hln-ui-focus: #00f0ff;
+  --hln-ui-success: #10b981;
+  --hln-ui-warning: #f59e0b;
+  --hln-ui-danger: #ef4444;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+}
+
+/* 2. Tensor Amber — Silicon dark slate + procedural amber gold & copper pulse */
+:root[data-hln-theme="tensor-amber"],
+[data-hln-ui-root][data-hln-theme="tensor-amber"] {
+  color-scheme: dark;
+  --hln-ui-bg-0: #0c0f14;
+  --hln-ui-bg-1: #141922;
+  --hln-ui-bg-2: #1c2330;
+  --hln-ui-panel-bg: rgba(20, 25, 34, 0.84);
+  --hln-ui-text: #f7f4eb;
+  --hln-ui-text-muted: #b0a999;
+  --hln-ui-text-faint: #756f61;
+  --hln-ui-line: #2c3340;
+  --hln-ui-line-strong: #495264;
+  --hln-ui-accent: #ffb800;
+  --hln-ui-accent-cool: #f97316;
+  --hln-ui-focus: #ffb800;
+  --hln-ui-success: #10b981;
+  --hln-ui-warning: #ffb800;
+  --hln-ui-danger: #f43f5e;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+}
+
+/* 3. Veridian Stream — Bio-computational dark slate + data-stream emerald & teal */
+:root[data-hln-theme="veridian-stream"],
+[data-hln-ui-root][data-hln-theme="veridian-stream"] {
+  color-scheme: dark;
+  --hln-ui-bg-0: #07110f;
+  --hln-ui-bg-1: #0d1d1a;
+  --hln-ui-bg-2: #142b26;
+  --hln-ui-panel-bg: rgba(13, 29, 26, 0.82);
+  --hln-ui-text: #ecfdf8;
+  --hln-ui-text-muted: #8cb8ad;
+  --hln-ui-text-faint: #537a71;
+  --hln-ui-line: #1e3d36;
+  --hln-ui-line-strong: #2e5e53;
+  --hln-ui-accent: #00e699;
+  --hln-ui-accent-cool: #06b6d4;
+  --hln-ui-focus: #00e699;
+  --hln-ui-success: #00e699;
+  --hln-ui-warning: #fbbf24;
+  --hln-ui-danger: #f87171;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+}
+
+/* 4. Synapse Violet — Deep neural latent void + violet tensor & magenta harmonic */
+:root[data-hln-theme="synapse-violet"],
+[data-hln-ui-root][data-hln-theme="synapse-violet"] {
+  color-scheme: dark;
+  --hln-ui-bg-0: #0b0914;
+  --hln-ui-bg-1: #131024;
+  --hln-ui-bg-2: #1c1836;
+  --hln-ui-panel-bg: rgba(19, 16, 36, 0.82);
+  --hln-ui-text: #f3effe;
+  --hln-ui-text-muted: #a69bc7;
+  --hln-ui-text-faint: #6a5f8a;
+  --hln-ui-line: #2a244d;
+  --hln-ui-line-strong: #433978;
+  --hln-ui-accent: #b366ff;
+  --hln-ui-accent-cool: #ec4899;
+  --hln-ui-focus: #b366ff;
+  --hln-ui-success: #34d399;
+  --hln-ui-warning: #fbbf24;
+  --hln-ui-danger: #fb7185;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+}
+
+/* 5. Cobalt Manifold — Mathematical manifold blue + sky vector & cyan */
+:root[data-hln-theme="cobalt-manifold"],
+[data-hln-ui-root][data-hln-theme="cobalt-manifold"] {
+  color-scheme: dark;
+  --hln-ui-bg-0: #07101c;
+  --hln-ui-bg-1: #0d1b2e;
+  --hln-ui-bg-2: #142842;
+  --hln-ui-panel-bg: rgba(13, 27, 46, 0.82);
+  --hln-ui-text: #f0f7ff;
+  --hln-ui-text-muted: #93b0d1;
+  --hln-ui-text-faint: #597699;
+  --hln-ui-line: #1e3654;
+  --hln-ui-line-strong: #315682;
+  --hln-ui-accent: #38bdf8;
+  --hln-ui-accent-cool: #2dd4bf;
+  --hln-ui-focus: #38bdf8;
+  --hln-ui-success: #2dd4bf;
+  --hln-ui-warning: #f59e0b;
+  --hln-ui-danger: #f87171;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+}
+
+/* 6. Titanium Oxide — Surgical monochrome dark + ice white vector & silver */
+:root[data-hln-theme="titanium-oxide"],
+[data-hln-ui-root][data-hln-theme="titanium-oxide"] {
+  color-scheme: dark;
+  --hln-ui-bg-0: #0e1014;
+  --hln-ui-bg-1: #161920;
+  --hln-ui-bg-2: #1f242d;
+  --hln-ui-panel-bg: rgba(22, 25, 32, 0.84);
+  --hln-ui-text: #f8fafc;
+  --hln-ui-text-muted: #9ca3af;
+  --hln-ui-text-faint: #646d7a;
+  --hln-ui-line: #2b313d;
+  --hln-ui-line-strong: #464f61;
+  --hln-ui-accent: #f8fafc;
+  --hln-ui-accent-cool: #38bdf8;
+  --hln-ui-focus: #f8fafc;
+  --hln-ui-success: #10b981;
+  --hln-ui-warning: #f59e0b;
+  --hln-ui-danger: #ef4444;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+}
+
+/* 7. Alabaster Studio (Light) — High-taste daylight AI research paper + cobalt vector ink */
+:root[data-hln-theme="alabaster-studio"],
+[data-hln-ui-root][data-hln-theme="alabaster-studio"] {
+  color-scheme: light;
+  --hln-ui-bg-0: #f3f6fa;
+  --hln-ui-bg-1: #ffffff;
+  --hln-ui-bg-2: #e9eef5;
+  --hln-ui-panel-bg: rgba(255, 255, 255, 0.88);
+  --hln-ui-text: #0f172a;
+  --hln-ui-text-muted: #475569;
+  --hln-ui-text-faint: #64748b;
+  --hln-ui-line: #cbd5e1;
+  --hln-ui-line-strong: #94a3b8;
+  --hln-ui-accent: #2563eb;
+  --hln-ui-accent-cool: #0891b2;
+  --hln-ui-focus: #2563eb;
+  --hln-ui-success: #059669;
+  --hln-ui-warning: #d97706;
+  --hln-ui-danger: #dc2626;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+}
+
+/* 8. Bauhaus Compiler (Light) — Archival gallery vellum + constructivist vermilion & ultramarine */
+:root[data-hln-theme="bauhaus-compiler"],
+[data-hln-ui-root][data-hln-theme="bauhaus-compiler"] {
+  color-scheme: light;
+  --hln-ui-bg-0: #f5f2eb;
+  --hln-ui-bg-1: #fcfaf5;
+  --hln-ui-bg-2: #ebe6dc;
+  --hln-ui-panel-bg: rgba(252, 250, 245, 0.88);
+  --hln-ui-text: #18181b;
+  --hln-ui-text-muted: #52525b;
+  --hln-ui-text-faint: #71717a;
+  --hln-ui-line: #d4cfc3;
+  --hln-ui-line-strong: #a19b8e;
+  --hln-ui-accent: #dc2626;
+  --hln-ui-accent-cool: #1d4ed8;
+  --hln-ui-focus: #dc2626;
+  --hln-ui-success: #0d9488;
+  --hln-ui-warning: #d97706;
+  --hln-ui-danger: #dc2626;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+}

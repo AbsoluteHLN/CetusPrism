@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en" data-hln-theme="singularity-cyan">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/favicon-dark.svg" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" media="(prefers-color-scheme: light)" />
+    <title>CetusPrism</title>
+    <!-- HLN UI System v3.5 Integration -->
+    <link rel="stylesheet" href="/hln-ui-v3.5/hln-ui-system-v3.5.css" />
+    <link rel="stylesheet" href="/hln-cetus-theme.css" />
+  </head>
+  <body>
+    <!-- The theme attribute stands on <html>: the v3.5 theme layer roots its
+         palettes on :root[data-hln-theme] so the body-level alias mapping
+         resolves the selected theme. #root repeats the font/CJK modes: the
+         v3.5 base layer rebinds its font stacks with the active CJK override
+         only on [data-hln-ui-root]. -->
+    <div id="root" data-hln-ui-root data-hln-ui-version="v3.5" data-hln-bg-motion="tensor-stream" data-hln-font="display" data-hln-cjk-font="auto"></div>
+    <script type="module" src="/src/main.ts"></script>
+    <script src="/hln-ui-v3.5/hln-v35-fix.js"></script>
+  </body>
+</html>

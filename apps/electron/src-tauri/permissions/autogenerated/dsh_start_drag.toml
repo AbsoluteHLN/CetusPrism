@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dsh-start-drag"
+description = "Enables the dsh_start_drag command without any pre-configured scope."
+commands.allow = ["dsh_start_drag"]
+
+[[permission]]
+identifier = "deny-dsh-start-drag"
+description = "Denies the dsh_start_drag command without any pre-configured scope."
+commands.deny = ["dsh_start_drag"]

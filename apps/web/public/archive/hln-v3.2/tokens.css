@@ -1,0 +1,129 @@
+/* ProjectHLN UI System v3.2 - Design Tokens (Linear Minimalist Vector Edition)
+   Subtractive Linear Architecture derived from v3 (Mathematical Proportions) & v2 (Calm Minimalist Atmosphere).
+   Core principles:
+   - Subtraction: Removes enclosed multi-box clutter, polygon clip-paths, and corner brackets in favor of
+     continuous 1px structural hairlines, open negative space, and grand typographic scale.
+   - Mathematical Proportions: Golden Ratio (phi = 1.6180339887) & Silver Ratio (sqrt(2) = 1.4142135623).
+   - Pure Linear Plane Discipline: --hln-ui-blur: 0px, --hln-ui-shadow: none, 1px hairline rules.
+   Source of truth: ui-source/v3.2/src. Generated copy: ui-source/v3.2/dist. */
+
+:root,
+[data-hln-ui-root] {
+  /* ==========================================================================
+     1. Mathematical Constants & Linear Ratios
+     ========================================================================== */
+  --hln-v32-phi: 1.6180339887;
+  --hln-v32-inv-phi: 0.6180339887;
+  --hln-v32-sqrt2: 1.4142135623;
+
+  /* ==========================================================================
+     2. Curated Chinese (Hanzi / CJK) & 5 Linear Architectural Typography Stacks
+     ========================================================================== */
+  --hln-ui-font-cjk-hei: "HarmonyOS Sans SC", "MiSans", "PingFang SC", "Source Han Sans SC", "Noto Sans SC", "DengXian", "等线", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  --hln-ui-font-cjk-display: "Alibaba PuHuiTi 3.0", "HarmonyOS Sans SC", "MiSans", "Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif;
+  --hln-ui-font-cjk-song: "Source Han Serif SC", "Noto Serif SC", "Songti SC", "方正小标宋简体", "FZXiaoBiaoSong-B05S", "STZhongsong", "华文中宋", "STSong", "华文宋体", serif;
+  --hln-ui-font-cjk-kai: "LXGW WenKai", "霞鹜文楷", "STKaiti", "华文楷体", "Kaiti SC", "KaiTi", "楷体", "STFangsong", "华文仿宋", "FangSong", "仿宋", "Noto Serif SC", serif;
+  --hln-ui-font-cjk-mono: "Sarasa Mono SC", "更纱黑体 Mono SC", "LXGW WenKai Mono", "HarmonyOS Sans SC", "Source Han Sans SC", "Noto Sans SC", "PingFang SC", "Microsoft YaHei UI", monospace;
+  --hln-ui-font-cjk-fangsong: "STFangsong", "华文仿宋", "FangSong_GB2312", "FangSong", "仿宋", "LXGW WenKai", "Noto Serif SC", serif;
+  --hln-ui-font-cjk-active: var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-auto, var(--hln-ui-font-cjk-hei)));
+  --hln-ui-cjk-tracking: 0.015em;
+  --hln-ui-cjk-heading-tracking: 0.02em;
+  --hln-ui-cjk-heading-weight: 600;
+
+  --hln-ui-font-geometric: "Futura", "Century Gothic", "Bahnschrift", "Inter", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-hei)), sans-serif;
+  --hln-ui-font-neo-grotesque: "Inter", "Helvetica Neue", "Arial", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-hei)), sans-serif;
+  --hln-ui-font-editorial: "Aptos Display", "Book Antiqua", "Georgia", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-song)), serif;
+  --hln-ui-font-technical: "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-mono)), monospace;
+  --hln-ui-font-display: "DIN Alternate", "Bahnschrift", "Futura", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-display)), sans-serif;
+  --hln-ui-font-body: var(--hln-ui-font-neo-grotesque);
+  --hln-ui-font-title: var(--hln-ui-font-geometric);
+  --hln-ui-font-form: var(--hln-ui-font-neo-grotesque);
+  --hln-ui-font-label: var(--hln-ui-font-technical);
+
+  /* ==========================================================================
+     3. Default Palette (Linear Obsidian - Calm High-Contrast Dark Plane)
+     ========================================================================== */
+  --hln-ui-bg-0: #090b0e;
+  --hln-ui-bg-1: #10141a;
+  --hln-ui-bg-2: #171c24;
+  --hln-ui-glass: #10141a;
+  --hln-ui-glass-strong: #141922;
+  --hln-ui-glass-soft: rgb(16 20 26 / 92%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 6%);
+  --hln-ui-line: #222a36;
+  --hln-ui-line-strong: #38bdf8;
+  --hln-ui-text: #f3f6fa;
+  --hln-ui-text-muted: #8b9bb0;
+  --hln-ui-text-faint: #556477;
+  --hln-ui-accent: #38bdf8;
+  --hln-ui-accent-strong: #7dd3fc;
+  --hln-ui-accent-cool: #60a5fa;
+  --hln-ui-accent-secondary: #94a3b8;
+  --hln-ui-amber: #f59e0b;
+  --hln-ui-danger: #f43f5e;
+  --hln-ui-success: #10b981;
+  --hln-ui-focus: #38bdf8;
+
+  /* ==========================================================================
+     4. Subtractive Linear Surface Primitives (Zero Blur, Zero Box Shadow)
+     ========================================================================== */
+  --hln-ui-radius-xs: 0px;
+  --hln-ui-radius-sm: 0px;
+  --hln-ui-radius-md: 0px;
+  --hln-ui-radius-pill: 9999px;
+  --hln-ui-border: 1px;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-panel-highlight: none;
+  --hln-ui-button-shadow: none;
+  --hln-ui-shell-border: 1px solid var(--hln-ui-line);
+  --hln-ui-panel-bg: var(--hln-ui-bg-1);
+  --hln-ui-button-border: 1px solid var(--hln-ui-line);
+  --hln-ui-bg-image:
+    linear-gradient(180deg, color-mix(in srgb, var(--hln-ui-line) 26%, transparent) 1px, transparent 1px) 0 0 / 100% 96px;
+  --hln-ui-grid-line: color-mix(in srgb, var(--hln-ui-accent) 14%, transparent);
+  --hln-v32-rule: 1px solid var(--hln-ui-line);
+  --hln-v32-rule-strong: 1px solid var(--hln-ui-accent);
+
+  /* ==========================================================================
+     5. Generous Spatial Scale (8px / 16px / 24px / 32px)
+     ========================================================================== */
+  --hln-ui-space-1: 4px;
+  --hln-ui-space-2: 8px;
+  --hln-ui-space-3: 12px;
+  --hln-ui-space-4: 16px;
+  --hln-ui-space-5: 24px;
+  --hln-ui-space-6: 32px;
+  --hln-ui-space-7: 40px;
+  --hln-ui-space-8: 56px;
+
+  /* ==========================================================================
+     6. Layout & Ergonomic Hit Dimensions
+     ========================================================================== */
+  --hln-ui-topbar-height: 52px;
+  --hln-ui-drawer-width: min(340px, calc(100vw - 24px));
+  --hln-ui-panel-gap: 20px;
+  --hln-ui-content-gutter: clamp(18px, 2.8vw, 36px);
+  --hln-ui-control-height: 38px;
+  --hln-ui-field-height: 38px;
+  --hln-ui-focus-offset: 2px;
+
+  /* ==========================================================================
+     7. Poised Linear Kinetics (Unhurried Quintic Easing)
+     ========================================================================== */
+  --hln-ui-duration-fast: 180ms;
+  --hln-ui-duration-standard: 320ms;
+  --hln-ui-duration-slow: 480ms;
+  --hln-ui-motion-stagger: 32ms;
+  --hln-ui-ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --hln-ui-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* ==========================================================================
+     8. Minimalist Linear Scrollbar
+     ========================================================================== */
+  --hln-ui-scrollbar-size: 4px;
+  --hln-ui-scrollbar-thumb: var(--hln-ui-line);
+  --hln-ui-scrollbar-thumb-hover: var(--hln-ui-accent);
+  --hln-ui-resize-hit-size: 14px;
+}

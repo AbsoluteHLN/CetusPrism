@@ -1,0 +1,1077 @@
+/* ProjectHLN UI System v2 - Base layer.
+   HyperGryph & Arknights Tactical Geometric Primitives (ak.hypergryph.com inspired).
+   Features:
+   - Precision Vector HUD Geometry: Corner HUD brackets, Chamfer cuts, Technical Crosshairs
+   - Tactical topbar with technical coordinate readout & glowing laser rule
+   - High-precision control surfaces with inverted active states, hazard strips & laser glow
+   - Sci-fi micro scrollbar with crisp square thumb & accent glow
+   - Full Kinetics & One-shot Tactical Motion Engine (Panel / Item / Control / Spring / Scan / Glitch / Radar / Quantum)
+   - Rich Ambient Background Presets (Tactical Hex Grid, Radar Sweep, Particle Matrix, Cyber Scan, Quantum Rift, Aurora Veil)
+   - Dynamic Custom Typography Switching via data-hln-font & CSS variable hooks
+   - Strict accessibility: :focus-visible indicators & prefers-reduced-motion contract */
+
+:root {
+  --hln-ui-motion-fast: var(--hln-ui-duration-fast, 140ms);
+  --hln-ui-motion-standard: var(--hln-ui-duration-standard, 200ms);
+  --hln-ui-motion-slow: var(--hln-ui-duration-slow, 280ms);
+  --hln-ui-motion-ease: var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+  --hln-ui-motion-stagger: var(--hln-ui-motion-stagger, 20ms);
+}
+
+[data-hln-ui-root],
+[data-hln-ui-root] * {
+  box-sizing: border-box;
+}
+
+[data-hln-ui-root] {
+  min-width: 0;
+  min-height: 0;
+  color: var(--hln-ui-text);
+  background:
+    var(--hln-ui-bg-image, none),
+    var(--hln-ui-bg-0);
+  font-family: var(--hln-ui-font-current, var(--hln-ui-font-body, system-ui, sans-serif));
+  font-size: 14px;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  letter-spacing: 0.02em;
+  position: relative;
+}
+
+/* ==========================================================================
+   Dynamic Typography Matrix Hooks
+   ========================================================================== */
+[data-hln-ui-root][data-hln-font="display"],
+[data-hln-font="display"] {
+  --hln-ui-font-current: var(--hln-ui-font-display);
+  font-family: var(--hln-ui-font-display);
+}
+
+[data-hln-ui-root][data-hln-font="body"],
+[data-hln-font="body"] {
+  --hln-ui-font-current: var(--hln-ui-font-body);
+  font-family: var(--hln-ui-font-body);
+}
+
+[data-hln-ui-root][data-hln-font="classic"],
+[data-hln-font="classic"] {
+  --hln-ui-font-current: var(--hln-ui-font-classic);
+  font-family: var(--hln-ui-font-classic);
+}
+
+
+[data-hln-ui-root][data-hln-font="technical"],
+[data-hln-font="technical"] {
+  --hln-ui-font-current: var(--hln-ui-font-technical);
+  font-family: var(--hln-ui-font-technical);
+}
+
+/* ==========================================================================
+   Focus-Visible
+   ========================================================================== */
+[data-hln-ui-root] :where(button, input, textarea, select, a, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--hln-ui-bg-0), 0 0 0 4px var(--hln-ui-accent);
+}
+
+/* ==========================================================================
+   Bars & Tactical Headers
+   ========================================================================== */
+[data-hln-ui-bar] {
+  display: flex;
+  align-items: center;
+  gap: var(--hln-ui-space-2, 8px);
+  padding: 0 var(--hln-ui-space-4, 16px);
+  min-height: var(--hln-ui-topbar-height, 52px);
+  background: var(--hln-ui-glass, var(--hln-ui-bg-1));
+  border-bottom: 1px solid var(--hln-ui-line);
+  position: relative;
+  backdrop-filter: blur(var(--hln-ui-blur, 10px));
+}
+
+[data-hln-ui-bar]::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 140px;
+  height: 2px;
+  background: var(--hln-ui-accent);
+  box-shadow: 0 0 10px var(--hln-ui-accent);
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   Surfaces & Tactical Cards (HUD Framing & Vector Brackets)
+   ========================================================================== */
+[data-hln-ui-surface] {
+  background: var(--hln-ui-panel-bg, var(--hln-ui-glass, var(--hln-ui-bg-1)));
+  border: 1px solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-sm, 0px);
+  box-shadow: var(--hln-ui-shadow, 0 10px 30px rgb(0 0 0 / 50%));
+  position: relative;
+  backdrop-filter: blur(var(--hln-ui-blur, 10px));
+  transition: border-color var(--hln-ui-duration-fast, 140ms) ease,
+              box-shadow var(--hln-ui-duration-fast, 140ms) ease;
+}
+
+/* Tactical Corner HUD Brackets (Arknights / HyperGryph Vector Frame) */
+[data-hln-ui-surface]::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 10px;
+  height: 10px;
+  border-top: 2px solid var(--hln-ui-accent);
+  border-left: 2px solid var(--hln-ui-accent);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.9;
+}
+
+[data-hln-ui-surface]::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-bottom: 2px solid var(--hln-ui-accent);
+  border-right: 2px solid var(--hln-ui-accent);
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0.9;
+}
+
+[data-hln-ui-surface][data-shape="chamfer"] {
+  clip-path: polygon(
+    0 10px,
+    10px 0,
+    100% 0,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    0 100%
+  );
+}
+
+[data-hln-ui-surface][data-shape="bracket"] {
+  border-left: 3px solid var(--hln-ui-accent);
+}
+
+[data-hln-ui-surface][data-shape="tag-cut"] {
+  clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
+}
+
+/* ==========================================================================
+   Controls & Tactical Buttons
+   ========================================================================== */
+[data-hln-ui-control] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hln-ui-space-2, 8px);
+  min-height: 36px;
+  padding: 0 var(--hln-ui-space-3, 12px);
+  border: 1px solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-sm, 0px);
+  color: var(--hln-ui-text);
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 90%, transparent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--hln-ui-duration-fast, 140ms) ease;
+}
+
+[data-hln-ui-control]:hover {
+  border-color: var(--hln-ui-line-strong);
+  color: var(--hln-ui-text);
+  background: color-mix(in srgb, var(--hln-ui-bg-2) 90%, transparent);
+  transform: translateY(-1px);
+}
+
+[data-hln-ui-control]:active {
+  transform: translateY(0.5px);
+}
+
+/* Primary Inverted Button */
+[data-hln-ui-control][data-variant="primary"],
+[data-hln-ui-control][data-active="true"] {
+  background: var(--hln-ui-accent);
+  color: var(--hln-ui-bg-0);
+  border-color: var(--hln-ui-accent);
+  font-weight: 700;
+  box-shadow: 0 0 14px color-mix(in srgb, var(--hln-ui-accent) 40%, transparent);
+}
+
+[data-hln-ui-control][data-variant="primary"]:hover,
+[data-hln-ui-control][data-active="true"]:hover {
+  background: var(--hln-ui-accent-strong);
+  border-color: var(--hln-ui-accent-strong);
+}
+
+/* Shape Variants for Buttons/Controls (v2 HyperGryph Vector Geometry) */
+[data-hln-ui-control][data-shape="chamfer"] {
+  clip-path: polygon(0 6px, 6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%);
+}
+
+[data-hln-ui-control][data-shape="chamfer-sharp"] {
+  clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+}
+
+[data-hln-ui-control][data-shape="bracket"] {
+  border-left: 3px solid var(--hln-ui-accent);
+  border-right: 3px solid var(--hln-ui-accent);
+  border-top: 1px solid var(--hln-ui-line);
+  border-bottom: 1px solid var(--hln-ui-line);
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 85%, transparent);
+  position: relative;
+}
+[data-hln-ui-control][data-shape="bracket"]::before,
+[data-hln-ui-control][data-shape="bracket"]::after {
+  content: "";
+  position: absolute;
+  width: 5px;
+  height: 2px;
+  background: var(--hln-ui-accent);
+}
+[data-hln-ui-control][data-shape="bracket"]::before { top: 0; left: 0; }
+[data-hln-ui-control][data-shape="bracket"]::after { bottom: 0; right: 0; }
+
+[data-hln-ui-control][data-shape="tag-cut"] {
+  clip-path: polygon(10px 0%, 100% 0%, 100% 100%, 0% 100%, 0% 10px);
+  padding-left: calc(var(--hln-ui-space-3, 12px) + 4px);
+}
+
+[data-hln-ui-control][data-shape="sharp"] {
+  border-radius: 0px;
+}
+
+[data-hln-ui-control][data-shape="pill"] {
+  border-radius: var(--hln-ui-radius-pill, 9999px);
+  padding-inline: var(--hln-ui-space-4, 16px);
+}
+
+/* Variant Styles (accent, primary, danger, warn, ghost/quiet) */
+[data-hln-ui-control][data-variant="accent"] {
+  background: var(--hln-ui-accent);
+  color: var(--hln-ui-bg-0);
+  border-color: var(--hln-ui-accent);
+  font-weight: 700;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--hln-ui-accent) 45%, transparent);
+}
+[data-hln-ui-control][data-variant="accent"]:hover {
+  background: var(--hln-ui-accent-strong, var(--hln-ui-accent));
+  border-color: var(--hln-ui-accent-strong, var(--hln-ui-accent));
+  filter: brightness(1.15);
+}
+
+[data-hln-ui-control][data-variant="quiet"],
+[data-hln-ui-control][data-variant="ghost"] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+[data-hln-ui-control][data-variant="quiet"]:hover,
+[data-hln-ui-control][data-variant="ghost"]:hover {
+  background: color-mix(in srgb, var(--hln-ui-bg-2) 60%, transparent);
+  border-color: var(--hln-ui-line);
+}
+
+[data-hln-ui-control][data-variant="danger"] {
+  background: color-mix(in srgb, var(--hln-ui-danger, #ef4444) 20%, transparent);
+  border-color: var(--hln-ui-danger, #ef4444);
+  color: var(--hln-ui-danger, #ef4444);
+}
+[data-hln-ui-control][data-variant="danger"]:hover {
+  background: var(--hln-ui-danger, #ef4444);
+  color: #fff;
+}
+
+[data-hln-ui-control]:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   Tactical Micro Scrollbar
+   ========================================================================== */
+[data-hln-ui-scroll] {
+  overflow: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--hln-ui-line) transparent;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar {
+  width: var(--hln-ui-scrollbar-size, 6px);
+  height: var(--hln-ui-scrollbar-size, 6px);
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar-thumb {
+  background: var(--hln-ui-line);
+  border-radius: 0px;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar-thumb:hover {
+  background: var(--hln-ui-accent);
+  box-shadow: 0 0 8px var(--hln-ui-accent);
+}
+
+/* ==========================================================================
+   Input Fields
+   ========================================================================== */
+[data-hln-ui-field] {
+  width: 100%;
+  min-height: 36px;
+  padding: 0 var(--hln-ui-space-3, 12px);
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--hln-ui-text);
+  background: color-mix(in srgb, var(--hln-ui-bg-0) 70%, var(--hln-ui-bg-1));
+  border: 1px solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-sm, 0px);
+  transition: all var(--hln-ui-duration-fast, 140ms) ease;
+}
+
+[data-hln-ui-field]:hover {
+  border-color: var(--hln-ui-line-strong);
+}
+
+[data-hln-ui-field]:focus {
+  outline: none;
+  border-color: var(--hln-ui-accent);
+  background: var(--hln-ui-bg-1);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--hln-ui-accent) 30%, transparent);
+}
+
+/* ==========================================================================
+   Tactical Kinetics & Rich Motion Engine (v2 High-Impact Kinetic Matrix)
+   ========================================================================== */
+[data-hln-motion="panel"],
+[data-hln-motion="item"],
+[data-hln-motion="control"] {
+  will-change: opacity, transform, filter;
+}
+
+[data-hln-motion="panel"],
+[data-hln-motion="item"] {
+  transform: translateZ(0);
+}
+
+[data-hln-motion="panel"][data-hln-motion-state="enter"] {
+  animation: hln-v2-panel-enter var(--hln-ui-motion-standard) var(--hln-ui-motion-ease) both;
+}
+
+[data-hln-motion="item"][data-hln-motion-state="enter"] {
+  animation: hln-v2-item-enter var(--hln-ui-motion-fast) var(--hln-ui-motion-ease) both;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * var(--hln-ui-motion-stagger));
+}
+
+[data-hln-motion="panel"][data-hln-motion-state="exit"] {
+  animation: hln-v2-panel-exit var(--hln-ui-motion-standard) var(--hln-ui-motion-ease) both;
+}
+
+[data-hln-motion="item"][data-hln-motion-state="exit"] {
+  animation: hln-v2-item-exit var(--hln-ui-motion-fast) var(--hln-ui-motion-ease) both;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * var(--hln-ui-motion-stagger));
+}
+
+/* Spring Variant */
+[data-hln-motion="panel"][data-hln-motion-state="enter"][data-hln-motion-variant="spring"] {
+  animation-name: hln-v2-panel-spring;
+  animation-duration: var(--hln-ui-motion-slow);
+  animation-timing-function: var(--hln-ui-ease-spring, cubic-bezier(0.34, 1.25, 0.64, 1));
+}
+
+[data-hln-motion="item"][data-hln-motion-state="enter"][data-hln-motion-variant="spring"] {
+  animation-name: hln-v2-item-spring;
+  animation-duration: var(--hln-ui-motion-standard);
+  animation-timing-function: var(--hln-ui-ease-spring, cubic-bezier(0.34, 1.25, 0.64, 1));
+}
+
+/* Cyber-Scan Variant (HyperGryph Laser Line Scan) */
+[data-hln-motion="panel"][data-hln-motion-state="enter"][data-hln-motion-variant="cyber-scan"] {
+  animation: hln-v2-cyber-scan var(--hln-ui-motion-standard) var(--hln-ui-motion-ease) both;
+}
+
+/* Blur-Zoom Variant */
+[data-hln-motion="panel"][data-hln-motion-state="enter"][data-hln-motion-variant="blur-zoom"] {
+  animation: hln-v2-blur-zoom var(--hln-ui-motion-standard) var(--hln-ui-motion-ease) both;
+}
+
+/* Wipe-Reveal Variant */
+[data-hln-motion="panel"][data-hln-motion-state="enter"][data-hln-motion-variant="wipe-reveal"] {
+  animation: hln-v2-wipe-reveal var(--hln-ui-motion-standard) var(--hln-ui-motion-ease) both;
+}
+
+/* Quantum Glitch Variant */
+[data-hln-motion="panel"][data-hln-motion-state="enter"][data-hln-motion-variant="quantum-glitch"] {
+  animation: hln-v2-quantum-glitch var(--hln-ui-motion-standard) ease both;
+}
+
+/* Radar Sweep Variant */
+[data-hln-motion="panel"][data-hln-motion-state="enter"][data-hln-motion-variant="radar-sweep"] {
+  animation: hln-v2-radar-sweep var(--hln-ui-motion-slow) var(--hln-ui-motion-ease) both;
+}
+
+/* Prism Burst Variant */
+[data-hln-motion="panel"][data-hln-motion-state="enter"][data-hln-motion-variant="prism-burst"] {
+  animation: hln-v2-prism-burst var(--hln-ui-motion-standard) var(--hln-ui-motion-ease) both;
+}
+
+/* Keyframes */
+@keyframes hln-v2-panel-enter {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes hln-v2-panel-exit {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(0, -10px, 0); }
+}
+
+@keyframes hln-v2-item-enter {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes hln-v2-item-exit {
+  from { opacity: 1; transform: translate3d(0, 0, 0); }
+  to { opacity: 0; transform: translate3d(0, -8px, 0); }
+}
+
+@keyframes hln-v2-panel-spring {
+  0% { opacity: 0; transform: translate3d(0, 18px, 0) scale(0.96); }
+  60% { opacity: 0.95; transform: translate3d(0, -2px, 0) scale(1.01); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes hln-v2-item-spring {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(0.98); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes hln-v2-cyber-scan {
+  0% { opacity: 0; transform: translateY(-8px) scaleY(0.96); filter: brightness(2) contrast(1.5); }
+  60% { opacity: 0.9; transform: translateY(2px) scaleY(1.02); filter: brightness(1.2); }
+  100% { opacity: 1; transform: translateY(0) scaleY(1); filter: brightness(1); }
+}
+
+@keyframes hln-v2-blur-zoom {
+  from { opacity: 0; transform: scale(0.92); filter: blur(10px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0px); }
+}
+
+@keyframes hln-v2-wipe-reveal {
+  from { opacity: 0; clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); }
+  to { opacity: 1; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+}
+
+@keyframes hln-v2-quantum-glitch {
+  0% { opacity: 0; transform: translate3d(-6px, 2px, 0) skewX(4deg); filter: hue-rotate(90deg) contrast(2); }
+  25% { opacity: 0.8; transform: translate3d(4px, -2px, 0) skewX(-3deg); filter: hue-rotate(-60deg) saturate(2); }
+  50% { opacity: 0.9; transform: translate3d(-2px, 1px, 0) skewX(2deg); filter: contrast(1.4); }
+  75% { opacity: 0.95; transform: translate3d(1px, -1px, 0) skewX(-1deg); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) skewX(0deg); filter: none; }
+}
+
+@keyframes hln-v2-radar-sweep {
+  0% { opacity: 0; transform: scale(0.95); clip-path: circle(0% at 50% 50%); }
+  50% { opacity: 0.8; clip-path: circle(70% at 50% 50%); }
+  100% { opacity: 1; transform: scale(1); clip-path: circle(150% at 50% 50%); }
+}
+
+@keyframes hln-v2-prism-burst {
+  0% { opacity: 0; transform: scale(0.9) rotate(-1deg); box-shadow: 0 0 30px var(--hln-ui-accent); }
+  60% { opacity: 0.9; transform: scale(1.01) rotate(0.5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); box-shadow: var(--hln-ui-shadow); }
+}
+
+/* ==========================================================================
+   v2 Rich Dynamic Ambient Background Engine (Multi-Layered Shaders & Vectors)
+   ========================================================================== */
+[data-hln-ui-root][data-hln-bg-motion] {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-hln-ui-root][data-hln-bg-motion]::before,
+[data-hln-ui-root][data-hln-bg-motion]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  will-change: opacity, background-position, transform, filter;
+}
+
+[data-hln-ui-root][data-hln-bg-motion] > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* 1. Tactical Hex & Dot Grid (Hex Matrix) */
+[data-hln-ui-root][data-hln-bg-motion="tactical-grid"]::before {
+  background-image:
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--hln-ui-accent) 26%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--hln-ui-accent) 6%, transparent) 1px, transparent 1px),
+    linear-gradient(0deg, color-mix(in srgb, var(--hln-ui-accent) 6%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px, 48px 48px, 48px 48px;
+  opacity: 0.35;
+  animation: hln-v2-bg-grid-drift 30s linear infinite;
+}
+
+[data-hln-ui-root][data-hln-bg-motion="tactical-grid"]::after {
+  background:
+    radial-gradient(circle at 10% 20%, color-mix(in srgb, var(--hln-ui-accent) 18%, transparent) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, color-mix(in srgb, var(--hln-ui-accent-cool) 14%, transparent) 0%, transparent 45%);
+  opacity: 0.4;
+  animation: hln-v2-bg-pulse 12s ease-in-out infinite alternate;
+}
+
+/* 2. Cyber Laser Radar Scan */
+[data-hln-ui-root][data-hln-bg-motion="holo-scan"]::before {
+  background:
+    linear-gradient(180deg,
+      transparent 0%,
+      color-mix(in srgb, var(--hln-ui-accent) 18%, transparent) 48%,
+      var(--hln-ui-accent) 50%,
+      color-mix(in srgb, var(--hln-ui-accent) 18%, transparent) 52%,
+      transparent 100%
+    );
+  background-size: 100% 200px;
+  opacity: 0.25;
+  animation: hln-v2-bg-scanline 8s linear infinite;
+}
+
+[data-hln-ui-root][data-hln-bg-motion="holo-scan"]::after {
+  background-image:
+    repeating-linear-gradient(90deg, transparent 0 38px, color-mix(in srgb, var(--hln-ui-accent) 10%, transparent) 39px 40px),
+    repeating-linear-gradient(0deg, transparent 0 38px, color-mix(in srgb, var(--hln-ui-accent) 10%, transparent) 39px 40px);
+  opacity: 0.3;
+  animation: hln-v2-bg-grid-glow 6s ease-in-out infinite alternate;
+}
+
+/* 3. Nebula Particle Stream */
+[data-hln-ui-root][data-hln-bg-motion="nebula-flow"]::before {
+  background:
+    radial-gradient(ellipse at 20% 30%, color-mix(in srgb, var(--hln-ui-accent) 35%, transparent) 0%, transparent 45%),
+    radial-gradient(ellipse at 80% 70%, color-mix(in srgb, var(--hln-ui-line-strong) 30%, transparent) 0%, transparent 50%),
+    radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--hln-ui-accent-cool) 20%, transparent) 0%, transparent 60%);
+  filter: blur(28px);
+  opacity: 0.45;
+  animation: hln-v2-bg-nebula-flow 20s ease-in-out infinite alternate;
+}
+
+[data-hln-ui-root][data-hln-bg-motion="nebula-flow"]::after {
+  background-image:
+    radial-gradient(circle at 12% 18%, #ffffff 1px, transparent 1.5px),
+    radial-gradient(circle at 68% 42%, var(--hln-ui-accent) 1.5px, transparent 2px),
+    radial-gradient(circle at 35% 82%, var(--hln-ui-accent-strong) 1px, transparent 1.5px),
+    radial-gradient(circle at 88% 22%, #ffffff 1px, transparent 1.5px);
+  background-size: 140px 140px, 180px 180px, 220px 220px, 160px 160px;
+  opacity: 0.5;
+  animation: hln-v2-bg-particles 15s linear infinite;
+}
+
+/* 4. PRTS Clinical Sonar */
+[data-hln-ui-root][data-hln-bg-motion="prts-sonar"]::before {
+  background:
+    radial-gradient(circle at 50% 50%, transparent 20%, color-mix(in srgb, var(--hln-ui-accent) 15%, transparent) 22%, transparent 24%),
+    radial-gradient(circle at 50% 50%, transparent 45%, color-mix(in srgb, var(--hln-ui-accent) 12%, transparent) 47%, transparent 49%),
+    radial-gradient(circle at 50% 50%, transparent 70%, color-mix(in srgb, var(--hln-ui-accent) 8%, transparent) 72%, transparent 74%);
+  opacity: 0.4;
+  animation: hln-v2-bg-sonar 10s ease-out infinite;
+}
+
+[data-hln-ui-root][data-hln-bg-motion="prts-sonar"]::after {
+  background:
+    conic-gradient(from 0deg at 50% 50%, transparent 0deg, color-mix(in srgb, var(--hln-ui-accent) 14%, transparent) 60deg, transparent 70deg);
+  opacity: 0.35;
+  animation: hln-v2-bg-radar-sweep 8s linear infinite;
+}
+
+/* 5. Quantum Glitch Wave */
+[data-hln-ui-root][data-hln-bg-motion="quantum-wave"]::before {
+  background:
+    repeating-linear-gradient(0deg, color-mix(in srgb, var(--hln-ui-accent) 8%, transparent) 0px, transparent 2px, transparent 4px),
+    linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--hln-ui-danger, #ff0055) 10%, transparent) 50%, transparent 100%);
+  opacity: 0.35;
+  animation: hln-v2-bg-glitch-lines 0.4s steps(2, start) infinite;
+}
+
+[data-hln-ui-root][data-hln-bg-motion="quantum-wave"]::after {
+  background:
+    radial-gradient(ellipse at 50% 50%, color-mix(in srgb, var(--hln-ui-accent) 25%, transparent) 0%, transparent 60%);
+  filter: blur(20px);
+  opacity: 0.3;
+  animation: hln-v2-bg-pulse 4s ease-in-out infinite alternate;
+}
+
+/* 6. Aurora Cosmic Drift (Rich v2 Version) */
+[data-hln-ui-root][data-hln-bg-motion="aurora"]::before {
+  background:
+    radial-gradient(ellipse at 15% 25%, color-mix(in srgb, var(--hln-ui-accent) 38%, transparent) 0%, transparent 40%),
+    radial-gradient(ellipse at 85% 75%, color-mix(in srgb, var(--hln-ui-line-strong) 34%, transparent) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 10%, color-mix(in srgb, var(--hln-ui-accent-cool) 28%, transparent) 0%, transparent 38%);
+  filter: blur(24px);
+  opacity: 0.45;
+  animation: hln-v2-bg-aurora 16s ease-in-out infinite alternate;
+}
+
+[data-hln-ui-root][data-hln-bg-motion="aurora"]::after {
+  background:
+    linear-gradient(125deg, transparent 0 35%, color-mix(in srgb, var(--hln-ui-accent) 14%, transparent) 45%, transparent 55%),
+    repeating-linear-gradient(90deg, transparent 0 48px, color-mix(in srgb, var(--hln-ui-grid-line) 50%, transparent) 49px 50px);
+  opacity: 0.28;
+  animation: hln-v2-bg-aurora-veil 20s ease-in-out infinite alternate;
+}
+
+/* 7. Quiet (Static) */
+[data-hln-ui-root][data-hln-bg-motion="quiet"]::before,
+[data-hln-ui-root][data-hln-bg-motion="quiet"]::after {
+  opacity: 0;
+  animation: none;
+}
+
+/* Background Keyframes */
+@keyframes hln-v2-bg-grid-drift {
+  0% { background-position: 0 0, 0 0, 0 0; }
+  100% { background-position: 24px 24px, 48px 48px, -48px -48px; }
+}
+
+@keyframes hln-v2-bg-pulse {
+  0% { opacity: 0.2; transform: scale(0.98); }
+  100% { opacity: 0.45; transform: scale(1.02); }
+}
+
+@keyframes hln-v2-bg-scanline {
+  0% { background-position: 0 -200px; }
+  100% { background-position: 0 100vh; }
+}
+
+@keyframes hln-v2-bg-grid-glow {
+  0% { opacity: 0.15; }
+  100% { opacity: 0.4; }
+}
+
+@keyframes hln-v2-bg-nebula-flow {
+  0% { opacity: 0.3; transform: translate3d(-3%, -2%, 0) scale(0.97); }
+  50% { opacity: 0.55; transform: translate3d(3%, 4%, 0) scale(1.05); }
+  100% { opacity: 0.35; transform: translate3d(-1%, 2%, 0) scale(1); }
+}
+
+@keyframes hln-v2-bg-particles {
+  0% { background-position: 0 0, 0 0, 0 0, 0 0; }
+  100% { background-position: 140px -140px, -180px 180px, 220px 220px, -160px -160px; }
+}
+
+@keyframes hln-v2-bg-sonar {
+  0% { transform: scale(0.6); opacity: 0.6; }
+  80% { transform: scale(1.3); opacity: 0.1; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
+@keyframes hln-v2-bg-radar-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes hln-v2-bg-glitch-lines {
+  0% { background-position: 0 0, 0 0; }
+  50% { background-position: 0 4px, 10px 0; }
+  100% { background-position: 0 -3px, -8px 0; }
+}
+
+@keyframes hln-v2-bg-aurora {
+  0% { opacity: 0.3; transform: scale(0.98) translate3d(0, 0, 0); }
+  50% { opacity: 0.55; transform: scale(1.04) translate3d(2%, 3%, 0); }
+  100% { opacity: 0.35; transform: scale(1) translate3d(-2%, 1%, 0); }
+}
+
+@keyframes hln-v2-bg-aurora-veil {
+  0% { opacity: 0.15; background-position: 0 0, 0 0; }
+  100% { opacity: 0.35; background-position: 30px 20px, 48px 0; }
+}
+
+/* ==========================================================================
+   Reduced Motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  [data-hln-ui-root] *,
+  [data-hln-ui-root] *::before,
+  [data-hln-ui-root] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+  [data-hln-ui-root][data-hln-bg-motion]::before,
+  [data-hln-ui-root][data-hln-bg-motion]::after {
+    animation: none !important;
+  }
+}
+
+
+/* ==========================================================================
+   v2 Tactical UI Components (Segmented, Gauges, Coordinate Badges, Switches)
+   ========================================================================== */
+
+/* Segmented Matrix Switcher */
+[data-hln-ui-root] .segmented,
+[data-hln-ui-root][data-hln-ui-version="v2"] .segmented {
+  display: inline-flex;
+  align-items: center;
+  background: color-mix(in srgb, var(--hln-ui-bg-0) 80%, transparent);
+  border: 1px solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-sm, 0px);
+  padding: 2px;
+  gap: 2px;
+}
+
+[data-hln-ui-root] .segmented [data-hln-ui-control],
+[data-hln-ui-root][data-hln-ui-version="v2"] .segmented [data-hln-ui-control] {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 11px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--hln-ui-text-muted);
+  box-shadow: none;
+}
+
+[data-hln-ui-root] .segmented [data-hln-ui-control]:hover,
+[data-hln-ui-root][data-hln-ui-version="v2"] .segmented [data-hln-ui-control]:hover {
+  color: var(--hln-ui-text);
+  background: color-mix(in srgb, var(--hln-ui-bg-2) 60%, transparent);
+}
+
+[data-hln-ui-root] .segmented [data-hln-ui-control][data-active="true"],
+[data-hln-ui-root][data-hln-ui-version="v2"] .segmented [data-hln-ui-control][data-active="true"] {
+  background: var(--hln-ui-accent);
+  color: var(--hln-ui-bg-0);
+  border-color: var(--hln-ui-accent);
+  font-weight: 700;
+  box-shadow: 0 0 10px color-mix(in srgb, var(--hln-ui-accent) 50%, transparent);
+}
+
+/* Tactical Laser Meter & Progress Bar */
+[data-hln-ui-root] .tactical-meter-wrap,
+[data-hln-ui-root][data-hln-ui-version="v2"] .tactical-meter-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+[data-hln-ui-root] .meter-meta,
+[data-hln-ui-root][data-hln-ui-version="v2"] .meter-meta {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 11px;
+  color: var(--hln-ui-text-muted);
+}
+
+[data-hln-ui-root] .tactical-meter,
+[data-hln-ui-root][data-hln-ui-version="v2"] .tactical-meter {
+  height: 6px;
+  width: 100%;
+  background: color-mix(in srgb, var(--hln-ui-bg-0) 90%, transparent);
+  border: 1px solid var(--hln-ui-line);
+  position: relative;
+  overflow: hidden;
+}
+
+[data-hln-ui-root] .tactical-meter span,
+[data-hln-ui-root][data-hln-ui-version="v2"] .tactical-meter span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--hln-ui-accent) 0%, var(--hln-ui-accent-strong) 100%);
+  box-shadow: 0 0 10px var(--hln-ui-accent);
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-hln-ui-root] .tactical-meter.secondary span,
+[data-hln-ui-root][data-hln-ui-version="v2"] .tactical-meter.secondary span {
+  background: linear-gradient(90deg, var(--hln-ui-line-strong) 0%, var(--hln-ui-accent) 100%);
+}
+
+/* Telemetry Stat Metric Box */
+[data-hln-ui-root] .telemetry-grid,
+[data-hln-ui-root][data-hln-ui-version="v2"] .telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+[data-hln-ui-root] .stat-box,
+[data-hln-ui-root][data-hln-ui-version="v2"] .stat-box {
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 85%, transparent);
+  border: 1px solid var(--hln-ui-line);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color var(--hln-ui-duration-fast) ease;
+}
+
+[data-hln-ui-root] .stat-box:hover,
+[data-hln-ui-root][data-hln-ui-version="v2"] .stat-box:hover {
+  border-color: var(--hln-ui-accent);
+}
+
+[data-hln-ui-root] .stat-box .stat-label,
+[data-hln-ui-root][data-hln-ui-version="v2"] .stat-box .stat-label {
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--hln-ui-text-faint);
+  letter-spacing: 0.08em;
+}
+
+[data-hln-ui-root] .stat-box .stat-value,
+[data-hln-ui-root][data-hln-ui-version="v2"] .stat-box .stat-value {
+  font-family: var(--hln-ui-font-display, inherit);
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--hln-ui-text);
+  line-height: 1.1;
+}
+
+[data-hln-ui-root] .stat-box .stat-value small,
+[data-hln-ui-root][data-hln-ui-version="v2"] .stat-box .stat-value small {
+  font-size: 11px;
+  margin-left: 3px;
+  color: var(--hln-ui-text-muted);
+  font-weight: normal;
+}
+
+[data-hln-ui-root] .stat-box .stat-sub,
+[data-hln-ui-root][data-hln-ui-version="v2"] .stat-box .stat-sub {
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 10px;
+  color: var(--hln-ui-text-muted);
+  margin-top: 2px;
+}
+
+/* Tactical Coordinates Card */
+[data-hln-ui-root] .tactical-coords-card,
+[data-hln-ui-root][data-hln-ui-version="v2"] .tactical-coords-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--hln-ui-bg-0) 65%, transparent);
+  border-left: 3px solid var(--hln-ui-accent);
+  border-top: 1px solid var(--hln-ui-line);
+  border-right: 1px solid var(--hln-ui-line);
+  border-bottom: 1px solid var(--hln-ui-line);
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 11px;
+}
+
+[data-hln-ui-root] .tactical-coords-card .coord-row,
+[data-hln-ui-root][data-hln-ui-version="v2"] .tactical-coords-card .coord-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--hln-ui-text-muted);
+}
+
+[data-hln-ui-root] .tactical-coords-card .coord-row strong,
+[data-hln-ui-root][data-hln-ui-version="v2"] .tactical-coords-card .coord-row strong {
+  color: var(--hln-ui-text);
+}
+
+[data-hln-ui-root] .tactical-coords-card .status-text-accent,
+[data-hln-ui-root][data-hln-ui-version="v2"] .tactical-coords-card .status-text-accent {
+  color: var(--hln-ui-accent);
+  font-weight: 700;
+  text-shadow: 0 0 8px color-mix(in srgb, var(--hln-ui-accent) 60%, transparent);
+}
+
+/* ==========================================================================
+   v2 HyperGryph Vector Polish (Badges, Hazard Stripes, Watermarks, HUD Cards)
+   ========================================================================== */
+
+/* Card Header Vector Decors */
+[data-hln-ui-root][data-hln-ui-version="v2"] .showcase-card {
+  position: relative;
+  overflow: hidden;
+}
+
+[data-hln-ui-root][data-hln-ui-version="v2"] .showcase-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 24px;
+  height: 2px;
+  background: var(--hln-ui-accent);
+  box-shadow: 0 0 8px var(--hln-ui-accent);
+  z-index: 2;
+}
+
+[data-hln-ui-root][data-hln-ui-version="v2"] .card-badge {
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 8px;
+  border: 1px solid var(--hln-ui-line);
+  background: color-mix(in srgb, var(--hln-ui-bg-0) 70%, transparent);
+  color: var(--hln-ui-text-muted);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+
+[data-hln-ui-root][data-hln-ui-version="v2"] .card-badge.highlight {
+  border-color: var(--hln-ui-accent);
+  color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 12%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--hln-ui-accent) 30%, transparent);
+}
+
+/* Pipeline Flow Pulse */
+[data-hln-ui-root][data-hln-ui-version="v2"] .pipe-dot.active {
+  background: var(--hln-ui-accent);
+  box-shadow: 0 0 10px var(--hln-ui-accent);
+  animation: hln-v2-dot-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes hln-v2-dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; filter: drop-shadow(0 0 2px var(--hln-ui-accent)); }
+  50% { transform: scale(1.3); opacity: 0.75; filter: drop-shadow(0 0 8px var(--hln-ui-accent)); }
+}
+
+/* Subtle Vector Angle Cut Backgrounds */
+[data-hln-ui-root][data-hln-ui-version="v2"] .card-header {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--hln-ui-bg-2) 40%, transparent) 0%, transparent 100%);
+  border-bottom: 1px solid var(--hln-ui-line);
+}
+
+/* ==========================================================================
+   v2 HyperGryph Tactical Vector Geometry & Linear HUD Systems
+   ========================================================================== */
+
+/* 1. Tactical Corner Reticles & Precision Vector Brackets on Cards */
+[data-hln-ui-root][data-hln-ui-version="v2"] .showcase-card {
+  position: relative;
+  border: 1px solid var(--hln-ui-line);
+  background: color-mix(in srgb, var(--hln-ui-bg-1) 85%, transparent);
+  backdrop-filter: blur(16px);
+}
+
+[data-hln-ui-root][data-hln-ui-version="v2"] .showcase-card::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--hln-ui-accent);
+  border-bottom: 2px solid var(--hln-ui-accent);
+  pointer-events: none;
+}
+
+/* 2. Linear Coordinate Ticks & Crosshair Grid Overlays */
+[data-hln-ui-root][data-hln-ui-version="v2"] .component-block {
+  position: relative;
+  padding-top: 6px;
+  border-top: 1px dashed color-mix(in srgb, var(--hln-ui-line) 80%, transparent);
+  margin-top: 12px;
+}
+
+[data-hln-ui-root][data-hln-ui-version="v2"] .block-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--hln-ui-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+[data-hln-ui-root][data-hln-ui-version="v2"] .block-label::before {
+  content: "//";
+  color: var(--hln-ui-accent);
+  font-weight: 800;
+}
+
+/* 3. Tactical Warning Hazard Hatch (Endfield & Arknights Angle Stripes) */
+[data-hln-ui-root][data-hln-ui-version="v2"] .hazard-stripe-strip {
+  display: block;
+  height: 5px;
+  width: 100%;
+  margin: 6px 0 8px 0;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--hln-ui-accent) 0px,
+    var(--hln-ui-accent) 6px,
+    transparent 6px,
+    transparent 14px
+  );
+  background-size: 19.79899px 100%;
+  background-repeat: repeat-x;
+  opacity: 0.8;
+  animation: hln-v2-hazard-slide 1.6s linear infinite;
+}
+@keyframes hln-v2-hazard-slide {
+  0%   { background-position: 0 0; }
+  100% { background-position: 19.79899px 0; }
+}
+
+/* 4. Precision Micro-Ticks on Inputs */
+[data-hln-ui-root][data-hln-ui-version="v2"] :where(input, select)[data-hln-ui-field] {
+  border-radius: 0px;
+  border: 1px solid var(--hln-ui-line);
+  background: color-mix(in srgb, var(--hln-ui-bg-0) 80%, transparent);
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 12px;
+  transition: all var(--hln-ui-duration-fast) ease;
+}
+
+[data-hln-ui-root][data-hln-ui-version="v2"] :where(input, select)[data-hln-ui-field]:focus {
+  border-color: var(--hln-ui-accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--hln-ui-accent) 30%, transparent), inset 2px 0 0 var(--hln-ui-accent);
+  outline: none;
+}
+
+/* 5. Stat Metric HUD Crosshairs */
+[data-hln-ui-root][data-hln-ui-version="v2"] .stat-box::before {
+  content: "+";
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 10px;
+  color: color-mix(in srgb, var(--hln-ui-line-strong) 60%, transparent);
+}
+
+/* 6. Pipeline Items Linear Step Indicators */
+[data-hln-ui-root][data-hln-ui-version="v2"] .pipeline-item {
+  position: relative;
+  padding-left: 12px;
+  border-left: 2px solid var(--hln-ui-line);
+  margin-left: 4px;
+  transition: border-color var(--hln-ui-duration-fast) ease;
+}
+
+[data-hln-ui-root][data-hln-ui-version="v2"] .pipeline-item:hover {
+  border-left-color: var(--hln-ui-accent);
+}

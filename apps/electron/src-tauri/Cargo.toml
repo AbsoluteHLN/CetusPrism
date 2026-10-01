@@ -1,0 +1,60 @@
+[package]
+name = "cetusprism"
+version = "0.0.0"
+description = "CetusPrism desktop shell: a WebView2 window over the backend's web surface"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+
+# The shipped executable keeps the product name; make-installer.mjs expects
+# `CetusPrism.exe` inside dist/win-unpacked.
+[[bin]]
+name = "CetusPrism"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "=2.6.3", features = [] }
+
+# common-controls-v6: the first-run dialog's custom Chinese button labels
+# render through the v6 common controls. Default features are the Linux
+# portal stack (xdg-portal/wayland/async-std → ashpd); Windows needs none.
+[dependencies]
+# tray-icon: the background-mode tray. muda (its menus) rides along; both are
+# already in the offline registry cache via the Cargo.lock graph. image-png
+# decodes the dedicated tray PNG for include_image!.
+tauri = { version = "=2.11.5", features = ["tray-icon", "image-png"] }
+serde_json = "1"
+# Already a pinned transitive dependency of tauri; made direct for the
+# dsh_open_external URL validation.
+url = "=2.5.8"
+rfd = { version = "=0.16.0", default-features = false, features = ["common-controls-v6"] }
+
+# Single-instance mutex, focus signal, and the backend's kill-on-close job
+# object; the same cached windows crate the Tauri/Wry closure already pins, so
+# no new downloads are required.
+[target.'cfg(target_os = "windows")'.dependencies]
+# Foundation: HSTRING for the WinRT toast. Data_Xml_Dom + UI_Notifications: the
+# task-completion and tray-hint toasts (the WinRT face — Win32_UI_Notifications
+# is the unrelated COM callback). Win32_UI_Shell: process AppUserModelID.
+# Win32_System_Registry: the HKCU toast identity (DisplayName). Win32_UI_Shell_Common
+# is used by tray-icon's Windows backend; the rest are the existing shell features.
+windows = { version = "=0.61.3", features = ["Data_Xml_Dom", "Foundation", "Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Registry", "Win32_System_Threading", "Win32_UI_Shell", "UI_Notifications"] }
+
+# The Linux platform face: setsid + PR_SET_PDEATHSIG on the backend spawn and
+# the process-group teardown. libc is already in the lock graph as a transitive
+# dependency, so the offline registry cache carries it. rfd's dialog backend is
+# feature-merged with the Windows declaration above: the gtk crate is already
+# in the lock via the Tauri/Wry Linux stack, so this adds no new crates.
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+libc = "0.2"
+rfd = { version = "=0.16.0", default-features = false, features = ["gtk3"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.dev]
+debug = 0

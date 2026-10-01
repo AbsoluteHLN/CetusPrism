@@ -1,0 +1,219 @@
+/* ProjectHLN UI System v3.2 - Curated Linear Minimalist Themes
+   6 Subtracted, High-Atmosphere Linear Themes (4 Dark Linear Planes + 2 Light Gallery Planes).
+   All themes enforce --hln-ui-blur: 0px and --hln-ui-shadow: none for pure linear clarity. */
+
+/* ==========================================================================
+   1. LINEAR OBSIDIAN - Deep Obsidian & Sky-Cyan Hairline (Default Dark)
+   ========================================================================== */
+:root[data-hln-theme="linear-obsidian"],
+[data-hln-theme="linear-obsidian"],
+[data-theme="linear-obsidian"] {
+  --hln-ui-bg-0: #090b0e;
+  --hln-ui-bg-1: #10141a;
+  --hln-ui-bg-2: #171c24;
+  --hln-ui-glass: #10141a;
+  --hln-ui-panel-bg: #10141a;
+  --hln-ui-glass-strong: #141922;
+  --hln-ui-glass-soft: rgb(16 20 26 / 92%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 6%);
+  --hln-ui-line: #222a36;
+  --hln-ui-line-strong: #38bdf8;
+  --hln-ui-text: #f3f6fa;
+  --hln-ui-text-muted: #8b9bb0;
+  --hln-ui-text-faint: #556477;
+  --hln-ui-accent: #38bdf8;
+  --hln-ui-accent-strong: #7dd3fc;
+  --hln-ui-accent-cool: #60a5fa;
+  --hln-ui-accent-secondary: #94a3b8;
+  --hln-ui-amber: #f59e0b;
+  --hln-ui-danger: #f43f5e;
+  --hln-ui-success: #10b981;
+  --hln-ui-focus: #38bdf8;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(180deg, rgb(56 189 248 / 4%) 1px, transparent 1px) 0 0 / 100% 96px;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   2. LINEAR PLATINUM - Warm Platinum & Architectural Cobalt (Light)
+   ========================================================================== */
+:root[data-hln-theme="linear-platinum"],
+[data-hln-theme="linear-platinum"],
+[data-theme="linear-platinum"] {
+  --hln-ui-bg-0: #f6f6f4;
+  --hln-ui-bg-1: #ffffff;
+  --hln-ui-bg-2: #eeeeeb;
+  --hln-ui-glass: #ffffff;
+  --hln-ui-panel-bg: #ffffff;
+  --hln-ui-glass-strong: #ffffff;
+  --hln-ui-glass-soft: rgb(255 255 255 / 94%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 90%);
+  --hln-ui-line: #d6d6d2;
+  --hln-ui-line-strong: #2563eb;
+  --hln-ui-text: #141518;
+  --hln-ui-text-muted: #575b65;
+  --hln-ui-text-faint: #868b96;
+  --hln-ui-accent: #2563eb;
+  --hln-ui-accent-strong: #1d4ed8;
+  --hln-ui-accent-cool: #0284c7;
+  --hln-ui-accent-secondary: #475569;
+  --hln-ui-amber: #d97706;
+  --hln-ui-danger: #e11d48;
+  --hln-ui-success: #059669;
+  --hln-ui-focus: #2563eb;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(180deg, rgb(37 99 235 / 4.5%) 1px, transparent 1px) 0 0 / 100% 96px;
+  color-scheme: light;
+}
+
+/* ==========================================================================
+   3. LINEAR AMBER - Deep Carbon Slate & Warm Horizon Gold (Dark)
+   ========================================================================== */
+:root[data-hln-theme="linear-amber"],
+[data-hln-theme="linear-amber"],
+[data-theme="linear-amber"] {
+  --hln-ui-bg-0: #0b0d10;
+  --hln-ui-bg-1: #12161c;
+  --hln-ui-bg-2: #1a2029;
+  --hln-ui-glass: #12161c;
+  --hln-ui-panel-bg: #12161c;
+  --hln-ui-glass-strong: #171c24;
+  --hln-ui-glass-soft: rgb(18 22 28 / 92%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 6%);
+  --hln-ui-line: #262e3a;
+  --hln-ui-line-strong: #f59e0b;
+  --hln-ui-text: #f5f7fa;
+  --hln-ui-text-muted: #929fb1;
+  --hln-ui-text-faint: #5b6778;
+  --hln-ui-accent: #f59e0b;
+  --hln-ui-accent-strong: #fbbf24;
+  --hln-ui-accent-cool: #38bdf8;
+  --hln-ui-accent-secondary: #94a3b8;
+  --hln-ui-amber: #f59e0b;
+  --hln-ui-danger: #f43f5e;
+  --hln-ui-success: #10b981;
+  --hln-ui-focus: #f59e0b;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(180deg, rgb(245 158 11 / 4%) 1px, transparent 1px) 0 0 / 100% 96px;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   4. LINEAR PAPER - Gallery Vellum & Mineral Teal (Light)
+   ========================================================================== */
+:root[data-hln-theme="linear-paper"],
+[data-hln-theme="linear-paper"],
+[data-theme="linear-paper"] {
+  --hln-ui-bg-0: #f3f1ec;
+  --hln-ui-bg-1: #faf9f5;
+  --hln-ui-bg-2: #eae7df;
+  --hln-ui-glass: #faf9f5;
+  --hln-ui-panel-bg: #faf9f5;
+  --hln-ui-glass-strong: #ffffff;
+  --hln-ui-glass-soft: rgb(250 249 245 / 94%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 90%);
+  --hln-ui-line: #d0ccc2;
+  --hln-ui-line-strong: #0d9488;
+  --hln-ui-text: #171918;
+  --hln-ui-text-muted: #575e5b;
+  --hln-ui-text-faint: #848c89;
+  --hln-ui-accent: #0d9488;
+  --hln-ui-accent-strong: #0f766e;
+  --hln-ui-accent-cool: #0284c7;
+  --hln-ui-accent-secondary: #64748b;
+  --hln-ui-amber: #b45309;
+  --hln-ui-danger: #be123c;
+  --hln-ui-success: #0d9488;
+  --hln-ui-focus: #0d9488;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(180deg, rgb(13 148 136 / 4.5%) 1px, transparent 1px) 0 0 / 100% 96px;
+  color-scheme: light;
+}
+
+/* ==========================================================================
+   5. LINEAR EMERALD - Deep Mineral Slate & Precision Emerald (Dark)
+   ========================================================================== */
+:root[data-hln-theme="linear-emerald"],
+[data-hln-theme="linear-emerald"],
+[data-theme="linear-emerald"] {
+  --hln-ui-bg-0: #080d0b;
+  --hln-ui-bg-1: #0f1714;
+  --hln-ui-bg-2: #16221d;
+  --hln-ui-glass: #0f1714;
+  --hln-ui-panel-bg: #0f1714;
+  --hln-ui-glass-strong: #131e1a;
+  --hln-ui-glass-soft: rgb(15 23 20 / 92%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 6%);
+  --hln-ui-line: #21332c;
+  --hln-ui-line-strong: #10b981;
+  --hln-ui-text: #f0f9f5;
+  --hln-ui-text-muted: #82a395;
+  --hln-ui-text-faint: #4f6d61;
+  --hln-ui-accent: #10b981;
+  --hln-ui-accent-strong: #34d399;
+  --hln-ui-accent-cool: #38bdf8;
+  --hln-ui-accent-secondary: #94a3b8;
+  --hln-ui-amber: #f59e0b;
+  --hln-ui-danger: #f43f5e;
+  --hln-ui-success: #10b981;
+  --hln-ui-focus: #10b981;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(180deg, rgb(16 185 129 / 4%) 1px, transparent 1px) 0 0 / 100% 96px;
+  color-scheme: dark;
+}
+
+/* ==========================================================================
+   6. LINEAR MONO - Pure Architectural Monochrome & Chalk Hairlines (Dark)
+   ========================================================================== */
+:root[data-hln-theme="linear-mono"],
+[data-hln-theme="linear-mono"],
+[data-theme="linear-mono"] {
+  --hln-ui-bg-0: #09090b;
+  --hln-ui-bg-1: #121215;
+  --hln-ui-bg-2: #1a1a1f;
+  --hln-ui-glass: #121215;
+  --hln-ui-panel-bg: #121215;
+  --hln-ui-glass-strong: #16161a;
+  --hln-ui-glass-soft: rgb(18 18 21 / 94%);
+  --hln-ui-glass-specular: rgb(255 255 255 / 7%);
+  --hln-ui-line: #27272d;
+  --hln-ui-line-strong: #f4f4f5;
+  --hln-ui-text: #fafafa;
+  --hln-ui-text-muted: #a1a1aa;
+  --hln-ui-text-faint: #63636b;
+  --hln-ui-accent: #f4f4f5;
+  --hln-ui-accent-strong: #ffffff;
+  --hln-ui-accent-cool: #a1a1aa;
+  --hln-ui-accent-secondary: #71717a;
+  --hln-ui-amber: #eab308;
+  --hln-ui-danger: #f43f5e;
+  --hln-ui-success: #10b981;
+  --hln-ui-focus: #f4f4f5;
+  --hln-ui-blur: 0px;
+  --hln-ui-shadow: none;
+  --hln-ui-shadow-soft: none;
+  --hln-ui-button-shadow: none;
+  --hln-ui-bg-image:
+    linear-gradient(180deg, rgb(244 244 245 / 3.5%) 1px, transparent 1px) 0 0 / 100% 96px;
+  color-scheme: dark;
+}

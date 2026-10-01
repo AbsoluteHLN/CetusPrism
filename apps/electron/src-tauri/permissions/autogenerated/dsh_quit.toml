@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dsh-quit"
+description = "Enables the dsh_quit command without any pre-configured scope."
+commands.allow = ["dsh_quit"]
+
+[[permission]]
+identifier = "deny-dsh-quit"
+description = "Denies the dsh_quit command without any pre-configured scope."
+commands.deny = ["dsh_quit"]

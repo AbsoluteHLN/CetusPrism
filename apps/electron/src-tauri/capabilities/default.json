@@ -1,0 +1,17 @@
+{
+  "identifier": "desktop-bridge",
+  "description": "Window controls (dsh_* commands) for the backend web surface; the webview always loads a loopback URL the shell itself spawned",
+  "windows": ["main"],
+  "remote": {
+    "urls": ["http://127.0.0.1:*"]
+  },
+  "permissions": [
+    "allow-dsh-quit",
+    "allow-dsh-minimize",
+    "allow-dsh-toggle-maximize",
+    "allow-dsh-close",
+    "allow-dsh-start-drag",
+    "allow-dsh-open-external",
+    "allow-dsh-notify"
+  ]
+}

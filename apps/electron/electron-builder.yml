@@ -1,0 +1,28 @@
+# electron-builder configuration for the NSIS installer leg of `dist:win`.
+# The packed tree from scripts/pack-win.mjs is consumed via --prepackaged, so
+# no files/extraResources are declared here. The executable itself is stamped
+# (icon + rename) by scripts/make-installer.mjs before this config runs.
+appId: com.cetusprism.desktop
+productName: CetusPrism
+directories:
+  output: dist
+  buildResources: build
+win:
+  icon: build/icon.ico
+  signAndEditExecutable: false
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: CetusPrism-v${version}-setup.${ext}
+  # The EULA page carries the root MIT license text during installation.
+  license: ../../LICENSE
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+npmRebuild: false
+electronVersion: 33.4.11

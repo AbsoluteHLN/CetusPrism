@@ -1,0 +1,11 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-dsh-toggle-maximize"
+description = "Enables the dsh_toggle_maximize command without any pre-configured scope."
+commands.allow = ["dsh_toggle_maximize"]
+
+[[permission]]
+identifier = "deny-dsh-toggle-maximize"
+description = "Denies the dsh_toggle_maximize command without any pre-configured scope."
+commands.deny = ["dsh_toggle_maximize"]

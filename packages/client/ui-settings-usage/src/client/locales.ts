@@ -1,0 +1,77 @@
+/** `settings.usage` namespace dictionaries (the usage statistics section's copy). */
+
+/** Dictionary namespace owned by this plugin. */
+export const NS = 'settings.usage'
+
+/** Simplified Chinese dictionary (the key-set source of truth). */
+export const zh = {
+  'nav': '用量统计',
+  'summary.title': '额度消耗一览',
+  'input': '输入',
+  'input.hint': '未命中缓存 {count} · 缓存读取 {read} · 缓存写入 {write}',
+  'output': '输出',
+  'cacheRead': '缓存读取',
+  'cacheWrite': '缓存写入',
+  'total': '合计',
+  'column.session': '会话',
+  'column.input': '输入',
+  'column.output': '输出',
+  'column.cache': '缓存',
+  'column.total': '合计',
+  'turns': '{count} 轮',
+  'modelTime': '模型耗时',
+  'coverage': '{counted}/{total} 个会话包含用量统计（其余会话尚未产生用量记录）',
+  'empty': '暂无用量数据：发送第一条消息后，这里会汇总本机所有会话的 token 消耗。',
+  'subagent': '子代理',
+  'duration.hms': '{hours}小时{minutes}分',
+  'duration.ms': '{minutes}分{seconds}秒',
+  'duration.s': '{seconds}秒',
+  'tokens.thousand': '{value}K',
+  'tokens.million': '{value}M',
+  'token.count': '{count} tokens',
+  'chart.title': '每日 Token 趋势',
+  'chart.range7': '近 7 日',
+  'chart.range30': '近 30 日',
+  'chart.legend.input': '输入',
+  'chart.legend.output': '输出',
+  'chart.empty': '选定范围内暂无用量',
+  'chart.aria': '每日 Token 趋势：近 {range} 天，输入 {input}，输出 {output}',
+} satisfies Record<string, string>
+
+/** The settings.usage namespace key union. */
+export type UsageKey = keyof typeof zh
+
+/** English dictionary, checked complete against the zh key set. */
+export const en = {
+  'nav': 'Usage',
+  'summary.title': 'Token usage',
+  'input': 'Input',
+  'input.hint': 'uncached {count} · cache read {read} · cache write {write}',
+  'output': 'Output',
+  'cacheRead': 'Cache read',
+  'cacheWrite': 'Cache write',
+  'total': 'Total',
+  'column.session': 'Session',
+  'column.input': 'Input',
+  'column.output': 'Output',
+  'column.cache': 'Cache',
+  'column.total': 'Total',
+  'turns': '{count} turns',
+  'modelTime': 'Model time',
+  'coverage': '{counted}/{total} sessions carry usage accounting; the rest have not produced any yet',
+  'empty': 'No usage yet: token consumption appears here after the first message.',
+  'subagent': 'subagent',
+  'duration.hms': '{hours}h {minutes}m',
+  'duration.ms': '{minutes}m {seconds}s',
+  'duration.s': '{seconds}s',
+  'tokens.thousand': '{value}K',
+  'tokens.million': '{value}M',
+  'token.count': '{count} tok',
+  'chart.title': 'Daily token trend',
+  'chart.range7': '7 days',
+  'chart.range30': '30 days',
+  'chart.legend.input': 'Input',
+  'chart.legend.output': 'Output',
+  'chart.empty': 'No usage in the selected range',
+  'chart.aria': 'Daily token trend: last {range} days, input {input}, output {output}',
+} satisfies Record<UsageKey, string>

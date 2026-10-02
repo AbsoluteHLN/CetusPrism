@@ -14,7 +14,8 @@
 //! Platform behavior (single instance, focus signal, backend teardown,
 //! toasts, user-data paths, system browser handoff) lives behind the
 //! cfg-aliased `platform` module: `platform_win.rs` on Windows,
-//! `platform_linux.rs` elsewhere, with identical function signatures.
+//! `platform_linux.rs` on Linux, `platform_macos.rs` on macOS, with
+//! identical function signatures.
 
 // Windowed subsystem in release: no console window beside the app window.
 // Debug builds keep the console so backend output is observable.
@@ -22,16 +23,20 @@
 
 mod bridge;
 mod dsh_home;
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 mod platform_linux;
+#[cfg(target_os = "macos")]
+mod platform_macos;
 #[cfg(windows)]
 mod platform_win;
 #[cfg(windows)]
 mod notify;
 #[cfg(windows)]
 use platform_win as platform;
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 use platform_linux as platform;
+#[cfg(target_os = "macos")]
+use platform_macos as platform;
 
 use std::io::{BufRead, BufReader};
 use std::net::TcpListener;

@@ -62,8 +62,12 @@ html body {
   --dsw-alias-button-primary-fill: var(--hln-ui-accent) !important;
   --dsw-alias-button-primary-hover: var(--hln-ui-accent-strong, var(--hln-ui-accent)) !important;
   --dsw-alias-button-primary-dimmed: color-mix(in srgb, var(--hln-ui-accent) 16%, transparent) !important;
-  --dsw-alias-button-info-fill: var(--hln-ui-accent) !important;
-  --dsw-alias-button-info-hover: var(--hln-ui-accent-strong, var(--hln-ui-accent)) !important;
+  /* On-accent ink for fills this mapping re-points at the accent: the
+     composer send glyph, the file-type fold/marks, and the changed-files tile
+     mark assume a static dark fill and draw static white, which vanishes on
+     the near-white accent (titanium-oxide) and washes on the bright ones. The
+     v3.5 control contract inks on-accent content with the theme's base plane. */
+  --dsh-on-accent-ink: var(--hln-ui-bg-0) !important;
   --dsw-alias-button-contrast-fill: var(--hln-ui-text) !important;
   --dsw-alias-button-elevated-fill: var(--hln-ui-bg-2) !important;
   --dsw-alias-button-floating-fill: color-mix(in srgb, var(--hln-ui-bg-1) 94%, transparent) !important;
@@ -417,25 +421,6 @@ html body [role='dialog'] li[class*='cardActive'] {
 html body [role='dialog'] li[class*='cardBroken'],
 html body [role='dialog'] li[class*='cardBroken']:hover {
   border-color: var(--hln-ui-danger);
-}
-
-/* 当前使用 rides as the accent hairline chip instead of the stock white pill. */
-html body [role='dialog'] [class*='inUse'] {
-  border-radius: 0;
-  border: 1px solid color-mix(in srgb, var(--hln-ui-accent) 65%, transparent);
-  background: color-mix(in srgb, var(--hln-ui-accent) 14%, transparent);
-  color: var(--hln-ui-accent);
-  font-weight: 600;
-  letter-spacing: 0.06em;
-}
-
-/* 内置 stays a quiet technical tag. */
-html body [role='dialog'] [class*='badge'] {
-  border-radius: 0;
-  border-color: var(--hln-ui-line);
-  background: color-mix(in srgb, var(--hln-ui-bg-2) 60%, transparent);
-  color: var(--hln-ui-text-faint);
-  letter-spacing: 0.08em;
 }
 
 /* Footer icon buttons: hover leaves the stock gray for the accent tint. */

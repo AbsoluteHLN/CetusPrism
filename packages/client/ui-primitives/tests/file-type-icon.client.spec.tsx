@@ -77,7 +77,9 @@ describe('FileTypeIcon', () => {
     )
     expect(paints).toContain('currentColor')
     expect(paints.every(value => [
-      'currentColor', 'none', 'var(--dsw-static-neutral-00)', 'var(--dsw-static-neutral-400)',
+      'currentColor', 'none',
+      'var(--dsh-on-accent-ink, var(--dsw-static-neutral-00))',
+      'var(--dsw-static-neutral-400)',
     ].includes(value))).toBe(true)
   })
 
@@ -88,12 +90,12 @@ describe('FileTypeIcon', () => {
     expect(sheet.getAttribute('fill-opacity')).toBeNull()
   })
 
-  it('uses white marks and fold for coloured sheets, with a darker grey fold for other', () => {
+  it('draws marks and fold in theme-repointable ink, with a darker grey fold for other', () => {
     const coloured = render(<FileTypeIcon kind="pdf" />).container
     expect(coloured.querySelector('[data-file-type-mark]')?.getAttribute('color'))
-      .toBe('var(--dsw-static-neutral-00)')
+      .toBe('var(--dsh-on-accent-ink, var(--dsw-static-neutral-00))')
     expect(coloured.querySelector('svg > path:nth-of-type(2)')?.getAttribute('fill'))
-      .toBe('var(--dsw-static-neutral-00)')
+      .toBe('var(--dsh-on-accent-ink, var(--dsw-static-neutral-00))')
 
     const other = render(<FileTypeIcon kind="other" />).container
     expect(other.querySelector('svg > path:nth-of-type(2)')?.getAttribute('fill'))

@@ -11,7 +11,7 @@ type TraditionalFileType = Exclude<FileType, CodeFileType>
 const TYPE_COLORS: Readonly<Record<TraditionalFileType, string>> = {
   code: 'var(--hln-ui-accent, var(--dsw-static-deepseek-500))',
   excel: 'var(--dsw-static-green-500)',
-  folder: 'var(--dsw-static-amber-400)',
+  folder: 'var(--hln-ui-warning, var(--dsw-static-amber-400))',
   html: 'var(--hln-ui-accent, var(--dsw-static-deepseek-500))',
   image: 'var(--dsh-file-type-violet)',
   markdown: 'var(--hln-ui-accent, var(--dsw-static-deepseek-500))',

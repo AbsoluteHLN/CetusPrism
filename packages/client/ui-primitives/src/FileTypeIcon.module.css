@@ -14,7 +14,10 @@
 }
 
 .folder {
-  --dsh-file-type-default-color: var(--dsw-static-amber-400);
+  /* Amber 400 keeps the folder in the amber family on dark planes; the theme
+     warning token drops it to a deep amber where a light page would swallow
+     the stock value (1.57:1 on the light planes). */
+  --dsh-file-type-default-color: var(--hln-ui-warning, var(--dsw-static-amber-400));
 }
 
 .html {

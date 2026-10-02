@@ -1,7 +1,7 @@
 /** Regression coverage for source declarations owned by the client test aggregate. */
 
 import { existsSync, readdirSync } from 'node:fs'
-import { resolve, sep } from 'node:path'
+import { dirname, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { describe, expect, it } from 'vitest'
@@ -23,12 +23,13 @@ function clientCssDeclarations(): string[] {
 
 describe('client TypeScript aggregate', () => {
   it('loads package CSS declarations without relying on workspace-link realpaths', () => {
-    const configPath = resolve(root, 'tsconfig.client.json')
+    const configPath = resolve(root, 'configs', 'tsconfig.client.json')
     const read = ts.readConfigFile(configPath, file => ts.sys.readFile(file))
     if (read.error !== undefined) {
       throw new Error(ts.flattenDiagnosticMessageText(read.error.messageText, '\n'))
     }
-    const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, root)
+    // Include globs resolve against the config's own directory (configs/), not the repo root.
+    const parsed = ts.parseJsonConfigFileContent(read.config, ts.sys, dirname(configPath))
     const loaded = parsed.fileNames
       .map(file => file.replaceAll(sep, '/'))
       .filter(file => file.endsWith('/src/css-modules.d.ts'))

@@ -1,6 +1,5 @@
-import tsconfigPaths from 'vite-tsconfig-paths'
 import { defineConfig } from 'vitest/config'
-import { standardDecoratorPlugin, vitestExecArgv } from './vitest.shared.ts'
+import { standardDecoratorPlugin, vitestExecArgv, workspaceAliases } from './vitest.shared.ts'
 
 /**
  * CI performance gate. Node CPU cases use compiled plain-Node workers under
@@ -10,14 +9,14 @@ import { standardDecoratorPlugin, vitestExecArgv } from './vitest.shared.ts'
  * benchmark.
  */
 export default defineConfig({
-  plugins: [tsconfigPaths({ projects: ['./tsconfig.base.json'] }), standardDecoratorPlugin()],
+  plugins: [standardDecoratorPlugin()],
+  resolve: { alias: workspaceAliases() },
   test: {
     execArgv: vitestExecArgv,
     setupFiles: ['./scripts/test-proxy-environment.ts'],
     include: [
       'benchmarks/**/*.bench.ts',
-      'benchmarks/**/*.bench.client.ts',
-    ],
+      'benchmarks/**/*.bench.client.ts'],
     fileParallelism: false,
     maxWorkers: 1,
     testTimeout: 600_000,

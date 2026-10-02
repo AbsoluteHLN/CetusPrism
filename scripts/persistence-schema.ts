@@ -55,7 +55,7 @@ export function extractPersistenceSchema(root: string): PersistenceSchemaInvento
     ...events.map((event, index) => `export type EventRoot${String(index)} = SessionEvent<${JSON.stringify(event.name)}>`),
     '',
   ].join('\n')
-  const configPath = resolve(root, 'tsconfig.host.json')
+  const configPath = resolve(root, 'configs', 'tsconfig.host.json')
   const config = ts.readConfigFile(configPath, file => readFileSync(file, 'utf8'))
   if (config.error !== undefined) throw new PersistenceSchemaError(diagnosticText(config.error))
   const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, root)

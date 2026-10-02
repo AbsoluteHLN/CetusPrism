@@ -1,6 +1,5 @@
-import tsconfigPaths from 'vite-tsconfig-paths'
 import { defineConfig } from 'vitest/config'
-import { standardDecoratorPlugin, vitestExecArgv } from './vitest.shared.ts'
+import { standardDecoratorPlugin, vitestExecArgv, workspaceAliases } from './vitest.shared.ts'
 
 // Real-API suite, separate because it spends tokens. Each test self-skips without
 // its provider credential for keyless CI; credentialed workflows preflight the
@@ -36,7 +35,8 @@ export default defineConfig({
   // Built-artifact e2e suites are unaffected: their built-ness lives in
   // subprocesses and createRequire lookups, which bypass vite resolution
   // entirely.
-  plugins: [tsconfigPaths({ projects: ['./tsconfig.base.json'] }), standardDecoratorPlugin()],
+  plugins: [standardDecoratorPlugin()],
+  resolve: { alias: workspaceAliases() },
   test: {
     execArgv: vitestExecArgv,
     setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-invariants.ts'],
@@ -45,8 +45,7 @@ export default defineConfig({
     include: ['packages/*/*/tests/**/*.e2e.ts', 'apps/cli/tests/**/*.e2e.ts', 'apps/desktop/tests/**/*.e2e.ts'],
     exclude: [
       '**/*.expected.e2e.ts',
-      'packages/experimental/inspector/tests/client-browser.e2e.ts',
-    ],
+      'packages/experimental/inspector/tests/client-browser.e2e.ts'],
     // Real model calls: generous timeouts, and retries for transient flakes
     // (the shared internal key hits concurrency quotas). No coverage — the
     // unit suites own the coverage gate.

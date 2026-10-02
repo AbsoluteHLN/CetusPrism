@@ -19,7 +19,7 @@ describe('generated tsconfig package aliases', () => {
     const session = aliases.find(alias => alias.specifier === '@deepseek-ai/dsh-session')
     expect(session).toEqual({
       specifier: '@deepseek-ai/dsh-session',
-      source: './packages/core/session/src',
+      source: '../packages/core/session/src',
       hasInvariant: true,
     })
     // Sorted, so a package added anywhere lands in a stable spot in the diff.
@@ -79,7 +79,7 @@ describe('generated tsconfig package aliases', () => {
   })
 
   it('covers every workspace package in the committed config', () => {
-    const config = readFileSync(resolve(root, 'tsconfig.base.json'), 'utf8')
+    const config = readFileSync(resolve(root, 'configs', 'tsconfig.base.json'), 'utf8')
     // Includes the packages the generator skips because their name does not
     // match their directory: those carry hand-written aliases.
     const names = collectPackageNames()
@@ -88,7 +88,7 @@ describe('generated tsconfig package aliases', () => {
   })
 
   it('leaves no wildcard that probes every package group', () => {
-    const config = readFileSync(resolve(root, 'tsconfig.base.json'), 'utf8')
+    const config = readFileSync(resolve(root, 'configs', 'tsconfig.base.json'), 'utf8')
     // These two listed one candidate per group, so resolving a package late in
     // the list cost a filesystem probe — and under tsx a decorated module
     // error — for every group before it.

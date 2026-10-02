@@ -55,12 +55,13 @@ docs/        文档（架构、测试、用户指南）
 
 根目录其余散落文件均为工具链按约定钉在仓库根的配置，移动会破坏解析：
 pnpm 工作区三件套（`package.json` / `pnpm-workspace.yaml` / `pnpm-lock.yaml`）、
-TypeScript 面配置（`tsconfig*.json`）、默认测试配置（`vitest.config.ts`）、
-规范与提交钩子（`.editorconfig`、`.oxlintrc*`、`.jscpd.json`、
-`lefthook.yml`、`.gitattributes`），以及标准仓库文档（`LICENSE`、
-`THIRD_PARTY_NOTICES.md`）。其余按功能归入子目录：构建与各测试 lane 的
-配置在 `configs/`，文档（安全说明、贡献指南、品牌规范、基准测试、
-上游对齐记录等）在 `docs/` 下。
+TypeScript solution 入口（`tsconfig.json`，其余四个编译器面文件在 `configs/`）、
+默认测试配置（`vitest.config.ts`）、构建配置（`tsdown.config.ts`，其
+workspace 发现以自身所在目录为锚点）、规范与提交钩子（`.editorconfig`、
+`.oxlintrc*`、`.jscpd.json`、`lefthook.yml`、`.gitattributes`），以及标准
+仓库文档（`LICENSE`、`THIRD_PARTY_NOTICES.md`）。其余按功能归入子目录：
+编译器面与各测试 lane 配置在 `configs/`，文档（安全说明、贡献指南、
+品牌规范、基准测试、上游对齐记录等）在 `docs/` 下。
 
 ## 许可证
 

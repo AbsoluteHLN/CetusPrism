@@ -153,7 +153,7 @@ function packageRoot(start: string, workspace: string): string | undefined {
 
 function workspaceRoot(start: string): string {
   let current = resolve(start)
-  while (!existsSync(join(current, 'tsconfig.host.json'))) {
+  while (!existsSync(join(current, 'configs', 'tsconfig.host.json'))) {
     const parent = dirname(current)
     if (parent === current) throw new Error(`typert-generator: cannot find workspace root above ${start}`)
     current = parent

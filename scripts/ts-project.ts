@@ -46,7 +46,7 @@ export interface FaceConfigs {
  * @returns the aggregate's root config and every config it compiles.
  */
 export function faceConfigs(projectRoot: string, face: CompilerFace): FaceConfigs {
-  const rootPath = resolve(projectRoot, `tsconfig.${face}.json`)
+  const rootPath = resolve(projectRoot, 'configs', `tsconfig.${face}.json`)
   const root = parseConfig(rootPath)
   const byPath = new Map<string, ts.ParsedCommandLine>([[rootPath, root]])
   const collect = (parsed: ts.ParsedCommandLine): void => {

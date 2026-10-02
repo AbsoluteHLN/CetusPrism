@@ -1,9 +1,8 @@
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import tsconfigPaths from 'vite-tsconfig-paths'
 import { resolvePwshPath } from './packages/shell/pwsh-local/src/resolve.ts'
 import { defineConfig } from 'vitest/config'
-import { standardDecoratorPlugin, vitestExecArgv } from './configs/vitest.shared.ts'
+import { standardDecoratorPlugin, vitestExecArgv, workspaceAliases } from './configs/vitest.shared.ts'
 import { COVERAGE_EXEMPT_ENV, coverageExemptHeavySuites } from './scripts/coverage-exempt.ts'
 import { COVERAGE_PARTITION_MODE_ENV } from './scripts/coverage-partitions.ts'
 
@@ -16,9 +15,6 @@ const uncoveredLocationsReporter = fileURLToPath(new URL('./scripts/coverage-unc
 // Resolution facade shared by every plugin instance below: tsconfig.base.json
 // has no include, which vite-tsconfig-paths treats as match-all, so its paths
 // map applies to every test file. paths must win over package exports so built
-// lib/ never loads a second module-singleton copy.
-const pathsPlugin = (): ReturnType<typeof tsconfigPaths> => tsconfigPaths({ projects: ['./tsconfig.base.json'] })
-
 const windowsUnsupportedPackages = process.platform === 'win32'
   ? [
       // Bash-requiring suites (a real POSIX shell is unavailable on Windows).
@@ -34,8 +30,7 @@ const windowsUnsupportedPackages = process.platform === 'win32'
       'packages/experimental/ptc-runtime-python',
       'packages/sandbox/sandbox-local',
       // OpenSSH multiplexing and Unix-socket helper streams require POSIX endpoints.
-      'packages/ssh/*',
-    ]
+      'packages/ssh/*']
   : []
 
 const windowsUnsupportedTests = process.platform === 'win32'
@@ -56,8 +51,7 @@ const windowsUnsupportedTests = process.platform === 'win32'
       // which the ladder's win32 branch replaces with taskkill-by-real-pid —
       // undeliverable to a table pid. The worker host always reports 'linux',
       // so the Linux lanes hold the ladder.
-      'packages/experimental/webworker-runtime/tests/node/child-process.spec.ts',
-    ]
+      'packages/experimental/webworker-runtime/tests/node/child-process.spec.ts']
   : []
 
 // These suites compare against or assemble the Worker's fixed Linux platform.
@@ -66,8 +60,7 @@ const nonLinuxWebWorkerTests = process.platform === 'linux'
   ? []
   : [
       'packages/experimental/webworker-runtime/tests/node/fs-watch-stream.spec.ts',
-      'packages/experimental/webworker-runtime/tests/node/sandbox-stack.spec.ts',
-    ]
+      'packages/experimental/webworker-runtime/tests/node/sandbox-stack.spec.ts']
 
 const platformUnsupportedTests = [...windowsUnsupportedTests, ...nonLinuxWebWorkerTests]
 
@@ -85,8 +78,7 @@ const windowsOnlyCoverageExclusions = process.platform !== 'win32'
       // The koffi-backed Win32 table (Toolhelp32/GetProcessTimes/taskkill)
       // executes only on win32; its decision logic is unit-pinned on every
       // host through the injected-internals suites.
-      'packages/subprocess/subprocess-local/src/windows-inspector.ts',
-    ]
+      'packages/subprocess/subprocess-local/src/windows-inspector.ts']
   : []
 
 // The confinement runner entry executes exclusively as a spawned child
@@ -102,8 +94,7 @@ const windowsRunnerCoverageExclusions = process.platform === 'win32'
       // per-file 100%, while the Windows branch is unit-pinned by
       // win32.spec's injected bindings and exercised natively by every
       // Windows suite through the real backend.
-      'packages/session/session-persistence-jsonl/src/lease.ts',
-    ]
+      'packages/session/session-persistence-jsonl/src/lease.ts']
   : []
 
 // pwsh-local's run/start/lifecycle suites self-skip without a real pwsh
@@ -117,15 +108,13 @@ const pwshCoverageExclusions = spawnSync(resolvePwshPath(), ['-NoLogo', '-NoProf
   ? []
   : [
       'packages/shell/pwsh-local/src/index.ts',
-      'packages/shell/pwsh-sandbox/src/**/*.ts',
-    ]
+      'packages/shell/pwsh-sandbox/src/**/*.ts']
 
 const testIncludes = [
   'packages/*/*/tests/**/*.spec.{ts,tsx}',
   'apps/*/tests/**/*.spec.{ts,tsx}',
   'scripts/**/*.spec.ts',
-  'website/tests/**/*.spec.ts',
-]
+  'website/tests/**/*.spec.ts']
 
 // The instrumented coverage gate sets this env; the exempt heavy suites then
 // run beside it uninstrumented (membership contract in scripts/coverage-exempt.ts).
@@ -155,11 +144,11 @@ const processBoundTests = [
   'packages/context/time-context/tests/time-context.spec.ts',
   'packages/llm/llm-pi-ai/tests/adapter.spec.ts',
   'packages/boot/app-boot/tests/app-boot.spec.ts',
-  'packages/workflow/workflow-ptc/tests/workflow-ptc.spec.ts',
-]
+  'packages/workflow/workflow-ptc/tests/workflow-ptc.spec.ts']
 
 export default defineConfig({
-  plugins: [pathsPlugin(), standardDecoratorPlugin()],
+  plugins: [standardDecoratorPlugin()],
+  resolve: { alias: workspaceAliases() },
   test: {
     setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-invariants.ts', './scripts/test-dom-environment.ts'],
     // .tsx: client component specs (jsdom via per-file @vitest-environment pragma).
@@ -169,7 +158,8 @@ export default defineConfig({
     // Node stability; process-bound suites stay separate for inventory control.
     projects: [
       {
-        plugins: [pathsPlugin(), standardDecoratorPlugin()],
+        plugins: [standardDecoratorPlugin()],
+        resolve: { alias: workspaceAliases() },
         test: {
           name: 'thread-safe',
           execArgv: vitestExecArgv,
@@ -182,12 +172,12 @@ export default defineConfig({
           exclude: [
             ...platformUnsupportedTests,
             ...processBoundTests,
-            ...coverageExemptExcludes,
-          ],
+            ...coverageExemptExcludes],
         },
       },
       {
-        plugins: [pathsPlugin(), standardDecoratorPlugin()],
+        plugins: [standardDecoratorPlugin()],
+        resolve: { alias: workspaceAliases() },
         test: {
           name: 'process-bound',
           execArgv: vitestExecArgv,
@@ -196,11 +186,9 @@ export default defineConfig({
           include: processBoundTests,
           exclude: [
             ...platformUnsupportedTests,
-            ...coverageExemptExcludes,
-          ],
+            ...coverageExemptExcludes],
         },
-      },
-    ],
+      }],
     coverage: {
       provider: 'v8',
       // Coverage measures OUR runtime source. Types-only files carry no
@@ -353,8 +341,7 @@ export default defineConfig({
         ...windowsUnsupportedCoveragePackages.map(path => `${path}/src/**/*.ts`),
         ...windowsOnlyCoverageExclusions,
         ...windowsRunnerCoverageExclusions,
-        ...pwshCoverageExclusions,
-      ],
+        ...pwshCoverageExclusions],
       // 100% or it doesn't merge (docs/testing.md: excessive tests are welcome).
       // Per-file so a well-covered big file can't subsidize a bare one.
       // Every v8 ignore comment must carry a reason — see the quality-gates Agent Note

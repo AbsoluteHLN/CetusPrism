@@ -67,7 +67,7 @@ const configHost: ts.ParseConfigFileHost = {
  * workspace paths via tsconfig.base.json.
  */
 function builtTypeCompilerOptions(): ts.CompilerOptions {
-  const configPath = join(root, 'tsconfig.host.json')
+  const configPath = join(root, 'configs', 'tsconfig.host.json')
   const parsed = ts.getParsedCommandLineOfConfigFile(configPath, {}, configHost)
   if (!parsed) throw new Error(`doc-typecheck: cannot parse ${configPath}`)
   if (parsed.errors.length > 0) {
@@ -141,7 +141,7 @@ function formatDiagnostics(diagnostics: readonly ts.Diagnostic[], blocks: Block[
  * not exist until Host tsdown has run.
  */
 function workspaceReferences(): { path: string }[] {
-  const file = join(root, 'tsconfig.host.json')
+  const file = join(root, 'configs', 'tsconfig.host.json')
   // Parse with TypeScript's own JSONC reader: a regex comment stripper corrupts the `/*/` path
   // candidate in the workspace wildcard.
   const result = ts.readConfigFile(file, path => readFileSync(path, 'utf8'))
@@ -158,7 +158,7 @@ function workspaceReferences(): { path: string }[] {
 /** The standalone temp project used when no coordinated build owns declaration freshness. */
 function tempTsconfig(): string {
   return JSON.stringify({
-    extends: '../tsconfig.host.json',
+    extends: '../configs/tsconfig.host.json',
     compilerOptions: {
       noUnusedLocals: false,
       noUnusedParameters: false,

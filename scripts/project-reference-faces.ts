@@ -30,7 +30,7 @@ const WORKSPACE_MANIFESTS = [
 export function collectProjectReferenceFaceViolations(root: string): string[] {
   const splitRoots = splitProjectRoots(root)
   const violations: string[] = []
-  const pending = [resolve(root, 'tsconfig.host.json'), resolve(root, 'tsconfig.client.json')]
+  const pending = [resolve(root, 'configs', 'tsconfig.host.json'), resolve(root, 'configs', 'tsconfig.client.json')]
   const visited = new Set<string>()
   for (let configPath = pending.pop(); configPath !== undefined; configPath = pending.pop()) {
     if (visited.has(configPath) || !existsSync(configPath)) continue

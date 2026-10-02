@@ -14,8 +14,8 @@ import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import type { StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
-import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
-import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
+import SessionStore, { SessionId, SESSION_FORMAT_VERSION, SessionLogOffset } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import * as SessionStatsPlugin from '@deepseek-ai/dsh-session-stats'
 import { sessionStatsProjectionDefinition } from '@deepseek-ai/dsh-session-stats/src/projection.ts'
@@ -61,6 +61,22 @@ describe('sessionStats projection unit (registry drive)', () => {
   it('serves zero figures on the empty log', async () => {
     const { ctx, session } = await harness(true)
     expect(ctx.sessionProjections.snapshot(session).values.sessionStats).toEqual(totals())
+  })
+
+  it("excludes the fork-inherited prefix from a forked session's figures", async () => {
+    const { ctx, session: parent } = await harness(true)
+    parent.append('turn/start', { turn: 1 })
+    closeStep(parent, 1, 1)
+    parent.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+
+    const child = ctx.sessions.fork(parent, undefined, SessionId('stats-child'))
+    // The inherited prefix replays the parent's turns; their figures were
+    // attributed to the parent, so the child starts from zero.
+    expect(ctx.sessionProjections.snapshot(child).values.sessionStats).toEqual(totals())
+    child.append('turn/start', { turn: 2 })
+    closeStep(child, 2, 1)
+    child.append('turn/end', { turn: 2, reason: { kind: 'completed' } })
+    expect(ctx.sessionProjections.snapshot(child).values.sessionStats).toEqual(totals({ turns: 1, steps: 1 }))
   })
 
   it('counts distinct turns and closed steps and notifies the change feed with the causing seq', async () => {
@@ -167,11 +183,16 @@ function attemptAt(
   })
 }
 
+/** Minimal header for direct definition drives; the fold reads no header fields. */
+function specHeader(): SessionHeader {
+  return { version: SESSION_FORMAT_VERSION, id: SessionId('stats-spec'), createdAt: 0, isSeeded: false }
+}
+
 /** Fold a synthetic event list through the definition and view the result. */
 function fold(events: readonly SessionEvent[]): SessionStatsProjection {
   const state = events.reduce<Parameters<typeof sessionStatsProjectionDefinition.apply>[0]>(
     (folded, event) => sessionStatsProjectionDefinition.apply(folded, event),
-    sessionStatsProjectionDefinition.init(),
+    sessionStatsProjectionDefinition.init(specHeader(), SessionLogOffset(0)),
   )
   return sessionStatsProjectionDefinition.wire.view(state)
 }
@@ -341,7 +362,7 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
     // no open step and folds to the same reference.
     const state = events.reduce<Parameters<typeof sessionStatsProjectionDefinition.apply>[0]>(
       (folded, event) => sessionStatsProjectionDefinition.apply(folded, event),
-      sessionStatsProjectionDefinition.init(),
+      sessionStatsProjectionDefinition.init(specHeader(), SessionLogOffset(0)),
     )
     expect(sessionStatsProjectionDefinition.apply(
       state,
@@ -350,7 +371,7 @@ describe('sessionStats wall-time fold (controlled timestamps)', () => {
   })
 
   it('accrues nothing for unrelated events and clamps negative clock skew to zero', () => {
-    const state = sessionStatsProjectionDefinition.init()
+    const state = sessionStatsProjectionDefinition.init(specHeader(), SessionLogOffset(0))
     const untouched = sessionStatsProjectionDefinition.apply(state, at(1, 'user/message', { content: [] }))
     expect(untouched).toBe(state)
     expect(fold([

@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createMessage } from '@deepseek-ai/dsh-llm'
 import type { TokenUsage } from '@deepseek-ai/dsh-llm'
-import SessionStore, { SessionSeq } from '@deepseek-ai/dsh-session'
+import SessionStore, { SessionId, SessionSeq } from '@deepseek-ai/dsh-session'
 import type { Session, SessionEvent } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
@@ -134,6 +134,22 @@ describe('usageTimeline session projection', () => {
     })
   })
 
+  it('buckets only own events for a forked session', async () => {
+    const { ctx, session: parent } = await harness()
+    startStep(parent, 1, 1)
+    usageChunk(parent, { inputTokens: 20, outputTokens: 2 }, 1, 1)
+
+    const child = ctx.sessions.fork(parent, undefined, SessionId('timeline-child'))
+    // The inherited prefix carries the parent's settlement; its usage was
+    // billed there, so the child's timeline starts empty.
+    expect(projected(ctx, child)).toEqual({ days: [] })
+    startStep(child, 2, 1)
+    usageChunk(child, { inputTokens: 5, outputTokens: 1 }, 2, 1)
+    expect(projected(ctx, child)).toEqual({
+      days: [{ day: today(), uncachedInputTokens: 5, outputTokens: 1, cacheReadTokens: 0, cacheWriteTokens: 0 }],
+    })
+  })
+
   it('unregisters with the token-meter fiber and restores from a JSON checkpoint', async () => {
     const { ctx, session, meterFiber } = await harness()
     startStep(session, 1, 1)
@@ -141,7 +157,7 @@ describe('usageTimeline session projection', () => {
     const checkpoint = JSON.parse(JSON.stringify(
       ctx.sessionProjections.checkpoint(session),
     )) as ReturnType<typeof ctx.sessionProjections.checkpoint>
-    expect(checkpoint.usageTimeline?.ver).toBe(1)
+    expect(checkpoint.usageTimeline?.ver).toBe(2)
 
     await meterFiber.dispose()
     expect(ctx.sessionProjections.snapshot(session).values).not.toHaveProperty('usageTimeline')
@@ -177,7 +193,7 @@ function retryStartedAt(seq: number, time: number, turn: number, step: number): 
 }
 
 const initialState = (): ReturnType<typeof usageTimelineProjectionDefinition.stateSchema.parse> =>
-  usageTimelineProjectionDefinition.stateSchema.parse({ days: [], last: null })
+  usageTimelineProjectionDefinition.stateSchema.parse({ forkBoundary: 0, days: [], last: null })
 
 function fold(events: readonly SessionEvent[]): UsageTimelineProjection {
   const definition = usageTimelineProjectionDefinition

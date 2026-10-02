@@ -54,6 +54,9 @@ const projectionSchema = z.object({
  * shape; the state type is inferred from it.
  */
 const tokenUsageStateSchema = z.object({
+  // Fork boundary: events below it belong to the source session's history
+  // and their usage was already billed there.
+  forkBoundary: z.number().int().nonnegative(),
   totals: projectionSchema,
   last: z.object({
     turn: z.number().int().nonnegative(),
@@ -113,14 +116,17 @@ type ContextPressureState = z.infer<typeof contextPressureStateSchema>
  *
  * Each v2 Assistant settlement contributes the last usage sample embedded in
  * its stream. `llm/retry-started` closes the replacement slot so the retried
- * attempt adds to the total.
+ * attempt adds to the total. Events below the fork boundary are skipped:
+ * the inherited prefix was already billed to the source session, so this
+ * session's totals fold only its own settlements.
  */
 export const tokenUsageProjectionDefinition = {
   key: 'tokenUsage',
-  stateVersion: 2,
+  stateVersion: 3,
   stateSchema: tokenUsageStateSchema,
-  init: () => ({ totals: zeroBuckets(), last: null }),
+  init: (_header, inheritedEventCount) => ({ forkBoundary: inheritedEventCount, totals: zeroBuckets(), last: null }),
   apply: (state, event) => {
+    if (event.seq < state.forkBoundary) return state
     if (event.type === 'llm/retry-started') {
       return state.last?.turn === event.data.turn && state.last.step === event.data.step
         ? { ...state, last: null }
@@ -143,6 +149,7 @@ export const tokenUsageProjectionDefinition = {
     if (previous !== undefined && bucketsEqual(previous, buckets)) return state
 
     return {
+      forkBoundary: state.forkBoundary,
       totals: addReplacing(state.totals, previous, buckets),
       last: { turn, step, buckets },
     }
@@ -158,6 +165,8 @@ const TIMELINE_WIRE_DAY_CAP = 62
 
 /** The usage-timeline unit's state: full per-day history plus the replacement slot. */
 interface UsageTimelineState {
+  /** Events below this seq are the fork-inherited prefix; their usage bills to the source session. */
+  forkBoundary: number
   days: UsageTimelineDay[]
   last: {
     turn: number
@@ -178,6 +187,9 @@ const timelineDaySchema = z.object({
 }).strict()
 
 const usageTimelineStateSchema: z.ZodType<UsageTimelineState> = z.object({
+  // Fork boundary: events below it belong to the source session's history
+  // and their usage was already billed there.
+  forkBoundary: z.number().int().nonnegative(),
   days: z.array(timelineDaySchema),
   last: z.object({
     turn: z.number().int().nonnegative(),
@@ -260,14 +272,16 @@ function shiftDay(
  * in (which may differ from the new sample's day) before adding the new ones,
  * and `llm/retry-started` closes the slot. Days without usage never gain
  * entries. The state keeps the full history; the wire view caps to the most
- * recent {@link TIMELINE_WIRE_DAY_CAP} days.
+ * recent {@link TIMELINE_WIRE_DAY_CAP} days. Events below the fork boundary
+ * are skipped: the inherited prefix was already billed to the source session.
  */
 export const usageTimelineProjectionDefinition = {
   key: 'usageTimeline',
-  stateVersion: 1,
+  stateVersion: 2,
   stateSchema: usageTimelineStateSchema,
-  init: () => ({ days: [], last: null }),
+  init: (_header, inheritedEventCount) => ({ forkBoundary: inheritedEventCount, days: [], last: null }),
   apply: (state, event) => {
+    if (event.seq < state.forkBoundary) return state
     if (event.type === 'llm/retry-started') {
       return state.last !== null
         && state.last.turn === event.data.turn
@@ -297,7 +311,7 @@ export const usageTimelineProjectionDefinition = {
     let days = state.days
     if (previous !== null) days = shiftDay(days, previous.day, previous.buckets, -1)
     days = shiftDay(days, day, buckets, 1)
-    return { days, last: { turn, step, day, buckets } }
+    return { forkBoundary: state.forkBoundary, days, last: { turn, step, day, buckets } }
   },
   wire: {
     viewSchema: z.object({ days: z.array(timelineDaySchema) }).strict(),

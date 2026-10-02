@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { createMessage, createUserMessage } from '@deepseek-ai/dsh-llm'
 import type { TokenUsage } from '@deepseek-ai/dsh-llm'
-import SessionStore from '@deepseek-ai/dsh-session'
+import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
 import type { Session, SessionSeq } from '@deepseek-ai/dsh-session'
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
@@ -289,6 +289,25 @@ describe('tokenUsage session projection', () => {
     expect(projected(ctx, session)).toEqual({
       uncachedInputTokens: 12,
       outputTokens: 3,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+    })
+  })
+
+  it('excludes the fork-inherited prefix and bills only the fork point onward', async () => {
+    const { ctx, session: parent } = await harness()
+    startStep(parent, 1, 1)
+    finalUsage(parent, { inputTokens: 10, outputTokens: 4, cacheReadTokens: 6 }, 1, 1)
+
+    const child = ctx.sessions.fork(parent, undefined, SessionId('usage-child'))
+    // The inherited prefix replays the parent's settlements; their usage was
+    // billed to the parent, so the child starts from zero buckets.
+    expect(projected(ctx, child)).toEqual(ZERO)
+    startStep(child, 2, 1)
+    finalUsage(child, { inputTokens: 5, outputTokens: 1 }, 2, 1)
+    expect(projected(ctx, child)).toEqual({
+      uncachedInputTokens: 5,
+      outputTokens: 1,
       cacheReadTokens: 0,
       cacheWriteTokens: 0,
     })

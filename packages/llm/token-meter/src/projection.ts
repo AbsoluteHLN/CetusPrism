@@ -90,13 +90,13 @@ export interface UsageTimelineProjection {
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionMap {
-    /** Provider-reported usage accumulated across the complete durable log. */
+    /** Provider-reported usage across the session's own events; the fork-inherited prefix bills to its source session. */
     tokenUsage: TokenUsageProjection
     /** Newest request pressure paired with the newest known route capacity. */
     contextPressure: ContextPressureProjection
     /** Heuristic system/tools/message composition of the next request. */
     contextBreakdown: ContextBreakdownProjection
-    /** Provider-reported usage bucketed by UTC day across the complete durable log. */
+    /** Provider-reported usage by UTC day across the session's own events; the inherited prefix bills to its source. */
     usageTimeline: UsageTimelineProjection
   }
 }

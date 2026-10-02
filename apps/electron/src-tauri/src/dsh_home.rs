@@ -169,6 +169,10 @@ pub fn write_decision(user_data_dir: &Path, mode: DshHomeMode, home: Option<&Pat
         "decidedAt": iso8601_now(),
     });
     let text = serde_json::to_string_pretty(&decision).expect("decision JSON serializes") + "\n";
+    // First launch writes before anything else created the user-data
+    // directory (the Windows installer pre-creates it; package installs do
+    // not), so the directory must be materialized here.
+    std::fs::create_dir_all(user_data_dir).expect("user data dir is creatable");
     std::fs::write(user_data_dir.join(DECISION_FILE), text).expect("decision file is writable");
 }
 
@@ -332,6 +336,17 @@ mod tests {
         assert_eq!(decision.home, Some(PathBuf::from("E:\\h")));
         assert_eq!(decision.fallback_home, Some(PathBuf::from("C:\\h")));
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn decision_write_creates_missing_user_data_dir() {
+        // A fresh install has no user-data directory yet; the first decision
+        // write must materialize it instead of panicking (the Linux launch
+        // failure of 2026-10-02).
+        let dir = scratch("decision-fresh").join("CetusPrism");
+        write_decision(&dir, DshHomeMode::Default, None, None);
+        assert_eq!(read_decision(&dir).map(|decision| decision.mode), Some(DshHomeMode::Default));
+        std::fs::remove_dir_all(dir.parent().unwrap()).unwrap();
     }
 
     #[test]

@@ -2,10 +2,12 @@
  * @deepseek-ai/dsh-headless — one-shot direct Agent driver. The bundle patch
  * rides over dsh-base without Host, HTTP, or browser plugins; this runner
  * creates one Agent through the core registry (or adopts the exact Session a
- * `--session-id` names), drives the task to quiescence, streams provider
- * reasoning to stderr, flushes its Session, prints the final assistant text to
- * stdout, and exits. With `--json` it projects the run as newline-delimited
- * events instead of the final text.
+ * `--session-id` names), drives the task to quiescence, flushes its Session,
+ * and exits. On a TTY stdout the run renders as a live terminal UI — header,
+ * animated status line, tool cards, streaming answer, and summary footer —
+ * unless `plain` selects the classic mode, which streams provider reasoning to
+ * stderr and prints the final assistant text to stdout. With `json`, stdout
+ * carries newline-delimited run events instead of either.
  *
  * @module @deepseek-ai/dsh-headless
  */
@@ -31,6 +33,7 @@ import type {} from '@deepseek-ai/dsh-cmdline'
 import type {} from '@deepseek-ai/dsh-session-query'
 import { internals } from './runner-internals.ts'
 import { projectJsonRun, boundJsonLine } from './json-stream.ts'
+import { projectTuiRun, type TuiProjection } from './tui.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'headless-runner'
@@ -46,12 +49,18 @@ export interface Config {
   sessionId?: string
   /** Whether stdout carries the machine-readable event stream instead of final text. */
   json?: boolean
+  /** Render the live terminal UI even when stdout is not a terminal. */
+  tui?: boolean
+  /** Print the classic plain output even when stdout is a terminal. */
+  plain?: boolean
 }
 
 export const Config: z<Config> = z.object({
   task: z.string(),
   sessionId: z.string(),
   json: z.boolean(),
+  tui: z.boolean(),
+  plain: z.boolean(),
 })
 
 /** Outcome of one owned run interval. */
@@ -292,14 +301,6 @@ async function resolveAgent(
   }
 }
 
-/** Report an unexpected direct-driver failure and request a failing exit. */
-function fail(io: HeadlessIo, error: unknown, json: boolean): void {
-  const message = error instanceof Error ? error.message : String(error)
-  if (json) io.stdout.write(`${boundJsonLine({ type: 'error', message })}\n`)
-  io.stderr.write(`dsh: ${message}\n`)
-  io.exit(1)
-}
-
 /**
  * Run one task through one Agent and request process exit.
  * @param ctx - plugin context carrying the Agent, default model, Session, and launcher IO services.
@@ -307,60 +308,81 @@ function fail(io: HeadlessIo, error: unknown, json: boolean): void {
  * @param io - process-facing effects.
  */
 async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> {
-  // Loader siblings mount concurrently. Await the complete application before
-  // creating an Agent so its scoped tools and adapters are not half-composed.
-  await ctx.get('loader')?.await()
-  const agents = ctx.get('agents')
-  const defaultModel = ctx.get('agentDefaultModel')
-  const sessions = ctx.get('sessions')
-  // Early process shutdown can dispose the tree while settlement is pending.
-  if (agents === undefined || defaultModel === undefined || sessions === undefined) return
-
-  // A Cordis overlay sets the row directly and bypasses the CLI trim check, so
-  // the same public setting must fail here rather than become a blank identity.
-  if (config.sessionId !== undefined && config.sessionId.trim() === '') {
-    throw new Error('headless-runner: sessionId must not be blank')
-  }
-
-  const task = config.task === undefined || config.task === '-'
-    ? await internals.readStdin()
-    : config.task
-  if (task.trim() === '') {
-    throw new Error('a task is required, for example: dsh --profile headless "run the tests"')
-  }
-
-  const selection = defaultModel.currentSelection()
-  const agentOptions = { provider: selection.provider, model: selection.model }
-  // This bundle composes no preset roster, so the model-facing rows sit in the
-  // host plane and the agent reads them from the global layer. A deployment
-  // that DOES configure one has to join it here first
-  // (@deepseek-ai/dsh-agent-preset-registry README, "Composing a child agent").
-  const setup = (agentCtx: Context): void => {
-    const selected: ModelSelectionRef = { current: selection, assembled: undefined }
-    installModelSelection(agentCtx, selected)
-  }
-  const sessionId = brandString<SessionId>(config.sessionId ?? `session-${randomUUID()}`)
-  const fs = ctx.get('fs')
-  const cwd = fs === undefined ? process.cwd() : fs.processPath(await fs.resolve('.'))
-  const agent = config.sessionId === undefined
-    ? (await agents.create({
-      sessionId,
-      meta: { cwd },
-      agentOptions,
-      setup,
-    })).agent
-    : await resolveAgent(ctx, agents, sessionId, agentOptions, setup, cwd)
-  await agent.whenIdle()
-  if (config.sessionId !== undefined) {
-    // The resume-time check read a snapshot; an overlay can still append a
-    // preset selection between it and the interval this run now owns, so
-    // re-read the log the runner holds before submitting the task.
-    assertAdoptable(agent.session.header, liveEvents(agent.session), sessionId, cwd)
-  }
-  const firstSeq = agent.session.seq
-  const projection = config.json === true ? projectJsonRun(ctx, agent, io.stdout, { cwd }) : undefined
-  const stopReasoning = projection === undefined ? streamReasoning(ctx, agent, io.stderr) : undefined
+  const useJson = config.json === true
+  let jsonProjection: ReturnType<typeof projectJsonRun> | undefined
+  let tuiProjection: TuiProjection | undefined
   try {
+    // Loader siblings mount concurrently. Await the complete application before
+    // creating an Agent so its scoped tools and adapters are not half-composed.
+    await ctx.get('loader')?.await()
+    const agents = ctx.get('agents')
+    const defaultModel = ctx.get('agentDefaultModel')
+    const sessions = ctx.get('sessions')
+    // Early process shutdown can dispose the tree while settlement is pending.
+    if (agents === undefined || defaultModel === undefined || sessions === undefined) return
+
+    // A Cordis overlay sets the row directly and bypasses the CLI trim check, so
+    // the same public setting must fail here rather than become a blank identity.
+    if (config.sessionId !== undefined && config.sessionId.trim() === '') {
+      throw new Error('headless-runner: sessionId must not be blank')
+    }
+
+    const task = config.task === undefined || config.task === '-'
+      ? await internals.readStdin()
+      : config.task
+    if (task.trim() === '') {
+      throw new Error('a task is required, for example: dsh --profile headless "run the tests"')
+    }
+
+    const selection = defaultModel.currentSelection()
+    const agentOptions = { provider: selection.provider, model: selection.model }
+    // This bundle composes no preset roster, so the model-facing rows sit in the
+    // host plane and the agent reads them from the global layer. A deployment
+    // that DOES configure one has to join it here first
+    // (@deepseek-ai/dsh-agent-preset-registry README, "Composing a child agent").
+    const setup = (agentCtx: Context): void => {
+      const selected: ModelSelectionRef = { current: selection, assembled: undefined }
+      installModelSelection(agentCtx, selected)
+    }
+    const sessionId = brandString<SessionId>(config.sessionId ?? `session-${randomUUID()}`)
+    const fs = ctx.get('fs')
+    const cwd = fs === undefined ? process.cwd() : fs.processPath(await fs.resolve('.'))
+    const agent = config.sessionId === undefined
+      ? (await agents.create({
+        sessionId,
+        meta: { cwd },
+        agentOptions,
+        setup,
+      })).agent
+      : await resolveAgent(ctx, agents, sessionId, agentOptions, setup, cwd)
+    await agent.whenIdle()
+    if (config.sessionId !== undefined) {
+      // The resume-time check read a snapshot; an overlay can still append a
+      // preset selection between it and the interval this run now owns, so
+      // re-read the log the runner holds before submitting the task.
+      assertAdoptable(agent.session.header, liveEvents(agent.session), sessionId, cwd)
+    }
+    const firstSeq = agent.session.seq
+    // Output mode: --json owns stdout first; --plain forces the classic mode;
+    // otherwise the live UI is the default on a TTY stdout, and --tui extends
+    // it to a piped stdout, where it renders as a static, uncolored transcript.
+    const useTui = !useJson && config.plain !== true && (config.tui === true || internals.stdoutIsTty())
+    jsonProjection = useJson ? projectJsonRun(ctx, agent, io.stdout, { cwd }) : undefined
+    tuiProjection = useTui
+      ? projectTuiRun(ctx, agent, io.stdout, {
+        sessionId: agent.id,
+        provider: selection.provider,
+        model: selection.model,
+        cwd,
+      }, {
+        width: internals.stdoutColumns(),
+        color: internals.stdoutIsTty() && !internals.noColor(),
+        animate: internals.stdoutIsTty(),
+      })
+      : undefined
+    const stopReasoning = jsonProjection === undefined && tuiProjection === undefined
+      ? streamReasoning(ctx, agent, io.stderr)
+      : undefined
     try {
       agent.followup(createUserMessage({
         content: [{ type: 'text', text: task }],
@@ -372,14 +394,22 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
     }
     await sessions.flush(agent.session)
     const outcome = summarize(agent.session, firstSeq)
-    if (projection === undefined) io.stdout.write(outcome.text + '\n')
-    else projection.finish(outcome.text)
+    if (jsonProjection !== undefined) jsonProjection.finish(outcome.text)
+    else if (tuiProjection !== undefined) tuiProjection.finish(outcome.reason)
+    else io.stdout.write(outcome.text + '\n')
     if (outcome.reason?.kind === 'error') {
       io.stderr.write(`dsh: ${outcome.reason.error.code}: ${outcome.reason.error.message}\n`)
     }
     io.exit(outcome.reason?.kind === 'completed' ? 0 : 1)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    tuiProjection?.fail(message)
+    if (useJson) io.stdout.write(`${boundJsonLine({ type: 'error', message })}\n`)
+    io.stderr.write(`dsh: ${message}\n`)
+    io.exit(1)
   } finally {
-    projection?.dispose()
+    jsonProjection?.dispose()
+    tuiProjection?.dispose()
   }
 }
 
@@ -396,5 +426,7 @@ export function apply(ctx: Context, config: Config): void {
     throw new Error('headless-runner: the launcher must provide ctx.appExit before the tree mounts')
   }
   const io: HeadlessIo = { stdout: internals.stdout, stderr: internals.stderr, exit }
-  void run(ctx, config, io).catch((error: unknown) => { fail(io, error, config.json === true) })
+  // run owns every failure path — the TUI footer, the JSON error event, and
+  // the stderr diagnostic — so no rejection escapes this mount.
+  void run(ctx, config, io)
 }

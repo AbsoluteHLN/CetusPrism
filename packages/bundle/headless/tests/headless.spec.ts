@@ -46,6 +46,16 @@ interface BenchOptions {
   readStdin?: () => Promise<string>
   sessionId?: string
   json?: boolean
+  /** Report stdout as a terminal: the live-UI default-mode switch. */
+  tty?: boolean
+  /** Columns the terminal reports, for the layout width. */
+  columns?: number
+  /** Report the NO_COLOR environment variable present. */
+  noColor?: boolean
+  /** Pass the `--tui` config value through to the runner. */
+  tui?: boolean
+  /** Pass the `--plain` config value through to the runner. */
+  plain?: boolean
   observe?: () => Promise<ObservationStub>
   /** Leave the query service unmounted to exercise the fail-loud path. */
   omitSessionQuery?: boolean
@@ -203,6 +213,11 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
       ctx.on('session/flush', () => { order.push('flush') })
       internals.stdout = { write: (chunk: string) => { out += chunk; return true } }
       internals.stderr = { write: (chunk: string) => { err += chunk; return true } }
+      // The bench captures stdout, so a real TTY is never present; report the
+      // terminal facts explicitly so the mode selection is deterministic.
+      internals.stdoutIsTty = () => options.tty === true
+      internals.stdoutColumns = () => options.columns
+      internals.noColor = () => options.noColor === true
       if (options.readStdin !== undefined) internals.readStdin = options.readStdin
       const exited = new Promise<number>((resolve) => {
         ctx.provide('appExit', (code: number) => { order.push('exit'); resolve(code) })
@@ -217,6 +232,8 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
         ...options.useStdin === true ? {} : { task: options.task ?? 'do the thing' },
         ...options.sessionId === undefined ? {} : { sessionId: options.sessionId },
         ...options.json === undefined ? {} : { json: options.json },
+        ...options.tui === undefined ? {} : { tui: options.tui },
+        ...options.plain === undefined ? {} : { plain: options.plain },
       })
       return { code: await exited, out, err, order }
     },
@@ -1046,7 +1063,130 @@ describe('headless runner', () => {
 
   it('validates config: the task and run options are optional', () => {
     expect(new Config({})).toEqual({})
-    expect(new Config({ task: 'x', sessionId: 'session-x', json: true }))
-      .toEqual({ task: 'x', sessionId: 'session-x', json: true })
+    expect(new Config({ task: 'x', sessionId: 'session-x', json: true, tui: true, plain: true }))
+      .toEqual({ task: 'x', sessionId: 'session-x', json: true, tui: true, plain: true })
+  })
+})
+
+describe('headless runner live terminal UI', () => {
+  it('renders the layout on a TTY stdout without the plain answer line', async () => {
+    const test = await bench({
+      afterPrompt(session, message) { appendTurn(session, 1, message, 'remote answer', true) },
+    }, { tty: true })
+    try {
+      const result = await test.run()
+      expect(result.code).toBe(0)
+      expect(result.out).toContain('CetusPrism')
+      expect(result.out).toContain('remote answer')
+      expect(result.out).toContain('✓')
+      expect(result.out).toContain('completed')
+      expect(result.out).not.toMatch(/^remote answer\n/m)
+      expect(result.err).toBe('')
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
+  })
+
+  it('renders a static, uncolored layout when --tui forces the UI on a pipe', async () => {
+    const test = await bench({
+      afterPrompt(session, message) { appendTurn(session, 1, message, 'piped answer', true) },
+    }, { tui: true, columns: 64 })
+    try {
+      const result = await test.run()
+      expect(result.code).toBe(0)
+      expect(result.out).toContain('CetusPrism')
+      expect(result.out).toContain('piped answer')
+      expect(result.out).not.toContain('\x1b[')
+      expect(result.out).not.toContain('\r')
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
+  })
+
+  it('keeps the classic output when --plain negates a TTY stdout', async () => {
+    const test = await bench({
+      afterPrompt(session, message) { appendTurn(session, 1, message, 'plain answer', true) },
+    }, { tty: true, plain: true })
+    try {
+      const result = await test.run()
+      expect(result.code).toBe(0)
+      expect(result.out).toBe('plain answer\n')
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
+  })
+
+  it('streams live frames into the TTY layout', async () => {
+    const test = await bench({
+      afterPrompt(session, message, agent) {
+        session.append('turn/start', { turn: 1 })
+        session.append('step/start', { turn: 1, step: 1 })
+        session.append('user/message', message, { surfaceOp: 'append' })
+        startFrames(agent)
+        emitChunk(agent, { type: 'reasoning-delta', index: 0, text: 'thinking out loud' })
+        emitChunk(agent, { type: 'text-delta', index: 1, text: 'live answer' })
+        session.append('assistant/message', {
+          stream: [],
+          turn: 1,
+          step: 1,
+          message: createAssistantMessage({
+            content: [{ type: 'reasoning', text: 'thinking out loud' }, { type: 'text', text: 'live answer' }],
+            source: { provider: 'test-provider', model: 'test-model' },
+          }),
+        }, { surfaceOp: 'append' })
+        session.append('step/end', { turn: 1, step: 1 })
+        session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
+      },
+    }, { tty: true, noColor: true })
+    try {
+      const result = await test.run()
+      expect(result.code).toBe(0)
+      expect(result.out).toContain('thinking out loud')
+      expect(result.out).toContain('live answer')
+      // The committed message duplicates the streamed deltas: no reprint.
+      expect(result.out.split('live answer').length - 1).toBe(1)
+      expect(result.err).toBe('')
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
+  })
+
+  it('prints a failure footer and the stderr diagnostic when the run errors', async () => {
+    const test = await bench({
+      afterPrompt() { throw new Error('the floor gave way') },
+    }, { tui: true })
+    try {
+      const result = await test.run()
+      expect(result.code).toBe(1)
+      expect(result.out).toContain('✗')
+      expect(result.out).toContain('the floor gave way')
+      expect(result.err).toBe('dsh: the floor gave way\n')
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
+  })
+
+  it('prints the durable model failure in the TUI footer', async () => {
+    const test = await bench({
+      afterPrompt(session, message) {
+        session.append('turn/start', { turn: 1 })
+        session.append('step/start', { turn: 1, step: 1 })
+        session.append('user/message', message, { surfaceOp: 'append' })
+        session.append('step/end', { turn: 1, step: 1 })
+        session.append('turn/end', {
+          turn: 1,
+          reason: { kind: 'error', error: { code: 'SERVER', message: 'provider unavailable' } },
+        })
+      },
+    }, { tui: true })
+    try {
+      const result = await test.run()
+      expect(result.code).toBe(1)
+      expect(result.out).toContain('✗')
+      expect(result.out).toContain('SERVER: provider unavailable')
+      expect(result.err).toBe('dsh: SERVER: provider unavailable\n')
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
   })
 })

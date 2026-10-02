@@ -1,6 +1,6 @@
 /**
  * The one-shot app's command-line provider: it parses the task positional,
- * `--session-id`, `--json`, and `--help`, then publishes
+ * `--session-id`, `--json`, `--tui`, `--plain`, and `--help`, then publishes
  * {@link HEADLESS_STARTUP_SERVICE}. The runner is an ordinary consumer whose
  * lazy config waits for that service.
  * @module @deepseek-ai/dsh-headless/startup
@@ -29,6 +29,10 @@ export interface HeadlessStartupValues {
   sessionId: string | undefined
   /** Whether stdout carries the machine-readable event stream instead of final text. */
   json: boolean
+  /** Whether the live terminal UI is forced on even for a non-TTY stdout. */
+  tui: boolean
+  /** Whether the classic plain output is forced even on a TTY stdout. */
+  plain: boolean
 }
 
 /**
@@ -38,14 +42,17 @@ export interface HeadlessStartupValues {
 function headlessCommand(): Command {
   return new Command()
     .name('dsh --profile headless')
-    .description('Answer one task and exit; the answer goes to stdout and diagnostics to stderr.')
+    .description('Answer one task and exit; on a terminal the run renders as a live UI.')
     .helpOption('-h, --help', 'show this help')
     .option('--json', 'write newline-delimited run events to stdout instead of the final message')
+    .option('--tui', 'render the live terminal UI even when stdout is not a terminal')
+    .option('--plain', 'print the classic plain output (reasoning on stderr, answer on stdout)')
     .option('--session-id <id>', 'adopt the persisted Session with this id; an unknown id is an error')
     .argument('[task...]', 'the task text; multiple words are joined by spaces, and `-` reads stdin')
     .addHelpText('after', `
 Examples:
-  dsh --profile headless "run the tests"          answer one task and exit
+  dsh --profile headless "run the tests"          live terminal UI on a terminal
+  dsh --profile headless --plain "run the tests"  classic output: reasoning on stderr
   echo "run the tests" | dsh --profile headless   read the task from stdin
   dsh --profile headless --json "run the tests"   emit machine-readable run events
   dsh --profile headless --session-id session-… "continue"   resume an existing Session
@@ -104,17 +111,22 @@ export function apply(ctx: Context): void {
     if (task === undefined && internals.stdinIsTty()) {
       program.error('error: a task is required, for example: dsh --profile headless "run the tests"')
     }
-    const options = program.opts<{ json?: boolean; sessionId?: string }>()
+    const options = program.opts<{ json?: boolean; tui?: boolean; plain?: boolean; sessionId?: string }>()
     // A SessionId is opaque, so whitespace is part of the identity: validate
     // emptiness on the trimmed value but hand the runner the exact string.
     const sessionId = options.sessionId
     if (sessionId !== undefined && sessionId.trim() === '') {
       program.error('error: --session-id requires a non-empty session id')
     }
+    if (options.json === true && options.tui === true) {
+      program.error('error: --json and --tui are mutually exclusive; pick one stdout contract')
+    }
     ctx.provide(HEADLESS_STARTUP_SERVICE, {
       task,
       sessionId,
       json: options.json === true,
+      tui: options.tui === true,
+      plain: options.plain === true,
     } satisfies HeadlessStartupValues)
   })
   parseCmdline(ctx, program)

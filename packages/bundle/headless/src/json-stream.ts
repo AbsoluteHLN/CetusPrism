@@ -151,8 +151,10 @@ export function boundJsonLine(
 /**
  * Parse raw tool-call arguments as the executor does: empty input is `{}`,
  * invalid or non-round-trippable JSON (a non-finite number) stays text.
+ * @param raw - the model's raw JSON argument string.
+ * @returns the parsed arguments, or the raw text when parsing does not round-trip.
  */
-function parseArguments(raw: string): unknown {
+export function parseArguments(raw: string): unknown {
   if (raw === '') return {}
   const seen = { nonFinite: false }
   try {
@@ -168,8 +170,12 @@ function parseArguments(raw: string): unknown {
   }
 }
 
-/** Join the text blocks of a tool result's model-facing content. */
-function resultText(blocks: readonly { type: string; text?: string }[]): string {
+/**
+ * Join the text blocks of a tool result's model-facing content.
+ * @param blocks - the result's model-facing content blocks.
+ * @returns the joined text, empty when no text block is present.
+ */
+export function resultText(blocks: readonly { type: string; text?: string }[]): string {
   return blocks
     .filter((block): block is { type: string; text: string } =>
       block.type === 'text' && typeof block.text === 'string')
@@ -178,17 +184,24 @@ function resultText(blocks: readonly { type: string; text?: string }[]): string 
 }
 
 /** Provider token accounting for one step, as carried by `assistant/message`. */
-type StepUsage = NonNullable<SessionEvent<'assistant/message'>['data']['usage']>
+export type StepUsage = NonNullable<SessionEvent<'assistant/message'>['data']['usage']>
 
-/** Accumulated usage for one step plus whether every attempt reported a sample. */
-interface StepUsageState {
+/**
+ * Accumulated usage over one owned interval (a step for the JSON projection,
+ * the whole run for the TUI) plus whether every attempt reported a sample.
+ */
+export interface StepUsageState {
   usage: StepUsage | undefined
-  /** False once any attempt in the step omitted a usage sample. */
+  /** False once any attempt in the interval omitted a usage sample. */
   complete: boolean
 }
 
-/** The usage a provider reported in one attempt's stream, if any. */
-function streamUsage(stream: SessionEvent<'assistant/message'>['data']['stream']): StepUsage | undefined {
+/**
+ * Read the usage a provider reported in one attempt's stream, if any.
+ * @param stream - the attempt's committed compact stream.
+ * @returns the reported usage, or `undefined` when the stream carries no usage chunk.
+ */
+export function streamUsage(stream: SessionEvent<'assistant/message'>['data']['stream']): StepUsage | undefined {
   return lastAssistantStreamChunk(stream, 'usage')?.usage
 }
 
@@ -203,7 +216,7 @@ function streamUsage(stream: SessionEvent<'assistant/message'>['data']['stream']
  * @param next - usage reported by the next attempt.
  * @returns the updated state.
  */
-function addUsage(state: StepUsageState, next: StepUsage | undefined): StepUsageState {
+export function addUsage(state: StepUsageState, next: StepUsage | undefined): StepUsageState {
   if (next === undefined) return { usage: state.usage, complete: false }
   if (state.usage === undefined) return { usage: next, complete: state.complete }
   const total = state.usage

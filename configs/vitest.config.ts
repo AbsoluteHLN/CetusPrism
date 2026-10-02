@@ -1,16 +1,16 @@
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
-import { resolvePwshPath } from './packages/shell/pwsh-local/src/resolve.ts'
+import { resolvePwshPath } from '../packages/shell/pwsh-local/src/resolve.ts'
 import { defineConfig } from 'vitest/config'
-import { standardDecoratorPlugin, vitestExecArgv, workspaceAliases } from './configs/vitest.shared.ts'
-import { COVERAGE_EXEMPT_ENV, coverageExemptHeavySuites } from './scripts/coverage-exempt.ts'
-import { COVERAGE_PARTITION_MODE_ENV } from './scripts/coverage-partitions.ts'
+import { standardDecoratorPlugin, vitestExecArgv, workspaceAliases } from './vitest.shared.ts'
+import { COVERAGE_EXEMPT_ENV, coverageExemptHeavySuites } from '../scripts/coverage-exempt.ts'
+import { COVERAGE_PARTITION_MODE_ENV } from '../scripts/coverage-partitions.ts'
 
 // Prints exact `path:line:col` records for every uncovered statement, branch
 // path, and function when a file misses the per-file 100% gate — the built-in
 // threshold ERRORs name only the file. Absolute path because istanbul-reports
 // require()s custom reporters (which is also why the reporter is CJS).
-const uncoveredLocationsReporter = fileURLToPath(new URL('./scripts/coverage-uncovered-locations.cjs', import.meta.url))
+const uncoveredLocationsReporter = fileURLToPath(new URL('../scripts/coverage-uncovered-locations.cjs', import.meta.url))
 
 // Resolution facade shared by every plugin instance below: tsconfig.base.json
 // has no include, which vite-tsconfig-paths treats as match-all, so its paths

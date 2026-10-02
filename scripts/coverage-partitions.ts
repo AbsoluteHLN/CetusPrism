@@ -400,7 +400,7 @@ function partitionConfigSource(
   const threadSafe = JSON.stringify(files.filter(file => projectOf.get(file) !== 'process-bound').map(file => file.split('\\').join('/')))
   const processBound = JSON.stringify(files.filter(file => projectOf.get(file) === 'process-bound').map(file => file.split('\\').join('/')))
   return [
-    "import base from '../../vitest.config.ts'",
+    "import base from '../../configs/vitest.config.ts'",
     'export default {',
     '  ...base,',
     '  test: {',

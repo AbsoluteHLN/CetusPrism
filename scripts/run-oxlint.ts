@@ -32,6 +32,11 @@ export interface OxlintInvocation {
  */
 export function resolveOxlintInvocation(args: readonly string[], env: NodeJS.ProcessEnv): OxlintInvocation {
   const resolvedArgs = [...args]
+  // The default config lives in configs/ — oxlint only auto-discovers at the
+  // cwd, so callers without an explicit --config get the repository one.
+  if (!resolvedArgs.some(arg => arg === '--config' || arg.startsWith('--config='))) {
+    resolvedArgs.unshift('--config', 'configs/oxlintrc.json')
+  }
   if (env.CI === 'true' && !hasOutputFormat(args)) resolvedArgs.push('--format=default')
   const raw = env.DSH_OXLINT_THREADS
   if (raw === undefined || raw === '') return { args: resolvedArgs, env: { ...env } }

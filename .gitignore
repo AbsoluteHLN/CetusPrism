@@ -74,3 +74,6 @@ docs/persistence-changes/
 .github/workflows.disabled/
 .github/dependabot.yml
 .gitlab-ci.yml
+
+# Local-only: macOS CI attempt, pushable only with the workflow OAuth scope.
+.github/workflows/macos-build.yml

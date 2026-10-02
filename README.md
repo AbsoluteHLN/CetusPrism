@@ -58,8 +58,9 @@ pnpm 工作区三件套（`package.json` / `pnpm-workspace.yaml` / `pnpm-lock.ya
 TypeScript 面配置（`tsconfig*.json`、`tsdown.config.ts`）、测试配置
 （`vitest.*.config.ts`、`pytest.ini`）、规范与提交钩子（`.editorconfig`、
 `.oxlintrc*`、`.jscpd.json`、`lefthook.yml`、`.gitattributes`），以及标准
-仓库文档（`LICENSE`、`THIRD_PARTY_NOTICES.md`、`UPSTREAM.alignment.json`）。
-配套文档（安全说明、贡献指南、品牌规范、基准测试等）集中在 `docs/` 下。
+仓库文档（`LICENSE`、`THIRD_PARTY_NOTICES.md`）。其余文档——安全说明、
+贡献指南、品牌规范、基准测试、上游对齐记录（`UPSTREAM.alignment.json`）
+等——都集中在 `docs/` 下。
 
 ## 许可证
 

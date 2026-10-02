@@ -8,6 +8,8 @@
   "compilerOptions": {
     "noEmit": true,
     "rewriteRelativeImportExtensions": false,
+    // Incremental state goes to the cache tree, not the repository root.
+    "tsBuildInfoFile": "./.cache/typecheck/tsconfig.client.tsbuildinfo",
     // Tests execute under vitest on node (e2e files spawn processes); browser
     // purity of package src is each package's own tsconfig plus
     // scripts/client-bundle-purity.spec.ts.

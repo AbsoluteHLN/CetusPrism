@@ -70,8 +70,10 @@ export class RepositoryCleaner {
     await this.addIfPresent(targets, join(this.root, '.dsh-build'), canonicalRoot)
     await this.addIfPresent(targets, join(this.root, 'apps/desktop/.desktop-build'), canonicalRoot)
 
-    // These checks cover legacy root-level incremental state emitted by older configs.
+    // These checks cover legacy root-level incremental state emitted by older configs,
+    // plus the current aggregate-face cache location (tsconfig.host.json / tsconfig.client.json).
     await this.addIfPresent(targets, join(this.root, '.typecheck'), canonicalRoot)
+    await this.addIfPresent(targets, join(this.root, '.cache', 'typecheck'), canonicalRoot)
     for (const entry of await readdir(this.root, { withFileTypes: true })) {
       if (entry.isFile() && entry.name.endsWith('.tsbuildinfo')) targets.add(join(this.root, entry.name))
     }

@@ -5,7 +5,9 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "rewriteRelativeImportExtensions": false
+    "rewriteRelativeImportExtensions": false,
+    // Incremental state goes to the cache tree, not the repository root.
+    "tsBuildInfoFile": "./.cache/typecheck/tsconfig.host.tsbuildinfo"
   },
   "files": [],
   "include": [

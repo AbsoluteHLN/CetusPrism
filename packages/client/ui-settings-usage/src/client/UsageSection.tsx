@@ -29,6 +29,15 @@ export type UsageSectionProps =
 /** Cap the table so a large corpus renders a bounded column; totals stay whole. */
 const TABLE_ROW_LIMIT = 50
 
+/**
+ * Billed share of one figure inside a total, as a one-decimal percent string
+ * with a bare-integer tail dropped ("33.3%", "100%"; an empty total reads 0%).
+ */
+function sharePercent(part: number, whole: number): string {
+  const percent = whole === 0 ? 0 : (part / whole) * 100
+  return `${percent.toFixed(1).replace(/\.0$/, '')}%`
+}
+
 /** Wall-clock figure: hours+minutes, minutes+seconds, or seconds. */
 function formatDuration(ms: number, t: UsageTranslate): string {
   const totalSeconds = Math.floor(ms / 1000)
@@ -75,6 +84,14 @@ export function UsageSection({ useSessions, t }: UsageSectionProps) {
           <span className={css.cardValue}>{formatTokens(aggregate.outputTokens, t)}</span>
         </div>
         <div className={css.card}>
+          <span className={css.cardLabel}>{t('cache')}</span>
+          <span className={css.cardValue}>{formatTokens(aggregate.cacheReadTokens, t)}</span>
+          <span className={css.cardHint}>{t('cache.hint', {
+            share: sharePercent(aggregate.cacheReadTokens, aggregate.inputTokens),
+            write: formatTokens(aggregate.cacheWriteTokens, t),
+          })}</span>
+        </div>
+        <div className={css.card}>
           <span className={css.cardLabel}>{t('total')}</span>
           <span className={css.cardValue}>{formatTokens(aggregate.inputTokens + aggregate.outputTokens, t)}</span>
         </div>
@@ -91,6 +108,7 @@ export function UsageSection({ useSessions, t }: UsageSectionProps) {
           <span>{t('column.input')}</span>
           <span>{t('column.output')}</span>
           <span>{t('column.cache')}</span>
+          <span>{t('column.share')}</span>
           <span>{t('column.total')}</span>
         </div>
         {rows.map(row => (
@@ -102,9 +120,20 @@ export function UsageSection({ useSessions, t }: UsageSectionProps) {
             <span>{formatTokens(row.inputTokens, t)}</span>
             <span>{formatTokens(row.outputTokens, t)}</span>
             <span className={css.cellMuted}>{formatTokens(row.cacheTokens, t)}</span>
+            <span className={css.cellMuted}>
+              {sharePercent(row.inputTokens + row.outputTokens, aggregate.inputTokens + aggregate.outputTokens)}
+            </span>
             <span>{formatTokens(row.inputTokens + row.outputTokens, t)}</span>
           </div>
         ))}
+        <div className={css.totalsRow}>
+          <span className={css.sessionName}>{t('total')}</span>
+          <span>{formatTokens(aggregate.inputTokens, t)}</span>
+          <span>{formatTokens(aggregate.outputTokens, t)}</span>
+          <span className={css.cellMuted}>{formatTokens(aggregate.cacheReadTokens + aggregate.cacheWriteTokens, t)}</span>
+          <span className={css.cellMuted}>100%</span>
+          <span>{formatTokens(aggregate.inputTokens + aggregate.outputTokens, t)}</span>
+        </div>
       </div>
       <span className={css.coverage}>
         {t('coverage', { counted: aggregate.sessionsCounted, total: aggregate.sessionsTotal })}

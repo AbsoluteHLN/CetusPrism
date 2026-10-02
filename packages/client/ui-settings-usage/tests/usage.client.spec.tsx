@@ -110,14 +110,27 @@ describe('UsageSection', () => {
       main: sessionRow({ tokenUsage: usage({ uncachedInputTokens: 2_000, outputTokens: 300 }) }, { displayTitle: '主会话' }),
     }))} />)
     expect(screen.getAllByText('输入').length).toBe(3)
-    expect(screen.getAllByText('11K').length).toBe(2)
+    expect(screen.getAllByText('11K').length).toBe(4)
+    expect(screen.getByText('缓存命中')).toBeTruthy()
+    expect(screen.getAllByText('9000').length).toBe(3)
+    expect(screen.getByText('占输入 81.5% · 写入 0')).toBeTruthy()
+    expect(screen.getByText('20.3%')).toBeTruthy()
+    expect(screen.getAllByText('100%').length).toBeGreaterThan(0)
     expect(screen.getByText('主会话')).toBeTruthy()
     expect(screen.getByText('背景会话')).toBeTruthy()
     expect(screen.getByText('2300')).toBeTruthy()
-    expect(screen.getByText('305')).toBeTruthy()
+    expect(screen.getAllByText('305').length).toBe(2)
     expect(screen.getByText(zh['coverage']
       .replaceAll('{counted}', '2')
       .replaceAll('{total}', '2'))).toBeTruthy()
+  })
+
+  it('renders a zero-usage corpus with a 0% cache share instead of dividing by zero', () => {
+    render(<UsageSection {...props(byId({
+      idle: sessionRow({ tokenUsage: usage({}) }),
+    }))} />)
+    expect(screen.getByText('占输入 0% · 写入 0')).toBeTruthy()
+    expect(screen.getByText('0%')).toBeTruthy()
   })
 
   it('marks subagent rows', () => {

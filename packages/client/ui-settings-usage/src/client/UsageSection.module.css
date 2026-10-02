@@ -10,7 +10,7 @@
 
 .cards {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -65,7 +65,7 @@
 
 .head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px 72px 72px 84px;
+  grid-template-columns: minmax(0, 1fr) 72px 72px 72px 64px 84px;
   gap: 12px;
   padding: 8px 14px;
   font-size: 11px;
@@ -73,9 +73,10 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-.row {
+.row,
+.totalsRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px 72px 72px 84px;
+  grid-template-columns: minmax(0, 1fr) 72px 72px 72px 64px 84px;
   gap: 14px;
   padding: 9px 14px;
   font-size: 13px;
@@ -83,8 +84,14 @@
   color: var(--dsw-alias-label-primary);
 }
 
+.totalsRow {
+  border-top: 1px solid var(--dsw-alias-label-tertiary);
+  font-weight: 600;
+}
+
 .head > :nth-child(n + 2),
-.row > :nth-child(n + 2) {
+.row > :nth-child(n + 2),
+.totalsRow > :nth-child(n + 2) {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }

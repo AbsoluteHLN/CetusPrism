@@ -6,7 +6,7 @@ The required Chromium workflow in [long-session.bench.ts](long-session.bench.ts)
 
 ## Run
 
-`pnpm run test:bench` builds libraries, workers, and Web artifacts before running the serial benchmark inventory. With artifacts already built, select this directory through `pnpm exec vitest run --config vitest.bench.config.ts benchmarks/long-session-browser`. Install Chromium through the benchmark workspace before the first run.
+`pnpm run test:bench` builds libraries, workers, and Web artifacts before running the serial benchmark inventory. With artifacts already built, select this directory through `pnpm exec vitest run --config configs/vitest.bench.config.ts benchmarks/long-session-browser`. Install Chromium through the benchmark workspace before the first run.
 
 ## Measurements
 

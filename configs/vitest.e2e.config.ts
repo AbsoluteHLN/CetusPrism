@@ -8,7 +8,7 @@ import { standardDecoratorPlugin, vitestExecArgv } from './vitest.shared.ts'
 // `.env`, with provider-specific endpoint overrides where supported.
 try {
   // Node >= 21.7 native; throws when the file does not exist.
-  process.loadEnvFile(new URL('.env', import.meta.url).pathname)
+  process.loadEnvFile(new URL('../.env', import.meta.url).pathname)
 } catch {
   // No .env — fine, the environment may already carry the variables.
 }

@@ -24,7 +24,7 @@
  */
 
 import { globSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { resolve, sep } from 'node:path'
 import { PROXY_ENV_NAMES } from '../packages/util/http-proxy/src/policy.ts'
 
 /** The flag a Node process reads before honoring the names above; ambient in the same way. */
@@ -41,7 +41,14 @@ export const TEST_PROXY_SETUP_FILE = './scripts/test-proxy-environment.ts'
  * @returns repository-relative config paths, sorted.
  */
 export function vitestConfigFiles(): string[] {
-  return globSync('vitest*.ts', { cwd: resolve(import.meta.dirname, '..') }).sort()
+  const root = resolve(import.meta.dirname, '..')
+  return [
+    ...globSync('vitest*.ts', { cwd: root }),
+    ...globSync('configs/vitest*.ts', { cwd: root }),
+  ]
+    // Windows globSync reports backslash separators; the repo-wide contract is POSIX paths.
+    .map(path => path.split(sep).join('/'))
+    .sort()
 }
 
 /**

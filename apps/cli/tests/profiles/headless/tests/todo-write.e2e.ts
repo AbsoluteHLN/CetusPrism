@@ -10,7 +10,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 /**
  * A REAL model drives the REAL todo_write tool: verify the WORLD (the session
  * log gains a todo/write event whose snapshot the model actually produced), not
- * the agent's self-report. Key-gated (see vitest.e2e.config.ts).
+ * the agent's self-report. Key-gated (see configs/vitest.e2e.config.ts).
  */
 
 let ctx: Context | undefined

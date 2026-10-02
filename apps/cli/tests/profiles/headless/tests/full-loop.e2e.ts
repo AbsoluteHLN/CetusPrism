@@ -9,7 +9,7 @@ import { SessionId } from '@deepseek-ai/dsh-session'
 
 /**
  * The first place a REAL model meets the REAL bash tool: the cheap canary
- * before the coding-task e2e. Key-gated (see vitest.e2e.config.ts).
+ * before the coding-task e2e. Key-gated (see configs/vitest.e2e.config.ts).
  */
 
 let ctx: Context | undefined

@@ -2,7 +2,7 @@
 
 CetusPrism 是 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的桌面发行版：一个"一切皆插件"的 AI 智能体工作台，以内置运行时的桌面应用形式交付，开箱即用。
 
-> 预发布说明：本项目处于 pre-release 阶段，迭代较快，接口与数据格式可能发生不兼容变更。运行前请阅读[安全说明](SAFETY.zh.md)。
+> 预发布说明：本项目处于 pre-release 阶段，迭代较快，接口与数据格式可能发生不兼容变更。运行前请阅读[安全说明](docs/SAFETY.zh.md)。
 
 ## 功能特性
 
@@ -58,8 +58,8 @@ pnpm 工作区三件套（`package.json` / `pnpm-workspace.yaml` / `pnpm-lock.ya
 TypeScript 面配置（`tsconfig*.json`、`tsdown.config.ts`）、测试配置
 （`vitest.*.config.ts`、`pytest.ini`）、规范与提交钩子（`.editorconfig`、
 `.oxlintrc*`、`.jscpd.json`、`lefthook.yml`、`.gitattributes`），以及标准
-仓库文档（`LICENSE`、`SAFETY`、`CONTRIBUTING`、`DEPENDENCIES`、
-`BRAND_GUIDELINES`、`BENCHMARK`、`UPSTREAM.alignment.json`）。
+仓库文档（`LICENSE`、`THIRD_PARTY_NOTICES.md`、`UPSTREAM.alignment.json`）。
+配套文档（安全说明、贡献指南、品牌规范、基准测试等）集中在 `docs/` 下。
 
 ## 许可证
 

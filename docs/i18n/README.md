@@ -41,7 +41,7 @@ The gate's limit, stated plainly: **a green gate means the pair was confirmed co
 
 ## Scope and exclusions
 
-**Scope**: the root `CONTRIBUTING.md`, `BRAND_GUIDELINES.md`, and `SAFETY.md` documents, every non-vendor README, and every active document under `.agents/notes/**`, `docs/**`, and `python/**`. README matching is case-insensitive on the basename and covers future directories without another manifest edit. Dependency and ignored build-output trees and the frozen `.agents/notes/archived/` tree are discovery exclusions, not evolving translation source.
+**Scope**: the `CONTRIBUTING.md`, `BRAND_GUIDELINES.md`, and `SAFETY.md` documents under `docs/`, every non-vendor README, and every active document under `.agents/notes/**`, `docs/**`, and `python/**`. README matching is case-insensitive on the basename and covers future directories without another manifest edit. Dependency and ignored build-output trees and the frozen `.agents/notes/archived/` tree are discovery exclusions, not evolving translation source.
 
 Generated English references and graphs participate in pairing when a reviewed Chinese counterpart is available. When a generator owns only English, it remains that source of truth; regeneration that changes English leaves the pair out of sync until the reviewed Chinese counterpart is updated and re-recorded. Freshness and pairing gates enforce their respective invariants independently.
 

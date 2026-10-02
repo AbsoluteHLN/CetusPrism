@@ -5,6 +5,8 @@ CLAUDE.local.md
 apps/electron/dist/
 .zcode/
 DSH开发边界.md
+DEPENDENCIES.md
+dev-docs/cetusprism-build-layout.md
 .agents/skills/cetusprism-dev/
 .agents/notes/implemented/feature/2026-10-01-cetus-*
 .agents/notes/implemented/feature/2026-09-30-reasoning-effort-catalog-not-probe*

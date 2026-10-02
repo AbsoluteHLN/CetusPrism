@@ -166,7 +166,10 @@ if (strippedFiles > 0) {
 }
 
 // ---- deb assembly ---------------------------------------------------------
-const dataRoot = join(debStaging, 'data')
+// The staging root IS the payload root: dpkg installs everything beside
+// DEBIAN/ verbatim, so `opt/` and `usr/` must sit at the top — a nested
+// data/ directory would ship the whole tree under /data on the target.
+const dataRoot = debStaging
 const installDir = join(dataRoot, 'opt', 'CetusPrism')
 const debianDir = join(debStaging, 'DEBIAN')
 rmSync(debStaging, { recursive: true, force: true })
@@ -237,19 +240,74 @@ const control = [
   '',
 ].join('\n')
 writeFileSync(join(debianDir, 'control'), control)
+
+// The dpkg payload must stay under tracked system paths (/opt, /usr); the
+// entry points users touch (menu entry, icons, `dsh` shim) additionally
+// mirror into the invoking user's ~/.local so the app opens from their own
+// environment. sudo installs carry SUDO_USER; GUI package-kit installs run
+// as root and keep only the system copies.
+const userHomeProbe = [
+  'resolve_user_home() {',
+  '  if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then',
+  '    getent passwd "$SUDO_USER" | cut -d: -f6',
+  '  else',
+  '    printf \'%s\\n\' "$HOME"',
+  '  fi',
+  '}',
+]
 writeFileSync(
   join(debianDir, 'postinst'),
   [
     '#!/bin/sh',
     'set -e',
+    ...userHomeProbe,
+    'USER_HOME="$(resolve_user_home)"',
+    'if [ -z "$USER_HOME" ] || [ ! -d "$USER_HOME" ]; then USER_HOME=/root; fi',
+    'mkdir -p "$USER_HOME/.local/share/applications" "$USER_HOME/.local/bin"',
+    'for size in 32 64 128 256; do',
+    '  mkdir -p "$USER_HOME/.local/share/icons/hicolor/${size}x${size}/apps"',
+    '  cp -f "/usr/share/icons/hicolor/${size}x${size}/apps/cetusprism.png" \\',
+    '    "$USER_HOME/.local/share/icons/hicolor/${size}x${size}/apps/cetusprism.png"',
+    'done',
+    'cp -f /usr/share/applications/cetusprism.desktop "$USER_HOME/.local/share/applications/"',
+    'printf \'#!/bin/sh\\nexec /opt/CetusPrism/resources/app/backend/node /opt/CetusPrism/resources/app/backend/runtime/lib/bin.js "$@"\\n\' > "$USER_HOME/.local/bin/dsh"',
+    'chmod 0755 "$USER_HOME/.local/bin/dsh"',
+    'if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then',
+    '  chown -R "$SUDO_USER":"$SUDO_USER" "$USER_HOME/.local/share/applications/cetusprism.desktop" \\',
+    '    "$USER_HOME/.local/share/icons/hicolor" "$USER_HOME/.local/bin/dsh"',
+    'fi',
     'if command -v update-desktop-database >/dev/null 2>&1; then',
     '  update-desktop-database -q /usr/share/applications || true',
+    '  update-desktop-database -q "$USER_HOME/.local/share/applications" || true',
     'fi',
     'exit 0',
     '',
   ].join('\n'),
 )
 execFileSync('chmod', ['0755', join(debianDir, 'postinst')])
+writeFileSync(
+  join(debianDir, 'prerm'),
+  [
+    '#!/bin/sh',
+    '# Remove the per-user entry-point mirror; dpkg removes /opt itself.',
+    'resolve_user_home() {',
+    '  if [ -n "$SUDO_USER" ] && [ "$SUDO_USER" != "root" ]; then',
+    '    getent passwd "$SUDO_USER" | cut -d: -f6',
+    '  else',
+    '    printf \'%s\\n\' "$HOME"',
+    '  fi',
+    '}',
+    'USER_HOME="$(resolve_user_home)"',
+    'if [ -z "$USER_HOME" ] || [ ! -d "$USER_HOME" ]; then USER_HOME=/root; fi',
+    'rm -f "$USER_HOME/.local/share/applications/cetusprism.desktop" "$USER_HOME/.local/bin/dsh"',
+    'for size in 32 64 128 256; do',
+    '  rm -f "$USER_HOME/.local/share/icons/hicolor/${size}x${size}/apps/cetusprism.png"',
+    'done',
+    'exit 0',
+    '',
+  ].join('\n'),
+)
+execFileSync('chmod', ['0755', join(debianDir, 'prerm')])
 
 // dpkg-deb requires the conffiles-free, root-owned tree; --root-owner-group
 // keeps the payload owned by root regardless of the building user.

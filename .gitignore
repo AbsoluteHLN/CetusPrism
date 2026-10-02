@@ -71,3 +71,4 @@ snapshots/
 docs/persistence-changes/
 .github/workflows.disabled/
 .github/dependabot.yml
+.gitlab-ci.yml

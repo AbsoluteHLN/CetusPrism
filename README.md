@@ -53,6 +53,14 @@ python/      Python SDK 与运行时
 docs/        文档（架构、测试、用户指南）
 ```
 
+根目录其余散落文件均为工具链按约定钉在仓库根的配置，移动会破坏解析：
+pnpm 工作区三件套（`package.json` / `pnpm-workspace.yaml` / `pnpm-lock.yaml`）、
+TypeScript 面配置（`tsconfig*.json`、`tsdown.config.ts`）、测试配置
+（`vitest.*.config.ts`、`pytest.ini`）、规范与提交钩子（`.editorconfig`、
+`.oxlintrc*`、`.jscpd.json`、`lefthook.yml`、`.gitattributes`），以及标准
+仓库文档（`LICENSE`、`SAFETY`、`CONTRIBUTING`、`DEPENDENCIES`、
+`BRAND_GUIDELINES`、`BENCHMARK`、`UPSTREAM.alignment.json`）。
+
 ## 许可证
 
 [MIT](LICENSE)。第三方组件的许可信息见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)；`vendor/` 内的 Cordis 框架各包保留其上游 MIT `LICENSE`。

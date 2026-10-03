@@ -20,7 +20,9 @@ jobs:
         run: corepack enable && corepack prepare pnpm@11.7.0 --activate
       - uses: dtolnay/rust-toolchain@stable
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        # The committed pnpm-workspace.yaml pins the shared-cache virtual store
+        # for the local Windows checkout; a runner has to keep it inside the workspace.
+        run: pnpm install --frozen-lockfile --config.virtual-store-dir=node_modules/.pnpm
       - name: Build lib and client
         run: pnpm run build
       - name: Build shell (cargo, release)

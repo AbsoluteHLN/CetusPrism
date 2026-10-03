@@ -1586,7 +1586,11 @@
     ],
     "@deepseek-ai/dsh-client-ui-settings-about/client": [
       "../packages/client/ui-settings-about/src/client/index.ts"
-    ]
+    ],
+
+      // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
+
+      // END generated package aliases
   }
 }
 }

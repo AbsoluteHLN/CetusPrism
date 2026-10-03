@@ -215,6 +215,9 @@
       "path": "../packages/client/locale/tsconfig.host.json"
     },
     {
+      "path": "../packages/client/product-analytics/tsconfig.host.json"
+    },
+    {
       "path": "../packages/client/ui-theme/tsconfig.host.json"
     },
     {
@@ -327,6 +330,12 @@
     },
     {
       "path": "../vendor/logger-console"
+    },
+    {
+      "path": "../packages/telemetry/otel"
+    },
+    {
+      "path": "../packages/util/code-language"
     },
     {
       "path": "../packages/util/brand"
@@ -894,6 +903,9 @@
     },
     {
       "path": "../packages/experimental/agent-team-profile"
+    },
+    {
+      "path": "../packages/experimental/schedule-bundle"
     },
     {
       "path": "../packages/experimental/tool-agent-team"

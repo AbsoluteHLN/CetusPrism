@@ -9,7 +9,8 @@ async function fixture(source: string): Promise<{ root: string; entry: string; o
   onTestFinished(() => rm(root, { recursive: true, force: true }))
   const directory = join(root, 'packages/workflow/workflow-ptc/src')
   await mkdir(directory, { recursive: true })
-  await writeFile(join(root, 'tsconfig.base.json'), '{"compilerOptions":{"target":"es2024"}}\n')
+  await mkdir(join(root, 'configs'), { recursive: true })
+  await writeFile(join(root, 'configs/tsconfig.base.json'), '{"compilerOptions":{"target":"es2024"}}\n')
   const entry = join(directory, 'guest.ts')
   await writeFile(entry, source)
   return { root, entry, output: join(directory, 'guest-source.ts') }

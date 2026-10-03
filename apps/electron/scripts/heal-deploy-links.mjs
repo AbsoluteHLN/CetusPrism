@@ -62,7 +62,13 @@ function materialize(srcRepoDir, dest) {
   for (const name of VENDOR_FILES) {
     const src = join(srcRepoDir, name)
     if (!existsSync(src)) continue
-    cpSync(src, join(dest, name), { recursive: true, dereference: false })
+    // An injected deploy already placed real copies at dest; copying onto
+    // the identical path (same file through a resolved link) fails loudly.
+    const target = join(dest, name)
+    try {
+      if (statSync(src).ino === statSync(target).ino && statSync(src).dev === statSync(target).dev) continue
+    } catch { /* target absent — copy below */ }
+    cpSync(src, target, { recursive: true, dereference: false })
   }
 }
 

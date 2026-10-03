@@ -87,11 +87,18 @@ execFileSync('cp', [backendNodeExe, join(appDir, 'backend', 'node.exe')])
 // Invoke the workspace's own pnpm through node: a PATH-resolved standalone
 // pnpm self-manages its version and tries to fetch the @pnpm/exe packument,
 // which does not exist offline; the local pnpm.cjs runs without that check.
-const pnpmVersionDir = readdirSync(join(repoRoot, 'node_modules', '.pnpm'))
-  .find(name => /^pnpm@\d+\./.test(name))
-const pnpmCjs = pnpmVersionDir === undefined ? undefined : join(repoRoot, 'node_modules', '.pnpm', pnpmVersionDir, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs')
-if (pnpmCjs === undefined || !existsSync(pnpmCjs)) {
-  console.error('pack-tauri: local pnpm.cjs not found under node_modules/.pnpm')
+// The virtual store may live in the project (default) or in the shared
+// dependency cache (pnpm-workspace.yaml virtualStoreDir).
+const pnpmCandidates = [
+  join(repoRoot, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs'),
+  ...[join(repoRoot, 'node_modules', '.pnpm'), process.env.DSH_PNPM_VSTORE ?? 'E:/dependency-cache/pnpm/vstore']
+    .flatMap(vstore => {
+      try { return readdirSync(vstore).filter(name => /^pnpm@\d+\./.test(name)).map(name => join(vstore, name, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs')) } catch { return [] }
+    }),
+]
+const pnpmCjs = pnpmCandidates.find(candidate => existsSync(candidate))
+if (pnpmCjs === undefined) {
+  console.error('pack-tauri: local pnpm.cjs not found under node_modules or the virtual store')
   process.exit(1)
 }
 execFileSync(process.execPath, [

@@ -65,11 +65,18 @@ execFileSync('chmod', ['0755', join(appDir, 'backend', 'node')])
 // `node_modules`; unlike the Windows pack this deploy runs ONLINE (proxy
 // env), because the store was populated on Windows and the Linux-variant
 // optional native packages (bindings, prebuilds) still need fetching.
-const pnpmVersionDir = readdirSync(join(repoRoot, 'node_modules', '.pnpm'))
-  .find(name => /^pnpm@\d+\./.test(name))
-const pnpmCjs = pnpmVersionDir === undefined ? undefined : join(repoRoot, 'node_modules', '.pnpm', pnpmVersionDir, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs')
-if (pnpmCjs === undefined || !existsSync(pnpmCjs)) {
-  console.error('pack-linux: local pnpm.cjs not found under node_modules/.pnpm')
+// pnpm itself comes from the mounted virtual store (DSH_PNPM_VSTORE, set by
+// build-deb.mjs); the project node_modules is a junction shell with no
+// package content to traverse inside the container.
+const pnpmCandidates = [
+  ...[process.env.DSH_PNPM_VSTORE ?? '/vstore'].flatMap(vstore => {
+    try { return readdirSync(vstore).filter(name => /^pnpm@\d+\./.test(name)).map(name => join(vstore, name, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs')) } catch { return [] }
+  }),
+  join(repoRoot, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs'),
+]
+const pnpmCjs = pnpmCandidates.find(candidate => existsSync(candidate))
+if (pnpmCjs === undefined) {
+  console.error('pack-linux: local pnpm.cjs not found under the virtual store or node_modules')
   process.exit(1)
 }
 execFileSync(nodeBin, [

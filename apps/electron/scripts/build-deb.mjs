@@ -40,6 +40,9 @@ const linuxNode = process.env.LINUX_NODE_HOME ?? 'E:/dependency-cache/node/node-
 // container cannot use, so the deploy store is pinned by mount + flag
 // instead and persists across builds in the dependency cache.
 const containerStore = join(dirname(cargoRegistry), 'pnpm', 'store-container-linux')
+// The virtual store holds the workspace's pnpm package; the project
+// node_modules is a junction shell with no real content to mount.
+const containerVstore = process.env.DSH_PNPM_VSTORE ?? 'E:/dependency-cache/pnpm/vstore'
 const outDir = join(appRoot, 'dist')
 mkdirSync(linuxTarget, { recursive: true })
 mkdirSync(containerStore, { recursive: true })
@@ -67,6 +70,7 @@ function runInContainer(command) {
     '-v', `${cargoRegistry}/registry:/usr/local/cargo/registry`,
     '-v', `${linuxNode}:/node`,
     '-v', `${containerStore}:/store`,
+    '-v', `${containerVstore}:/vstore`,
     '-v', `${outDir}:/out`,
     '-e', `CARGO_TARGET_DIR=/target`,
     '-e', `HTTP_PROXY=${containerProxy}`,

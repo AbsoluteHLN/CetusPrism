@@ -51,7 +51,7 @@ export class Entry {
   public subgroup?: EntryGroup
   public subtree?: EntryTree
 
-  _initTask?: Promise<void> | undefined
+  _initTask?: Promise<void>
 
   constructor(public loader: Loader) {
     this.ctx = loader.ctx.extend({ [Entry.key]: this })

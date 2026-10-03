@@ -1,9 +1,7 @@
 /**
  * Derives the workspace browser tree from caller-projected Workspace and
  * Session order. Unassigned Sessions trail under Ungrouped; only the selected
- * blank Session remains visible. The pinned and archive sections are synthetic
- * flanks: pinned rows lead every list body and archived rows close it, so
- * neither renders inside its home group.
+ * blank Session remains visible.
  */
 import {
   type SessionListState, type SessionSearchResultItem, type SessionSummary,
@@ -12,7 +10,6 @@ import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-
 import type {
   SessionStatusSnapshot,
 } from '@deepseek-ai/dsh-client-ui-session/client'
-import type {} from '@deepseek-ai/dsh-schedule/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
@@ -46,7 +43,7 @@ function mainSessionId(list: SessionListState): SessionId | undefined {
 /** One top-level session row in a group or the flat list. */
 export interface SessionNode {
   id: SessionId
-  /** Stored display title; the renderer substitutes the localized New Session label for blank rows. */
+  /** Stored title, or empty; the renderer localizes blank and unnamed row labels. */
   title: string
   /** The provisional blank session (renderer shows the localized New Session title). */
   blank: boolean
@@ -57,11 +54,9 @@ export interface SessionNode {
   runningSubagentCount: number
   /** Finished running while not selected and not yet opened (the green "done" reminder dot). */
   completed: boolean
-  /** The current list projection contains at least one active Schedule record. */
-  hasActiveSchedule: boolean
-  /** In the registry-global pin set: renders in the pinned section, reorderable only among pinned rows. */
+  /** In the registry-global pin set: leads its section, reorderable only among pinned rows. */
   pinned: boolean
-  /** In the registry-global archive set: renders in the archive section (grayed, not openable). */
+  /** In the registry-global archive set: shown grayed in place and not openable. */
   archived: boolean
   updatedAt: number
 }
@@ -79,7 +74,7 @@ export interface GroupNode {
   /** Workspace creation time (epoch ms); absent only for the ungrouped bucket. */
   createdAt: number | undefined
   label: string
-  /** Visible sessions the group itself renders (pinned rows render in the pinned section). */
+  /** Total visible sessions in the group. */
   sessionCount: number
   expanded: boolean
   /** The group contains the selected session (active folder tint; supplied here so the renderer never scans). */
@@ -100,8 +95,6 @@ export interface SearchResultNode {
   runningSubagentCount: number
   /** Finished running while not selected and not yet opened (the green "done" reminder dot). */
   completed: boolean
-  /** The current list projection contains at least one active Schedule record. */
-  hasActiveSchedule: boolean
   /** In the registry-global archive set: shown grayed and not openable. */
   archived: boolean
   snippet?: string
@@ -237,20 +230,10 @@ export function pinCurrentBlank(
 export type ArchivedFilter = 'default' | 'show' | 'only'
 
 /**
- * Subagent children use their parent header catalog; among blank sessions,
- * only the current one is visible.
- */
-function renderableSession(session: SessionSummary, current: SessionId | undefined): boolean {
-  if (session.origin === 'subagent') return false
-  return !(session.blank && session.id !== current)
-}
-
-/**
- * Search and complete-membership visibility: archived sessions follow the
- * archived filter here (their accounting slots remain either way so
- * unarchiving restores position). List rendering uses
- * {@link listSessionVisible} instead — archived rows render only in the
- * archive section.
+ * Ordinary sessions are visible; among blank sessions, only the current one
+ * is visible. Subagent children use their parent header catalog; archived
+ * sessions follow the archived filter, while their accounting slots remain
+ * either way so unarchiving restores position.
  */
 function sessionVisible(
   session: SessionSummary,
@@ -258,7 +241,8 @@ function sessionVisible(
   archived: ReadonlySet<SessionId>,
   archivedFilter: ArchivedFilter,
 ): boolean {
-  if (!renderableSession(session, current)) return false
+  if (session.origin === 'subagent') return false
+  if (session.blank && session.id !== current) return false
   switch (archivedFilter) {
     case 'default':
       return !archived.has(session.id)
@@ -272,22 +256,6 @@ function sessionVisible(
   }
 }
 
-/**
- * List rendering membership: archived rows render only in the archive
- * section, so they leave every list under each filter; `only` restricts the
- * lists themselves to nothing (the archive section then carries the view).
- */
-function listSessionVisible(
-  session: SessionSummary,
-  current: SessionId | undefined,
-  archived: ReadonlySet<SessionId>,
-  archivedFilter: ArchivedFilter,
-): boolean {
-  if (!renderableSession(session, current)) return false
-  if (archived.has(session.id)) return false
-  return archivedFilter !== 'only'
-}
-
 /** Registry-global row state consumed by every tree derivation. */
 export interface SessionRowState {
   /** Registry-global pin ids; pinned rows lead their section in the local order. */
@@ -299,32 +267,33 @@ export interface SessionRowState {
 }
 
 /**
- * Keep the selected New Session placeholder first without changing the
- * remaining caller order. Pinned rows no longer front the section — they
- * render in the pinned section ({@link derivePinnedRows}).
+ * Keep the visible New Session placeholder first, then partition pinned and
+ * ordinary rows without changing either partition's caller order.
  */
-function sectionMembers(members: readonly SessionSummary[]): SessionSummary[] {
+function sectionMembers(
+  members: readonly SessionSummary[],
+  pinned: ReadonlySet<SessionId>,
+  archived: ReadonlySet<SessionId>,
+): SessionSummary[] {
   const placeholders: SessionSummary[] = []
+  const leading: SessionSummary[] = []
   const rest: SessionSummary[] = []
   for (const member of members) {
     if (member.blank) placeholders.push(member)
+    else if (!archived.has(member.id) && pinned.has(member.id)) leading.push(member)
     else rest.push(member)
   }
-  return [...placeholders, ...rest]
+  return [...placeholders, ...leading, ...rest]
 }
 
 /**
  * A blank session is the selected Workspace's provisional New Session row;
  * its canonical title never enters search (blank rows are query-excluded)
- * and the renderer localizes its display label.
+ * and the renderer localizes its display label. Unnamed history also yields an
+ * empty title for localization and does not match a directory-name title search.
  */
 function sessionTitle(session: SessionSummary): string {
-  return session.blank ? '' : session.displayTitle
-}
-
-/** The list projection alone owns the best-effort active-Schedule indicator. */
-function hasActiveSchedule(session: SessionSummary): boolean {
-  return (session.projectionValues?.schedule?.length ?? 0) > 0
+  return session.blank ? '' : (session.title?.trim() ?? '')
 }
 
 /** Build one group without projecting session lineage into presentation. */
@@ -358,11 +327,9 @@ function orderedUngrouped(
 
 /**
  * Group Sessions by Workspace: one group per caller-ordered entity, with
- * members resolved from caller-projected sessionIds. Sessions outside every
+ * members resolved from caller-ordered sessionIds. Sessions outside every
  * Workspace trail in the browser-local Ungrouped order, which falls back to
- * recency before that order is initialized. Membership follows list rendering
- * visibility: archived rows belong to the archive section, and under `only`
- * no list row renders at all.
+ * recency before that order is initialized.
  */
 function groupByWorkspace(
   list: SessionListState,
@@ -380,9 +347,12 @@ function groupByWorkspace(
       const summary = list.byId[id]
       if (summary === undefined) continue // account may lead the list pull; the row appears when the summary lands
       accounted.add(id)
-      if (!listSessionVisible(summary, current, archived, archivedFilter)) continue
+      if (!sessionVisible(summary, current, archived, archivedFilter)) continue
       members.push(summary)
     }
+    // The archived-only view lists archives, not the Workspace inventory, so
+    // a Workspace without archived Sessions contributes no group.
+    if (archivedFilter === 'only' && members.length === 0) continue
     groups.push(buildGroup(
       workspace.workspaceId, workspace.workspaceId, workspace.path,
       Date.parse(workspace.createdAt), workspace.title, members,
@@ -391,7 +361,7 @@ function groupByWorkspace(
   const stray = list.ids
     .map(id => list.byId[id])
     .filter((s): s is SessionSummary =>
-      s !== undefined && !accounted.has(s.id) && listSessionVisible(s, current, archived, archivedFilter))
+      s !== undefined && !accounted.has(s.id) && sessionVisible(s, current, archived, archivedFilter))
   if (stray.length > 0) {
     groups.push(buildGroup(
       UNGROUPED_KEY,
@@ -440,7 +410,6 @@ function sessionNode(
     running: status?.running ?? s.running,
     runningSubagentCount: runningChildCount(list, s.id, statuses),
     completed: status?.completionUnread === true,
-    hasActiveSchedule: hasActiveSchedule(s),
     pinned: !archived.has(s.id) && pinned.has(s.id),
     archived: archived.has(s.id),
     updatedAt: s.updatedAt,
@@ -451,12 +420,12 @@ function sessionNode(
 /**
  * Derive the workspace browser groups with every session as a top-level row.
  *
- * Under `only` the groups hide entirely — the archive section carries the
- * view. Otherwise every group shows; sessions populate under expanded groups
- * with the selected New Session placeholder first. Pinned rows render in the
- * pinned section ({@link derivePinnedRows}) and archived rows in the archive
- * section ({@link deriveArchivedRows}), so neither stays in its home group.
- * Content search lives outside this derivation (see {@link deriveSearchResults}).
+ * Every group shows, except that the archived-only filter drops groups
+ * without visible members; sessions populate under expanded groups with
+ * pinned rows leading in the selected local order. Blank sessions are
+ * excluded except for the selected provisional New Session row; archived
+ * sessions keep their slots and appear per the archived filter. Content
+ * search lives outside this derivation (see {@link deriveSearchResults}).
  * @param list - sessions list snapshot (`mainView` retention feeds containsCurrent).
  * @param workspaces - real Workspaces in Host group order with caller-projected Session order.
  * @param rowState - registry-global pin and archive sets plus the archived filter.
@@ -471,7 +440,6 @@ export function deriveGroups(
   statuses: SessionStatuses,
   view: TreeView,
 ): GroupNode[] {
-  if (rowState.archivedFilter === 'only') return []
   const archived = new Set(rowState.archivedSessionIds)
   const pinned = new Set(rowState.pinnedSessionIds)
   const expandedGroups = new Set(view.expandedGroups)
@@ -481,9 +449,6 @@ export function deriveGroups(
     : owningGroupKey(workspaces, current)
   const groups: GroupNode[] = []
   for (const g of groupByWorkspace(list, workspaces, archived, rowState.archivedFilter, view.ungroupedOrder)) {
-    // Pinned rows leave their home group for the pinned section; the saved
-    // account orders keep their slots so unpinning restores the position.
-    const members = g.sessions.filter(member => !pinned.has(member.id))
     const expanded = expandedGroups.has(g.key)
     groups.push({
       key: g.key,
@@ -491,11 +456,11 @@ export function deriveGroups(
       cwd: g.cwd,
       createdAt: g.createdAt,
       label: g.label,
-      sessionCount: members.length,
+      sessionCount: g.sessions.length,
       expanded,
       containsCurrent: g.key === currentGroup,
       sessions: expanded
-        ? sectionMembers(members)
+        ? sectionMembers(g.sessions, pinned, archived)
           .map(session => sessionNode(session, list, statuses, pinned, archived))
         : [],
     })
@@ -513,10 +478,7 @@ export function sessionMemberIds(list: SessionListState): SessionId[] {
 }
 
 /**
- * Select members under the search visibility rules (archived rows follow the
- * archived filter here) without deriving row presentation or ordering.
- * Complete flat membership keeps archive slots either way so unarchiving
- * restores position.
+ * Select visible flat-list members without deriving row presentation or ordering.
  * @param list - sessions list snapshot.
  * @param archivedSessionIds - registry-global archive set.
  * @param archivedFilter - archived-row visibility choice.
@@ -536,10 +498,8 @@ export function visibleSessionIds(
 }
 
 /**
- * Derive flat rows from the browser's complete ordered Session ids. Pinned
- * rows render in the pinned section and archived rows in the archive section,
- * so neither stays in the list; the archived filter only decides whether the
- * non-archived rows show at all.
+ * Derive flat rows from the browser's complete ordered Session ids, with
+ * pinned rows fronted ahead of the supplied order.
  * @param list - sessions list snapshot used to select the ids.
  * @param sessionIds - complete account members in the selected order, including hidden archives.
  * @param rowState - registry-global pin and archive sets plus the archived filter.
@@ -557,109 +517,12 @@ export function deriveFlat(
   const current = mainSessionId(list)
   const members = sessionIds.flatMap((id) => {
     const session = list.byId[id]
-    return session !== undefined && !pinned.has(id)
-      && listSessionVisible(session, current, archived, rowState.archivedFilter)
+    return session !== undefined && sessionVisible(session, current, archived, rowState.archivedFilter)
       ? [session]
       : []
   })
-  return sectionMembers(members)
+  return sectionMembers(members, pinned, archived)
     .map(session => sessionNode(session, list, statuses, pinned, archived))
-}
-
-/**
- * Order the pinned section's members: the manual pin order — each account's
- * projected order in display order, so saved pin drags hold — with pins
- * outside every projected account following in Host pin order (the same
- * order `reconcileManualOrder` fronts unsaved pins in); the recency order
- * when Manual is not the selected session order.
- * @param rowState - registry-global pin and archive membership.
- * @param summaries - current Session metadata; members without a summary drop until theirs arrives.
- * @param orderBy - the selected session order.
- * @param accountOrders - projected account memberships in display order.
- * @returns pinned non-archived member ids in section order.
- */
-export function pinnedSectionIds(
-  rowState: Pick<SessionRowState, 'pinnedSessionIds' | 'archivedSessionIds'>,
-  summaries: SessionListState['byId'],
-  orderBy: SessionOrderBy,
-  accountOrders: readonly (readonly SessionId[])[],
-): SessionId[] {
-  const archived = new Set(rowState.archivedSessionIds)
-  const members = new Set<SessionId>()
-  for (const id of rowState.pinnedSessionIds) {
-    if (archived.has(id) || summaries[id] === undefined) continue
-    members.add(id)
-  }
-  if (orderBy === 'updated') return orderByRecency([...members], summaries)
-  const ordered: SessionId[] = []
-  for (const ids of accountOrders) {
-    for (const id of ids) {
-      if (!members.delete(id)) continue
-      ordered.push(id)
-    }
-  }
-  // Members no projection accounted for (a lagging baseline) keep Host pin order.
-  return [...ordered, ...members]
-}
-
-/**
- * The pinned section's rows: every pinned non-archived Session with a known
- * summary, in the supplied section order. Blank placeholders other than the
- * current one and subagent children never render (their rules match list
- * membership); archived pins drop — the archive section owns them.
- * @param list - sessions list snapshot (`mainView` retention feeds the current-blank rule).
- * @param rowState - registry-global pin and archive sets plus the archived filter.
- * @param statuses - unified UI status by Session.
- * @param order - pinned member ids in section order ({@link pinnedSectionIds}).
- * @returns pinned section rows.
- */
-export function derivePinnedRows(
-  list: SessionListState,
-  rowState: SessionRowState,
-  statuses: SessionStatuses,
-  order: readonly SessionId[],
-): SessionNode[] {
-  const archived = new Set(rowState.archivedSessionIds)
-  const pinned = new Set(rowState.pinnedSessionIds)
-  const current = mainSessionId(list)
-  return order.flatMap((id) => {
-    const session = list.byId[id]
-    if (session === undefined || !pinned.has(id) || archived.has(id)
-      || !renderableSession(session, current)) return []
-    return [sessionNode(session, list, statuses, pinned, archived)]
-  })
-}
-
-/**
- * The archive section's rows: every archived Session with a known summary,
- * newest first. The section replaces the grayed in-place archived rows, so
- * the lists no longer carry them and the archived filter only forces or
- * restores the section's expansion. Subagent children and non-current blank
- * placeholders never render here either.
- * @param list - sessions list snapshot (`mainView` retention feeds the current-blank rule).
- * @param rowState - registry-global pin and archive sets plus the archived filter.
- * @param statuses - unified UI status by Session.
- * @returns archive section rows in recency order.
- */
-export function deriveArchivedRows(
-  list: SessionListState,
-  rowState: SessionRowState,
-  statuses: SessionStatuses,
-): SessionNode[] {
-  const archived = new Set(rowState.archivedSessionIds)
-  const pinned = new Set(rowState.pinnedSessionIds)
-  const current = mainSessionId(list)
-  const members = rowState.archivedSessionIds.flatMap((id) => {
-    const session = list.byId[id]
-    return session !== undefined && renderableSession(session, current) ? [session] : []
-  })
-  const byId = new Map(members.map(session => [session.id, session]))
-  return orderByRecency(members.map(session => session.id), list.byId)
-    .flatMap((id) => {
-      const session = byId.get(id)
-      /* v8 ignore next -- ids are projected exclusively from the members used to build byId. */
-      return session === undefined ? [] : [sessionNode(session, list, statuses, pinned, archived)]
-    })
 }
 
 /**
@@ -749,7 +612,6 @@ export function deriveSearchResults(
           ? {}
           : { pendingInteraction }),
         completed: status?.completionUnread === true,
-        hasActiveSchedule: hasActiveSchedule(summary),
         archived: archived.has(summary.id),
         ...match === undefined ? {} : { snippet: match.snippet },
       }

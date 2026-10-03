@@ -68,12 +68,14 @@ export const DEFAULT_CONTEXT_WINDOW = 262_144
 export const DEFAULT_MAX_TOKENS = 32_768
 
 /**
- * Modalities filled in for a model neither configuration nor the catalog
- * declares, when a materialized `Model.input` is required. Text is the floor
- * every supported protocol certainly carries. This value is the effective
- * floor only — it is deliberately absent from the declared modalities the
- * request path enforces, so an undeclared model's image requests reach the
- * endpoint and the provider, not a guess, decides whether they are served.
+ * Modalities assumed for a model neither configuration nor the catalog
+ * declares. Text is the floor every supported protocol certainly carries, so
+ * this is the absence of a declaration rather than a guess at the endpoint:
+ * nothing can interrogate a gateway for its modalities, and the two wrong
+ * answers do not cost the same. Under-claiming refuses the image before it is
+ * attached, naming the model. Over-claiming admits one the provider then
+ * rejects mid-turn, after the message is durable, leaving the session
+ * repeating a request that cannot succeed.
  */
 export const DEFAULT_INPUT: readonly PiAiModality[] = ['text']
 
@@ -136,14 +138,14 @@ export interface PiAiProviderProfile {
    */
   defaultMaxTokens?: number
   /**
-   * Request modalities claimed for every model on this route that neither its
-   * entry's {@link PiAiModelProfile.input} nor the installed catalog declares.
-   * A claim, not a guess: naming one enforces it on image requests, so a
-   * gateway serving vision models the catalog does not describe declares
-   * `[text, image]` once here instead of on every entry. Leaving the key out —
-   * or empty, which the schema materializes identically — states no claim, and
-   * undeclared models keep image attempts reaching the endpoint, which is what
-   * makes a vision gateway usable with no declaration at all.
+   * Request modalities for a model this route lists that neither its entry's
+   * {@link PiAiModelProfile.input} nor the installed catalog declares (default
+   * `[text]`). A fallback like the capacities above, not an override: a
+   * catalog model keeps the modalities the catalog records for it, and this
+   * value never narrows one. A gateway serving vision models the catalog does
+   * not describe declares `[text, image]` once here instead of on every entry.
+   * Unlike an entry's list, this one may not be empty — nothing sits below it
+   * to answer instead.
    */
   defaultInput?: PiAiModality[]
   /** Provider request headers, validated against Fetch when the profile resolves; Harness attribution wins reserved names. */
@@ -214,13 +216,6 @@ export interface ResolvedPiAiProviderProfile
    * own, so a catalog capability must not appear here.
    */
   configuredMaxTokens: ReadonlyMap<string, number>
-  /**
-   * Modalities a source explicitly claimed for each model, by model id. A
-   * model absent here resolved its modalities from the route's fallback, which
-   * is a guess — the request path attempts image input against the endpoint
-   * instead of refusing it on the guess.
-   */
-  declaredInputs: ReadonlyMap<string, readonly PiAiModality[]>
 }
 
 /** Plugin configuration: the provider routes this instance owns. */
@@ -338,11 +333,7 @@ const profile = z.object({
   compat: compatProfile,
   defaultContextWindow: z.number().step(1).min(1).default(DEFAULT_CONTEXT_WINDOW),
   defaultMaxTokens: z.number().step(1).min(1).default(DEFAULT_MAX_TOKENS),
-  // No schema default, unlike the capacities above: schemastery materializes
-  // `[]` for an absent array, and only a nonempty list here is a route's
-  // modality claim — an absent key must stay distinguishable so the request
-  // path does not enforce the silent fallback against image input.
-  defaultInput: z.array(z.union(MODALITIES)),
+  defaultInput: z.array(z.union(MODALITIES)).default([...DEFAULT_INPUT]),
   headers: z.dict(z.string()),
   reasoning: z.union(THINKING_LEVELS),
   thinkingBudgets,
@@ -456,13 +447,14 @@ export function resolveProfiles(
       throw new Error(`llm-pi-ai: provider "${provider}" requestImageMaxBytes must be a positive safe integer`)
     }
     // Detached from the configuration object because pi-ai types `Model.input`
-    // mutable. Absent and empty are the same request at the route level,
-    // exactly as on an entry: schemastery materializes `[]` for the absent
-    // array, so an empty list here states no answer rather than a model that
-    // accepts nothing. Only a nonempty list is a claim.
-    const defaultInput = source.defaultInput !== undefined && source.defaultInput.length > 0
-      ? [...source.defaultInput]
-      : undefined
+    // mutable. The schema's explicit default covers an absent key, so an empty
+    // list here is always one someone typed — and unlike an entry's, nothing
+    // below it can answer instead — so it is refused rather than read as "no
+    // answer".
+    const defaultInput = [...source.defaultInput ?? DEFAULT_INPUT]
+    if (defaultInput.length === 0) {
+      throw new Error(`llm-pi-ai: provider "${provider}" defaultInput must name at least one modality`)
+    }
     // The route key, not the installed provider's own name: the directory has
     // always shown route keys, and a catalog route must not silently rename
     // itself on every configuration surface just because it gained a profile.
@@ -478,10 +470,7 @@ export function resolveProfiles(
         ...source.models === undefined ? {} : { models: source.models },
         ...source.modelOverrides === undefined ? {} : { modelOverrides: source.modelOverrides },
         ...source.compat === undefined ? {} : { compat: source.compat },
-        // Only a nonempty route list is a modality claim; an absent or empty
-        // key stays absent so the catalog resolution records no declaration
-        // below the entry and catalog levels.
-        ...defaultInput === undefined ? {} : { defaultInput },
+        defaultInput,
         defaultContextWindow: source.defaultContextWindow ?? DEFAULT_CONTEXT_WINDOW,
         defaultMaxTokens: source.defaultMaxTokens ?? DEFAULT_MAX_TOKENS,
       }, validation)
@@ -513,7 +502,6 @@ export function resolveProfiles(
       ...rest.thinkingBudgets === undefined ? {} : { thinkingBudgets: { ...rest.thinkingBudgets } },
       configuredMaxTokens: catalog?.configuredMaxTokens ?? new Map(),
       modelErrors: catalog?.modelErrors ?? new Map(),
-      declaredInputs: catalog?.declaredInputs ?? new Map(),
       ...piProvider === undefined ? {} : { piProvider },
       ...catalogError === undefined ? {} : { catalogError },
     })

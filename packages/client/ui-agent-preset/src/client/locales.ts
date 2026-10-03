@@ -9,7 +9,6 @@ export type AgentPresetSettingsKey =
   | 'customGroup'
   | 'seatHint'
   | 'headerHint'
-  | 'headerBusyHint'
   | 'nav'
   | 'sectionIntro'
   | 'setDefault'
@@ -23,17 +22,11 @@ export type AgentPresetSettingsKey =
   | 'presetCordisName'
   | 'presetCordisDescription'
   | 'inUse'
-  | 'selectionOffDefault'
   | 'noDescription'
   | 'brokenBadge'
   | 'switchRefused'
   | 'close'
   | 'creatorDraft'
-  | 'showPicker'
-  | 'showPickerBeta'
-  | 'showPickerDescription'
-  | 'enablePickerToSetDefault'
-  | 'enablePickerToCreate'
 
 /** English copy. */
 export const en: Record<AgentPresetSettingsKey, string> = {
@@ -42,8 +35,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   sectionIntro: 'Choose the agent’s tools and how it works. Use Standard mode for everyday tasks, or Creator mode to add capabilities to DSH.',
 
   seatHint: 'Choose the agent preset for your new task',
-  headerHint: 'The agent preset this task runs; pick one to switch',
-  headerBusyHint: 'A turn is in progress; switch when it ends',
+  headerHint: 'The agent preset chosen when this task started',
   nav: 'Agent presets',
 
   setDefault: 'Set as new task default',
@@ -63,7 +55,6 @@ export const en: Record<AgentPresetSettingsKey, string> = {
     'Customize DSH through conversation. Let the agent write plugins that add features or UI, or combine tools and prompts to create your own mode.',
 
   inUse: 'New task default',
-  selectionOffDefault: 'Application default',
 
   noDescription: 'No description.',
   brokenBadge: 'Failed to load',
@@ -74,12 +65,6 @@ export const en: Record<AgentPresetSettingsKey, string> = {
 
   creatorDraft: 'Let the agent help me create a preset',
 
-  showPicker: 'Choose a mode for new tasks',
-  showPickerBeta: 'Experimental',
-  showPickerDescription:
-    'When enabled, each new task can choose a mode and the default is set here. When disabled, new tasks use the application default preset. Existing tasks are unaffected.',
-  enablePickerToSetDefault: 'Turn on mode selection for new tasks to choose a default',
-  enablePickerToCreate: 'Turn on mode selection for new tasks to start Creator mode',
 }
 
 /** Simplified Chinese copy. */
@@ -89,8 +74,7 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「标准模式」，扩展 DSH 的能力用「创造模式」。',
 
   seatHint: '选择新任务使用的 Agent 预设',
-  headerHint: '本任务运行的 Agent 预设，点击可切换',
-  headerBusyHint: '回合进行中，结束后可切换',
+  headerHint: '本任务的 Agent 预设，在任务开始时确定',
   nav: 'Agent 预设',
 
   setDefault: '设为新任务默认',
@@ -106,7 +90,6 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   presetCordisDescription: '用对话定制 DSH：让 Agent 编写插件，添加新功能或界面；也能组合工具和提示词，创建自己的模式。',
 
   inUse: '新任务默认',
-  selectionOffDefault: '应用默认',
 
   noDescription: '暂无描述。',
   brokenBadge: '加载失败',
@@ -117,11 +100,6 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
 
   creatorDraft: '让 Agent 帮我创建预设模式',
 
-  showPicker: '新任务可选择模式',
-  showPickerBeta: '实验性',
-  showPickerDescription: '开启后，可为每个新任务选择模式，并在这里设置默认值。关闭后，新任务使用应用配置的默认预设。已有任务不受影响。',
-  enablePickerToSetDefault: '请先开启新任务模式选择，再设置默认值',
-  enablePickerToCreate: '请先开启新任务模式选择，再启动创造模式',
 }
 
 // The resolution itself is the shared fold in `dsh-agent-preset-registry/display`,

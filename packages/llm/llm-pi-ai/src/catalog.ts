@@ -20,6 +20,7 @@ import type {
   BedrockCompat,
   ChatTemplateKwargValue,
   KnownApi,
+  MistralConversationsCompat,
   Model,
   ModelCost,
   ModelThinkingLevel,
@@ -38,16 +39,6 @@ const NO_COST: ModelCost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
 
 /** One request modality a pi-ai model may accept. */
 export type PiAiModality = Model<Api>['input'][number]
-
-/**
- * Effective modalities for a model nothing claims: text because every
- * supported protocol carries it, image because an undeclared model's picture
- * request must reach the endpoint — the protocol layer keeps image blocks and
- * the provider, not this default, decides whether they are served. A
- * companion to the declared-modality map, which deliberately records nothing
- * here so no request path treats the floor as a claim.
- */
-const IMAGE_ATTEMPT_INPUT: Model<Api>['input'] = ['text', 'image']
 
 /**
  * Every pi-ai request modality. The `Record` key type is a drift gate: a pi-ai
@@ -263,7 +254,8 @@ const COMPLETIONS_COMPAT_GATE = {
   zaiToolStream: 'withhold',
   supportsOpenAIGrammarTools: 'withhold',
   sendSessionAffinityHeaders: 'withhold',
-  deferredToolsMode: 'withhold',
+  supportsMidConvoSystemMessages: 'withhold',
+  supportsMidConvoToolAdditions: 'withhold',
   sessionAffinityFormat: 'withhold',
 } as const satisfies Record<keyof OpenAICompletionsCompat, CompatDisposition>
 
@@ -278,6 +270,7 @@ const RESPONSES_COMPAT_GATE = {
   supportsAdditionalTools: 'withhold',
   supportsToolSearch: 'withhold',
   supportsExplicitPromptCacheMode: 'withhold',
+  supportsMidConvoSystemMessages: 'withhold',
 } as const satisfies Record<keyof OpenAIResponsesCompat, CompatDisposition>
 
 /** Disposition of every `AnthropicMessagesCompat` field; a drift gate like the one above. */
@@ -290,7 +283,9 @@ const ANTHROPIC_COMPAT_GATE = {
   allowEmptySignature: 'offer',
   supportsStrictTools: 'offer',
   sendSessionAffinityHeaders: 'withhold',
-  supportsToolReferences: 'withhold',
+  sessionAffinityFormat: 'withhold',
+  supportsMidConvoSystemMessages: 'withhold',
+  supportsMidConvoToolChanges: 'withhold',
   supportsMidConvoEffort: 'withhold',
   allowedFallbackModels: 'withhold',
 } as const satisfies Record<keyof AnthropicMessagesCompat, CompatDisposition>
@@ -299,6 +294,11 @@ const ANTHROPIC_COMPAT_GATE = {
 const BEDROCK_COMPAT_GATE = {
   supportsStrictMode: 'offer',
 } as const satisfies Record<keyof BedrockCompat, CompatDisposition>
+
+/** Disposition of every `MistralConversationsCompat` field. */
+const MISTRAL_COMPAT_GATE = {
+  supportsMidConvoSystemMessages: 'withhold',
+} as const satisfies Record<keyof MistralConversationsCompat, CompatDisposition>
 
 /**
  * Every wire protocol pi-ai gives a compat type. Derived from `Model.compat`'s
@@ -319,6 +319,7 @@ type ApiWithCompat = { [K in KnownApi]: NonNullable<Model<K>['compat']> extends 
  * models declare.
  */
 const COMPAT_GATES: Readonly<Record<ApiWithCompat, Readonly<Record<string, CompatDisposition>>>> = {
+  'mistral-conversations': MISTRAL_COMPAT_GATE,
   'openai-completions': COMPLETIONS_COMPAT_GATE,
   'openai-responses': RESPONSES_COMPAT_GATE,
   'azure-openai-responses': RESPONSES_COMPAT_GATE,
@@ -347,6 +348,8 @@ type OfferedCompatField =
   | OfferedIn<typeof RESPONSES_COMPAT_GATE>
   | OfferedIn<typeof ANTHROPIC_COMPAT_GATE>
   | OfferedIn<typeof BEDROCK_COMPAT_GATE>
+  // oxlint-disable-next-line typescript/no-redundant-type-constituents -- Include gates whose current offering is empty.
+  | OfferedIn<typeof MISTRAL_COMPAT_GATE>
 
 /**
  * pi-ai wire-compatibility switches, set on the route (its models' default) or
@@ -460,7 +463,7 @@ export type EveryOfferedFieldIsDocumented = AssertNever<Exclude<OfferedCompatFie
 type AssertTrue<T extends true> = T
 
 /** Every compat type a gate classifies, merged so one `Pick` reaches all offered fields. */
-type UpstreamCompat = OpenAICompletionsCompat & OpenAIResponsesCompat & AnthropicMessagesCompat & BedrockCompat
+type UpstreamCompat = OpenAICompletionsCompat & OpenAIResponsesCompat & AnthropicMessagesCompat & BedrockCompat & MistralConversationsCompat
 
 /**
  * Proof that each documented field carries its upstream type, not a hand-copied
@@ -646,13 +649,8 @@ export interface RouteCatalogRequest {
   defaultContextWindow: number
   /** Output capability for a model neither the entry nor the catalog sizes. */
   defaultMaxTokens: number
-  /**
-   * Modalities for a model neither the entry nor the catalog declares. A route
-   * that typed one here is making a claim about its endpoint, so it lands in
-   * `declaredInputs` like an entry list; `undefined` is the silent fallback,
-   * which fills `input` but never counts as a declaration.
-   */
-  defaultInput?: Model<Api>['input']
+  /** Modalities for a model neither the entry nor the catalog declares. */
+  defaultInput: Model<Api>['input']
 }
 
 /** An expected configuration failure that stored-catalog reads may retain for repair. */
@@ -759,7 +757,7 @@ function resolveModelReasoning(
 }
 
 /** The compat block a materialized model carries, whichever protocol it speaks. */
-type ModelCompat = OpenAICompletionsCompat | OpenAIResponsesCompat | AnthropicMessagesCompat | BedrockCompat
+type ModelCompat = OpenAICompletionsCompat | OpenAIResponsesCompat | AnthropicMessagesCompat | BedrockCompat | MistralConversationsCompat
 
 /**
  * Resolve one model's compat block from the profile's switches.
@@ -829,18 +827,6 @@ export interface RouteCatalog {
    * picked, so only an explicit configuration lands here.
    */
   configuredMaxTokens: ReadonlyMap<string, number>
-  /**
-   * Modalities a source explicitly claimed for each model, by model id.
-   *
-   * Separate from `Model.input` because resolution flattens three sources —
-   * the entry's list, the installed catalog's record, the route's fallback —
-   * into one value, and the flattening erases which source spoke, which the
-   * request path needs: a claim (entry or catalog) is the deployment's word
-   * about the endpoint and is enforced on image requests, while a route
-   * fallback is a guess that must not block one. A model absent from this map
-   * declared nothing, and its effective `input` came from the route default.
-   */
-  declaredInputs: ReadonlyMap<string, Model<Api>['input']>
 }
 
 /**
@@ -906,7 +892,6 @@ export function resolveRouteModels(
   assertOfferedCompatFields(provider, 'route', request.compat)
   const seen = new Set<string>()
   const configuredMaxTokens = new Map<string, number>()
-  const declaredInputs = new Map<string, Model<Api>['input']>()
   const resolveEntry = (entry: PiAiModelProfile): Model<Api> => {
     assertOfferedCompatFields(provider, `model "${entry.id}"`, entry.compat)
     if (entry.id.length === 0) invalid(provider, 'has a model with an empty id')
@@ -937,11 +922,6 @@ export function resolveRouteModels(
     // Only a value the profile named is a deployment choice; the catalog's is
     // the model's capability and stays out of request defaults.
     if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, entry.maxTokens)
-    // An entry's list, a catalog record, and a route default the deployment
-    // typed are all claims about the endpoint; the silent fallback is not, and
-    // only the claims land in the declaration map the request path enforces.
-    const declared = declaredInput(entry.input) ?? base?.input ?? request.defaultInput
-    if (declared !== undefined) declaredInputs.set(entry.id, declared)
     return {
       // The installed entry lays the floor, and the fields below override it.
       // Enumerating instead would silently drop every `Model` field this
@@ -954,11 +934,7 @@ export function resolveRouteModels(
       api,
       provider,
       baseUrl,
-      // An undeclared model's effective input is the attempt posture — the
-      // protocol layer keeps image blocks in the request and the endpoint,
-      // not this guess, decides whether it serves them. Declared models keep
-      // their claim so a text-only declaration downgrades as written.
-      input: declared ?? [...IMAGE_ATTEMPT_INPUT],
+      input: declaredInput(entry.input) ?? base?.input ?? [...request.defaultInput],
       cost: base?.cost ?? NO_COST,
       contextWindow,
       maxTokens,
@@ -990,5 +966,5 @@ export function resolveRouteModels(
     invalid(provider, `sets compat "${field}", but no model on the route speaks a protocol that takes it;`
       + ` it exists on ${takers.join(', ')}`)
   }
-  return { models: serviceableModels, configuredMaxTokens, modelErrors, declaredInputs }
+  return { models: serviceableModels, configuredMaxTokens, modelErrors }
 }

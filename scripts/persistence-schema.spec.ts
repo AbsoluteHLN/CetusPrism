@@ -21,13 +21,13 @@ function put(root: string, file: string, source: string): void {
 function fixture(payload: string, options: { surface?: string; event?: string } = {}): string {
   const root = mkdtempSync(join(tmpdir(), 'dsh-persistence-schema-'))
   roots.push(root)
-  put(root, 'tsconfig.host.json', JSON.stringify({ compilerOptions: {
+  put(root, 'configs/tsconfig.host.json', JSON.stringify({ compilerOptions: {
     target: 'es2024', module: 'esnext', moduleResolution: 'bundler', strict: true, skipLibCheck: true,
     types: [], paths: {
-      '@deepseek-ai/dsh-session/types': ['./packages/core/session/src/types.ts'],
-      '@fixture/payload': ['./packages/domain/payload/src/types.ts'],
+      '@deepseek-ai/dsh-session/types': ['../packages/core/session/src/types.ts'],
+      '@fixture/payload': ['../packages/domain/payload/src/types.ts'],
     },
-  }, include: ['packages/**/src/**/*.ts'] }))
+  }, include: ['../packages/**/src/**/*.ts'] }))
   put(root, 'packages/core/session/package.json', '{"name":"@deepseek-ai/dsh-session"}')
   put(root, 'packages/domain/payload/package.json', '{"name":"@fixture/payload"}')
   put(root, 'packages/session/session-persistence-jsonl/src/format.ts', "interface HeaderLine {type: 'session'; version: number; id: string; delegationDepth: number}\nexport {}\n")
@@ -192,9 +192,9 @@ interface SessionEventMap {
 'plugin/tsx': { value: number }
 }}
 `)
-    const config = join(root, 'tsconfig.host.json')
+    const config = join(root, 'configs', 'tsconfig.host.json')
     const settings = JSON.parse(readFileSync(config, 'utf8')) as { include: string[] }
-    settings.include.push('packages/**/src/**/*.tsx')
+    settings.include.push('../packages/**/src/**/*.tsx')
     writeFileSync(config, JSON.stringify(settings))
     expect(extractPersistenceSchema(root).roots.some(root => root.event === 'plugin/tsx')).toBe(true)
     put(root, 'packages/domain/extension/src/index.tsx', `import '@deepseek-ai/dsh-session/types';

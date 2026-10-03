@@ -55,8 +55,6 @@ interface SessionStatsTotals {
  * plain JSON per the unit contract (persisted-cache precondition).
  */
 interface SessionStatsState extends SessionStatsTotals {
-  /** Events below this seq are the fork-inherited prefix; their activity bills to the source session. */
-  forkBoundary: number
   /** Turn of the last counted `step/end`; null before the first. */
   lastTurn: number | null
   /** The open step's boundary facts; null outside a step or after its message assembled. */
@@ -89,7 +87,6 @@ const sessionStatsSchema = z.object({
  * `sessionStatsSchema` (the wire output boundary) with the boundary fields.
  */
 const sessionStatsStateSchema = sessionStatsSchema.extend({
-  forkBoundary: z.number().int().nonnegative(),
   lastTurn: z.number().int().nonnegative().nullable(),
   openStep: z.object({
     turn: z.number().int().nonnegative(),
@@ -115,10 +112,9 @@ function usageOutputTokens(usage: unknown): number | null {
 /** The `sessionStats` unit registered on `ctx.sessionProjections` (exported for the unit spec). */
 export const sessionStatsProjectionDefinition = {
   key: 'sessionStats',
-  stateVersion: 2,
+  stateVersion: 1,
   stateSchema: sessionStatsStateSchema,
-  init: (_header, inheritedEventCount) => ({
-    forkBoundary: inheritedEventCount,
+  init: () => ({
     turns: 0,
     steps: 0,
     llmMs: 0,
@@ -132,9 +128,6 @@ export const sessionStatsProjectionDefinition = {
     pendingCalls: {},
   }),
   apply: (state, event) => {
-    // Fork-inherited events belong to the source session's history; this
-    // session's figures fold only its own activity.
-    if (event.seq < state.forkBoundary) return state
     // Every uninteresting event returns the same reference (Object.is gates the change feed).
     switch (event.type) {
       case 'step/start':

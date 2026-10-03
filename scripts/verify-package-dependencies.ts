@@ -336,7 +336,10 @@ function hasGeneratedHostExport(pkg: WorkspacePackageManifest): boolean {
 function generatedHostSources(root: string, packages: readonly WorkspacePackageManifest[]): ReadonlyMap<string, string> {
   const selected = packages.filter(hasGeneratedHostExport)
   if (selected.length === 0) return new Map()
-  const artifacts = new WorkspaceTypertGenerator(root).generate(selected.map(pkg => pkg.name), ['host'])
+  const artifacts = new WorkspaceTypertGenerator(root, {
+    hostConfig: 'configs/tsconfig.host.json',
+    clientConfig: 'configs/tsconfig.client.json',
+  }).generate(selected.map(pkg => pkg.name), ['host'])
   const sources = new Map(artifacts.map(artifact => [artifact.package, artifact.js]))
   for (const pkg of selected) {
     if (!sources.has(pkg.name)) throw new Error(`${pkg.manifestPath}: declared Host Typert export has no generated module`)

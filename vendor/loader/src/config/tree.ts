@@ -2,7 +2,6 @@ import { composeError, Context } from '@deepseek-ai/cordis'
 import { isNonNullable, type Dict } from '@deepseek-ai/cosmokit'
 import { Entry, type EntryOptions } from './entry.ts'
 import { EntryGroup } from './group.ts'
-import { createResolve } from '../resolve.ts'
 
 /** Mutable tree of loader entries. Persistence is supplied by subclasses. */
 export abstract class EntryTree {
@@ -122,15 +121,9 @@ export abstract class EntryTree {
       if (this.ctx.loader.internal) {
         return await this.ctx.loader.internal.import(name, this.ctx.baseUrl!, {})
       } else if (name.startsWith('.')) {
-        return await import(/* @vite-ignore */ new URL(name, this.ctx.baseUrl).href)
+        return await import(/* @vite-ignore */new URL(name, this.ctx.baseUrl).href)
       } else {
-        // An `import()` written here anchors on this file, reaching the loader's
-        // own dependencies. A helper inside the config file's project supplies
-        // that project as the anchor; the plain import applies when no project
-        // can be located.
-        const resolve = await createResolve(this.ctx.baseUrl)
-        const url = resolve ? resolve(name) : name
-        return await import(/* @vite-ignore */ url)
+        return await import(/* @vite-ignore */name)
       }
     }, getOuterStack)
   }

@@ -19,14 +19,14 @@ export default defineConfig([
     entry: { 'terminal-io.worker': 'terminal-io/terminal-io.worker.ts' },
     outDir: '.dsh-build/terminal-io',
     clean: true,
-    tsconfig: 'configs/tsconfig.host.json',
+    tsconfig: 'tsconfig.host.json',
   },
   {
     ...shared,
     entry: { 'reconnect.worker': 'active-stream-reconnect/reconnect.worker.client.ts' },
     outDir: '.dsh-build/active-stream-reconnect',
     clean: true,
-    tsconfig: 'configs/tsconfig.client.json',
+    tsconfig: 'tsconfig.client.json',
   },
   {
     ...shared,
@@ -38,14 +38,14 @@ export default defineConfig([
     },
     outDir: '.dsh-build/agent-continuation',
     clean: true,
-    tsconfig: 'configs/tsconfig.host.json',
+    tsconfig: 'tsconfig.host.json',
   },
   {
     ...shared,
     entry: { 'session-open.worker': 'session-open/session-open.worker.ts' },
     outDir: '.dsh-build/session-open',
     clean: true,
-    tsconfig: 'configs/tsconfig.host.json',
+    tsconfig: 'tsconfig.host.json',
   },
   {
     ...shared,
@@ -54,6 +54,6 @@ export default defineConfig([
     },
     outDir: '.dsh-build/conversation-fold',
     clean: true,
-    tsconfig: 'configs/tsconfig.client.json',
+    tsconfig: 'tsconfig.client.json',
   },
 ])

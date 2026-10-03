@@ -9,7 +9,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, relative, resolve } from 'node:path'
 import ts from 'typescript'
 import { projectCordisCatalog } from '@deepseek-ai/dsh-typert-generator'
-import { CORDIS_CATALOG_POLICY } from './gen-cordis-catalog.ts'
+import { CORDIS_CATALOG_FACES, CORDIS_CATALOG_POLICY } from './gen-cordis-catalog.ts'
 import type { EventEntry, ServiceEntry } from '@deepseek-ai/dsh-typert-generator'
 import {
   collectPackageGraph,
@@ -411,6 +411,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     title: 'Product usage event sender',
     mode: 'service',
     note: 'Exports explicitly submitted analytics events through OTLP/HTTP; mounting alone collects nothing.',
+  },
+  {
+    key: 'schedule',
+    pkg: 'schedule',
+    title: 'Scheduled follow-ups',
+    mode: 'service',
+    note: 'Durable one-shot and fixed-rate reminders fold into session state and dispatch due work as normal later turns; delivery is best-effort at-least-once during idle maintenance.',
   },
 
   {
@@ -1616,7 +1623,7 @@ function renderToolPipeline(): string {
 
 function renderDocs(): GraphDoc[] {
   const pkgs = collectPackageGraph(root, GROUP_ORDER, 'gen-doc-graphs')
-  const { model } = projectCordisCatalog(root, CORDIS_CATALOG_POLICY)
+  const { model } = projectCordisCatalog(root, CORDIS_CATALOG_POLICY, 'host', CORDIS_CATALOG_FACES)
   const docs: GraphDoc[] = [
     { rel: 'docs/capability-seams.md', content: renderCapabilitySeams(pkgs, model.services) },
     ...APP_EXAMPLES.map(example => ({ rel: example.rel, content: renderAppComposition(example) })),

@@ -9,21 +9,11 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 // Type-only: pulls the ctx.remote merge into this program.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
-import type { SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { AgentPresetRoster } from '@deepseek-ai/dsh-agent-preset-registry/types'
 
 /** The agent-preset settings namespace on the host wire. */
 export const AGENT_PRESET_SETTINGS_NS = 'agent-preset-registry'
-
-/** Write only the named agent-preset settings fields. */
-async function writeAgentPresetSettings(
-  ctx: ClientContext,
-  patch: { selectedDefault?: string; modeSelectionEnabled?: boolean },
-): Promise<string | undefined> {
-  const response = await ctx.remote.settings.update(AGENT_PRESET_SETTINGS_NS, patch, undefined)
-  return response.ok ? undefined : response.error.message
-}
 
 /**
  * Persist one preset as the default for sessions created later.
@@ -35,24 +25,12 @@ async function writeAgentPresetSettings(
  * @param id - the preset to make default.
  * @returns the failure message, or undefined once the write landed.
  */
-export function writeDefaultPreset(
+export async function writeDefaultPreset(
   ctx: ClientContext,
   id: string,
 ): Promise<string | undefined> {
-  return writeAgentPresetSettings(ctx, { selectedDefault: id })
-}
-
-/**
- * Persist whether new-session surfaces expose preset selection.
- * @param ctx - the browser plugin context carrying the Remote namespaces.
- * @param enabled - whether the picker should be exposed.
- * @returns the failure message, or undefined once the write landed.
- */
-export function writeModeSelectionEnabled(
-  ctx: ClientContext,
-  enabled: boolean,
-): Promise<string | undefined> {
-  return writeAgentPresetSettings(ctx, { modeSelectionEnabled: enabled })
+  const response = await ctx.remote.settings.update(AGENT_PRESET_SETTINGS_NS, { selectedDefault: id }, undefined)
+  return response.ok ? undefined : response.error.message
 }
 
 /** One selectable preset. */
@@ -71,7 +49,7 @@ export type RosterPreset = AgentPresetRoster['presets'][number]
 /** The roster, or the message to show in its place. */
 export type RosterRead = { ok: true; value: AgentPresetRoster } | { ok: false; error: string }
 
-const EMPTY_ROSTER: AgentPresetRoster = { presets: [], modeSelectionEnabled: false }
+const EMPTY_ROSTER: AgentPresetRoster = { presets: [] }
 
 /**
  * Read the roster, turning a refusal into the message every surface shows.
@@ -137,41 +115,17 @@ export function presetOptions(
   }))
 }
 
-/**
- * Switch one session's agent preset. The host commits while no turn is open —
- * a blank session or an idle one between turns — and refuses otherwise.
- * @param ctx - the browser plugin context carrying the Remote namespaces.
- * @param sessionId - the session whose composition switches.
- * @param id - the preset to compose the session with.
- * @returns the host's refusal text, or undefined once the switch landed.
- */
-export async function switchSessionPreset(
-  ctx: ClientContext,
-  sessionId: SessionSummary['id'],
-  id: string,
-): Promise<string | undefined> {
-  const result = await ctx.remote.agentPresets.select(sessionId, id)
-  if (result.ok) return undefined
-  const { error } = result
-  return 'reason' in error.details && typeof error.details.reason === 'string'
-    ? error.details.reason
-    : error.message
-}
-
 /** Agent-preset roster snapshot for the display surfaces. */
 export interface AgentPresetSettingsState {
   status: 'idle' | 'loading' | 'ready' | 'unavailable' | 'error'
   error: string | null
   options: readonly AgentPresetOption[]
-  /** Whether surfaces may offer preset selection at all. */
-  modeSelectionEnabled: boolean
 }
 
 const INITIAL: AgentPresetSettingsState = {
   status: 'idle',
   error: null,
   options: [],
-  modeSelectionEnabled: false,
 }
 
 /** Reads the roster for the surfaces that only display it. */
@@ -199,16 +153,15 @@ export class AgentPresetSettingsController {
   async load(): Promise<void> {
     const roster = await beginRosterRead(this.ctx, this.store)
     if (roster === undefined) return
-    const { presets, modeSelectionEnabled } = roster
+    const { presets } = roster
     if (presets.length === 0) {
-      this.set({ status: 'unavailable', options: [], modeSelectionEnabled })
+      this.set({ status: 'unavailable', options: [] })
       return
     }
     this.set({
       status: 'ready',
       error: null,
       options: presetOptions(presets),
-      modeSelectionEnabled,
     })
   }
 

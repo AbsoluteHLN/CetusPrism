@@ -21,8 +21,8 @@ export type Formatter = (value: any, exporter: Exporter, message: Message) => an
 /** Numeric severity used when exporters decide whether to emit a message. */
 export const enum LoggerLevel {
   ERROR = 0,
-  WARN = 1,
-  INFO = 2,
+  INFO = 1,
+  WARN = 2,
   DEBUG = 3,
 }
 

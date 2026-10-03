@@ -49,7 +49,6 @@ export class ChatViewport {
   private turns: ReturnType<ChatSnapshot['navigation']['items']> = []
   private observation: { top: number; landing: ViewportLanding | null } = { top: 0, landing: null }
   private paging: PagingPosition | null = null
-  private pagingSyncFrame: number | null = null
 
   /**
    * Bind to the containing scrollport and observe content and viewport sizes.
@@ -80,8 +79,6 @@ export class ChatViewport {
   /** Disconnect DOM resources and clear observations for the detached view. */
   detach(): void {
     this.stopPreserving()
-    if (this.pagingSyncFrame !== null) cancelAnimationFrame(this.pagingSyncFrame)
-    this.pagingSyncFrame = null
     this.elements?.scroller.removeEventListener('scroll', this.onScroll)
     this.elements?.scroller.removeEventListener('scrollend', this.onScrollEnd, true)
     for (const type of READING_INTENTS) this.elements?.scroller.removeEventListener(type, this.onIntent, true)
@@ -432,15 +429,7 @@ export class ChatViewport {
     if (this.observation.landing !== null && this.elements.scroller.scrollTop === this.observation.top) return
     this.invalidate()
     if (this.paging !== null) {
-      // Each preserve() re-derivation queries and writes scroll geometry;
-      // while the paging anchor chases the scroller that compounds per event,
-      // so the resize pass runs at most once per frame like the observer path.
-      if (this.pagingSyncFrame === null) {
-        this.pagingSyncFrame = requestAnimationFrame(() => {
-          this.pagingSyncFrame = null
-          if (this.paging !== null) this.events?.resize()
-        })
-      }
+      this.events?.resize()
       return
     }
     const scroll = this.readScroll()

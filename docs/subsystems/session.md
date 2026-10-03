@@ -814,11 +814,17 @@ inspect( sessionId: SessionId, signal?: AbortSignal, ): Promise<SessionInspectio
 @Remote('create') create(request: SessionCreateRequest): Promise<SessionCreateValue>
 
 /**
- * Select one Session-local model after explicitly resuming the Session.
+ * Select one Session-local model after explicitly resuming the Session; save the default in the background.
  * @param request - Session identity and requested model selection.
- * @returns the normalized selection installed for the Session.
+ * @returns the normalized selection installed for the Session, without waiting for default persistence.
  */
 @Remote('selectModel') selectModel(request: SessionSelectModelRequest): Promise<SessionSelectModelValue>
+
+/**
+ * Select the first available account model after login when no provider API key is configured.
+ * @returns after saving the first available model or retaining the existing default.
+ */
+@Remote async initializeDefaultModel(): Promise<void>
 
 /**
  * Describe every currently routable model for Host-generation selectors.

@@ -48,8 +48,11 @@ const discovered = vi.hoisted(() => vi.fn(() => [
   { package: '@fixture/remote-only', root: 'packages/remote-only', faces: ['host'] },
 ]))
 
+const constructed = vi.hoisted(() => vi.fn<(...args: unknown[]) => void>())
+
 vi.mock('../src/workspace.ts', () => ({
   WorkspaceTypertGenerator: class {
+    constructor(...args: unknown[]) { constructed(...args) }
     discover = discovered
     generate = generated
   },
@@ -61,6 +64,7 @@ const roots: string[] = []
 afterEach(() => {
   discovered.mockClear()
   generated.mockClear()
+  constructed.mockClear()
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
@@ -201,6 +205,40 @@ describe('typertPlugin', () => {
     expect(readFileSync(join(root, 'packages/remote-only/lib/typert.remote-client.js'), 'utf8'))
       .toBe('export const remoteOnly = true\n')
     expect(existsSync(join(root, 'packages/ignored/lib/typert.host.js'))).toBe(false)
+  })
+
+  it('resolves aggregate configs outside the workspace root from plugin options', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-typert-tsdown-'))
+    roots.push(root)
+    await mkdir(join(root, 'configs'), { recursive: true })
+    writeFileSync(join(root, 'configs', 'tsconfig.host.json'), '{}\n')
+    const trigger = await packageOutput(root, 'generator', { name: '@deepseek-ai/dsh-typert-generator' })
+    await packageOutput(root, 'core/tools', {
+      name: '@deepseek-ai/dsh-tools',
+      exports: { './typert': './lib/typert.host.js' },
+    })
+    await packageOutput(root, 'ignored', { name: '@fixture/ignored' })
+    await packageOutput(root, 'remote-only', {
+      name: '@fixture/remote-only',
+      exports: { './remote': './lib/typert.remote-client.js' },
+    })
+
+    const plugin = typertPlugin({
+      mode: 'workspace',
+      faces: ['host'],
+      hostConfig: 'configs/tsconfig.host.json',
+      clientConfig: 'configs/tsconfig.client.json',
+    })
+    plugin.writeBundle({ dir: trigger })
+
+    expect(constructed).toHaveBeenCalledWith(root, {
+      checkDiagnostics: false,
+      hostConfig: 'configs/tsconfig.host.json',
+      clientConfig: 'configs/tsconfig.client.json',
+    })
+    expect(generated).toHaveBeenCalledOnce()
+    expect(readFileSync(join(root, 'packages/core/tools/lib/typert.host.js'), 'utf8'))
+      .toBe('export const host = true\n')
   })
 })
 

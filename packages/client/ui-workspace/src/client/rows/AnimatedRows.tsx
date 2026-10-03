@@ -2,21 +2,8 @@
 import { Component, createRef, type ReactNode } from 'react'
 import css from './AnimatedRows.module.css'
 
-/* Motion timing rides the HLN v3.2 motion tokens so sidebar rows share the
-   platform's duration/ease; the constants are the non-browser fallbacks. */
-const ROW_FADE_MS = 180
-const ROW_GLIDE_MS = 320
-const ROW_EASE = 'cubic-bezier(0.16, 1, 0.3, 1)'
-
-/** Read one HLN motion token off the list element ('180ms'/'0.32s' forms). */
-function durationMs(element: HTMLElement, token: string, fallback: number): number {
-  const raw = getComputedStyle(element).getPropertyValue(token).trim()
-  const seconds = /^([\d.]+)s$/.exec(raw)
-  if (seconds !== null) return Number(seconds[1]) * 1000
-  const milliseconds = /^(\d+)ms$/.exec(raw)
-  if (milliseconds !== null) return Number(milliseconds[1])
-  return fallback
-}
+const ROW_FADE_MS = 100
+const ROW_GLIDE_MS = 200
 
 interface AnimatedRowsProps {
   children: ReactNode
@@ -99,9 +86,6 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
     const viewport = list.getBoundingClientRect()
     const origin = overlay.getBoundingClientRect()
     const positions = this.readPositions()
-    const fadeMs = durationMs(list, '--hln-ui-duration-fast', ROW_FADE_MS)
-    const glideMs = durationMs(list, '--hln-ui-duration-standard', ROW_GLIDE_MS)
-    const ease = getComputedStyle(list).getPropertyValue('--hln-ui-ease').trim() || ROW_EASE
 
     for (const [key, row] of positions) {
       this.removeExit(key)
@@ -109,7 +93,7 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
       if (!intersects(row.rect, viewport)
         && (previousRow === undefined || !intersects(previousRow.rect, viewport))) continue
       if (previousRow === undefined) {
-        this.move(row.element, [{ opacity: 0 }, { opacity: 1 }], fadeMs)
+        this.move(row.element, [{ opacity: 0 }, { opacity: 1 }], ROW_FADE_MS)
         continue
       }
       const dx = previousRow.rect.left - row.rect.left
@@ -118,7 +102,7 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
       this.move(row.element, [
         { transform: `translate(${String(dx)}px, ${String(dy)}px)`, opacity: previousRow.opacity },
         { transform: 'translate(0, 0)', opacity: 1 },
-      ], glideMs)
+      ], ROW_GLIDE_MS)
     }
 
     for (const [key, row] of snapshot.removed) {
@@ -132,7 +116,7 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
       })
       overlay.append(element)
       const animation = element.animate([{ opacity: row.opacity }, { opacity: 0 }], {
-        duration: fadeMs, easing: ease, fill: 'forwards',
+        duration: ROW_FADE_MS, easing: 'ease-out', fill: 'forwards',
       })
       this.exits.set(key, { element, animation })
       animation.onfinish = () => { this.removeExit(key) }
@@ -154,8 +138,7 @@ export class AnimatedRows extends Component<AnimatedRowsProps> {
   }
 
   private move(element: HTMLElement, keyframes: Keyframe[], duration: number): void {
-    const easing = getComputedStyle(element).getPropertyValue('--hln-ui-ease').trim() || ROW_EASE
-    const animation = element.animate(keyframes, { duration, easing })
+    const animation = element.animate(keyframes, { duration, easing: 'ease-out' })
     this.movements.set(element, animation)
     animation.onfinish = () => { this.movements.delete(element); animation.cancel() }
   }

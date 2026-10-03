@@ -1,10 +1,9 @@
 // @vitest-environment jsdom
 /**
  * The two conversation-adjacent surfaces: the new-session chip naming the
- * next session's preset, and the session header's preset switch. The split is
- * the host's rule — a switch commits while no turn is open, so the chip stages
- * for a session that does not exist yet while the header switches the session
- * it belongs to.
+ * next session's preset, and the session header's read-only label. The split
+ * is the host's rule — a session's history is produced under its preset's
+ * tools, so the choice is only ever offered before one starts.
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -27,11 +26,9 @@ const ROSTER_READY: AgentPresetSettingsState = {
   status: 'ready',
   error: null,
   options: [{ id: 'standard' }, { id: 'mine' }],
-  modeSelectionEnabled: false,
 }
 
 const SEAT_READY: AgentPresetSeatState = {
-  showPicker: true,
   current: 'standard',
   options: [
     { id: 'standard' },
@@ -56,27 +53,28 @@ function renderSeat(
   state: Partial<AgentPresetSeatState> = {},
   select: () => Promise<string | undefined> = () => Promise.resolve(undefined),
   session?: { id: string; retainInfo: SessionRetainInfo | undefined },
+  enabled = true,
 ) {
   const store = createSnapshotStore<AgentPresetSeatState>({ ...SEAT_READY, ...state })
-  const developerTools = createSnapshotStore(true)
+  const developerTools = createSnapshotStore(enabled)
   const actions = { load: vi.fn(() => Promise.resolve()), select: vi.fn(select), introduced: vi.fn() }
-  render(<AgentPresetSeat {...({
+  const props = {
     ...actions,
     sessionId: session === undefined ? undefined : SessionId(session.id),
-    useShowPresetPicker: bindSnapshotSelector(developerTools),
+    useDeveloperTools: bindSnapshotSelector(developerTools),
     useAgentPresetSeat: bindSnapshotSelector(store),
     useSessionRetainInfo: session === undefined
       ? useSessionRetainInfo
       : <Selected,>(selector: (value: SessionRetainInfo | undefined) => Selected) => selector(session.retainInfo),
     t: translate,
-  } as unknown as AgentPresetSeatProps)} />)
+  } as AgentPresetSeatProps
+  render(<AgentPresetSeat {...props} />)
   return { ...actions, developerTools }
 }
 
 function renderLabel(
-  summary: { blank: boolean; running?: boolean; projectionValues?: { agentPreset?: string | null } } | undefined,
+  summary: { blank: boolean; projectionValues?: { agentPreset?: string | null } } | undefined,
   roster: Partial<AgentPresetSettingsState> = {},
-  select: (sessionId: 's1', id: string) => Promise<string | undefined> = () => Promise.resolve(undefined),
 ) {
   // The chip and the label read the same roster, metadata included.
   const store = createSnapshotStore<AgentPresetSettingsState>({
@@ -84,20 +82,19 @@ function renderLabel(
   })
   const sessions = createSnapshotStore({ byId: summary === undefined ? {} : { s1: summary } })
   const load = vi.fn(() => Promise.resolve())
-  const actions = { load, select: vi.fn(select) }
   const view = render(<AgentPresetLabel {...({
-    ...actions,
+    load,
     sessionId: 's1',
     useSessions: bindSnapshotSelector(sessions),
     useAgentPresets: bindSnapshotSelector(store),
-    t: translate,
+    t: (key: keyof typeof en) => en[key],
   } as unknown as AgentPresetLabelProps)} />)
-  return { ...actions, view }
+  return { load, view }
 }
 
 describe('the new-session chip', () => {
-  it('renders nothing while the picker is disabled', () => {
-    renderSeat({ showPicker: false })
+  it('renders nothing while Developer tools are off', () => {
+    renderSeat({}, undefined, undefined, false)
 
     expect(screen.queryByRole('button')).toBeNull()
   })
@@ -329,68 +326,17 @@ describe('the chip introduce cue', () => {
   })
 })
 
-describe('the session-header preset switch', () => {
-  it('names the preset, and stays plain chrome while selection is off', async () => {
+describe('the session-header label', () => {
+  it('names the preset the session runs, and never offers a switch', async () => {
     const { load } = renderLabel({
       blank: false,
       projectionValues: { agentPreset: 'standard' },
     })
 
     await waitFor(() => { expect(load).toHaveBeenCalledTimes(1) })
-    // The deployment turned selection off, so the header reports rather than
-    // offers: the roster policy owns whether a switch exists at all.
+    // A control here would promise a switch the host refuses outright.
     expect(screen.queryByRole('button')).toBeNull()
     expect(screen.getByTitle(en.presetStandardDescription).textContent).toBe(en.presetStandardName)
-  })
-
-  it('offers the roster as a menu and commits the pick on this session', async () => {
-    const select = vi.fn(() => Promise.resolve(undefined))
-    renderLabel({
-      blank: false,
-      projectionValues: { agentPreset: 'standard' },
-    }, { modeSelectionEnabled: true }, select)
-
-    fireEvent.click(screen.getByRole('button'))
-    expect(screen.getByText(en.presetStandardDescription)).toBeTruthy()
-    fireEvent.click(screen.getByRole('menuitem', { name: /mine/ }))
-
-    await waitFor(() => { expect(select).toHaveBeenCalledWith('s1', 'mine') })
-    expect(screen.queryByRole('alert')).toBeNull()
-  })
-
-  it('announces a refused switch', async () => {
-    // The banner's own timer has to be a fake one from the start, or the
-    // assertion below would wait out its real hold.
-    vi.useFakeTimers({ shouldAdvanceTime: true })
-    try {
-      const reason = 'A turn is in progress'
-      renderLabel({
-        blank: false,
-        projectionValues: { agentPreset: 'standard' },
-      }, { modeSelectionEnabled: true }, () => Promise.resolve(reason))
-
-      fireEvent.click(screen.getByRole('button'))
-      fireEvent.click(screen.getByRole('menuitem', { name: /mine/ }))
-
-      // A turn opened between the menu render and the pick: the host refused,
-      // and this banner is the only place the cause appears.
-      const banner = await screen.findByRole('alert')
-      expect(banner.textContent).toContain(reason)
-      expect(banner.textContent).toContain('mine')
-    } finally {
-      vi.useRealTimers()
-    }
-  })
-
-  it('degrades to the label while a turn is running', () => {
-    renderLabel({
-      blank: false,
-      running: true,
-      projectionValues: { agentPreset: 'standard' },
-    }, { modeSelectionEnabled: true })
-
-    expect(screen.queryByRole('button')).toBeNull()
-    expect(screen.getByTitle(en.headerBusyHint).textContent).toBe(en.presetStandardName)
   })
 
   it('falls back to the id, and to the generic hint, when metadata is absent', () => {

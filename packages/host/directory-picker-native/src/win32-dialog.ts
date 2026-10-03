@@ -150,12 +150,9 @@ export async function pickWin32Directory(
         reject(error)
       })
     })
-    worker.on('exit', (code: number) => {
+    worker.on('exit', () => {
       settle(() => {
-        // The code separates the two silent deaths: 1 is a missing/broken
-        // worker script, anything else is a hard native crash (the worker
-        // posts every recoverable failure over IPC before exiting).
-        reject(new Error(`win32 folder dialog worker exited with code ${code} before reporting a result`))
+        reject(new Error('win32 folder dialog worker exited before reporting a result'))
       })
     })
   })

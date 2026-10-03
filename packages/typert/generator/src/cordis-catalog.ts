@@ -6,6 +6,7 @@
  */
 
 import { WorkspaceAnalyzer, WorkspaceCaches } from './analyzer.ts'
+import type { WorkspaceAnalyzerOptions } from './analyzer.ts'
 import { childTypeNodeIds } from './model.ts'
 import { TypeGraphRenderer } from './renderer.ts'
 import type {
@@ -364,15 +365,18 @@ export class CordisCatalogProjector {
  * @param scanRoot - workspace root containing `tsconfig.host.json`.
  * @param policy - caller-owned type classifications and inherited Cordis data.
  * @param targetFace - Host or Client Typert face to project.
+ * @param faceConfigs - face aggregate paths when the workspace keeps them outside its root.
  * @returns the configured projector and its validated catalog model.
  */
-export function projectCordisCatalog(scanRoot: string, policy: CordisCatalogPolicy, targetFace: TypertFace = 'host'): {
+export function projectCordisCatalog(scanRoot: string, policy: CordisCatalogPolicy, targetFace: TypertFace = 'host',
+  faceConfigs: Pick<WorkspaceAnalyzerOptions, 'hostConfig' | 'clientConfig'> = {}): {
   readonly projector: CordisCatalogProjector
   readonly model: CordisCatalogModel
 } {
   const caches = new WorkspaceCaches()
   const discovery = new WorkspaceAnalyzer({
     root: scanRoot,
+    ...faceConfigs,
     faces: [targetFace],
     checkDiagnostics: false,
     caches,
@@ -381,6 +385,7 @@ export function projectCordisCatalog(scanRoot: string, policy: CordisCatalogPoli
     .map(candidate => candidate.package)
   const workspace = new WorkspaceAnalyzer({
     root: scanRoot,
+    ...faceConfigs,
     faces: [targetFace],
     packages,
     checkDiagnostics: false,
@@ -390,6 +395,7 @@ export function projectCordisCatalog(scanRoot: string, policy: CordisCatalogPoli
   if (face === undefined) throw new Error(`gen-cordis-catalog: Typert produced no ${targetFace} face`)
   const sourceDeclarations = new WorkspaceAnalyzer({
     root: scanRoot,
+    ...faceConfigs,
     faces: [targetFace],
     checkDiagnostics: false,
     caches,

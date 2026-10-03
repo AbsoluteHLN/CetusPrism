@@ -63,27 +63,25 @@ describe('modality schema boundary', () => {
     expect(routeWith({ defaultInput: ['text', 'audio'] })).toThrow(/expected/)
   })
 
-  it('reads an empty route list as no claim, like an absent key', () => {
-    // The schema materializes `[]` for the absent array, so absent and empty
-    // must mean the same thing: no modality claim. Enforcing the route's
-    // silent fallback would block image input a gateway may well serve, which
-    // is why the old refusal is gone — only a nonempty list is a claim.
+  it('refuses a route whose models could accept nothing', () => {
+    // The pair the settings seam runs: the schema accepts the empty list as
+    // well-typed, and the namespace validator is what refuses it. Asserting
+    // only the schema would report this route as writable.
     expect(routeWith({ defaultInput: [] })).not.toThrow()
-    expect(() => { assertServiceable(routeWith({ defaultInput: [] })() as Options) }).not.toThrow()
+    expect(() => { assertServiceable(routeWith({ defaultInput: [] })() as Options) })
+      .toThrow(/defaultInput must name at least one modality/)
   })
 
   type Materialized = {
     providers: Record<string, { defaultInput?: unknown; models?: { input?: unknown }[] }>
   }
 
-  it('materializes an absent entry list as empty and an absent route list as empty', () => {
+  it('materializes an absent entry list as empty and an absent route list as text', () => {
     // The empty-list inheritance rule exists because of exactly this: an entry
-    // that declares nothing reaches resolution as `[]`, not as `undefined`,
-    // and the route default materializes the same way — no answer at either
-    // level, which the declaration map reads as "no claim".
+    // that declares nothing reaches resolution as `[]`, not as `undefined`.
     const absent = configWith({})() as Materialized
     expect(absent.providers['acme-gateway']?.models?.[0]?.input).toEqual([])
-    expect(absent.providers['acme-gateway']?.defaultInput).toEqual([])
+    expect(absent.providers['acme-gateway']?.defaultInput).toEqual(['text'])
   })
 })
 

@@ -139,41 +139,6 @@ describe('SessionController facade', () => {
     await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined })
   })
 
-  it('forwards a session turn end to clients with its reason kind', async () => {
-    const ctx = new Context()
-    await ctx.plugin(SessionStore)
-    await ctx.plugin(AgentRegistry)
-    const sessionId = SessionId('turn-ended-forward')
-    const header: SessionHeader = {
-      version: SESSION_FORMAT_VERSION,
-      id: sessionId,
-      createdAt: 1,
-      cwd: '/workspace',
-      isSeeded: false,
-    }
-    ctx.provide('sessionPersistence', testSessionPersistence(ctx, {
-      list: () => Promise.resolve([]),
-      inspect: () => Promise.resolve({
-        meta: header,
-        inheritedEventCount: SessionLogOffset(0),
-        events: [],
-      }),
-    }) as never)
-    createSessionTestController(ctx, defaults)
-    const turnEnded = vi.fn()
-    ctx.on('api-session/turn-ended', turnEnded)
-    const session = ctx.sessions.create(sessionId, { meta: header })
-    await ctx.agents.register({
-      id: sessionId,
-      session,
-      status: 'idle',
-      ctx,
-    } as Agent)
-
-    session.append('turn/end', { turn: 1, reason: { kind: 'completed' } })
-    expect(turnEnded).toHaveBeenCalledWith(sessionId, 'completed')
-  })
-
   it.each(['success', 'domain-error', 'throw'] as const)(
     'promotes a prepared follow observation in the background: %s',
     async (outcome) => {

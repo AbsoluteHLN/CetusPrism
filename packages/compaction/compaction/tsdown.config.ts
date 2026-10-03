@@ -1,7 +1,13 @@
-import { defineNodeEntryBundle } from '../../../scripts/tsdown-package.ts'
+import { defineConfig } from 'tsdown'
 
 /** Builds each published entry as a self-contained file admitted by the package whitelist. */
-export default defineNodeEntryBundle(
-  ['lib/types/index.js', 'lib/types/invariant.js'],
-  { outputOptions: { codeSplitting: false } },
-)
+export default defineConfig([
+  {
+    entry: ['lib/types/index.js'], outDir: 'lib', format: ['esm'], platform: 'node', target: 'es2024',
+    fixedExtension: false, outputOptions: { codeSplitting: false }, dts: false, clean: false,
+  },
+  {
+    entry: ['lib/types/invariant.js'], outDir: 'lib', format: ['esm'], platform: 'node', target: 'es2024',
+    fixedExtension: false, outputOptions: { codeSplitting: false }, dts: false, clean: false,
+  },
+])

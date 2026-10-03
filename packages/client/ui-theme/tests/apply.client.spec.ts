@@ -1,27 +1,24 @@
 /** ui-theme apply wiring: service provision, settings dictionaries riding the
- * locale service, declaration-aware HLN selection + font-size row
- * registration, snapshot projection into the row stores, and HMR collapse
- * recovery. */
+ * locale service, declaration-aware Appearance row registration, snapshot
+ * projection into the row store, and HMR collapse recovery. */
 import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it, vi } from 'vitest'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
-import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
 import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
-import { apply, inject, HLN_NS, SETTINGS_NS } from '@deepseek-ai/dsh-client-ui-theme/client'
-import type { FontSizeRowInjected, HlnRowInjected, ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
+import { apply, inject, SETTINGS_NS } from '@deepseek-ai/dsh-client-ui-theme/client'
+import type { AppearanceRowInjected, FontSizeRowInjected, ThemeRuntime } from '@deepseek-ai/dsh-client-ui-theme/client'
 import { THEME_SETTINGS_NAMESPACE, ThemeSettingsSchema } from '../src/theme-settings.ts'
-import { HlnAppearanceRow } from '../src/client/HlnAppearanceRow.tsx'
+import { AppearanceRow } from '../src/client/AppearanceRow.tsx'
 import { FontSizeRow } from '../src/client/FontSizeRow.tsx'
-import type { createHlnRowStore } from '../src/client/hln-store.ts'
-import type { createFontSizeRowStore } from '../src/client/settings-store.ts'
+import type { createAppearanceRowStore, createFontSizeRowStore } from '../src/client/settings-store.ts'
 
 // These specs assert the shipped Chinese copy. The lane has no jsdom `window`,
 // so browser-language detection never runs and a fresh LocaleRuntime opens on
 // FALLBACK_LOCALE (en); bench stages zh explicitly on the locale instead.
 
-const SLOT = 'settings.appearance.item'
+const SLOT = 'settings.general.item'
 
 function deferred<T>() {
   let resolve!: (value: T) => void
@@ -62,25 +59,21 @@ async function bench(isLoopback = true) {
   }
 }
 
-/** Stand in for the settings shell: declare the section slot only — the
- * Appearance section registration itself declares the item slot its rows
- * fill, exactly as the General section declares `settings.general.item`. */
+/** Stand in for the settings shell: declare the General item slot from root. */
 function declareItems(slots: SlotRegistry): () => void {
   return slots.register(
-    { name: 'root', children: {
-      'settings.section': { kind: 'list', scope: 'root' },
-    } } as never,
+    { name: 'root', children: { [SLOT]: { kind: 'list', scope: 'root' } } } as never,
     () => null,
   )
 }
 
 /** Mirror the framework's inject choreography: bake a real instance from the
  * declared handle and hand its actions to the entry's inject factory. */
-function hlnFaceOf(slots: SlotRegistry) {
-  const entry = slots.entries(SLOT).find(e => e.component === HlnAppearanceRow)!
-  const handle = entry.store as ReturnType<typeof createHlnRowStore>
+function faceOf(slots: SlotRegistry) {
+  const entry = slots.entries(SLOT).find(e => e.component === AppearanceRow)!
+  const handle = entry.store as ReturnType<typeof createAppearanceRowStore>
   const instance = handle.create()
-  const face = (entry.inject as unknown as (a: typeof instance.actions) => HlnRowInjected)(instance.actions)
+  const face = (entry.inject as unknown as (a: typeof instance.actions) => AppearanceRowInjected)(instance.actions)
   return { entry, instance, face }
 }
 
@@ -102,20 +95,14 @@ describe('ui-theme apply', () => {
     const before = await bench()
     declareItems(before.slots)
     await before.ctx.plugin({ inject: [...inject], apply }).await()
-    expect(before.locale.bind(HLN_NS)('hln.title')).toBe('HLN 界面风格')
+    expect(before.locale.bind(SETTINGS_NS)('appearance.title')).toBe('外观')
     expect(before.locale.bind(SETTINGS_NS)('fontSize.title')).toBe('字号大小')
-    const sectionEntry = before.slots.entries('settings.section').find(e => e.options.id === 'appearance')!
-    expect(resolveSlotLabel(sectionEntry.options.label)).toBe('外观与皮肤')
     before.locale.setLocale('en')
-    expect(before.locale.bind(HLN_NS)('hln.title')).toBe('HLN Interface Style')
-    expect(before.locale.bind(SETTINGS_NS)('fontSize.title')).toBe('Font size')
-    expect(resolveSlotLabel(sectionEntry.options.label)).toBe('Appearance')
-    console.log('DBG entries:', before.slots.entries(SLOT).map(e => ({ id: e.options?.id, component: String(e.component), same: e.component === HlnAppearanceRow })))
-    const entry = before.slots.entries(SLOT).find(e => e.component === HlnAppearanceRow)!
-    expect(entry.options).toMatchObject({ id: 'hln-appearance', order: 11 })
-    expect(entry.locale).toBe(HLN_NS)
+    expect(before.locale.bind(SETTINGS_NS)('appearance.title')).toBe('Appearance')
+    const entry = before.slots.entries(SLOT).find(e => e.component === AppearanceRow)!
+    expect(entry.options).toMatchObject({ id: 'appearance', order: 10 })
     const fontEntry = before.slots.entries(SLOT).find(e => e.component === FontSizeRow)!
-    expect(fontEntry.options).toMatchObject({ id: 'font-size', order: 12 })
+    expect(fontEntry.options).toMatchObject({ id: 'font-size', order: 11 })
     expect(fontEntry.locale).toBe(SETTINGS_NS)
 
     const after = await bench()
@@ -124,31 +111,28 @@ describe('ui-theme apply', () => {
     expect(after.slots.entries(SLOT)).toHaveLength(0)
     declareItems(after.slots)
     await Promise.resolve()
-    expect(after.slots.entries(SLOT).some(e => e.component === HlnAppearanceRow)).toBe(true)
+    expect(after.slots.entries(SLOT).some(e => e.component === AppearanceRow)).toBe(true)
     expect(after.slots.entries(SLOT).some(e => e.component === FontSizeRow)).toBe(true)
   })
 
-  it('mirrors the live HLN selection into the row store at inject and routes face writes back', async () => {
+  it('projects service snapshots into the row store and routes face writes back', async () => {
     const b = await bench()
     declareItems(b.slots)
     await b.ctx.plugin({ inject: [...inject], apply }).await()
+    const theme = b.ctx.get('theme') as ThemeRuntime
+    // An event ahead of any inject hits the unbound-actions arm.
+    theme.setTheme('dark')
 
-    const { instance, face } = hlnFaceOf(b.slots)
-    // The inject-time mirror shows the shim-less catalog defaults, not the
-    // store's init placeholder (this lane has neither shim nor localStorage).
-    expect(instance.getSnapshot()).toMatchObject({
-      theme: 'singularity-cyan', font: 'display', cjk: 'auto', bgMotion: 'tensor-stream',
-    })
+    const { instance, face } = faceOf(b.slots)
+    // The inject-time re-sync sealed the init window: the mirror is current.
+    expect(instance.getSnapshot().preference).toBe('dark')
+    // Copy rides the standard locale seat: the entry declares the namespace.
+    expect(b.slots.entries(SLOT).find(e => e.component === AppearanceRow)!.locale).toBe(SETTINGS_NS)
 
-    face.setHlnTheme('alabaster-studio')
-    expect(instance.getSnapshot().theme).toBe('alabaster-studio')
-    // The other fields survive the merge with the live selection.
-    expect(instance.getSnapshot().font).toBe('display')
-    expect(instance.getSnapshot().cjk).toBe('auto')
-    expect(instance.getSnapshot().bgMotion).toBe('tensor-stream')
-    face.setHlnCjk('song')
-    expect(instance.getSnapshot().cjk).toBe('song')
-    expect(instance.getSnapshot().theme).toBe('alabaster-studio')
+    face.setTheme('system')
+    expect(theme.getTheme().preference).toBe('system')
+    expect(instance.getSnapshot().preference).toBe('system')
+    await vi.waitFor(() => { expect(b.mutate).toHaveBeenCalledTimes(2) })
   })
 
   it('projects font-size snapshots into its row store and routes face writes back', async () => {
@@ -243,7 +227,7 @@ describe('ui-theme apply', () => {
 
     declareItems(b.slots)
     await Promise.resolve()
-    expect(b.slots.entries(SLOT).some(e => e.component === HlnAppearanceRow)).toBe(true)
+    expect(b.slots.entries(SLOT).some(e => e.component === AppearanceRow)).toBe(true)
     expect(b.slots.entries(SLOT).some(e => e.component === FontSizeRow)).toBe(true)
   })
 
@@ -257,7 +241,6 @@ describe('ui-theme apply', () => {
     expect(b.slots.entries(SLOT)).toHaveLength(0)
     // Dictionary disposal: translation falls back to the bare key.
     expect(b.locale.bind(SETTINGS_NS)('appearance.title')).toBe('appearance.title')
-    expect(b.locale.bind(HLN_NS)('hln.title')).toBe('hln.title')
 
     // Never-declared bench: the effect disposer's dispose arm stays undefined.
     const quiet = await bench()

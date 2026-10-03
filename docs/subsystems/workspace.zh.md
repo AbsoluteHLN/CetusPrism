@@ -2,7 +2,7 @@
 
 [English](workspace.md) | 中文
 
-工作区（workspace）是用户工作目录的持久记录：一个建立在规范路径之上的稳定 id、一个显示标题，以及归属于它的会话的有序账本。该子系统是单个包（package）（[dsh-workspace](../../packages/workspace/workspace)，`ctx.workspaceRegistry`）——一项宿主侧可选能力，不属于 agent loop（智能体循环）主干，并且对模型不可见（没有工具、没有提示词文本、没有会话事件）。它通过[存储领域数据形式](storage.zh.md)存储自己的记录，并对照 [`SessionHeader.cwd`](persistence.zh.md#sessionheader--metadata-beside-the-log) 校验会话成员资格，因此 `storageDomain` 与 `sessionPersistence` 是必需的启动依赖：持久化这一依赖不可用时，插件保持 pending，而不是把这种不可用误当作空历史。设计记录：[领域 KV 存储 Agent Note（agent 决策记录）](../../.agents/notes/proposed/architecture/2026-07-24-domain-kv-storage-and-workspace.zh.md)；引导与 GUI 顺序：[Workspace UI 产品流程 Agent Note](../../.agents/notes/archived/feature/2026-07-25-workspace-ui-product-flow.md)。
+工作区（workspace）是用户工作目录的持久记录：一个建立在规范路径之上的稳定 id、一个显示标题，以及归属于它的会话的有序账本。该子系统是单个包（package）（[dsh-workspace](../../packages/workspace/workspace)，`ctx.workspaceRegistry`）——一项宿主侧可选能力，不属于 agent loop（智能体循环）主干，并且对模型不可见（没有工具、没有提示词文本、没有会话事件）。它通过[存储领域数据形式](storage.zh.md)存储自己的记录，并对照 [`SessionHeader.cwd`](persistence.zh.md#sessionheader--metadata-beside-the-log) 校验会话成员资格，因此 `storageDomain` 与 `sessionPersistence` 是必需的启动依赖：持久化这一依赖不可用时，插件保持 pending，而不是把这种不可用误当作空历史。设计记录：[领域 KV 存储 Agent Note（agent 决策记录）](../../.agents/notes/proposed/architecture/2026-07-24-domain-kv-storage-and-workspace.md)；引导与 GUI 顺序：[Workspace UI 产品流程 Agent Note](../../.agents/notes/archived/feature/2026-07-25-workspace-ui-product-flow.md)。
 
 源码：[`packages/workspace/workspace/src/types.ts`](../../packages/workspace/workspace/src/types.ts)
 
@@ -117,7 +117,7 @@ interface Workspace {
 
 ## 注册表：`ctx.workspaceRegistry`
 
-`WorkspaceRegistry`（[签名](#ctxworkspaceregistry--workspaceregistry)）拥有注册与解析。`create(path, title?)` 要求完全限定路径并将其规范化，拒绝不存在的路径（原样传出原始 `ENOENT`）或非目录；当规范路径已被拥有时原样返回既有实体；否则创建一条标题为 `title ?? defaultWorkspaceTitle(path)` 的记录并前插到持久的注册表顺序中（不同规范路径可以共享同一显示标题，没有最终路径段时使用根路径拼写）。`get(id)` 与有序的 `list()` 是同步缓存读取；`resolveByPath(path)` 应用同一套完全限定 realpath 规范但不创建。`delete(id)` 只移除注册记录、顺序条目和会话账本——目录、用户文件、实时会话和已持久化日志一概不动，因此这些会话变为 Ungrouped（[决策](../../.agents/notes/implemented/feature/2026-07-27-workspace-registration-deletion.zh.md)）；未知 id 返回 `false`。create 与 delete 会在其两次写入（记录 + 顺序）可能分叉之前先持久写入一个待定变更标记；启动时恰好解决被标记的那次变更——通过删除被标记的表行：这会补完被中断的 delete，并回滚被中断的 create（注册可以重建，因此回滚是安全方向）——而没有标记的顺序/表不一致则作为损坏大声失败。
+`WorkspaceRegistry`（[签名](#ctxworkspaceregistry--workspaceregistry)）拥有注册与解析。`create(path, title?)` 要求完全限定路径并将其规范化，拒绝不存在的路径（原样传出原始 `ENOENT`）或非目录；当规范路径已被拥有时原样返回既有实体；否则创建一条标题为 `title ?? defaultWorkspaceTitle(path)` 的记录并前插到持久的注册表顺序中（不同规范路径可以共享同一显示标题，没有最终路径段时使用根路径拼写）。`get(id)` 与有序的 `list()` 是同步缓存读取；`resolveByPath(path)` 应用同一套完全限定 realpath 规范但不创建。`delete(id)` 只移除注册记录、顺序条目和会话账本——目录、用户文件、实时会话和已持久化日志一概不动，因此这些会话变为 Ungrouped（[决策](../../.agents/notes/implemented/feature/2026-07-27-workspace-registration-deletion.md)）；未知 id 返回 `false`。create 与 delete 会在其两次写入（记录 + 顺序）可能分叉之前先持久写入一个待定变更标记；启动时恰好解决被标记的那次变更——通过删除被标记的表行：这会补完被中断的 delete，并回滚被中断的 create（注册可以重建，因此回滚是安全方向）——而没有标记的顺序/表不一致则作为损坏大声失败。
 
 会话的 cwd 在创建时由创建者赋予，而不是由本注册表赋予——API 网关从所选工作区的 `path` 解析新会话的 cwd（回退到显式或默认 cwd），先创建会话使 cwd 落入其不可变的 [`SessionHeader`](persistence.zh.md#sessionheader--metadata-beside-the-log)，再调用 `attachSession`，后者会把已存储的 header cwd 与工作区路径重新校验一遍。首次成功启动时，注册表仅凭已持久化的 header（`id`、`cwd`、`createdAt`——绝不读事件正文）引导历史：把规范 cwd 有效的会话按目录分组为工作区，最新的排在最前；「已初始化」标记最后写入，因此被中断的引导可以安全续跑。引导只发生这一次：没有 cwd 的历史遗留会话保持 Ungrouped，此后创建的会话只能通过 `attachSession` 加入工作区。
 
@@ -160,7 +160,7 @@ interface SessionActivity {
 }
 ```
 
-`SessionActivityItem` 携带各族自己的 `id`（会话、任务或提醒 id）和可选的展示 `label`。`archiveSession(sessionId)` 在存在性检查之后只询问 waterfall 一次，对非空答案以 `WorkspaceActiveSessionError`（`sessionId`、`activity`）拒绝且不写入；控制器把它映射为 `workspace/session-active` 错误，其 details 携带同样的两个字段。`archiveSession(sessionId, { stopActivity: true })`——`ArchiveSessionOptions` 的这个字段由传输请求以 `stopActivity` 暴露——跳过检查、先写入归档、再派发 `workspace/session-stop`；提供方抛错只记日志，归档保留，被停止的工作从不等待收敛。已归档的 id 既不询问也不停止。随附的提供方、它们停止什么，以及让已归档会话不跑模型步的 `agent/pre-step` 门禁，记录在[注册表包](../../packages/workspace/workspace/README.zh.md#api-behavior)；决策记录见 [archive-stops-running-work Agent Note](../../.agents/notes/implemented/feature/2026-09-21-archive-stops-running-session-work.zh.md)。
+`SessionActivityItem` 携带各族自己的 `id`（会话、任务或提醒 id）和可选的展示 `label`。`archiveSession(sessionId)` 在存在性检查之后只询问 waterfall 一次，对非空答案以 `WorkspaceActiveSessionError`（`sessionId`、`activity`）拒绝且不写入；控制器把它映射为 `workspace/session-active` 错误，其 details 携带同样的两个字段。`archiveSession(sessionId, { stopActivity: true })`——`ArchiveSessionOptions` 的这个字段由传输请求以 `stopActivity` 暴露——跳过检查、先写入归档、再派发 `workspace/session-stop`；提供方抛错只记日志，归档保留，被停止的工作从不等待收敛。已归档的 id 既不询问也不停止。随附的提供方、它们停止什么，以及让已归档会话不跑模型步的 `agent/pre-step` 门禁，记录在[注册表包](../../packages/workspace/workspace/README.zh.md#api-behavior)；决策记录见 [archive-stops-running-work Agent Note](../../.agents/notes/implemented/feature/2026-09-21-archive-stops-running-session-work.md)。
 
 ## 消费方
 
@@ -339,12 +339,14 @@ Host service backing the generated `ctx.remote.workspace` namespace.
 @Remote('create') create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue>
 
 /**
- * Initialize or reuse the default Workspace during first-use startup.
- * @param request - initial directory name and title; never rename an existing default.
+ * Initialize or reuse the default Workspace during first-use startup. The
+ * directory name is fixed, so the Host never renames or relocates an
+ * existing default; its initial title is that same name, which browser
+ * consumers label in the reader's language.
  * @param signal - caller lifetime; cancels native directory lookup.
  * @returns the durable Workspace, or undefined when first-use initialization is ineligible; creates no Session or message.
  */
-@Remote('initializeDefault') async initializeDefault(request: WorkspaceInitializeDefaultRequest, signal: AbortSignal): Promise<WorkspaceValue | undefined>
+@Remote('initializeDefault') async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined>
 
 /**
  * Rename one Workspace to a unique non-blank title.
@@ -495,13 +497,15 @@ async create(path: string, title?: string): Promise<Workspace>
  * Initialize the default Workspace only while both the registry and Session
  * history are empty. Repeated requests reuse its durable identity; deleting
  * that registration permanently disables automatic creation.
- * @param resolveDirectory - resolve the absolute directory and initial title;
- * called only for eligible creation, inside the registry mutation queue.
- * Missing directories are created recursively before registration.
+ * @param resolveDirectory - resolve the absolute directory; called only for
+ * eligible creation, inside the registry mutation queue. Missing directories
+ * are created recursively before registration, and the initial title is the
+ * requested directory's own final segment — not the canonical one, so a
+ * symlink at that path does not retitle the Workspace after its target.
  * After resolution, caller cancellation does not roll back creation or registration.
  * @returns the initialized Workspace, or undefined when automatic creation is ineligible.
  */
-initializeDefault(resolveDirectory: () => Promise<{ path: string; title: string }>): Promise<Workspace | undefined>
+initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace | undefined>
 
 /**
  * Look up a workspace by id.

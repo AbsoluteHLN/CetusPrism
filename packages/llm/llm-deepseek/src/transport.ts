@@ -29,8 +29,8 @@ export function providerError(raw: unknown, status: number | undefined, headers?
   if (status === 401 || status === 403 || ['authentication_error', 'permission_error'].includes(type)) code = 'AUTH'
   else if (isQuotaExceededError(detail) || status === 402) code = 'QUOTA'
   else if (status === 429 || type === 'rate_limit_error') code = 'RATE_LIMIT'
-  else if (status === 413 || isContextWindowExceededError(detail)) code = 'CONTEXT_WINDOW_EXCEEDED'
-  else if (status === 400 || type === 'invalid_request_error') code = 'INVALID_REQUEST'
+  else if (isContextWindowExceededError(detail)) code = 'CONTEXT_WINDOW_EXCEEDED'
+  else if (status === 400 || status === 413 || type === 'invalid_request_error') code = 'INVALID_REQUEST'
   else if ((status !== undefined && status >= 500) || ['api_error', 'overloaded_error'].includes(type)) code = 'SERVER'
   else code = status === undefined ? 'SERVER' : `HTTP_${status}`
   const retry = headers?.get('retry-after')

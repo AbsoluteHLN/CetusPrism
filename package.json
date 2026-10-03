@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-root",
-  "version": "0.1.7-rc.1",
+  "version": "0.2.0-rc.2",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -19,10 +19,10 @@
   "scripts": {
     "prepare:primary-runtime": "tsx scripts/primary-runtime/prepare.ts",
     "build": "tsx scripts/build.ts",
-    "build:bench": "npm run build:native-system && npm run build:lib && tsdown --config benchmarks/tsdown.config.ts",
+    "build:bench": "npm run build:native-system && npm run build:lib && tsdown --config-loader native --config benchmarks/tsdown.config.ts",
     "build:official": "tsx scripts/build.ts --profile official",
     "build:lib": "pnpm run build:lib:host && pnpm run build:lib:client",
-    "build:lib:host": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc -b configs/tsconfig.host.json && tsdown --config configs/tsdown.config.ts --config-loader tsx --env.DSH_BUILD_FACE host",
+    "build:lib:host": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc -b configs/tsconfig.host.json && tsdown --config configs/tsdown.config.ts --config-loader tsx --env.DSH_BUILD_FACE host && pnpm --filter @deepseek-ai/dsh-desktop run bundle",
     "build:lib:client": "tsc -b configs/tsconfig.client.json && tsdown --config configs/tsdown.config.ts --config-loader tsx --env.DSH_BUILD_FACE client",
     "build:web": "pnpm --filter @deepseek-ai/dsh-web-frontend run build",
     "build:electron": "pnpm --filter @deepseek-ai/dsh-electron run build",
@@ -53,8 +53,8 @@
     "lint:fix": "npm run build:lib:host && npm run lint:fix:contracts-ready",
     "lint:fix:contracts-ready": "tsx scripts/run-oxlint.ts --config configs/oxlintrc.staged.json packages/typert/generator/tests/fixtures/type-model --fix && tsx scripts/run-oxlint.ts . --fix",
     "duplication": "jscpd --config configs/jscpd.json packages scripts",
-    "test": "pnpm run build:native-system && vitest run",
-    "test:coverage": "pnpm run build:native-system && vitest run --coverage",
+    "test": "pnpm run build:native-system && vitest run --config configs/vitest.config.ts",
+    "test:coverage": "pnpm run build:native-system && vitest run --coverage --config configs/vitest.config.ts",
     "build:native-system": "tsx native/system/scripts/build.ts --host-addon-only",
     "test:coverage:partitioned": "tsx scripts/run-coverage-partitions.ts",
     "test:e2e": "vitest run --config configs/vitest.e2e.config.ts",
@@ -185,8 +185,8 @@
     "gen-third-party-notices": "tsx scripts/gen-third-party-notices.ts",
     "verify-third-party-notices": "tsx scripts/gen-third-party-notices.ts --check",
     "gen-module-graph": "tsx scripts/gen-module-graph.ts",
-    "gen-scoped-events": "tsx scripts/gen-scoped-events.ts",
-    "verify-scoped-events": "tsx scripts/gen-scoped-events.ts --check",
+    "gen-scoped-events": "node --max-old-space-size=4096 --import tsx/esm scripts/gen-scoped-events.ts",
+    "verify-scoped-events": "node --max-old-space-size=4096 --import tsx/esm scripts/gen-scoped-events.ts --check",
     "verify-module-graph": "tsx scripts/gen-module-graph.ts --check",
     "constraints": "tsx scripts/check-workspace-constraints.ts",
     "doc-sync": "tsx scripts/run-gates.ts doc-sync",
@@ -204,7 +204,9 @@
     "mock:llm": "node --import tsx packages/test-support/llm-mock-server/src/bin.ts",
     "start:web": "node --import tsx/esm apps/cli/src/bin.ts web",
     "dev:web": "tsx scripts/dev-web.ts --poll",
-    "postinstall": "node scripts/install-lefthook.mjs"
+    "postinstall": "node scripts/install-lefthook.mjs",
+    "check:ci:unit": "tsx scripts/run-gates.ts ci-unit",
+    "verify-upgrade-guides": "tsx scripts/verify-upgrade-guides.ts"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-agent": "workspace:*",

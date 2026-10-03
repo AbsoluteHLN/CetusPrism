@@ -6,7 +6,7 @@
 
 ## 运行
 
-`pnpm run test:bench` 先构建 library、worker 和 Web 产物，再串行运行基准清单。产物已构建时，通过 `pnpm exec vitest run --config configs/vitest.bench.config.ts benchmarks/long-session-browser` 选择此目录。首次运行前，通过 benchmark workspace 安装 Chromium。
+`pnpm run test:bench` 先构建 library、worker 和 Web 产物，再串行运行基准清单。产物已构建时，通过 `pnpm exec vitest run --config vitest.bench.config.ts benchmarks/long-session-browser` 选择此目录。首次运行前，通过 benchmark workspace 安装 Chromium。
 
 ## 测量
 

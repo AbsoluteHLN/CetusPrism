@@ -40,6 +40,9 @@
     },
     {
       "path": "../../typert/protocol"
+    },
+    {
+      "path": "../../api/gateway/tsconfig.host.json"
     }
   ]
 }

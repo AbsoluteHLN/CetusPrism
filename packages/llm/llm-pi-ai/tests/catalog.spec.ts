@@ -9,6 +9,7 @@ import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
 import { AssistantMessageEventStream } from '@earendil-works/pi-ai/utils/event-stream'
+import { normalizeContext } from '@earendil-works/pi-ai/utils/transcript'
 import type { Api, Model, OpenAICompletionsCompat, Provider } from '@earendil-works/pi-ai'
 import { resolveProfiles } from '../src/config.ts'
 import { createModels, createProvider, getSupportedThinkingLevels } from '../src/models.ts'
@@ -93,11 +94,8 @@ describe('hand-declared providers', () => {
     const server = await mockServer([])
     const ctx = await harness(gateway(`${server.url}/v1`))
 
-    // The gateway declared no modalities for the model, so the seam reports
-    // none rather than the route's fallback guess — image requests then reach
-    // the endpoint instead of being refused against the guess.
     expect(await ctx.llm.listModels('acme-gateway')).toEqual([
-      { provider: 'acme-gateway', id: 'acme-large', name: 'Acme Large' },
+      { provider: 'acme-gateway', id: 'acme-large', name: 'Acme Large', inputModalities: ['text'] },
     ])
     const info = await ctx.llm.resolveModelInfo('acme-gateway', 'acme-large')
     expect(info).toMatchObject({
@@ -209,9 +207,7 @@ describe('hand-declared providers', () => {
     const inputOf = (route: string, id: string): readonly string[] | undefined =>
       resolved.get(route)?.piProvider?.getModels().find(model => model.id === id)?.input
 
-    // The undeclared `bare` takes the attempt posture: image requests reach
-    // the endpoint, and with no claim recorded nothing enforces a fallback.
-    expect(inputOf('acme-gateway', 'bare')).toEqual(['text', 'image'])
+    expect(inputOf('acme-gateway', 'bare')).toEqual(['text'])
     expect(inputOf('acme-gateway', 'seeing')).toEqual(['text', 'image'])
     expect(inputOf('acme-gateway', 'deaf')).toEqual(['text'])
     expect(inputOf('seeing-gateway', 'bare')).toEqual(['text', 'image'])
@@ -244,10 +240,7 @@ describe('hand-declared providers', () => {
     const listed = async (provider: string): Promise<Record<string, readonly string[] | undefined>> =>
       Object.fromEntries((await ctx.llm.listModels(provider)).map(model => [model.id, model.inputModalities]))
 
-    // A model with no declaration of its own reads as unknown at the seam: the
-    // route fallback (`bare` on vision-gateway) and the absence (on
-    // acme-gateway) both stay unreported so image requests reach the endpoint.
-    expect(await listed('acme-gateway')).toEqual({ bare: undefined, seeing: ['text', 'image'] })
+    expect(await listed('acme-gateway')).toEqual({ bare: ['text'], seeing: ['text', 'image'] })
     expect(await listed('vision-gateway')).toEqual({ bare: ['text', 'image'], deaf: ['text'] })
     expect((await ctx.llm.resolveModelInfo('acme-gateway', 'seeing')).inputModalities).toEqual(['text', 'image'])
 
@@ -258,7 +251,7 @@ describe('hand-declared providers', () => {
     expect((await ctx.llm.resolveModelInfo('anthropic', vision.id)).inputModalities).toEqual(vision.input)
   })
 
-  it('reads an entry’s empty modality list as no answer, and the route’s as no claim', () => {
+  it('reads an entry’s empty modality list as no answer, and the route’s as unserviceable', () => {
     // Absent and empty are the same request on an entry, exactly as they are
     // for the route's `models` list — which matters because the config schema
     // materializes `[]` for an absent array, so an entry naming a catalog
@@ -274,22 +267,19 @@ describe('hand-declared providers', () => {
         models: [{ id: 'bare', input: [] }],
       },
     })
-    expect(resolved.get('acme-gateway')?.piProvider?.getModels()[0]?.input).toEqual(['text', 'image'])
+    expect(resolved.get('acme-gateway')?.piProvider?.getModels()[0]?.input).toEqual(['text'])
     expect(resolved.get('deepseek')?.piProvider?.getModels()[0]?.input).toEqual(catalogModel.input)
 
-    // Nothing sits below the route value either, but an empty route list reads
-    // as no answer rather than a refusal: the model keeps the silent text
-    // floor, and — with no claim recorded — image requests are not blocked by it.
-    const resolvedEmpty = resolveProfiles({
+    // Nothing sits below the route value, so its empty list states no answer
+    // anything could take, and is refused where it is written.
+    expect(() => resolveProfiles({
       'acme-gateway': {
         api: 'openai-completions',
         baseURL: 'https://acme.test',
         defaultInput: [],
         models: [{ id: 'bare' }],
       },
-    })
-    expect(resolvedEmpty.get('acme-gateway')?.piProvider?.getModels()[0]?.input).toEqual(['text', 'image'])
-    expect(resolvedEmpty.get('acme-gateway')?.declaredInputs.has('bare')).toBe(false)
+    })).toThrow(/defaultInput must name at least one modality/)
   })
 
   it('rejects a model the route cannot identify', () => {
@@ -373,7 +363,7 @@ describe('hand-declared providers', () => {
       auth: { apiKey: { name: 'Local', resolve: () => Promise.resolve({ auth: {}, source: 'Local' }) } },
       api: { stream, streamSimple },
     })
-    const context = { messages: [] }
+    const context = normalizeContext({ messages: [] })
 
     expect(provider.stream(model, context)).toBe(direct)
     expect(provider.streamSimple(model, context)).toBe(simple)
@@ -556,7 +546,7 @@ describe('catalog routes with per-model configuration', () => {
     if (built === undefined) throw new Error('the deepseek route built no provider')
     const [model] = built.getModels()
     if (model === undefined) throw new Error('the deepseek route resolved no models')
-    const context = { messages: [{ role: 'user' as const, content: 'hi', timestamp: 0 }] }
+    const context = normalizeContext({ messages: [{ role: 'user', content: 'hi', timestamp: 0 }] })
 
     // `stream` is interface-required and unused by the harness adapter, which
     // only calls `streamSimple`; both must still reach the catalog provider.
@@ -1080,9 +1070,9 @@ describe('compat switches', () => {
   it('refuses a valueless compat key on a model entry too', () => {
     expect(() => resolveProfiles({
       deepseek: {
-        modelOverrides: { 'deepseek-v4-flash': { compat: { requiresReasoningContentOnAssistantMessages: null } } as never },
+        modelOverrides: { 'deepseek-flash': { compat: { requiresReasoningContentOnAssistantMessages: null } } as never },
       },
-    })).toThrow(/model "deepseek-v4-flash" sets compat "requiresReasoningContentOnAssistantMessages" with no value/)
+    })).toThrow(/model "deepseek-flash" sets compat "requiresReasoningContentOnAssistantMessages" with no value/)
   })
 
   it('serves the Responses compat type on every protocol pi-ai gives it to', () => {
@@ -1145,7 +1135,7 @@ describe('resolution snapshots', () => {
     const inFlight = (async () => {
       for await (const chunk of adapter.stream({
         provider: 'deepseek',
-        model: 'deepseek-v4-flash',
+        model: 'deepseek-flash',
         messages: [],
       })) chunks.push(chunk)
     })()
@@ -1174,7 +1164,7 @@ describe('resolution snapshots', () => {
     })
     const drain = async (): Promise<void> => {
       for await (const _chunk of adapter.stream({
-        provider: 'deepseek', model: 'deepseek-v4-flash', messages: [],
+        provider: 'deepseek', model: 'deepseek-flash', messages: [],
       })) { /* drain */ }
     }
 

@@ -13,12 +13,6 @@ import { reconcileManualOrder, type ArchivedFilter, type SessionRowState } from 
 /** Browser-local order account for the hierarchy-free flat Session list. */
 export const FLAT_SESSION_ORDER_KEY = '__flat_session_order__'
 
-/** Persisted-expansion key of the synthetic pinned section leading every list body. */
-export const PINNED_SECTION_KEY = '__pinned__'
-
-/** Persisted-expansion key of the synthetic archive section closing every list body. */
-export const ARCHIVED_SECTION_KEY = '__archived__'
-
 /** Session-list grouping mode: sibling Workspace sections, a Workspace tree, or one flat list. */
 export type SessionGroupBy = 'workspace' | 'workspace-tree' | 'flat'
 /** Session order: saved manual positions or current recency. */

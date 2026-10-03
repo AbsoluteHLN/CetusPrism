@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { afterEach, describe, expect, it } from 'vitest'
+import { cleanup, fireEvent, render } from '@testing-library/react'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { en as commonEn, zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/index.ts'
 import { ContextMeter, type ContextMeterProps } from '../src/client/skeleton/ContextMeter.tsx'
@@ -120,43 +120,26 @@ describe('ContextMeter', () => {
     expect(panel.getElementsByClassName(segmentClass)).toHaveLength(1)
   })
 
-  it('bridges brief capacity gaps; only a persistent gap unmounts it', () => {
-    vi.useFakeTimers()
-    try {
-      const full = (): Record<string, unknown> => ({
-        contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
-        contextBreakdown: BREAKDOWN,
-      })
-      const drained = (): Record<string, unknown> => ({
-        contextPressure: { pressureTokens: 32_000 },
-        contextBreakdown: BREAKDOWN,
-      })
-      let values = full()
-      const view = render(<ContextMeter useProjection={(key: string) => values[key]} t={t} />)
-      fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
-      expect(view.queryByRole('dialog')).not.toBeNull()
-
-      // A between-samples gap holds the last reading — the meter and its open
-      // panel survive the flicker.
-      values = drained()
-      view.rerender(<ContextMeter useProjection={(key: string) => values[key]} t={t} />)
-      expect(view.container.textContent).not.toBe('')
-      expect(view.queryByRole('dialog')).not.toBeNull()
-
-      // Capacity returning inside the window keeps the meter and panel live.
-      values = full()
-      view.rerender(<ContextMeter useProjection={(key: string) => values[key]} t={t} />)
-      expect(view.queryByRole('dialog')).not.toBeNull()
-
-      // A projection that stays empty past the grace window unmounts the meter
-      // and closes the stale panel.
-      values = drained()
-      view.rerender(<ContextMeter useProjection={(key: string) => values[key]} t={t} />)
-      act(() => { vi.advanceTimersByTime(300) })
-      expect(view.container.textContent).toBe('')
-    } finally {
-      vi.useRealTimers()
+  it('closes when capacity disappears and stays closed when it returns', () => {
+    let values: Record<string, unknown> = {
+      contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
+      contextBreakdown: BREAKDOWN,
     }
+    const view = render(<ContextMeter useProjection={(key: string) => values[key]} t={t} />)
+    fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
+    expect(view.queryByRole('dialog')).not.toBeNull()
+
+    values = { contextPressure: { pressureTokens: 32_000 }, contextBreakdown: BREAKDOWN }
+    view.rerender(<ContextMeter useProjection={(key: string) => values[key]} t={t} />)
+    expect(view.container.textContent).toBe('')
+
+    values = {
+      contextPressure: { pressureTokens: 32_000, contextWindow: 128_000 },
+      contextBreakdown: BREAKDOWN,
+    }
+    view.rerender(<ContextMeter useProjection={(key: string) => values[key]} t={t} />)
+    expect(view.getByRole('button', { name: '上下文已用 25%' }).getAttribute('aria-expanded')).toBe('false')
+    expect(view.queryByRole('dialog')).toBeNull()
   })
 
   it('closes on outside pointerdown and Escape — but not inside clicks', () => {

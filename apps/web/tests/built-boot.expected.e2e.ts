@@ -63,21 +63,16 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   const tree = await screen.findByRole('tree', { name: 'Sessions' }, { timeout: 10_000 })
   if (clientBuildValue('DSH_CLIENT_BUILD_PROFILE') === 'official') {
     expect(document.querySelector('svg[viewBox="26 0 156 24"]')).not.toBeNull()
-    expect(screen.queryByText('CetusPrism')).toBeNull()
+    expect(screen.queryByText('DSH Local Build')).toBeNull()
   } else {
-    expect(document.querySelector('svg[viewBox="0 0 24 21"]')).not.toBeNull()
-    // The badge shows the branded distribution's own version when the build
-    // carries one; a bare upstream build falls back to complete-build metadata.
-    const product = clientBuildValue('DSH_CLIENT_PRODUCT_VERSION')
-    const buildVersion = product ?? (() => {
-      const version = clientBuildValue('DSH_CLIENT_VERSION')
-      if (version === undefined) throw new Error('default client build record must carry DSH_CLIENT_VERSION')
-      const commit = clientBuildValue('DSH_CLIENT_COMMIT_HASH')
-      return version
-        + (commit === undefined ? '' : `-${commit}`)
-        + (clientBuildValue('DSH_CLIENT_GIT_DIRTY') === 'true' ? '-dirty' : '')
-    })()
-    screen.getByText('CetusPrism')
+    expect(document.querySelector('svg[viewBox="0 0 23.16 17.04"]')).not.toBeNull()
+    const version = clientBuildValue('DSH_CLIENT_VERSION')
+    if (version === undefined) throw new Error('default client build record must carry DSH_CLIENT_VERSION')
+    const commit = clientBuildValue('DSH_CLIENT_COMMIT_HASH')
+    const buildVersion = version
+      + (commit === undefined ? '' : `-${commit}`)
+      + (clientBuildValue('DSH_CLIENT_GIT_DIRTY') === 'true' ? '-dirty' : '')
+    screen.getByText('DSH Local Build')
     screen.getByText(buildVersion)
   }
   // The compact layout dropped group session counts; the fixture workspace
@@ -134,7 +129,8 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   const writeRow = mutationRows.find(row => row.getAttribute('data-variant') === 'write'
     && row.textContent?.includes('new-demo.txt'))
   if (writeRow === undefined) throw new Error('fixture write row missing')
-  expect(within(writeRow).getAllByText('+1 -0', { exact: true })).toHaveLength(1)
+  expect(within(writeRow).getAllByText('+1', { exact: true })).toHaveLength(1)
+  expect(within(writeRow).getAllByText('-0', { exact: true })).toHaveLength(1)
   expect(writeRow.querySelector('[data-diff]')).toBeNull()
   for (const row of mutationRows) {
     const toggle = row.querySelector('[data-expandable]')
@@ -145,7 +141,8 @@ it('boots the built plugin graph and renders a fixture session end to end', asyn
   const writeDiff = writeRow.querySelector<HTMLElement>('[data-diff]')
   if (writeDiff === null) throw new Error('expanded fixture write diff missing')
   within(writeDiff).getByText('hello fixture', { exact: true })
-  expect(within(writeRow).getAllByText('+1 -0', { exact: true })).toHaveLength(1)
+  expect(within(writeRow).getAllByText('+1', { exact: true })).toHaveLength(1)
+  expect(within(writeRow).getAllByText('-0', { exact: true })).toHaveLength(1)
   expect(writeDiff.textContent).not.toContain('+1 -0')
 
   // The web render intent reaches the assembled boot graph: the fixture's

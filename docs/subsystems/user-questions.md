@@ -133,6 +133,44 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
 
 ```ts cordis-catalog
 /**
+ * Answer a continued question. The reply is steered into the agent as a
+ * user message whose source names the call; that message is also the
+ * record that closes the question in the projection.
+ * @param agent - Live root agent for the owning Session.
+ * @param callId - Continued question identity.
+ * @param answer - Complete structured answer batch, one item per question of the call.
+ * @returns Whether the question is still continued; an accepted reply stays
+ *   queued until the agent admits its user message.
+ * @throws {UserQuestionError} `BAD_ANSWER` when the batch does not name each
+ *   question of the call exactly once, or `REPLY_QUEUED` when a reply is
+ *   already waiting for admission.
+ */
+@Remote answer(agent: Agent, callId: ToolCallId, answer: AskUserQuestionAnswer): boolean
+
+/**
+ * Let one answer UI hold a live timed wait. Closing the stream releases its claim.
+ * @param agent - Live root agent owning the question.
+ * @param callId - Foreground tool call to attach to.
+ * @param signal - Remote stream cancellation, including Client disconnect.
+ * @returns One Host-computed remaining duration, or no frames once the wait ended.
+ */
+@Remote({ mode: 'stream' }) async *attachWait(agent: Agent, callId: ToolCallId, signal: AbortSignal): AsyncIterable<{ remainingMs: number }>
+
+/**
+ * Foreground wait whose first settlement the Client decides: the Client
+ * rejects with `ASK_TIMED_OUT` when its countdown ends, and this method maps
+ * that code to the pending result.
+ * @param request - Questions, live owner agent, and abort signal.
+ * @param callId - Tool call identity the Client card is keyed by.
+ * @param timeoutMs - Positive foreground wait in milliseconds.
+ * @returns The answer when it arrives inside the window, otherwise a pending
+ *   result, also when no connected Client claimed the request by the deadline.
+ * @throws {UserQuestionError} `BAD_TIMEOUT` for a non-integer, non-positive,
+ *   or oversized wait.
+ */
+async askTimed( request: AskUserQuestionRequest & { agent: Agent }, callId: ToolCallId, timeoutMs: number, ): Promise<TimedUserQuestionResult>
+
+/**
  * Ask the scoped answerer waterfall and wait for the user's answer.
  *
  * When a caller supplies an agent, human interaction is valid only for the
@@ -150,6 +188,8 @@ Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnp
  */
 async ask(request: AskUserQuestionRequest): Promise<AskUserQuestionAnswer>
 ```
+
+Types: [Agent](core.md) · [ToolCallId](core.md)
 
 Source: [`packages/interaction/user-questions/src/index.ts`](../../packages/interaction/user-questions/src/index.ts)
 

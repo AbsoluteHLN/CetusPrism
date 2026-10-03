@@ -730,14 +730,10 @@ export class Fiber {
    *
    * @param config — the new raw config; validated before anything restarts.
    * @param noSave — hint for persistence hooks not to write the change back.
-   * @returns the restart task once a listener chain accepted the update, so
-   *   `await update()` observes its outcome; `undefined` when a listener
-   *   vetoed the restart. The task's failure is pre-marked handled — the
-   *   fiber already reports it — so a caller that drops the result cannot
-   *   turn it into an unhandled rejection.
+   * @returns nothing; the restart runs behind the `internal/update` waterfall.
    * @throws {ValidationError} when the new config fails validation.
    */
-  update(config: any, noSave = false): Awaitable<void> {
+  update(config: any, noSave = false) {
     this.assertActive()
     this._config = config
     if (this.state !== FiberState.ACTIVE) {
@@ -749,15 +745,10 @@ export class Fiber {
       return
     }
     config = this._resolveConfig(config)
-    const result = this.context.waterfall(this, 'internal/update', config, noSave, () => {
+    this.context.waterfall(this, 'internal/update', config, noSave, () => {
       this.config = config
       this._error = undefined
       return this.restart()
     })
-    // a listener may veto the restart, in which case there is nothing to await
-    if (result === undefined) return
-    const task = Promise.resolve(result)
-    task.catch(() => {})
-    return task
   }
 }

@@ -190,3 +190,108 @@ shipped Web bundle 默认禁用 `ui-schedule`，显式 Schedule overlay 则把�
 到期工作会先等待 Agent 完全 idle 并认领 maintenance phase，再重新折叠状态、采样本次判断、将一个 `followup()` 排入队列，并追加对应的 dispatch 变更。它绝不会调用 `steer()`，也绝不会中断当前轮次。
 
 获得准入的一次性提醒或固定速率批次会启动一个普通的后续轮次，且只通过普通对话 transcript（文本记录）出现；Schedule 不提供独立的持久 Web 回执。上面的只读活动目录绝不表示交付成功。如果 framing 构造或同步队列准入失败，则不会记录 dispatch，提醒仍保持活动。队列准入后、持久 dispatch 前的狭窄崩溃窗口可能使提醒内容在恢复后重复，因此该边界提供的是尽力而为的至少一次交付，而非恰好一次交付。
+
+<!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
+
+<a id="cordis-surface"></a>
+
+## Cordis API
+
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.zh.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+
+<a id="ctxschedule--scheduleservice"></a>
+
+### `ctx.schedule` — `ScheduleService`
+
+Shared management service; reads, deletion, and timing edits never activate a Session.
+
+`sessionPersistence` is a load-order requirement rather than a directly called service: a delivery commits only when `ctx.sessions.flush()` reports that a `session/flush` listener participated, and the persistence backend providing this service is the plugin that registers that listener.
+
+```ts cordis-catalog
+/**
+ * Create a reminder bound to the caller-selected Session without activating it.
+ *
+ * The request must supply a title; a missing, blank-after-trim, or over-long
+ * title rejects with `invalid_prompt` instead of deriving one from the prompt.
+ * The record is built from the clock reading taken before the request joins the
+ * serialized queue, so a create that waits behind a longer operation keeps its
+ * request-time anchor and may already be due when the queue reaches it.
+ * @param sessionId - Original Session receiving the reminder.
+ * @param request - Validated tool selector, required title, and reminder content.
+ * @param signal - Optional cancellation checked before persistence begins, including after FIFO waits.
+ * @returns The durably stored schedule. Cancellation does not roll back an in-flight write.
+ */
+async create(sessionId: SessionId, request: ScheduleCreateRequest, signal?: AbortSignal): Promise<ScheduleRecord>
+
+/**
+ * Read the selected Session's active tasks without resuming its Agent.
+ * @param request - Session whose task list is requested.
+ * @returns Persisted reminders in storage order.
+ */
+@Remote('list') async list(request: ScheduleListRequest): Promise<ScheduleRecord[]>
+
+/**
+ * Read all active and inactive Host reminders with their original Session bindings.
+ * A deleted reminder has no row, so it is absent here.
+ * Does not activate Sessions or read Session history.
+ * @returns Reminders ordered by scheduledAt ascending, then lexicographically by id.
+ */
+@Remote('catalog') async catalog(): Promise<ScheduleCatalogEntry[]>
+
+/**
+ * Read saved inbox deliveries without activating or reading the original Session.
+ * The task's own row supplies its binding, so its records stay readable through this lookup.
+ * @param request - Session binding, task identity, explicit limit, and optional exclusive message cursor.
+ * @returns Newest-first deliveries in append order, or a task/cursor lookup failure.
+ * @throws ScheduleInputError when limit is not a safe integer from 1 through 100.
+ */
+@Remote('history') async history(request: ScheduleDeliveryHistoryRequest): Promise<ScheduleDeliveryHistoryResult>
+
+/**
+ * Delete one task belonging to the selected Session, leaving queued messages intact.
+ *
+ * The row is removed: the task no longer schedules, leaves `list` and `catalog`, and its
+ * saved delivery records go with it.
+ * @param request - Session and exact task identity.
+ * @param signal - Optional cancellation checked before persistence begins, including after FIFO waits.
+ * @returns Whether that Session owned a deleted task. Cancellation does not roll back an in-flight write.
+ */
+@Remote('delete') async delete(request: ScheduleDeleteRequest, signal?: AbortSignal): Promise<ScheduleDeleteResult>
+
+/**
+ * Update the name, instruction, and timing of an active task within the original Session
+ * binding without activating the Session or changing saved deliveries.
+ *
+ * Each supplied field replaces its stored value; an omitted field keeps it. A name or
+ * instruction change alone does not reset the committed target.
+ * @param request - Task binding, complete observed record, and any combination of timing, name, and instruction.
+ * @param signal - Cancellation checked after domain readiness and FIFO waits, before persistence begins.
+ * @returns The committed record, unchanged record for a no-op, or a non-mutating input/lookup/conflict result.
+ * Storage and lifecycle failures reject; cancellation after a write starts does not roll it back.
+ */
+@Remote('update') async update(request: ScheduleUpdateRequest, signal?: AbortSignal): Promise<ScheduleUpdateResult>
+```
+
+Types: [SessionId](core.zh.md)
+
+Source: [`packages/schedule/schedule/src/index.ts`](../../packages/schedule/schedule/src/index.ts)
+
+<a id="schedule-events"></a>
+
+### `schedule/*` events
+
+<a id="schedulechanged--emit"></a>
+
+#### `schedule/changed` — emit
+
+Durable task set changed; clients refetch global task and Session-active catalogs.
+
+```ts cordis-catalog
+/** Durable task set changed; clients refetch global task and Session-active catalogs.
+ * @mode emit
+ */
+'schedule/changed'(): void
+```
+
+Source: [`packages/schedule/schedule/src/types.ts`](../../packages/schedule/schedule/src/types.ts)
+<!-- END GENERATED cordis-surface -->

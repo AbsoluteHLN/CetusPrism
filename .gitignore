@@ -71,9 +71,11 @@ native/system/test/bin/
 .agents/
 snapshots/
 docs/persistence-changes/
+.github/workflows/
 .github/workflows.disabled/
 .github/dependabot.yml
 .gitlab-ci.yml
 
 
 .github/workflows/macos-build.yml
+.npmrc

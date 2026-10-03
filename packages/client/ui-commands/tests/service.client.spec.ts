@@ -15,7 +15,7 @@ import { scopeOf } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { RemoteError, TestRemote, TestSessions } from '@deepseek-ai/dsh-client-test-runtime'
 import type { SessionFixture } from '@deepseek-ai/dsh-client-test-runtime'
-import { IconGoalOutlineRegular, IconRightUpOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconGoalOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ClientSessionContext, ConsumeTokenRequest, InputTriggerPick, InputTriggerSource, SubmitAttachment } from '@deepseek-ai/dsh-client-ui-input-trigger/client'
 import type { CommandContribution, CommandDecoration, PopupSelectSpec, SelectOption } from '../src/client/contract.ts'
 import type { CommandDescriptor } from '../src/client/directory.ts'
@@ -408,31 +408,6 @@ describe('candidates', () => {
       expect(rows[6]).toMatchObject({ name: 'model', label: '模型', description: '选择本会话使用的模型', icon: Glyph })
       // A third-party command keeps its catalog text and gets no glyph.
       expect(rows[8]).toEqual({ name: 'deploy', description: 'third-party command', section: 'command:section.commands' })
-    })
-
-    it('the computer-use foreground command carries its localized face and closes the Commands section', async () => {
-      const shipped = [...SHIPPED, {
-        definitionId: CommandDefinitionId('@deepseek-ai/dsh-computer-use-policy'),
-        name: 'foreground',
-        description: 'Switch whether computer use may take the window foreground',
-        input: { hint: '<allow-foreground | background-only>' },
-      }]
-      const { command, source } = await bench({ commands: () => Promise.resolve({ commands: shipped }) })
-      command.register(modelContribution())
-      command.register(fileContribution())
-      const rows = await source.candidates(proj('s1'), req(''))
-      // Listed in the Commands section after export; the deploy row closes the menu.
-      expect(rows.map(row => row.name)).toEqual([
-        'file', 'goal', 'plan', 'feedback', 'compact', 'permission', 'model', 'export', 'foreground', 'deploy',
-      ])
-      expect(rows[8]).toEqual({
-        name: 'foreground',
-        label: 'command:label.foreground',
-        description: 'command:description.foreground',
-        icon: IconRightUpOutlineRegular,
-        hint: '<allow-foreground | background-only>',
-        section: 'command:section.commands',
-      })
     })
 
     it('a same-name override keeps its own presentation even when it copies the first-party description', async () => {

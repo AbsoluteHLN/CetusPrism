@@ -7,11 +7,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import Schema from '@deepseek-ai/schemastery'
 import { ComputerUseProviderName } from '@deepseek-ai/dsh-computer-use/brand'
 import { createMcpToolDefinition } from '@deepseek-ai/dsh-mcp-client'
-import type { ToolExecution } from '@deepseek-ai/dsh-tools'
 import { z } from 'zod'
 import type { CuaDriver as NativeDriver } from '@trycua/cua-driver'
 import type {} from '@deepseek-ai/dsh-computer-use'
-import type {} from '@deepseek-ai/dsh-computer-use-policy'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-tools'
 
@@ -19,7 +17,7 @@ import type {} from '@deepseek-ai/dsh-tools'
 export const name = 'experimental-computer-use-cua-driver-native'
 
 /** Services required before the native runtime can publish tools. */
-export const inject = ['computerUse', 'computerUseDeliveryPolicy', 'tools', 'systemPrompt']
+export const inject = ['computerUse', 'tools', 'systemPrompt']
 
 /** The native provider uses the installed SDK's same-process defaults. */
 export const Config = Schema.object({})
@@ -38,7 +36,7 @@ const TOOL_NAME = /^[A-Za-z0-9_-]{1,64}$/u
 
 const GUIDANCE = `Cua Driver native computer-use tools operate the host desktop. Discover the exact app and window, then get a fresh window snapshot before acting. Use element_token from that snapshot, or coordinates from its screenshot. A new snapshot of that window invalidates its earlier element tokens. Select either target or the legacy pid/window_id fields; do not combine them.
 
-Prefer background delivery. A refusal does not authorize a foreground retry. Verify the requested outcome from fresh state after an action; a delivered click alone does not prove the outcome. After cancellation, inspect current state before retrying because completed input is not rolled back. Other sessions and applications may change the same desktop. The session owner may restrict delivery to background; a foreground request under that policy is delivered in the background or refused, so verify the outcome from fresh state either way.
+Prefer background delivery. A refusal does not authorize a foreground retry. Verify the requested outcome from fresh state after an action; a delivered click alone does not prove the outcome. After cancellation, inspect current state before retrying because completed input is not rolled back. Other sessions and applications may change the same desktop.
 
 On macOS, cursor-overlay operations may return facility_unavailable even when screenshots and input work.`
 
@@ -111,9 +109,7 @@ export async function apply(ctx: Context): Promise<void> {
         async call(args, execution) {
           const combined = AbortSignal.any([execution.signal, lifetime.signal])
           combined.throwIfAborted()
-          const delivery = deliveryEnforcement(args, execution, ctx)
-          const result = await activeDriver
-            .callTool(tool.name, JSON.stringify(delivery), { signal: combined })
+          const result = await activeDriver.callTool(tool.name, JSON.stringify(args), { signal: combined })
           combined.throwIfAborted()
           return JSON.parse(result.rawJson) as unknown
         },
@@ -139,27 +135,4 @@ export async function apply(ctx: Context): Promise<void> {
       text: GUIDANCE,
     })
   }
-}
-
-/**
- * Enforce the calling session's delivery policy at the driver boundary: under
- * `background-only`, a model-requested foreground delivery is rewritten to
- * background before the driver sees it, so an unsupported background route
- * refuses per the driver contract instead of activating a window. Sessions
- * without a policy (agentless dispatch) pass through untouched.
- * @param args - model arguments admitted by the ToolRuntime.
- * @param execution - exact invocation whose agent names the addressed session.
- * @param ctx - context carrying the delivery-policy service.
- * @returns the arguments the driver receives.
- */
-function deliveryEnforcement(
-  args: Record<string, unknown>,
-  execution: ToolExecution,
-  ctx: Context,
-): Record<string, unknown> {
-  const session = execution.agent?.session
-  if (session === undefined) return args
-  if (ctx.computerUseDeliveryPolicy.modeOf(session) !== 'background-only') return args
-  if (args['delivery_mode'] !== 'foreground') return args
-  return { ...args, delivery_mode: 'background' }
 }

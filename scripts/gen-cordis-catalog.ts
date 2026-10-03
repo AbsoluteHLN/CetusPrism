@@ -54,6 +54,7 @@ export { REGION_BEGIN, REGION_END }
  * errors, so the partition can never silently drift from the service API.
  */
 export const SERVICE_PAGE: Record<string, string> = {
+  schedule: 'schedule.md',
   speechToText: 'voice-input.md',
   speechController: 'voice-input.md',
   productTelemetry: 'product-telemetry.md',
@@ -165,6 +166,11 @@ export const SERVICE_PAGE: Record<string, string> = {
  * to a model as `cordis_runtime_inspect what:"client"`).
  */
 export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
+  otel: 'OTel log export — packages/telemetry/otel/README.md owns the API',
+  productAnalytics: 'client-side product telemetry — packages/client/product-analytics/README.md owns the API',
+  shortcuts: 'client-side interface-typed keyboard service — packages/client/shortcuts/README.md owns the API',
+  userQuestionPanels: 'client-side slot-contract accessor (UserQuestionPanels) — packages/client/ui-tool/README.md owns the API',
+  pluginNavigation: 'client-side bundle navigation — packages/client/ui-plugin-manager/README.md owns the API',
   invocation: 'not a service: per-call accessor (RemoteInvocation | undefined) the Gateway derives for each Remote call — packages/api/gateway/README.md owns the contract',
   webTerminals: 'client-side terminal view models — packages/api/terminal-controller/README.md owns the API',
   appReady: 'not a service: launcher-provided successful-startup signal — packages/boot/cmdline/README.md owns the launcher contract',
@@ -211,6 +217,8 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
  * {@link EVENT_WALK_EXEMPTIONS} names each one with its documentation owner.
  */
 export const EVENT_SCOPE_PAGE: Record<string, string> = {
+  'deepseek-account': 'credentials.md',
+  'schedule': 'schedule.md',
   'app-boot': 'boot.md',
   hmr: 'boot.md',
   'plugin-manager': 'boot.md',
@@ -385,6 +393,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   SessionForkRequest: 'session.md',
   SessionForkValue: 'session.md',
   SessionId: 'core.md',
+  ToolCallId: 'core.md',
   SessionLogOffset: 'session.md',
   SessionSeq: 'session.md',
   SessionSeqCursor: 'session.md',
@@ -692,8 +701,30 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   AuthorizationMethod: 'credentials.md',
   AuthorizationNotice: 'credentials.md',
   AuthorizationOutcome: 'credentials.md',
+  ScheduleCatalogEntry: 'schedule.md',
+  ScheduleDeliveryReceipt: 'schedule.md',
+  ScheduleDeliveryRecord: 'schedule.md',
+  ScheduleDeliveryHistoryRequest: 'schedule.md',
+  ScheduleDeliveryHistoryResult: 'schedule.md',
+  ScheduleCreateRequest: 'schedule.md',
+  ScheduleListRequest: 'schedule.md',
+  ScheduleDeleteRequest: 'schedule.md',
+  ScheduleDeleteResult: 'schedule.md',
+  ScheduleTimingChange: 'schedule.md',
+  ScheduleUpdateRequest: 'schedule.md',
+  ScheduleUpdateResult: 'schedule.md',
+  ScheduleRecord: 'schedule.md',
+  DailyInput: 'schedule.md',
+  DailyScheduleRecord: 'schedule.md',
+  RecurringScheduleRecord: 'schedule.md',
+  LegacyScheduleRecord: 'schedule.md',
   AccountView: 'credentials.md',
   AccountDetails: 'credentials.md',
+  AccountClientMetadata: 'credentials.md',
+  AccountBonusBatch: 'credentials.md',
+  AccountBonusOrderId: 'credentials.md',
+  AccountUserId: 'credentials.md',
+  TimedUserQuestionResult: 'user-questions.md',
   PlatformSession: 'credentials.md',
   SignInAttemptId: 'credentials.md',
   AuthorizationPrompt: 'credentials.md',
@@ -917,6 +948,12 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   WebTerminalId: 'Browser terminal identity is owned by packages/api/terminal-controller/README.md',
 }
 
+/** Face aggregate paths for this repository's configs/ layout, threaded into every Typert workspace scan. */
+export const CORDIS_CATALOG_FACES = {
+  hostConfig: 'configs/tsconfig.host.json',
+  clientConfig: 'configs/tsconfig.client.json',
+} as const
+
 /** Repository data policy consumed by the Cordis catalog projector. */
 export const CORDIS_CATALOG_POLICY: CordisCatalogPolicy = {
   linkedTypePages: LINK_MAP,
@@ -1128,7 +1165,7 @@ export function walkPartitionProblems(input: WalkPartitionInput, maps: WalkParti
  * @returns `[repo-relative path, exact content]` for every generated artifact.
  */
 export function computeOutputs(): [string, string][] {
-  const { projector, model } = projectCordisCatalog(root, CORDIS_CATALOG_POLICY)
+  const { projector, model } = projectCordisCatalog(root, CORDIS_CATALOG_POLICY, 'host', CORDIS_CATALOG_FACES)
   const services = [...model.services]
   const events = [...model.events]
 

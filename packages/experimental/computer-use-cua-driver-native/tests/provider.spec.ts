@@ -7,42 +7,31 @@ import { ComputerUseProviderName } from '@deepseek-ai/dsh-computer-use/brand'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
-import { SessionId } from '@deepseek-ai/dsh-session'
-import type { Agent } from '@deepseek-ai/dsh-agent'
-import type { Session } from '@deepseek-ai/dsh-session'
 import * as NativeProvider from '../src/index.ts'
 import { catalog, fixture, resetFixture } from './fixtures/cua-driver.ts'
 
 vi.mock('@trycua/cua-driver', async () => import('./fixtures/cua-driver.ts'))
 
 let ctx: Context
-/** The delivery mode the stub policy answers with; each test sets its own. */
-let deliveryMode: 'allow-foreground' | 'background-only'
 
 beforeEach(async () => {
   resetFixture()
-  deliveryMode = 'allow-foreground'
   ctx = new Context()
   await ctx.plugin(ComputerUseRegistry)
   await ctx.plugin(SystemPrompt)
   await ctx.plugin(ToolRuntime)
-  ctx.provide('computerUseDeliveryPolicy', {
-    modeOf: () => deliveryMode,
-  } as never)
 })
 
 afterEach(async () => {
   await ctx.fiber.dispose()
 })
 
-/** Run one tool call; `agent` carries the session the enforcement read addresses. */
-function execute(rawName: string, args: Record<string, unknown> = {}, agent?: Agent) {
+function execute(rawName: string, args: Record<string, unknown> = {}) {
   return ctx.tools.execute({
     name: `cua_driver_native__${rawName}`,
     callId: ToolCallId('native-test'),
     arguments: args,
     signal: new AbortController().signal,
-    ...agent === undefined ? {} : { agent },
   })
 }
 
@@ -68,36 +57,6 @@ describe('Cua Driver native provider', () => {
     expect(fixture.creates).toBe(0)
     expect(ctx.computerUse.providerName).toBe('another-driver')
     await release()
-  })
-
-  it('passes a foreground delivery request through under the permissive policy', async () => {
-    const fiber = ctx.plugin(NativeProvider)
-    await fiber
-    const session = { id: SessionId('s-agent') } as Session
-    await execute('click', { pid: 9, delivery_mode: 'foreground' }, { session } as Agent)
-    expect(fixture.calls[0]?.args).toMatchObject({ delivery_mode: 'foreground' })
-    await fiber.dispose()
-  })
-
-  it('rewrites a foreground delivery request to background under background-only', async () => {
-    deliveryMode = 'background-only'
-    const fiber = ctx.plugin(NativeProvider)
-    await fiber
-    const session = { id: SessionId('s-agent') } as Session
-    await execute('click', { pid: 9, delivery_mode: 'foreground' }, { session } as Agent)
-    expect(fixture.calls[0]?.args).toMatchObject({ delivery_mode: 'background' })
-    await fiber.dispose()
-  })
-
-  it('leaves agentless dispatch and non-foreground arguments untouched under background-only', async () => {
-    deliveryMode = 'background-only'
-    const fiber = ctx.plugin(NativeProvider)
-    await fiber
-    await execute('click', { pid: 9 })
-    await execute('click', { pid: 9, delivery_mode: 'background' }, { session: { id: SessionId('s-agent') } as Session } as Agent)
-    expect(fixture.calls[0]?.args).toEqual({ pid: 9 })
-    expect(fixture.calls[1]?.args).toEqual({ pid: 9, delivery_mode: 'background' })
-    await fiber.dispose()
   })
 
   it('rolls back a failed native constructor', async () => {

@@ -20,6 +20,7 @@ describe('model-driven dsh-tools generation', () => {
   it('round-trips the complete service and event structure through the runtime registry', { timeout: 30_000 }, async () => {
     const workspace = new WorkspaceAnalyzer({
       root: workspaceRoot,
+      hostConfig: 'configs/tsconfig.host.json',
       faces: ['host'],
       packages: ['@deepseek-ai/dsh-tools'],
     }).analyze()

@@ -80,13 +80,11 @@ describe('AnimatedRows', () => {
 
     arm()
     view.rerender(rows(['b', 'a']))
-    expect(animations.map(call => [call.element.textContent, call.options.duration])).toEqual([['b', 320], ['a', 320]])
+    expect(animations.map(call => [call.element.textContent, call.options.duration])).toEqual([['b', 200], ['a', 200]])
     expect(animations[0]?.keyframes).toEqual([
       { transform: 'translate(0px, 34px)', opacity: 1 },
       { transform: 'translate(0, 0)', opacity: 1 },
     ])
-    // Sidebar motion rides the HLN v3.2 motion system's ease.
-    for (const call of animations) expect(call.options.easing).toBe('cubic-bezier(0.16, 1, 0.3, 1)')
     for (const call of animations) finish(call.animation)
   })
 
@@ -96,7 +94,7 @@ describe('AnimatedRows', () => {
     view.rerender(rows(['b', 'c', 'd']))
     expect(within(tree).queryByText('a')).toBeNull()
     expect(animations.map(call => [call.element.textContent, call.options.duration]))
-      .toEqual([['b', 320], ['c', 320], ['d', 180], ['a', 180]])
+      .toEqual([['b', 200], ['c', 200], ['d', 100], ['a', 100]])
     const leaving = animations[3] as RecordedAnimation
     expect(leaving.element.inert).toBe(true)
     expect(leaving.element.closest('[aria-hidden="true"]')).not.toBeNull()

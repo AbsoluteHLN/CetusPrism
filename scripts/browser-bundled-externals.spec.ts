@@ -32,13 +32,13 @@ function fixture(): string {
   const root = realpathSync.native(mkdtempSync(join(tmpdir(), 'dsh-browser-notices-')))
   roots.push(root)
   write(root, 'package.json', '{"type":"module"}')
-  write(root, 'tsconfig.base.json', JSON.stringify({
+  write(root, 'configs/tsconfig.base.json', JSON.stringify({
     compilerOptions: {
       module: 'esnext', target: 'es2022', jsx: 'react-jsx',
-      paths: { '@fixture/static': ['./packages/client/static/src/index.ts'] },
+      paths: { '@fixture/static': ['../packages/client/static/src/index.ts'] },
     },
   }))
-  write(root, 'tsconfig.base.client.json', '{"extends":"./tsconfig.base.json"}')
+  write(root, 'configs/tsconfig.base.client.json', '{"extends":"./tsconfig.base.json"}')
   return root
 }
 

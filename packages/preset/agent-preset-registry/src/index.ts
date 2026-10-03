@@ -53,7 +53,6 @@ export class AgentPresetRegistry extends TypertRemoteService {
   static Config = z.object({
     default: z.string().required(),
     selectedDefault: z.string().volatile(),
-    modeSelectionEnabled: z.boolean().default(true).volatile(),
   })
   private readonly owner: Context
   private readonly definitions = new Map<string, Definition>()
@@ -72,12 +71,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
   }
 
   /** Default preset for a subsequently created session. */
-  get defaultId(): string { return this.policy().defaultId }
-
-  private policy(): { enabled: boolean; defaultId: string } {
-    const enabled = this.config.modeSelectionEnabled.get()
-    return { enabled, defaultId: enabled ? this.config.selectedDefault.get() ?? this.config.default : this.config.default }
-  }
+  get defaultId(): string { return this.config.selectedDefault.get() ?? this.config.default }
 
   /** Register and eagerly load a definition; activation failure remains visible in the roster.
    * @param definition Parsed configuration supplied by the declaring plugin.
@@ -170,14 +164,13 @@ export class AgentPresetRegistry extends TypertRemoteService {
     return rows.sort((a, b) => (a.order ?? Infinity) - (b.order ?? Infinity) || a.id.localeCompare(b.id))
   }
 
-  /** Read the selection roster and chooser policy.
-   * @returns Current presets, default and chooser policy.
+  /** Read the selection roster.
+   * @returns Current presets, each marked when it is the default.
    */
   @Remote('list')
   async remoteExportList(): Promise<AgentPresetRoster> {
-    const policy = this.policy()
-    return { presets: (await this.list()).map(row => ({ ...row, isDefault: row.id === policy.defaultId })),
-      modeSelectionEnabled: policy.enabled }
+    const defaultId = this.defaultId
+    return { presets: (await this.list()).map(row => ({ ...row, isDefault: row.id === defaultId })) }
   }
 
   /** Resolve an identity without starting an Agent.
@@ -305,7 +298,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
     return serviceForAgent(this.owner, agent, name)
   }
 
-  /** Rebind an idle Agent; the caller owns the open-turn check.
+  /** Rebind a blank Agent; the caller owns the blank-session check.
    * @param ctx Agent context.
    * @param id Requested preset.
    * @returns The bound identity.
@@ -317,9 +310,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
     return preset
   }
 
-  /** Select a preset for a session with no turn in progress — a blank session,
-   * or an idle one between turns. The running turn keeps the composition it
-   * started under; the switch takes effect from the next turn.
+  /** Select a preset before a session starts its first turn.
    * @param agent Target Agent.
    * @param agentPreset Requested identity.
    * @returns Committed preset identity.
@@ -328,8 +319,8 @@ export class AgentPresetRegistry extends TypertRemoteService {
   async select(agent: Agent, agentPreset: string): Promise<string> {
     const turn = (this.switches.get(agent.id) ?? Promise.resolve()).then(async () => {
       const boundary = this.owner.sessionProjections.stateOf(agent.session, 'turnBoundary')
-      if (boundary !== undefined && boundary.openTurnStartSeq !== null) {
-        throw new RemoteError('agent-preset/locked', 'A turn is in progress', { sessionId: agent.id, agentPreset })
+      if (boundary !== undefined && (boundary.openTurnStartSeq !== null || boundary.lastTurn > 0)) {
+        throw new RemoteError('agent-preset/locked', 'This session has already started', { sessionId: agent.id, agentPreset })
       }
       const preset = await this.recompose(agent.ctx, agentPreset)
       agent.session.append('agent-preset/selected', { agentPreset: preset.id })

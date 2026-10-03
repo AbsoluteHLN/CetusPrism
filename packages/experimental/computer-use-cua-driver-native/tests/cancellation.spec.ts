@@ -27,9 +27,6 @@ beforeEach(async () => {
   await ctx.plugin(ComputerUseRegistry)
   root = await mkdtemp(join(tmpdir(), 'dsh-native-cancellation-'))
   await ctx.plugin(LocalAttachmentStore, { dshHome: root })
-  // The driver reads the delivery policy per call; this spec exercises unload
-  // cancellation, so the permissive default stands in for the real service.
-  ctx.provide('computerUseDeliveryPolicy', { modeOf: () => 'allow-foreground' } as never)
 })
 
 afterEach(async () => {

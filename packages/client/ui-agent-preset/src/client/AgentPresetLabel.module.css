@@ -1,5 +1,4 @@
-/* Session-header agent-preset control: a label that opens the roster menu
-   when selection is on, and degrades to plain chrome otherwise. */
+/* Session-header agent-preset label: static chrome, never a control. */
 
 .label {
   display: inline-flex;
@@ -8,10 +7,8 @@
   max-width: 180px;
   padding: 0 2px 0 0;
   height: 22px;
-  border: none;
-  border-radius: 6px;
+  border-radius: var(--dsw-radius-xs);
   background: var(--dsw-alias-fill-tsp-secondary);
-  font: inherit;
   font-size: 12px;
   line-height: 22px;
   color: var(--dsw-alias-label-tertiary);
@@ -20,59 +17,14 @@
   text-overflow: ellipsis;
 }
 
-button.label {
-  cursor: pointer;
-}
-
-button.label:not(:disabled):hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-secondary);
-}
-
-button.label:disabled {
-  cursor: default;
-}
-
 .icon {
   flex: none;
   opacity: 0.7;
 }
 
-.chevron {
-  flex: none;
-  color: var(--dsw-alias-label-caption);
-}
-
-.menuAnchor {
-  max-width: 100%;
-}
-
-/* Menu rows carry the name over its description, mirroring the new-session
-   chip's rows: the id alone never said what a preset does, which is why the
-   metadata exists. */
-.item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  max-width: 280px;
-}
-
-.itemName {
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--dsw-alias-label-primary);
-}
-
-.itemDesc {
-  font-size: 12px;
-  line-height: 16px;
-  color: var(--dsw-alias-label-caption);
-  white-space: normal;
-}
-
 /* First sacrifice when the title row (the enclosing inline-size container)
-   runs out of width: the preset yields before any interactive header action
-   loses its label. */
+   runs out of width: the preset is passive chrome, so it yields before any
+   interactive header action loses its label. */
 @container (max-width: 540px) {
   .label {
     display: none;

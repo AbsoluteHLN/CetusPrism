@@ -154,56 +154,18 @@ function describableReasoningLevel(
     : undefined
 }
 
-/**
- * Resolve the request's reasoning level. A level the model's declared map
- * spells out passes as-is. A level outside the map still dispatches when the
- * model is reasoning-capable: pi-ai's wire layer falls back to sending the
- * level id verbatim (`thinkingLevelMap?.[level] ?? level`), so the endpoint
- * — not the catalog's word — decides whether the level exists. A refusal comes
- * back as the endpoint's own error, and the llm runtime's declared-effort gate
- * already bounds what a selector may send before this point. Only a
- * non-reasoning model keeps the pre-flight refusal: its dispatch ignores the
- * effort entirely, so "accepted" would mean nothing.
- * @param model - the resolved model descriptor.
- * @param effort - the requested effort, or the profile's configured default.
- * @param explicit - true when the caller named the effort for this request
- * (user selection) rather than falling back to the profile default.
- * @returns the level to dispatch.
- */
+/** Validate an explicit Harness/profile effort without invoking pi-ai's clamp. */
 function resolveReasoningLevel(
   model: Model<Api>,
   effort: ReasoningEffortIdType | ModelThinkingLevel | undefined,
-  explicit: boolean,
 ): ModelThinkingLevel | undefined {
   if (effort === undefined) return undefined
   const supported = getSupportedThinkingLevels(model)
   if (supported.some(level => level === effort)) return effort as ModelThinkingLevel
-  if (!model.reasoning || !explicit) {
-    throw new LlmError(
-      `pi-ai provider "${model.provider}" model "${model.id}" does not support reasoning effort "${effort}"`,
-      'UNSUPPORTED_REASONING_EFFORT',
-    )
-  }
-  return effort as ModelThinkingLevel
-}
-
-/**
- * The dispatch descriptor for the resolved level. pi-ai clamps a level the
- * declared map does not spell to the nearest supported one, which would
- * silently downgrade an explicitly requested level; carrying the level's own
- * id as its wire mapping on a copy of the descriptor sends the level verbatim
- * and leaves the endpoint as the refuser.
- * @param model - the resolved model descriptor.
- * @param level - the resolved dispatch level.
- * @returns the descriptor the pi-ai stream dispatches with.
- */
-function dispatchModelFor(model: Model<Api>, level: ModelThinkingLevel | undefined): Model<Api> {
-  if (level === undefined || !model.reasoning) return model
-  if (model.thinkingLevelMap?.[level] !== undefined && model.thinkingLevelMap[level] !== null) return model
-  return {
-    ...model,
-    thinkingLevelMap: { ...model.thinkingLevelMap, [level]: level },
-  }
+  throw new LlmError(
+    `pi-ai provider "${model.provider}" model "${model.id}" does not support reasoning effort "${effort}"`,
+    'UNSUPPORTED_REASONING_EFFORT',
+  )
 }
 
 /**
@@ -314,21 +276,13 @@ export class PiAiAdapter extends LlmAdapter {
   override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
     return Promise.resolve().then(() => {
       const snapshot = this.current()
-      const profile = this.profileOf(snapshot, provider)
-      // Declared modalities only: a model whose list resolved from the route
-      // fallback stated nothing, and surfacing the fallback here would make
-      // selectors present a guess as the model's capability.
-      return snapshot.models.getModels(provider).map((model) => {
-        const declaredInput = profile.declaredInputs.get(model.id)
-        return {
-          provider,
-          id: model.id,
-          name: model.name,
-          ...declaredInput === undefined
-            ? {}
-            : { inputModalities: [...declaredInput] },
-        }
-      })
+      this.profileOf(snapshot, provider)
+      return snapshot.models.getModels(provider).map(model => ({
+        provider,
+        id: model.id,
+        name: model.name,
+        inputModalities: [...model.input],
+      }))
     })
   }
 
@@ -350,15 +304,11 @@ export class PiAiAdapter extends LlmAdapter {
     // Only a cap the deployment configured is a request default; the
     // catalog's `maxTokens` sizes the model and stops there.
     const configuredMaxTokens = profile.configuredMaxTokens.get(model)
-    // Declared modalities only, matching listModels: an undeclared model must
-    // read as unknown so image requests reach the endpoint instead of being
-    // refused against the route's fallback guess.
-    const declaredInput = profile.declaredInputs.get(model)
     return {
       provider,
       id: model,
       name: resolvedModel.name,
-      ...declaredInput === undefined ? {} : { inputModalities: [...declaredInput] },
+      inputModalities: [...resolvedModel.input],
       context: { contextWindow: resolvedModel.contextWindow },
       ...configuredMaxTokens === undefined ? {} : { defaultMaxTokens: configuredMaxTokens },
       ...reasoningInfo(resolvedModel, defaultLevel),
@@ -391,20 +341,10 @@ export class PiAiAdapter extends LlmAdapter {
     // the one it started with and the next call picks up the new one.
     const profile = this.profileOf(snapshot, options.provider)
     const model = this.modelOf(snapshot, options.provider, options.model)
-    // An explicitly requested effort (user selection or the effort probe)
-    // has already passed the runtime's declared-or-probed gate, so an
-    // undeclared level here dispatches instead of refusing — the endpoint
-    // stays the refuser. A profile-configured default is configuration, and
-    // a bad one fails loud before any network I/O.
-    const explicit = options.reasoningEffort !== undefined
     const reasoning = resolveReasoningLevel(
       model,
       options.reasoningEffort ?? profile.reasoning,
-      explicit,
     )
-    // Undeclared levels reach the wire verbatim only through a descriptor
-    // whose thinking-level map spells them; see dispatchModelFor.
-    const dispatchModel = dispatchModelFor(model, reasoning)
     const apiKey = await this.config.resolveApiKey(options.provider, profile)
 
     const consumer = new AbortController()
@@ -416,19 +356,8 @@ export class PiAiAdapter extends LlmAdapter {
 
     try {
       const containsImage = options.messages.some(message => contentHasImage(message.content))
-      // Only an explicit claim (a models entry or the installed catalog) is
-      // enforced: a model whose modalities resolved from the route's fallback
-      // declared nothing, and the endpoint — not a guessed default — decides
-      // whether it accepts the image. A gateway serving vision models the
-      // catalog does not describe therefore works with no declaration at all,
-      // while a gateway that refuses them answers for itself mid-turn.
-      const declaredInput = profile.declaredInputs.get(model.id)
-      if (containsImage && declaredInput !== undefined && !declaredInput.includes('image')) {
-        throw new LlmError(
-          `pi-ai model "${model.id}" is declared text-only; remove the declaration or add "image" to it in the`
-            + ' provider\'s model settings to send images',
-          'UNSUPPORTED_CONTENT',
-        )
+      if (containsImage && !model.input.includes('image')) {
+        throw new LlmError(`pi-ai model "${model.id}" does not support image input`, 'UNSUPPORTED_CONTENT')
       }
       const attachments = containsImage ? this.config.resolveAttachments?.() : undefined
       if (containsImage && attachments === undefined) {
@@ -448,7 +377,7 @@ export class PiAiAdapter extends LlmAdapter {
             maxBytes: profile.requestImageMaxBytes,
           },
         }, onReplayDegrade)
-      const events = snapshot.models.streamSimple(dispatchModel, context, {
+      const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
         ...options.temperature === undefined ? {} : { temperature: options.temperature },
         ...options.maxTokens === undefined ? {} : { maxTokens: options.maxTokens },

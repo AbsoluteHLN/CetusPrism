@@ -137,13 +137,6 @@ export interface ModelCatalogModel {
   readonly id: string
   readonly name: string
   readonly description?: string
-  /**
-   * Input modalities the adapter explicitly claims for the model. Absent means
-   * the adapter declared none: the UI shows no vision badge, while image use
-   * stays allowed because enforcement gates only on an explicit text-only
-   * claim (see the pi-ai declared-modality map).
-   */
-  readonly inputModalities?: readonly string[]
   readonly reasoning?: ModelReasoning
 }
 
@@ -164,7 +157,7 @@ export interface ModelCatalogFailure {
 /** Host-generation model catalog and the default used by unconfigured Sessions. */
 export interface ModelCatalog {
   readonly default: ModelSelection
-  /** Provider routes currently able to serve a request, including empty catalogs. */
+  /** Provider routes with at least one currently available catalog model. */
   readonly routableProviders: readonly string[]
   readonly groups: readonly ModelProviderGroup[]
   readonly failures: readonly ModelCatalogFailure[]
@@ -208,6 +201,8 @@ export const SESSION_SEARCH_SNIPPET_MAX_CODE_POINTS = 240
 
 declare module '@deepseek-ai/dsh-typert-protocol' {
   interface RemoteErrorDetailsMap {
+    'session/provider-credentials-unavailable': Record<string, never>
+    'session/provider-models-unavailable': { readonly provider: string }
     'session/model-unavailable': { readonly provider: string; readonly model: string }
     'session/conflict': {
       readonly sessionId: SessionId

@@ -16,30 +16,11 @@ import { createRequire, isBuiltin } from 'node:module'
 import { basename, dirname, isAbsolute, relative, resolve as resolvePath, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Rolldown, type TsdownPlugin, type UserConfig } from 'tsdown'
+import { transform } from 'lightningcss'
 import { optionalStringArray } from './modules/src/client/manifest.ts'
 import { PLATFORM_MODULES, PRELOADED_CLIENT_EXTERNALS } from './web/src/platform.ts'
 import { clientBuildEnvironmentDefines } from '../../scripts/client-build-environment.ts'
 import { BundleInputIsolation, physicalBundleInput } from '../../scripts/bundle-input-isolation.ts'
-
-/**
- * Resolve build-only native tooling from the shared dependency cache when the
- * repository is built without a workspace node_modules tree. Node's ESM
- * resolver does not honor NODE_PATH, while createRequire can resolve the
- * cache's junctioned package entry and its platform-native companion.
- */
-type LightningCssModule = {
-  transform: (options: unknown) => {
-    code: Buffer
-    exports?: Record<string, { name: string }>
-  }
-}
-
-const configRequire = createRequire(import.meta.url)
-const dependencyCacheNodeModules = process.env.DSH_DEPENDENCY_NODE_MODULES?.trim()
-const lightningcss = (dependencyCacheNodeModules
-  ? configRequire(resolvePath(dependencyCacheNodeModules, 'lightningcss'))
-  : configRequire('lightningcss')) as LightningCssModule
-const { transform } = lightningcss
 
 /**
  * Virtual-id wrapper keeping module CSS away from tsdown's own css pipeline
@@ -80,7 +61,7 @@ function styleInjectionModule(
  * Everything else under @deepseek-ai/* is either a module-table entry
  * (external) or a leak the purity gate rejects.
  */
-export const INLINE_SAFE = /^(?:@deepseek-ai\/dsh-(?:file-reference|session|llm|tools|brand|deque|output-retention|typert-protocol|util-crypto|util-values|util-workspace-path)(?:\/|$)|@deepseek-ai\/dsh-token-meter\/client$|@deepseek-ai\/dsh-native-command\/types$|@deepseek-ai\/dsh-host-open-in-app\/shared$|@deepseek-ai\/dsh-plugin-manager\/registry$|@deepseek-ai\/dsh-agent-preset-registry\/display$|@deepseek-ai\/dsh-spill-policy\/notice$)/
+export const INLINE_SAFE = /^(?:@deepseek-ai\/dsh-(?:file-reference|session|llm|tools|brand|deque|output-retention|typert-protocol|util-crypto|util-values|util-workspace-path)(?:\/|$)|@deepseek-ai\/dsh-token-meter\/client$|@deepseek-ai\/dsh-native-command\/types$|@deepseek-ai\/dsh-host-open-in-app\/shared$|@deepseek-ai\/dsh-plugin-manager\/registry$|@deepseek-ai\/dsh-agent-preset-registry\/display$|@deepseek-ai\/dsh-api-workspace-controller\/default-workspace$|@deepseek-ai\/dsh-spill-policy\/notice$)/
 
 /**
  * Vendored framework libraries: rescoped into @deepseek-ai, so the gate below

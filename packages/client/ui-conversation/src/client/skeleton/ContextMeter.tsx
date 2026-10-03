@@ -11,15 +11,12 @@ import type { UseProjection } from '@deepseek-ai/dsh-api-session-controller/clie
 import type {} from '@deepseek-ai/dsh-token-meter/client'
 import { Tooltip, useAnchoredPosition, useDismissOnOutsidePointer } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ComposerBarProps } from '../contract/slots.ts'
-import { contextOccupancy, type ContextOccupancy } from '../context-occupancy.ts'
+import { contextOccupancy } from '../context-occupancy.ts'
 import css from './ContextMeter.module.css'
 
 /** Ring geometry: 14px viewBox, 2px stroke. */
 const RADIUS = 5.5
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
-
-/** How long a vanished pressure projection is bridged before the meter unmounts. */
-const PRESSURE_GRACE_MS = 300
 
 /**
  * Marker the localized occupancy sentence is split on, so the panel headline
@@ -62,27 +59,7 @@ export function ContextMeter({ useProjection, t }: ContextMeterProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLSpanElement | null>(null)
   const panelRef = useRef<HTMLDivElement | null>(null)
-  const measured = contextOccupancy(pressure)
-  // A model switch or a between-samples projection gap can transiently empty
-  // the pressure fields while this component stays mounted. Hold the last
-  // reading through a short grace window instead of unmounting the meter —
-  // and any panel the user just opened — on every flicker; only a projection
-  // that stays empty closes it. `measured` is a fresh object every render, so
-  // the hold updates on value changes only (a reference compare would loop).
-  const [held, setHeld] = useState<ContextOccupancy | null>(measured)
-  useEffect(() => {
-    if (measured === null) {
-      if (held === null) return
-      const timer = window.setTimeout(() => { setHeld(null) }, PRESSURE_GRACE_MS)
-      return () => { window.clearTimeout(timer) }
-    }
-    if (held !== null
-      && held.percent === measured.percent
-      && held.usedTokens === measured.usedTokens
-      && held.contextWindow === measured.contextWindow) return
-    setHeld(measured)
-  }, [measured, held])
-  const context = held
+  const context = contextOccupancy(pressure)
   const available = context !== null
   const position = useAnchoredPosition({
     open: open && available,
@@ -94,9 +71,8 @@ export function ContextMeter({ useProjection, t }: ContextMeterProps) {
   })
   useDismissOnOutsidePointer(rootRef, open && available, setOpen, panelRef)
 
-  // The grace hold above keeps `available` true across flickers, so this only
-  // fires once a projection stays empty past the window; close the stale
-  // panel rather than preserving it.
+  // A model switch can temporarily remove capacity while this component stays
+  // mounted. Close the now-unavailable panel instead of preserving stale UI.
   useEffect(() => {
     if (!available && open) setOpen(false)
   }, [available, open])

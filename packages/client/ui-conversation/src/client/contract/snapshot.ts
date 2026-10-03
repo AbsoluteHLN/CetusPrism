@@ -24,8 +24,8 @@ export type ConversationPhase = 'blank' | 'engaging' | 'active'
  * @returns the phase used by the header, View ring, and composer layout.
  */
 export function conversationPhase(
-  session: Pick<SessionSnapshot, 'blank' | 'awaitingFirstTurn' | 'running' | 'promptAttempted'>,
-  conversation: Pick<ConversationSnapshot, 'activeTargets'>,
+  session: SessionSnapshot,
+  conversation: ConversationSnapshot,
 ): ConversationPhase {
   const active = conversation.activeTargets.size > 0
     || (!session.blank && !session.awaitingFirstTurn)

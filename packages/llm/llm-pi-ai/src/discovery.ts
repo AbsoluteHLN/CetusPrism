@@ -2,15 +2,11 @@
  * Answering "which models can this provider serve?" for the configuration
  * surface's "fetch available models" action.
  *
- * A route with a baseURL is interrogated **over the wire first**: the endpoint
- * is what actually serves the route, and a live listing is the only answer that
- * reflects models added after this build shipped. The installed pi-ai catalog
- * is the fallback, not the answer: it fills in when the endpoint cannot be
- * reached or does not answer with a readable listing (the installed entries
- * carry the capacities a failed listing leaves unknown), and it is the whole
- * answer only for a route the configuration gives no endpoint for. An
- * authentication refusal never falls back — a wrong key must stay loud, not
- * silently serve the stale catalog.
+ * A route the installed pi-ai catalog ships is answered **from that catalog**,
+ * with no network call at all: pi-ai's registry is the authoritative list for
+ * its own providers, and it carries the capacities a listing endpoint would
+ * not disclose. Only a route the catalog does not describe — a gateway, a
+ * self-hosted server — is interrogated over the wire.
  *
  * Neither path is a catalog refresh. Nothing here is stored: the request
  * carries a draft the user is still editing, and the reply is candidate
@@ -19,17 +15,15 @@
  *
  * OpenAI-compatible and Anthropic Messages protocols are interrogated through
  * their native model-listing endpoints. The parser accepts the standard
- * `data` array and the enriched `models` map some compatible gateways expose;
- * when a reply carries both, the array defines the rows and the map donates
- * the capacities its entries nest. Every other protocol reports that it cannot
- * be interrogated so the surface falls back to hand-entry rather than guessing
- * its response fields.
+ * `data` array and the enriched `models` map some compatible gateways expose.
+ * Every other protocol reports that it cannot be interrogated so the surface
+ * falls back to hand-entry rather than guessing its response fields.
  *
  * @module dsh-llm-pi-ai/discovery
  */
 
 import { INVALID_CREDENTIAL_CODE, LlmError, normalizeApiKey } from '@deepseek-ai/dsh-llm'
-import type { LlmDiscoveredModel, LlmModelDiscoveryOperation, ModelModality } from '@deepseek-ai/dsh-llm'
+import type { LlmDiscoveredModel, LlmModelDiscoveryOperation } from '@deepseek-ai/dsh-llm'
 import { attributionHeaders } from '@deepseek-ai/dsh-llm'
 import { catalogModels } from './catalog.ts'
 
@@ -74,11 +68,6 @@ interface ListingTopProvider {
   max_completion_tokens?: unknown
 }
 
-/** Modality vocabulary OpenRouter nests under each entry. */
-interface ListingArchitecture {
-  input_modalities?: unknown
-}
-
 /** One entry of a supported `GET /models` reply. */
 interface ListingEntry {
   id?: unknown
@@ -96,22 +85,6 @@ interface ListingEntry {
   maxTokens?: unknown
   limit?: ListingLimit | null
   top_provider?: ListingTopProvider | null
-  architecture?: ListingArchitecture | null
-  input_modalities?: unknown
-  inputModalities?: unknown
-}
-
-/** The modalities an entry declares, or `undefined` when it names none or names an unknown one. */
-function declaredModalities(...candidates: readonly unknown[]): ModelModality[] | undefined {
-  for (const candidate of candidates) {
-    if (!Array.isArray(candidate)) continue
-    const modalities = candidate.filter((value): value is ModelModality =>
-      value === 'text' || value === 'image')
-    // A list naming only unknown modalities states nothing this vocabulary can
-    // carry; an empty list is the same. Either way the next source answers.
-    if (modalities.length > 0) return modalities
-  }
-  return undefined
 }
 
 /** A positive integer field of a listing entry, or `undefined` when absent or unusable. */
@@ -193,15 +166,12 @@ async function readBounded(response: Response, url: string): Promise<string> {
 
 /**
  * Read one supported model-listing reply. The standard `data` array takes
- * precedence when both supported formats are present, and a nested `models`
- * map then donates the capacities its entries carry: each data row fills its
- * blanks from the map entry under the same id, so a gateway that enriches only
- * the map still yields complete rows. A reply with no `data` array is read as
- * the `models` map itself, using each property key as the endpoint-facing id;
- * its nested `id` is only a fallback for an empty key because gateways may put
- * a canonical model identity there instead of the alias they accept on
- * requests. Only object-valued map entries are models; primitive properties
- * are ignored because they may be directory metadata rather than model records.
+ * precedence when both supported formats are present. An enriched `models`
+ * map uses each property key as the endpoint-facing id; its nested `id` is
+ * only a fallback for an empty key because gateways may put a canonical model
+ * identity there instead of the alias they accept on requests. Only
+ * object-valued map entries are models; primitive properties are ignored
+ * because they may be directory metadata rather than model records.
  *
  * Entries without a usable id are skipped rather than failing the whole
  * interrogation: a single malformed row should not deny the user the rest of
@@ -211,37 +181,28 @@ async function readBounded(response: Response, url: string): Promise<string> {
 function readListing(body: unknown): LlmDiscoveredModel[] {
   const listing = body as { data?: unknown; models?: unknown } | null
   const data = listing?.data
-  const models = listing?.models
-  if (!Array.isArray(data) && (models === null || typeof models !== 'object' || Array.isArray(models))) {
-    throw new LlmError(
-      'the endpoint\'s model listing has neither a "data" array nor a "models" object; '
-      + 'enter this provider\'s models by hand',
-      'DISCOVERY_FAILED',
-    )
-  }
-  let listed: { readonly key?: string; readonly raw: unknown }[] = []
+  let listed: { readonly key?: string; readonly raw: unknown }[]
   if (Array.isArray(data)) {
     const rows = data as readonly unknown[]
     listed = rows.map(raw => ({ raw }))
-  } else if (models !== null && typeof models === 'object' && !Array.isArray(models)) {
+  } else {
+    const models = listing?.models
+    if (models === null || typeof models !== 'object' || Array.isArray(models)) {
+      throw new LlmError(
+        'the endpoint\'s model listing has neither a "data" array nor a "models" object; '
+        + 'enter this provider\'s models by hand',
+        'DISCOVERY_FAILED',
+      )
+    }
     listed = Object.entries(models as Record<string, unknown>)
       .filter(([, raw]) => raw !== null && typeof raw === 'object' && !Array.isArray(raw))
       .map(([key, raw]) => ({ key, raw }))
   }
-  // The enriched map's nested capacities, indexed by its property key: a
-  // `data` row under the same id inherits what the endpoint nested there.
-  const enriched = new Map<string, ListingEntry>()
-  if (models !== null && typeof models === 'object' && !Array.isArray(models)) {
-    for (const [key, raw] of Object.entries(models as Record<string, unknown>)) {
-      if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) enriched.set(key, raw)
-    }
-  }
-  const rows: LlmDiscoveredModel[] = []
+  const models: LlmDiscoveredModel[] = []
   for (const { key, raw } of listed) {
     const entry = raw as ListingEntry | null
-    const id = label(key, entry?.id, key === undefined ? undefined : enriched.get(key)?.id)
+    const id = label(key, entry?.id)
     if (id === undefined) continue
-    const extra = enriched.get(id)
     const name = label(entry?.name, entry?.display_name, entry?.displayName) ?? id
     const contextWindow = capacity(
       entry?.contextWindow,
@@ -249,11 +210,6 @@ function readListing(body: unknown): LlmDiscoveredModel[] {
       entry?.context_length,
       entry?.max_input_tokens,
       entry?.limit?.context,
-      extra?.contextWindow,
-      extra?.context_window,
-      extra?.context_length,
-      extra?.max_input_tokens,
-      extra?.limit?.context,
     )
     const maxTokens = capacity(
       entry?.maxOutputTokens,
@@ -262,30 +218,15 @@ function readListing(body: unknown): LlmDiscoveredModel[] {
       entry?.max_tokens,
       entry?.limit?.output,
       entry?.top_provider?.max_completion_tokens,
-      extra?.maxOutputTokens,
-      extra?.max_output_tokens,
-      extra?.maxTokens,
-      extra?.max_tokens,
-      extra?.limit?.output,
-      extra?.top_provider?.max_completion_tokens,
     )
-    const inputModalities = declaredModalities(
-      entry?.architecture?.input_modalities,
-      entry?.input_modalities,
-      entry?.inputModalities,
-      extra?.architecture?.input_modalities,
-      extra?.input_modalities,
-      extra?.inputModalities,
-    )
-    rows.push({
+    models.push({
       id,
       name,
       ...contextWindow === undefined ? {} : { contextWindow },
       ...maxTokens === undefined ? {} : { maxTokens },
-      ...inputModalities === undefined ? {} : { inputModalities },
     })
   }
-  return rows
+  return models
 }
 
 /**
@@ -321,20 +262,29 @@ export interface StoredModelDiscoveryProfile {
  * @param storedProfile - Host-owned headers and lazy credential resolution for
  *   the named route. It is read only on the path that reaches the network; the
  *   credential is resolved only when the draft carries none.
- * @returns the advertised models in endpoint order; the installed catalog's
- *   answer when the route has no endpoint to ask or the endpoint cannot be
- *   reached.
+ * @returns the advertised models in endpoint order.
  * @throws LlmError when the protocol has no readable listing, the endpoint
- *   refuses the credential, or — for a route the installed catalog does not
- *   describe — the endpoint refuses or fails the request.
+ *   refuses or fails the request, or the reply is not a model listing.
  */
 export async function discoverModels(
   request: LlmModelDiscoveryOperation,
   storedProfile?: () => StoredModelDiscoveryProfile | undefined,
 ): Promise<readonly LlmDiscoveredModel[]> {
-  const catalog = catalogAnswer(request.provider)
+  // A catalog route already has its answer, and a better one: the installed
+  // entries carry context windows and output caps no listing endpoint reports.
+  if (request.provider !== undefined) {
+    const installed = catalogModels(request.provider)
+    if (installed.size > 0) {
+      return [...installed.values()].map(model => ({
+        id: model.id,
+        name: model.name,
+        contextWindow: model.contextWindow,
+        maxTokens: model.maxTokens,
+        inputModalities: [...model.input],
+      }))
+    }
+  }
   if (request.baseURL === undefined || request.baseURL.length === 0) {
-    if (catalog !== undefined) return catalog
     throw new LlmError(
       `pi-ai ships no catalog for provider "${request.provider ?? ''}", so its models can only come from its`
       + " endpoint; set a baseURL, or enter this provider's models by hand",
@@ -354,46 +304,7 @@ export async function discoverModels(
       'DISCOVERY_UNSUPPORTED',
     )
   }
-  try {
-    return await interrogateEndpoint(request, api, storedProfile, catalog)
-  } catch (error: unknown) {
-    // Transport and shape failures degrade to the installed catalog — the
-    // route's configured answer — while credential refusals rethrow: a wrong
-    // key must stay loud, not silently serve the stale catalog. Aborts are the
-    // caller's, never a fallback.
-    if (catalog !== undefined && error instanceof LlmError && error.code === 'DISCOVERY_FAILED') {
-      return catalog
-    }
-    throw error
-  }
-}
-
-/** The installed catalog's discovery answer for one provider, or `undefined`. */
-function catalogAnswer(provider: string | undefined): readonly LlmDiscoveredModel[] | undefined {
-  if (provider === undefined) return undefined
-  const installed = catalogModels(provider)
-  if (installed.size === 0) return undefined
-  return [...installed.values()].map(model => ({
-    id: model.id,
-    name: model.name,
-    contextWindow: model.contextWindow,
-    maxTokens: model.maxTokens,
-    inputModalities: [...model.input],
-  }))
-}
-
-/**
- * One live model-listing interrogation. Live rows define which models exist;
- * the installed catalog only donates capacities a listing endpoint does not
- * disclose, filling each row's blanks by id.
- */
-async function interrogateEndpoint(
-  request: LlmModelDiscoveryOperation,
-  api: string,
-  storedProfile: (() => StoredModelDiscoveryProfile | undefined) | undefined,
-  catalog: readonly LlmDiscoveredModel[] | undefined,
-): Promise<readonly LlmDiscoveredModel[]> {
-  const url = listingUrl(request.baseURL ?? '', api)
+  const url = listingUrl(request.baseURL, api)
   // A key typed into the form wins: it may replace the stored key that is
   // failing. The stored profile is asked past the catalog and protocol checks,
   // and its credential resolver remains lazy so a typed key cannot fail over a
@@ -425,10 +336,10 @@ async function interrogateEndpoint(
     throw new LlmError(`could not reach ${url}`, 'DISCOVERY_FAILED', { cause: error })
   }
   if (!response.ok) {
-    if (response.status === 401 || response.status === 403) {
-      throw new LlmError(`${url} answered ${response.status}; check the API key`, 'INVALID_CREDENTIAL')
-    }
-    throw new LlmError(`${url} answered ${response.status}`, 'DISCOVERY_FAILED')
+    throw new LlmError(
+      `${url} answered ${response.status}${response.status === 401 || response.status === 403 ? '; check the API key' : ''}`,
+      'DISCOVERY_FAILED',
+    )
   }
   let text: string
   try {
@@ -448,22 +359,5 @@ async function interrogateEndpoint(
   } catch (error: unknown) {
     throw new LlmError(`${url} did not answer with JSON`, 'DISCOVERY_FAILED', { cause: error })
   }
-  const live = readListing(body)
-  if (catalog === undefined) return live
-  const known = new Map(catalog.map(model => [model.id, model]))
-  return live.map((model) => {
-    const installed = known.get(model.id)
-    if (installed === undefined) return model
-    // The catalog donates only what the live row left blank; absent keys stay
-    // absent rather than recorded as undefined.
-    const contextWindow = model.contextWindow ?? installed.contextWindow
-    const maxTokens = model.maxTokens ?? installed.maxTokens
-    const inputModalities = model.inputModalities ?? installed.inputModalities
-    return {
-      ...model,
-      ...contextWindow === undefined ? {} : { contextWindow },
-      ...maxTokens === undefined ? {} : { maxTokens },
-      ...inputModalities === undefined ? {} : { inputModalities },
-    }
-  })
+  return readListing(body)
 }

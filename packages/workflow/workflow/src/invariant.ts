@@ -76,8 +76,6 @@ const install: InvariantInstaller = (ctx, fail) => {
       stagedStarts.add(info)
       return
     }
-    // Symbol event names cannot be workflow string-keyed events.
-    if (typeof eventName !== 'string') return
     if (!eventName.startsWith('workflow/')) return
     const info = args[0] as WorkflowRunInfo
     const trace = traceFor(traces, info, fail)

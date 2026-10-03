@@ -18,7 +18,7 @@ export default defineConfig(({ env }) => {
   return {
     workspace: client
       ? ['../vendor/*', '../packages/*/*', '../apps/cli']
-      : ['../vendor/*', '../packages/*/*', '../apps/cli', '../apps/desktop', '../apps/desktop-host'],
+      : ['../vendor/*', '../packages/*/*', '../apps/cli', '../apps/desktop-host'],
     entry: client ? '' : ['lib/types/{index,invariant,startup}.js'],
     outDir: 'lib',
     format: ['esm'],
@@ -27,6 +27,11 @@ export default defineConfig(({ env }) => {
     fixedExtension: false,
     dts: false,
     clean: false,
-    plugins: client ? [] : [typertPlugin({ mode: 'workspace', faces: ['host'] })],
+    plugins: client ? [] : [typertPlugin({
+      mode: 'workspace',
+      faces: ['host'],
+      hostConfig: 'configs/tsconfig.host.json',
+      clientConfig: 'configs/tsconfig.client.json',
+    })],
   }
 })

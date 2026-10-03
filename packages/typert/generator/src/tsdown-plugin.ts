@@ -33,6 +33,10 @@ export interface TypertPluginOptions {
   readonly mode?: 'package' | 'workspace'
   /** Independent TypeScript program faces included in this phase. */
   readonly faces?: readonly TypertFace[]
+  /** Host aggregate path relative to the workspace root, for layouts that keep face aggregates outside the root. */
+  readonly hostConfig?: string
+  /** Client aggregate path relative to the workspace root, for layouts that keep face aggregates outside the root. */
+  readonly clientConfig?: string
 }
 
 /**
@@ -67,7 +71,7 @@ export function typertPlugin(pluginOptions: TypertPluginOptions = {}): TypertPlu
       // nearest package.json owns the bundle even when a custom config writes
       // a nested output such as <package>/lib/dev.
       if (bundleOptions.dir === undefined) return
-      const root = workspaceRoot(bundleOptions.dir)
+      const root = workspaceRoot(bundleOptions.dir, pluginOptions.hostConfig ?? 'tsconfig.host.json')
       if (emittedWorkspaces.has(root)) return
       if (pluginOptions.mode === 'workspace') {
         emitWorkspace(root, pluginOptions.faces)
@@ -83,7 +87,7 @@ export function typertPlugin(pluginOptions: TypertPluginOptions = {}): TypertPlu
       if (manifest.name === undefined || !hasTypertExport(manifest.exports)) return
       let artifacts = artifactsByRoot.get(root)
       if (artifacts === undefined) {
-        const generator = new WorkspaceTypertGenerator(root, TSC_VERIFIED_INPUT)
+        const generator = generatorFor(root)
         artifacts = pluginOptions.faces === undefined
           ? generator.generate()
           : generator.generate(undefined, pluginOptions.faces)
@@ -93,8 +97,16 @@ export function typertPlugin(pluginOptions: TypertPluginOptions = {}): TypertPlu
     },
   }
 
+  function generatorFor(root: string): WorkspaceTypertGenerator {
+    return new WorkspaceTypertGenerator(root, {
+      ...TSC_VERIFIED_INPUT,
+      ...(pluginOptions.hostConfig === undefined ? {} : { hostConfig: pluginOptions.hostConfig }),
+      ...(pluginOptions.clientConfig === undefined ? {} : { clientConfig: pluginOptions.clientConfig }),
+    })
+  }
+
   function emitWorkspace(root: string, faces: readonly TypertFace[] | undefined): void {
-    const generator = new WorkspaceTypertGenerator(root, TSC_VERIFIED_INPUT)
+    const generator = generatorFor(root)
     const packages = generator.discover(faces)
       .filter(candidate => hasTypertExport(readManifest(join(root, candidate.root)).exports))
       .map(candidate => candidate.package)
@@ -151,9 +163,9 @@ function packageRoot(start: string, workspace: string): string | undefined {
   return undefined
 }
 
-function workspaceRoot(start: string): string {
+function workspaceRoot(start: string, aggregate: string): string {
   let current = resolve(start)
-  while (!existsSync(join(current, 'configs', 'tsconfig.host.json'))) {
+  while (!existsSync(join(current, aggregate))) {
     const parent = dirname(current)
     if (parent === current) throw new Error(`typert-generator: cannot find workspace root above ${start}`)
     current = parent

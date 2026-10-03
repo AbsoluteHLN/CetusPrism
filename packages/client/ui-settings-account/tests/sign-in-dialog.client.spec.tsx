@@ -179,44 +179,15 @@ it('keeps an outstanding start open until the request settles', async () => {
   expect(screen.getByRole('button', { name: en.signIn }).hasAttribute('disabled')).toBe(false)
 })
 
-it('hands a waiting authorize URL to the host bridge once per attempt', () => {
-  const openAuthorizeUrl = vi.fn<(url: string) => void>()
-  const attempt = { id, phase: 'waiting-browser' as const, authorizeUrl: 'https://platform.deepseek.com/authorize' }
-  const props = dialogProps(attempt)
-  render(<SignInDialog {...props} openAuthorizeUrl={openAuthorizeUrl} />)
-  expect(openAuthorizeUrl).toHaveBeenCalledOnce()
-  const url = openAuthorizeUrl.mock.calls[0]?.[0] ?? ''
-  expect(url.startsWith('https://platform.deepseek.com/authorize')).toBe(true)
-  // The themed link keeps the platform in the active color scheme.
-  expect(url).toContain('theme=')
-  cleanup()
-  render(<SignInDialog {...props} openAuthorizeUrl={openAuthorizeUrl} />)
-  expect(openAuthorizeUrl).toHaveBeenCalledOnce()
-})
-
-it('does not open without a bridge or outside the browser-wait phase', () => {
-  const openAuthorizeUrl = vi.fn<(url: string) => void>()
-  const props = dialogProps({ id, phase: 'exchanging' as const, authorizeUrl: 'https://platform.deepseek.com/authorize' })
-  render(<SignInDialog {...props} openAuthorizeUrl={openAuthorizeUrl} />)
-  expect(openAuthorizeUrl).not.toHaveBeenCalled()
-  cleanup()
-  const waiting = dialogProps({ id, phase: 'waiting-browser' as const, authorizeUrl: 'https://platform.deepseek.com/authorize' })
-  render(<SignInDialog {...waiting} />)
-  expect(openAuthorizeUrl).not.toHaveBeenCalled()
-})
-
-it('opens a replacement URL after a retry creates a new attempt', () => {
-  const openAuthorizeUrl = vi.fn<(url: string) => void>()
-  const first = { id: 'login-attempt-a' as SignInAttemptId, phase: 'waiting-browser' as const, authorizeUrl: 'https://platform.deepseek.com/authorize' }
-  const props = dialogProps(first)
-  const view = props.account.view
-  const rerender = (attempt: AccountView['attempt']): void => {
-    cleanup()
-    render(<SignInDialog {...props} account={{ ...props.account, view: { ...view, attempt } }} openAuthorizeUrl={openAuthorizeUrl} />)
-  }
-  rerender(first)
-  const secondId = 'login-attempt-2' as SignInAttemptId
-  rerender({ ...first, id: secondId, authorizeUrl: 'https://platform.deepseek.com/authorize-2' })
-  expect(openAuthorizeUrl).toHaveBeenCalledTimes(2)
-  expect(openAuthorizeUrl.mock.calls[1]?.[0]).toContain('authorize-2')
+// Workspace login remains outside native welcome analytics even if a caller forwards a sender.
+it('does not report workspace login views or login choices', async () => {
+  const track = vi.fn()
+  const props = { ...dialogProps(null), track }
+  const view = render(<SignInDialog {...props} />)
+  view.rerender(<SignInDialog {...props} colorScheme="light" />)
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: en.signIn })) })
+  expect(props.start).toHaveBeenCalledOnce()
+  await act(async () => { fireEvent.click(screen.getByRole('button', { name: en.addApiKey })) })
+  expect(props.useApiKey).toHaveBeenCalledOnce()
+  expect(track).not.toHaveBeenCalled()
 })

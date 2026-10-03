@@ -190,3 +190,108 @@ The process-local owner derives its earliest timer from the durable fold and rer
 Due work waits for the Agent to become fully idle and claims the maintenance phase before it refolds state, samples the decision, queues one `followup()`, and appends the corresponding dispatch changes. It never calls `steer()` and never interrupts a current turn.
 
 The admitted one-shot or fixed-rate batch starts one normal later turn and appears only through the ordinary conversation transcript; Schedule has no independent durable Web receipt. The read-only active catalog above never represents delivery success. If framing or synchronous queue admission fails, no dispatch is recorded and the reminder stays active. The narrow crash interval after admission but before durable dispatch can repeat reminder content after recovery, so the boundary is best-effort at-least-once rather than exactly-once delivery.
+
+<!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
+
+<a id="cordis-surface"></a>
+
+## Cordis API
+
+Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — the language sides differ only in locale-specific paired document paths. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
+
+<a id="ctxschedule--scheduleservice"></a>
+
+### `ctx.schedule` — `ScheduleService`
+
+Shared management service; reads, deletion, and timing edits never activate a Session.
+
+`sessionPersistence` is a load-order requirement rather than a directly called service: a delivery commits only when `ctx.sessions.flush()` reports that a `session/flush` listener participated, and the persistence backend providing this service is the plugin that registers that listener.
+
+```ts cordis-catalog
+/**
+ * Create a reminder bound to the caller-selected Session without activating it.
+ *
+ * The request must supply a title; a missing, blank-after-trim, or over-long
+ * title rejects with `invalid_prompt` instead of deriving one from the prompt.
+ * The record is built from the clock reading taken before the request joins the
+ * serialized queue, so a create that waits behind a longer operation keeps its
+ * request-time anchor and may already be due when the queue reaches it.
+ * @param sessionId - Original Session receiving the reminder.
+ * @param request - Validated tool selector, required title, and reminder content.
+ * @param signal - Optional cancellation checked before persistence begins, including after FIFO waits.
+ * @returns The durably stored schedule. Cancellation does not roll back an in-flight write.
+ */
+async create(sessionId: SessionId, request: ScheduleCreateRequest, signal?: AbortSignal): Promise<ScheduleRecord>
+
+/**
+ * Read the selected Session's active tasks without resuming its Agent.
+ * @param request - Session whose task list is requested.
+ * @returns Persisted reminders in storage order.
+ */
+@Remote('list') async list(request: ScheduleListRequest): Promise<ScheduleRecord[]>
+
+/**
+ * Read all active and inactive Host reminders with their original Session bindings.
+ * A deleted reminder has no row, so it is absent here.
+ * Does not activate Sessions or read Session history.
+ * @returns Reminders ordered by scheduledAt ascending, then lexicographically by id.
+ */
+@Remote('catalog') async catalog(): Promise<ScheduleCatalogEntry[]>
+
+/**
+ * Read saved inbox deliveries without activating or reading the original Session.
+ * The task's own row supplies its binding, so its records stay readable through this lookup.
+ * @param request - Session binding, task identity, explicit limit, and optional exclusive message cursor.
+ * @returns Newest-first deliveries in append order, or a task/cursor lookup failure.
+ * @throws ScheduleInputError when limit is not a safe integer from 1 through 100.
+ */
+@Remote('history') async history(request: ScheduleDeliveryHistoryRequest): Promise<ScheduleDeliveryHistoryResult>
+
+/**
+ * Delete one task belonging to the selected Session, leaving queued messages intact.
+ *
+ * The row is removed: the task no longer schedules, leaves `list` and `catalog`, and its
+ * saved delivery records go with it.
+ * @param request - Session and exact task identity.
+ * @param signal - Optional cancellation checked before persistence begins, including after FIFO waits.
+ * @returns Whether that Session owned a deleted task. Cancellation does not roll back an in-flight write.
+ */
+@Remote('delete') async delete(request: ScheduleDeleteRequest, signal?: AbortSignal): Promise<ScheduleDeleteResult>
+
+/**
+ * Update the name, instruction, and timing of an active task within the original Session
+ * binding without activating the Session or changing saved deliveries.
+ *
+ * Each supplied field replaces its stored value; an omitted field keeps it. A name or
+ * instruction change alone does not reset the committed target.
+ * @param request - Task binding, complete observed record, and any combination of timing, name, and instruction.
+ * @param signal - Cancellation checked after domain readiness and FIFO waits, before persistence begins.
+ * @returns The committed record, unchanged record for a no-op, or a non-mutating input/lookup/conflict result.
+ * Storage and lifecycle failures reject; cancellation after a write starts does not roll it back.
+ */
+@Remote('update') async update(request: ScheduleUpdateRequest, signal?: AbortSignal): Promise<ScheduleUpdateResult>
+```
+
+Types: [SessionId](core.md)
+
+Source: [`packages/schedule/schedule/src/index.ts`](../../packages/schedule/schedule/src/index.ts)
+
+<a id="schedule-events"></a>
+
+### `schedule/*` events
+
+<a id="schedulechanged--emit"></a>
+
+#### `schedule/changed` — emit
+
+Durable task set changed; clients refetch global task and Session-active catalogs.
+
+```ts cordis-catalog
+/** Durable task set changed; clients refetch global task and Session-active catalogs.
+ * @mode emit
+ */
+'schedule/changed'(): void
+```
+
+Source: [`packages/schedule/schedule/src/types.ts`](../../packages/schedule/schedule/src/types.ts)
+<!-- END GENERATED cordis-surface -->

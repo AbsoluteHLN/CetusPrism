@@ -21,7 +21,7 @@
   );
   border: 0;
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l1);
-  border-radius: 12px;
+  border-radius: var(--dsw-radius-lg);
   background: var(--dsw-specific-menu);
   backdrop-filter: var(--dsw-menu-backdrop-filter);
   box-shadow: var(--dsw-elevation-panel);
@@ -35,27 +35,20 @@
 .body {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 8px 14px 10px;
+  gap: 8px;
+  padding: 6px 12px;
 }
 
 .header {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: calc(100% + 12px);
-  margin: 0 -6px;
-  padding: 4px 6px;
+  width: 100%;
+  padding: 0;
   border: none;
-  border-radius: 8px;
   background: transparent;
   text-align: left;
   cursor: pointer;
-  transition: background-color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
-}
-
-.header:hover:not(:disabled) {
-  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .lead {
@@ -74,29 +67,15 @@
 }
 
 .progress {
-  display: flex;
   flex: 1 1 auto;
-  justify-content: flex-end;
   min-width: 0;
-}
-
-/* The per-status counts read as one compact pill, right-aligned beside the
-   chevron so the title owns the row's leading edge. */
-.pill {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  padding: 1px 8px;
-  border-radius: 999px;
-  corner-shape: round;
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-secondary);
-  font-size: 11px;
-  line-height: 18px;
-  font-weight: 500;
-  white-space: nowrap;
   overflow: hidden;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--dsw-alias-label-tertiary);
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chevron {
@@ -106,49 +85,15 @@
   color: var(--dsw-alias-label-tertiary);
 }
 
-/* Completion bar: one quiet 2px lane under the header; the fill eases to the
-   done ratio so progress reads as motion, not a jump. */
-.track {
-  position: relative;
-  flex: none;
-  height: 2px;
-  margin: 3px 2px 1px;
-  border-radius: 1px;
-  background: var(--dsw-alias-interactive-bg-hover);
-  overflow: hidden;
-}
-
-.fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: 1px;
-  background: var(--dsw-alias-state-success-primary);
-  transition: width var(--ds-transition-duration-slow) var(--ds-ease-in-out);
-}
-
 .list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   margin: 0;
-  padding: 2px 6px 4px 2px;
+  padding: 0;
   list-style: none;
-  max-height: 216px;
+  max-height: 180px;
   overflow-y: auto;
-  /* Expand: the list fades and settles down from the header, matching the
-     chevron's flip instead of popping in. */
-  animation: dsh-todo-expand var(--ds-transition-duration-fast) var(--ds-ease-in-out);
-}
-
-@keyframes dsh-todo-expand {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
 }
 
 .item {
@@ -159,16 +104,6 @@
   font-size: 13px;
   line-height: 20px;
   color: var(--dsw-alias-label-secondary);
-  transition: color var(--ds-transition-duration-fast) var(--ds-ease-in-out);
-}
-
-/* The lifecycle reads through the row color: done history dims, active work leads. */
-.item[data-status='completed'] {
-  color: var(--dsw-alias-label-tertiary);
-}
-
-.item[data-status='in_progress'] {
-  color: var(--dsw-alias-label-primary);
 }
 
 .glyph {

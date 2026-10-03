@@ -17,17 +17,19 @@ import {
 } from '../../../../scripts/gen-cordis-catalog.ts'
 
 const workspaceRoot = resolve(import.meta.dirname, '../../../..')
+/** This repository keeps the face aggregates under configs/. */
+const FACE_CONFIGS = { hostConfig: 'configs/tsconfig.host.json', clientConfig: 'configs/tsconfig.client.json' } as const
 
 /** One workspace projection shared by both cases: analyzing it twice doubles a multi-minute run. */
 let cached: ReturnType<typeof projectCordisCatalog> | undefined
 const projection = (): ReturnType<typeof projectCordisCatalog> =>
-  (cached ??= projectCordisCatalog(workspaceRoot, CORDIS_CATALOG_POLICY))
+  (cached ??= projectCordisCatalog(workspaceRoot, CORDIS_CATALOG_POLICY, 'host', FACE_CONFIGS))
 let cachedClient: ReturnType<typeof projectCordisCatalog> | undefined
 const clientProjection = (): ReturnType<typeof projectCordisCatalog> =>
   (cachedClient ??= projectCordisCatalog(workspaceRoot, {
     ...CORDIS_CATALOG_POLICY,
     runtimeDeclarationMaxChars: 4_096,
-  }, 'client'))
+  }, 'client', FACE_CONFIGS))
 
 const SOURCE_LINK_POLICY: CordisCatalogPolicy = {
   linkedTypePages: {},

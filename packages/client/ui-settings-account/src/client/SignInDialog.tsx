@@ -7,11 +7,8 @@ import type { AccountKey } from './locales.ts'
 import { authorizeUrlWithTheme } from './authorize-url.ts'
 import css from './SignInDialog.module.css'
 
-/** Attempts already handed to the host bridge; survives dialog remounts (settings open/close). */
-const OPENED_ATTEMPTS = new Set<SignInAttemptId>()
-
 /** @param props - safe account state, localized copy, and user actions. @returns login dialog. */
-export function SignInDialog({ account, colorScheme, start, cancel, close, useApiKey, openAuthorizeUrl, t }: {
+export function SignInDialog({ account, colorScheme, start, cancel, close, useApiKey, t }: {
   account: AccountSnapshot
   /** Resolved scheme of the active Desktop theme; the copied link carries it. */
   colorScheme: 'light' | 'dark'
@@ -19,8 +16,6 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
   cancel: (id: SignInAttemptId) => Promise<void>
   close: () => void
   useApiKey: () => void
-  /** Host bridge opening a system browser; absent keeps the copy-link fallback. */
-  openAuthorizeUrl?: (url: string) => void
   t: (key: AccountKey) => string
 }) {
   const [busy, setBusy] = useState(false)
@@ -28,19 +23,6 @@ export function SignInDialog({ account, colorScheme, start, cancel, close, useAp
   const [copyResult, setCopyResult] = useState<{ messageKey: 'copiedLink' | 'copyFailed' } | null>(null)
   const attempt = account.view?.attempt
   useEffect(() => { setCopyResult(null) }, [attempt?.id, attempt?.authorizeUrl])
-  // Hand the authorize URL to the host bridge exactly once per attempt when
-  // the wait begins; without a bridge (or on failure) the copy-link fallback
-  // below stays the manual route.
-  useEffect(() => {
-    if (openAuthorizeUrl === undefined || attempt === undefined || attempt === null) return
-    if (attempt.phase !== 'waiting-browser' || attempt.authorizeUrl === undefined) return
-    if (OPENED_ATTEMPTS.has(attempt.id)) return
-    OPENED_ATTEMPTS.add(attempt.id)
-    try { openAuthorizeUrl(authorizeUrlWithTheme(attempt.authorizeUrl, colorScheme)) } catch (error) {
-      // A host refusing to open must not break the dialog; copy-link covers it.
-      void error
-    }
-  }, [attempt, openAuthorizeUrl, colorScheme])
   useEffect(() => {
     if (copyResult === null) return
     const timer = setTimeout(() => { setCopyResult(null) }, 2000)

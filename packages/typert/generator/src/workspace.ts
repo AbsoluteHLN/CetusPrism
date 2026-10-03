@@ -26,6 +26,10 @@ export interface WorkspaceTypertGeneratorOptions {
    * merges) run regardless.
    */
   readonly checkDiagnostics?: boolean
+  /** Host aggregate path relative to the workspace root; defaults to the analyzer's `tsconfig.host.json`. */
+  readonly hostConfig?: string
+  /** Client aggregate path relative to the workspace root; defaults to the analyzer's `tsconfig.client.json`. */
+  readonly clientConfig?: string
 }
 
 /** Discover, analyze, and emit package reflection from independent faces. */
@@ -54,6 +58,8 @@ export class WorkspaceTypertGenerator {
       root: this.root,
       caches: this.caches,
       ...(faces === undefined ? {} : { faces }),
+      ...(this.options.hostConfig === undefined ? {} : { hostConfig: this.options.hostConfig }),
+      ...(this.options.clientConfig === undefined ? {} : { clientConfig: this.options.clientConfig }),
     }).discoverPackages()
   }
 
@@ -71,6 +77,8 @@ export class WorkspaceTypertGenerator {
       caches: this.caches,
       ...(faces === undefined ? {} : { faces }),
       ...(this.options.checkDiagnostics === undefined ? {} : { checkDiagnostics: this.options.checkDiagnostics }),
+      ...(this.options.hostConfig === undefined ? {} : { hostConfig: this.options.hostConfig }),
+      ...(this.options.clientConfig === undefined ? {} : { clientConfig: this.options.clientConfig }),
     }).analyze()
     const artifacts: WorkspaceEmitResult[] = []
     for (const face of workspace.faces) {

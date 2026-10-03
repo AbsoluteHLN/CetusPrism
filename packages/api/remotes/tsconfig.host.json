@@ -82,6 +82,12 @@
     },
     {
       "path": "../account-controller"
+    },
+    {
+      "path": "../../schedule/schedule"
+    },
+    {
+      "path": "../../credentials/deepseek-account"
     }
   ]
 }

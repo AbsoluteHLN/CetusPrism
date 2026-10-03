@@ -59,13 +59,12 @@ function progressLabel(todos: readonly TodoItem[], t: TodoPanelProps['t']): stri
     ...done > 0 ? [t('todo.progress.done', { done })] : [],
     ...active > 0 ? [t('todo.progress.active', { active })] : [],
     ...pending > 0 ? [t('todo.progress.pending', { pending })] : [],
-  ].join(' · ')
+  ].join('\u2002·\u2002')
 }
 
 export function TodoPanel({ todos, t }: TodoPanelProps) {
   const [collapsed, setCollapsed] = useState(true)
   if (todos.length === 0) return null
-  const done = todos.filter(item => item.status === 'completed').length
 
   return (
     <section className={css.root} data-testid="todo-panel" aria-label={t('todo.title')}>
@@ -78,15 +77,11 @@ export function TodoPanel({ todos, t }: TodoPanelProps) {
         >
           <span className={css.lead} aria-hidden><IconChecklistOutlineRegular /></span>
           <span className={css.title}>{t('todo.title')}</span>
-          <span className={css.progress}><span className={css.pill}>{progressLabel(todos, t)}</span></span>
+          <span className={css.progress}>{progressLabel(todos, t)}</span>
           <span className={css.chevron} aria-hidden>
             {collapsed ? <IconChevronUpOutlineRegular /> : <IconChevronDownOutlineRegular />}
           </span>
         </button>
-        {/* Completion bar: the pill already announces the counts; this stays decorative. */}
-        <div className={css.track} aria-hidden>
-          <span className={css.fill} style={{ width: `${Math.round((done / todos.length) * 100)}%` }} />
-        </div>
         {!collapsed && (
           <ul className={css.list}>
             {todos.map(item => (

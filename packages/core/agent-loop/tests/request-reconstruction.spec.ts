@@ -466,31 +466,6 @@ describe('request stability across the loop', () => {
     },
   )
 
-  it('skips a stale persisted effort to the model default instead of failing the request', async () => {
-    // The catalog declares only 'high'; the selection rides a stale 'max'.
-    const adapter = new MockAdapter([textResponse('done')], {
-      efforts: [{ id: ReasoningEffortId('high'), name: 'high' }],
-      defaultEffort: ReasoningEffortId('high'),
-    })
-    const ctx = await harness(adapter)
-    const warnings: string[] = []
-    const originalWarn = ctx.logger.warn
-    ctx.logger.warn = ((message: unknown) => { warnings.push(String(message)) }) as typeof ctx.logger.warn
-    const agent = await ctx.agentLoop.create(SessionId('effort-skip'), {
-      provider: 'mock',
-      model: 'mock',
-      reasoningEffort: ReasoningEffortId('max'),
-    })
-
-    send(agent, 'go')
-    await waitForIdle(ctx, agent)
-
-    expect(adapter.requests).toHaveLength(1)
-    expect(adapter.requests[0]!.reasoningEffort).toBe('high')
-    expect(warnings.some(message => message.includes('skipping unsupported reasoning effort "max"'))).toBe(true)
-    ctx.logger.warn = originalWarn
-  })
-
   it('lets a short-circuiting llm/stream listener own an unregistered route', async () => {
     const ctx = new Context()
     await ctx.plugin(LlmRuntime)

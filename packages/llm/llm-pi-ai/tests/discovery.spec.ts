@@ -82,51 +82,18 @@ describe('catalog-route model discovery', () => {
     expect(models.find(model => model.id === 'gpt-6-astra')).toMatchObject({ inputModalities: installed?.input })
   })
 
-  it('interrogates the endpoint live for a catalog route with one, and donates catalog capacities by id', async () => {
-    const server = await listingServer({
-      body: JSON.stringify({
-        data: [
-          { id: 'gpt-6-astra' },
-          { id: 'from-the-endpoint-only', name: 'Endpoint Fresh' },
-        ],
-      }),
-    })
+  it('answers from the installed registry, with capacities and no network call', async () => {
+    const server = await listingServer({ body: JSON.stringify({ data: [{ id: 'from-the-endpoint' }] }) })
     const ctx = await harness()
 
-    const models = await ctx.llm.discoverModels('llm-pi-ai', { provider: 'openai', baseURL: server.url })
+    const models = await ctx.llm.discoverModels('llm-pi-ai', { provider: 'deepseek', baseURL: server.url })
 
-    // The endpoint is what actually serves the route, so live rows define the
-    // answer — including models the frozen catalog has never heard of.
-    expect(models.map(model => model.id)).toEqual(['gpt-6-astra', 'from-the-endpoint-only'])
-    expect(models.find(model => model.id === 'from-the-endpoint-only')?.name).toBe('Endpoint Fresh')
-    // The catalog only donates the capacities a listing endpoint leaves blank.
-    const installed = getBuiltinModels('openai').find(model => model.id === 'gpt-6-astra')
-    expect(models[0]).toMatchObject({ contextWindow: installed?.contextWindow, maxTokens: installed?.maxTokens })
-    expect(server.paths).toEqual(['/models'])
-  })
-
-  it('falls back to the installed catalog when a catalog route\'s endpoint cannot be reached', async () => {
-    // Port 9 is the discard service: nothing accepts a connection there.
-    const ctx = await harness()
-    const models = await ctx.llm.discoverModels('llm-pi-ai', { provider: 'deepseek', baseURL: 'http://127.0.0.1:9/v1' })
+    // pi-ai's own registry is the authority for its own providers, and it
+    // carries what a listing endpoint would not disclose.
     expect(models.map(model => model.id).sort())
       .toEqual(getBuiltinModels('deepseek').map(model => model.id).sort())
     expect(models.every(model => (model.contextWindow ?? 0) > 0 && (model.maxTokens ?? 0) > 0)).toBe(true)
-  })
-
-  it('does not fall back to the catalog when the endpoint refuses the credential', async () => {
-    const refused = await listingServer({ status: 401, body: '{"error":"nope"}' })
-    const ctx = await harness()
-    await expect(ctx.llm.discoverModels('llm-pi-ai', { provider: 'deepseek', baseURL: refused.url, apiKey: 'wrong' }))
-      .rejects.toMatchObject({ code: 'INVALID_CREDENTIAL' })
-  })
-
-  it('falls back to the catalog when the endpoint answers with something unreadable', async () => {
-    const broken = await listingServer({ body: 'not json at all' })
-    const ctx = await harness()
-    const models = await ctx.llm.discoverModels('llm-pi-ai', { provider: 'deepseek', baseURL: broken.url })
-    expect(models.map(model => model.id).sort())
-      .toEqual(getBuiltinModels('deepseek').map(model => model.id).sort())
+    expect(server.paths).toEqual([])
   })
 
   it('needs no endpoint for a route the catalog describes', async () => {
@@ -253,19 +220,17 @@ describe('draft-provider model discovery', () => {
     expect(server.headers.map(headers => headers['user-agent'])).toEqual([userAgent(), userAgent(), userAgent()])
   })
 
-  it('prefers the standard data array when both supported formats are present, donating the map\'s capacities', async () => {
+  it('prefers the standard data array when both supported formats are present', async () => {
     const server = await listingServer({
       body: JSON.stringify({
         data: [{ id: 'standard' }],
-        models: { standard: { contextWindow: 65_536, maxTokens: 4096 }, enriched: { name: 'Enriched' } },
+        models: { enriched: { name: 'Enriched' } },
       }),
     })
     const ctx = await harness()
 
-    // The array defines the rows; the map only fills a row's blanks by id —
-    // and stays out of the answer when it names nothing the array names.
     await expect(ctx.llm.discoverModels('llm-pi-ai', { baseURL: server.url }))
-      .resolves.toEqual([{ id: 'standard', name: 'standard', contextWindow: 65_536, maxTokens: 4096 }])
+      .resolves.toEqual([{ id: 'standard', name: 'standard' }])
   })
 
   it('keeps a deployment path instead of resolving it away', async () => {
@@ -539,12 +504,10 @@ const RECORDED_LISTINGS = [
     file: 'openrouter-2026-09-02.json',
     api: 'openai-completions',
     models: [
-      // The router declares each entry's modalities under `architecture`; ones
-      // outside this vocabulary (file, audio, video) are dropped.
-      { id: 'anthropic/claude-fable-5.1', name: 'Anthropic: Claude Fable 5.1', contextWindow: 1_000_000, maxTokens: 128_000, inputModalities: ['text', 'image'] },
+      { id: 'anthropic/claude-fable-5.1', name: 'Anthropic: Claude Fable 5.1', contextWindow: 1_000_000, maxTokens: 128_000 },
       // The router's own aggregate route reports no completion cap.
-      { id: 'openrouter/auto-beta', name: 'Auto Router (Beta)', contextWindow: 2_000_000, inputModalities: ['text', 'image'] },
-      { id: 'deepseek/deepseek-v4-flash', name: 'DeepSeek: DeepSeek V4 Flash 0423', contextWindow: 1_048_576, maxTokens: 384_000, inputModalities: ['text'] },
+      { id: 'openrouter/auto-beta', name: 'Auto Router (Beta)', contextWindow: 2_000_000 },
+      { id: 'deepseek/deepseek-v4-flash', name: 'DeepSeek: DeepSeek V4 Flash 0423', contextWindow: 1_048_576, maxTokens: 384_000 },
     ],
   },
   {

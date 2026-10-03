@@ -8,12 +8,24 @@
     "src"
   ],
   "references": [
-    { "path": "../../vendor/cordis" },
-    { "path": "../../packages/core/agent" },
-    { "path": "../../packages/jobs/jobs" },
-    { "path": "../../packages/skill/skill-office" },
-    { "path": "../../packages/util/home-paths" },
-    { "path": "../../packages/skill/tool-workspace-dependencies" },
+    {
+      "path": "../../vendor/cordis"
+    },
+    {
+      "path": "../../packages/core/agent"
+    },
+    {
+      "path": "../../packages/jobs/jobs"
+    },
+    {
+      "path": "../../packages/skill/skill-office"
+    },
+    {
+      "path": "../../packages/util/home-paths"
+    },
+    {
+      "path": "../../packages/skill/tool-workspace-dependencies"
+    },
     {
       "path": "../cli"
     },
@@ -28,6 +40,12 @@
     },
     {
       "path": "../../packages/credentials/deepseek-account"
+    },
+    {
+      "path": "../../packages/schedule/schedule"
+    },
+    {
+      "path": "../../packages/workspace/workspace"
     }
   ]
 }

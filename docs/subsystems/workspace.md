@@ -339,12 +339,14 @@ Host service backing the generated `ctx.remote.workspace` namespace.
 @Remote('create') create(request: WorkspaceCreateRequest): Promise<WorkspaceCreateValue>
 
 /**
- * Initialize or reuse the default Workspace during first-use startup.
- * @param request - initial directory name and title; never rename an existing default.
+ * Initialize or reuse the default Workspace during first-use startup. The
+ * directory name is fixed, so the Host never renames or relocates an
+ * existing default; its initial title is that same name, which browser
+ * consumers label in the reader's language.
  * @param signal - caller lifetime; cancels native directory lookup.
  * @returns the durable Workspace, or undefined when first-use initialization is ineligible; creates no Session or message.
  */
-@Remote('initializeDefault') async initializeDefault(request: WorkspaceInitializeDefaultRequest, signal: AbortSignal): Promise<WorkspaceValue | undefined>
+@Remote('initializeDefault') async initializeDefault(signal: AbortSignal): Promise<WorkspaceValue | undefined>
 
 /**
  * Rename one Workspace to a unique non-blank title.
@@ -495,13 +497,15 @@ async create(path: string, title?: string): Promise<Workspace>
  * Initialize the default Workspace only while both the registry and Session
  * history are empty. Repeated requests reuse its durable identity; deleting
  * that registration permanently disables automatic creation.
- * @param resolveDirectory - resolve the absolute directory and initial title;
- * called only for eligible creation, inside the registry mutation queue.
- * Missing directories are created recursively before registration.
+ * @param resolveDirectory - resolve the absolute directory; called only for
+ * eligible creation, inside the registry mutation queue. Missing directories
+ * are created recursively before registration, and the initial title is the
+ * requested directory's own final segment — not the canonical one, so a
+ * symlink at that path does not retitle the Workspace after its target.
  * After resolution, caller cancellation does not roll back creation or registration.
  * @returns the initialized Workspace, or undefined when automatic creation is ineligible.
  */
-initializeDefault(resolveDirectory: () => Promise<{ path: string; title: string }>): Promise<Workspace | undefined>
+initializeDefault(resolveDirectory: () => Promise<string>): Promise<Workspace | undefined>
 
 /**
  * Look up a workspace by id.

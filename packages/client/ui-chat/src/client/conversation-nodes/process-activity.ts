@@ -21,32 +21,11 @@ function activity(name: string): ProcessActivity {
 }
 
 const LIVE_TOOL_DETAIL_MAX_CHARS = 160
-// A detail keeps only the first LIVE_TOOL_DETAIL_MAX_CHARS graphemes, so a
-// prefix window far above the cap decides truncation without segmenting a
-// whole streamed paragraph (a single unbroken paragraph reaches tens of KB).
-const LIVE_TOOL_DETAIL_WINDOW_CHARS = 1024
 const LIVE_TOOL_DETAIL_SEGMENTER = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const LIVE_TOOL_DETAIL_KEYS = [
   'title', 'description', 'objective', 'task', 'task_name', 'name', 'question', 'questions', 'prompt', 'message',
   'command', 'cmd', 'queries', 'query', 'pattern', 'url', 'uri', 'file_path', 'path', 'target', 'action', 'status',
 ] as const
-
-function truncateGraphemes(normalized: string): string {
-  const segments = (text: string): string[] =>
-    Array.from(LIVE_TOOL_DETAIL_SEGMENTER.segment(text), part => part.segment)
-  if (normalized.length > LIVE_TOOL_DETAIL_WINDOW_CHARS) {
-    // UAX #29 grapheme clusters are prefix-stable, so once the window holds at
-    // least the cap many clusters the truncated detail matches full segmentation.
-    const windowed = segments(normalized.slice(0, LIVE_TOOL_DETAIL_WINDOW_CHARS))
-    if (windowed.length >= LIVE_TOOL_DETAIL_MAX_CHARS) {
-      return `${windowed.slice(0, LIVE_TOOL_DETAIL_MAX_CHARS - 1).join('').trimEnd()}…`
-    }
-  }
-  const chars = segments(normalized)
-  return chars.length <= LIVE_TOOL_DETAIL_MAX_CHARS
-    ? normalized
-    : `${chars.slice(0, LIVE_TOOL_DETAIL_MAX_CHARS - 1).join('').trimEnd()}…`
-}
 
 function normalizeLiveToolDetail(value: unknown): string {
   const text = typeof value === 'string'
@@ -55,7 +34,10 @@ function normalizeLiveToolDetail(value: unknown): string {
       ? value.join(', ')
       : ''
   const normalized = text.replace(/\s+/g, ' ').trim()
-  return truncateGraphemes(normalized)
+  const chars = Array.from(LIVE_TOOL_DETAIL_SEGMENTER.segment(normalized), part => part.segment)
+  return chars.length <= LIVE_TOOL_DETAIL_MAX_CHARS
+    ? normalized
+    : `${chars.slice(0, LIVE_TOOL_DETAIL_MAX_CHARS - 1).join('').trimEnd()}…`
 }
 
 function questionDetail(value: unknown): string {

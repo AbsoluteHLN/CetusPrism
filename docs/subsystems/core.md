@@ -432,7 +432,8 @@ currentSelection(): ModelSelection
 
 /**
  * Save the complete default model selection. A deployment without a configuration
- * editor keeps its composition entry.
+ * editor keeps its composition entry. Saves commit in submission order; a failed
+ * save rejects its caller without blocking later saves.
  * @param next - resolved selection accepted by an entry point.
  * @returns fulfillment after the optional profile write settles.
  */
@@ -499,8 +500,8 @@ async register(definition: PresetDefinition): Promise<() => Promise<void>>
  */
 async list(): Promise<AgentPreset[]>
 
-/** Read the selection roster and chooser policy.
- * @returns Current presets, default and chooser policy.
+/** Read the selection roster.
+ * @returns Current presets, each marked when it is the default.
  */
 @Remote('list') async remoteExportList(): Promise<AgentPresetRoster>
 
@@ -543,16 +544,14 @@ composedPreset(ctx: Context): string | undefined
  */
 serviceFor<K extends string & keyof Context>(agent: { ctx: Context }, name: K): Context[K] | undefined
 
-/** Rebind an idle Agent; the caller owns the open-turn check.
+/** Rebind a blank Agent; the caller owns the blank-session check.
  * @param ctx Agent context.
  * @param id Requested preset.
  * @returns The bound identity.
  */
 async recompose(ctx: Context, id: string): Promise<AgentPreset>
 
-/** Select a preset for a session with no turn in progress — a blank session,
- * or an idle one between turns. The running turn keeps the composition it
- * started under; the switch takes effect from the next turn.
+/** Select a preset before a session starts its first turn.
  * @param agent Target Agent.
  * @param agentPreset Requested identity.
  * @returns Committed preset identity.

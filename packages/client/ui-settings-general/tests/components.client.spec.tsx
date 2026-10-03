@@ -81,7 +81,7 @@ it('toggles developer tools using the accepted setting and disables duplicate wr
     finish = () => { state.set(enabled); resolve() }
   }))
   render(<DeveloperToolsRow {...kit} t={t} useDeveloperTools={bindSnapshotSelector(state)} setEnabled={setEnabled} />)
-  const toggle = screen.getByRole('switch', { name: 'Developer tools' })
+  const toggle = screen.getByRole('switch', { name: 'Show coding view' })
   expect(toggle.getAttribute('aria-checked')).toBe('false')
   fireEvent.click(toggle)
   expect(setEnabled).toHaveBeenCalledWith(true)
@@ -214,7 +214,7 @@ it('reports a failed developer-tool write and allows retry', async () => {
   const state = createSnapshotStore(false)
   const setEnabled = vi.fn().mockRejectedValueOnce(new Error('offline')).mockImplementation(async (enabled: boolean) => { state.set(enabled) })
   render(<DeveloperToolsRow {...kit} t={t} useDeveloperTools={bindSnapshotSelector(state)} setEnabled={setEnabled} />)
-  const toggle = screen.getByRole('switch', { name: 'Developer tools' })
+  const toggle = screen.getByRole('switch', { name: 'Show coding view' })
   fireEvent.click(toggle)
   expect((await screen.findByRole('alert')).textContent).toBe('Could not save. Please try again.')
   expect(toggle.hasAttribute('disabled')).toBe(false)
@@ -226,8 +226,8 @@ it('reports a failed developer-tool write and allows retry', async () => {
 
 describe('current version', () => {
   it.each([
-    ['Official kernel version: 1.2.3-rc.4', en],
-    ['官方内核版本：1.2.3-rc.4', zh],
+    ['Current version: 1.2.3-rc.4', en],
+    ['当前版本：1.2.3-rc.4', zh],
   ])('renders the localized release label %s', (expected, dictionary) => {
     vi.stubEnv('DSH_CLIENT_VERSION', '1.2.3-rc.4')
     const translate: TriggerContentProps['t'] = (key, params) => {

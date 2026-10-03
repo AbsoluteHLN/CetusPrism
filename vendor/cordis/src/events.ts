@@ -1,5 +1,5 @@
 import { defineProperty } from '@deepseek-ai/cosmokit'
-import type { Awaitable, Promisify } from '@deepseek-ai/cosmokit'
+import type { Promisify } from '@deepseek-ai/cosmokit'
 import { Context } from './context.ts'
 import { Fiber, FiberState } from './fiber.ts'
 import { DisposableList, symbols } from './utils.ts'
@@ -156,38 +156,22 @@ export class EventsService {
   }
 
   /**
-   * Resolve listeners for one dispatch without binding them.
-   *
-   * @param type — the dispatch mode, reported on `internal/dispatch`.
-   * @param args — the raw dispatch arguments; consumed up to the event name.
-   * @returns the dispatch `this` and the matching unbound listener callbacks;
-   *   callers invoke each with `Reflect.apply` so dispatching never allocates
-   *   a bound function per listener.
-   */
-  private _resolve(type: string, args: any[]) {
-    const thisArg = typeof args[0] === 'object' || typeof args[0] === 'function' ? args.shift() : null
-    const name: string | symbol = args.shift()
-    if ((typeof name !== 'string' || !name.startsWith('internal/')) && this._hooks['internal/dispatch']?.length) {
-      this.emit('internal/dispatch', type, name, args, thisArg)
-    }
-    const filter = thisArg?.[Context.filter]
-    return [thisArg, (this._hooks[name] || [])
-      .filter(hook => hook.global || !filter || filter.call(thisArg, hook.ctx)).map(hook => hook.callback)] as const
-  }
-
-  /**
    * Resolve listeners for one dispatch and apply context filtering.
-   *
-   * Binding compatibility wrapper; new code resolves through {@link _resolve}
-   * and applies listeners itself.
    *
    * @param type — the dispatch mode, reported on `internal/dispatch`.
    * @param args — the raw dispatch arguments; consumed up to the event name.
    * @returns the matching listener callbacks, bound to the dispatch `this`.
    */
   dispatch(type: string, args: any[]) {
-    const [thisArg, callbacks] = this._resolve(type, args)
-    return callbacks.map(callback => callback.bind(thisArg))
+    const thisArg = typeof args[0] === 'object' || typeof args[0] === 'function' ? args.shift() : null
+    const name: string = args.shift()
+    if (!name.startsWith('internal/')) {
+      this.emit('internal/dispatch', type, name, args, thisArg)
+    }
+    const filter = thisArg?.[Context.filter]
+    return (this._hooks[name] || [])
+      .filter(hook => hook.global || !filter || filter.call(thisArg, hook.ctx))
+      .map(hook => hook.callback.bind(thisArg))
   }
 
   /**
@@ -197,8 +181,7 @@ export class EventsService {
    * @returns a promise resolving once every listener has settled.
    */
   async parallel(...args: any[]) {
-    const [thisArg, callbacks] = this._resolve('emit', args)
-    const results = await Promise.allSettled(callbacks.map(async callback => Reflect.apply(callback, thisArg, args)))
+    const results = await Promise.allSettled(this.dispatch('emit', args).map(async cb => cb(...args)))
     const errors = results.filter((result): result is PromiseRejectedResult => result.status === 'rejected')
     if (errors.length) throw new AggregateError(errors.map(error => error.reason))
   }
@@ -209,8 +192,7 @@ export class EventsService {
    * @param args — optional `this`, the event name, then listener arguments.
    */
   emit(...args: any[]) {
-    const [thisArg, callbacks] = this._resolve('emit', args)
-    for (const callback of callbacks) Reflect.apply(callback, thisArg, args)
+    this.dispatch('emit', args).map(cb => cb(...args))
   }
 
   /**
@@ -220,9 +202,8 @@ export class EventsService {
    * @returns the first bail value (see {@link isBailed}), if any.
    */
   async serial(...args: any[]) {
-    const [thisArg, callbacks] = this._resolve('serial', args)
-    for (const callback of callbacks) {
-      const result = await Reflect.apply(callback, thisArg, args)
+    for (const cb of this.dispatch('serial', args)) {
+      const result = await cb(...args)
       if (isBailed(result)) return result
     }
   }
@@ -234,9 +215,8 @@ export class EventsService {
    * @returns the first bail value (see {@link isBailed}), if any.
    */
   bail(...args: any[]) {
-    const [thisArg, callbacks] = this._resolve('bail', args)
-    for (const callback of callbacks) {
-      const result = Reflect.apply(callback, thisArg, args)
+    for (const cb of this.dispatch('bail', args)) {
+      const result = cb(...args)
       if (isBailed(result)) return result
     }
   }
@@ -246,28 +226,20 @@ export class EventsService {
    *
    * The last dispatch argument is treated as the innermost `next`. Listeners
    * run outermost-first; a listener that does not call `next()` vetoes the
-   * rest of the chain, including the built-in behavior. Each listener
-   * receives its own `next`, and calling `next()` twice from one listener
-   * throws instead of advancing the chain twice.
+   * rest of the chain, including the built-in behavior.
    *
    * @param args — optional `this`, the event name, listener arguments, then `next`.
    * @returns the outermost listener's return value.
    */
   waterfall(...args: any[]) {
-    const [thisArg, callbacks] = this._resolve('waterfall', args)
+    const cbs = this.dispatch('waterfall', args)
     const inner = args.pop()
-    const dispatch = () => {
-      const callback = callbacks.shift()
-      if (!callback) return inner()
-      let called = false
-      const next = () => {
-        if (called) throw new Error('next() called multiple times')
-        called = true
-        return dispatch()
-      }
-      return Reflect.apply(callback, thisArg, [...args, next])
+    const next = () => {
+      const cb = cbs.shift() ?? inner
+      return cb(...args)
     }
-    return dispatch()
+    args.push(next)
+    return next()
   }
 
   /**
@@ -337,7 +309,7 @@ export class EventsService {
    * @param options — listener options; a boolean is shorthand for `prepend`.
    * @returns a disposer removing the listener; `true` if it was still registered.
    */
-  once(name: string | symbol, listener: (...args: any) => any, options?: boolean | EventOptions) {
+  once(name: string, listener: (...args: any) => any, options?: boolean | EventOptions) {
     const dispose = this.on(name, function (...args: any[]) {
       dispose()
       return listener.apply(this, args)
@@ -368,7 +340,7 @@ export interface Events {
   /** Interception hook for a service binding (no core producer). */
   'internal/service'(this: Context, name: string, value: any): void
   /** Waterfall: a fiber config update is being applied; skip `next()` to veto. */
-  'internal/update'(this: Fiber, config: any, noSave: boolean, next: () => Awaitable<void>): Awaitable<void>
+  'internal/update'(this: Fiber, config: any, noSave: boolean, next: () => void): void
   /** Waterfall: a service is being read through the context proxy. */
   'internal/get'(ctx: Context, name: string, error: Error, next: () => any): any
   /** Waterfall: a service is being written through the context proxy. */
@@ -376,5 +348,5 @@ export interface Events {
   /** Bail: a listener is being registered; a non-null result replaces registration. */
   'internal/listener'(this: Context, name: string, listener: any, prepend: boolean): void
   /** An event is being dispatched to listeners (fired for non-internal events only). */
-  'internal/dispatch'(mode: DispatchMode, name: string | symbol, args: any[], thisArg: any): void
+  'internal/dispatch'(mode: DispatchMode, name: string, args: any[], thisArg: any): void
 }

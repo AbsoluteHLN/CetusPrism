@@ -20,7 +20,7 @@ lib/
 pnpm-debug.log
 .pnpm-store/
 .cache/
-verify-evidence/
+dev-docs/evidence/
 # kalcirite layout keys: the single scratch root, the cargo build cache of the
 # desktop shell (regenerable via apps/electron/scripts/build-shell.mjs), and
 # the machine-local superseded-work archive.

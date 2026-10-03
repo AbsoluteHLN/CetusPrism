@@ -1,0 +1,36 @@
+name: macos build
+
+# Attempt build: assembles the macOS .app/.dmg on a real macOS runner. The
+# platform seam gained `platform_macos.rs` for this; a green run means the
+# shell and the runtime deploy compile and package for darwin arm64.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build:
+    runs-on: macos-14
+    env:
+      DSH_CLIENT_COMMIT_HASH: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Activate pnpm
+        run: corepack enable && corepack prepare pnpm@11.7.0 --activate
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build lib and client
+        run: pnpm run build
+      - name: Build shell (cargo, release)
+        run: cargo build --release
+        working-directory: apps/electron/src-tauri
+      - name: Pack .app and .dmg
+        run: node scripts/pack-darwin.mjs
+        working-directory: apps/electron
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CetusPrism-macos-arm64-dmg
+          path: apps/electron/dist/*.dmg
+          if-no-files-found: error

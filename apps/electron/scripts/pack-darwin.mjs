@@ -35,6 +35,7 @@ rmSync(appDir, { recursive: true, force: true })
 mkdirSync(appDir, { recursive: true })
 run('pnpm', [
   '--filter', '@deepseek-ai/dsh', 'deploy', '--prod',
+  '--config.inject-workspace-packages=true',
   // The deploy store holds no build side-effects for injected workspace
   // packages, so the default policy refuses their postinstalls; the closure
   // is pinned by the shared lockfile, so allow all builds here.

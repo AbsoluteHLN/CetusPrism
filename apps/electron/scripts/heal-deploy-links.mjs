@@ -62,25 +62,43 @@ function materialize(srcRepoDir, dest) {
   for (const name of VENDOR_FILES) {
     const src = join(srcRepoDir, name)
     if (!existsSync(src)) continue
-    // An injected deploy already placed real copies at dest; copying onto
-    // the identical path (same file through a resolved link) fails loudly.
+    // An injected deploy already placed real copies at dest: the target is
+    // neither a link nor the identical file, so copying is either redundant
+    // (EEXIST on resolved links) or a no-op. Only links need materializing.
     const target = join(dest, name)
     try {
-      if (statSync(src).ino === statSync(target).ino && statSync(src).dev === statSync(target).dev) continue
+      const targetStat = lstatSync(target)
+      if (!targetStat.isSymbolicLink()) continue
     } catch { /* target absent — copy below */ }
     cpSync(src, target, { recursive: true, dereference: false })
   }
 }
 
-// 1+2. Vendor packages and native platform stubs. Injection already
-// materialized them as real copies in a hoisted deploy — verify and fail
-// loud rather than heal silently. An isolated deploy leaves `link:`
-// junctions into the repository; materialize canonical copies and rebuild
-// schemastery's two inner links (cosmokit and @standard-schema/spec).
+// 1+2. Vendor packages and native platform stubs. An injected deploy already
+// materialized them as real copies (or same-store hardlinks); only a stray
+// junction into the repository needs a canonical replacement. Verify rather
+// than copy over real content — copying onto store-hardlinked files fails.
+function materializeUnlessLinked(suffix, dest) {
+  let st = null
+  try { st = lstatSync(dest) } catch { /* missing */ }
+  if (st?.isSymbolicLink()) {
+    rmSync(dest, { force: true })
+    materialize(join(repoRoot, ...suffix), dest)
+    return
+  }
+  if (st === null) {
+    materialize(join(repoRoot, ...suffix), dest)
+    return
+  }
+  if (!existsSync(join(dest, 'package.json'))) {
+    throw new Error(`heal-deploy-links: injected workspace package missing from the deploy: ${dest}`)
+  }
+}
+
 if (isolated) {
-  materialize(join(repoRoot, 'vendor', 'cosmokit'), EMBED_MAP[0].dest)
+  materializeUnlessLinked(EMBED_MAP[0].suffix, EMBED_MAP[0].dest)
   const schemasteryDest = EMBED_MAP[1].dest
-  materialize(join(repoRoot, 'vendor', 'schemastery'), schemasteryDest)
+  materializeUnlessLinked(EMBED_MAP[1].suffix, schemasteryDest)
   const schemasteryNm = join(schemasteryDest, 'node_modules', '@deepseek-ai')
   mkdirSync(schemasteryNm, { recursive: true })
   relinkIfChanged(join(schemasteryNm, 'cosmokit'), EMBED_MAP[0].dest)
@@ -90,7 +108,7 @@ if (isolated) {
     join(schemasteryDest, 'node_modules', '@standard-schema', 'spec'),
     join(nm, '.pnpm', specInstance, 'node_modules', '@standard-schema', 'spec'),
   )
-  for (const entry of EMBED_MAP.slice(3)) materialize(join(repoRoot, ...entry.suffix), entry.dest)
+  for (const entry of EMBED_MAP.slice(3)) materializeUnlessLinked(entry.suffix, entry.dest)
 } else {
   for (const entry of EMBED_MAP) {
     if (entry.suffix[0] === 'apps' && entry.suffix[1] === 'cli') continue

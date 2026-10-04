@@ -15,7 +15,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, mkdirSync, readFileSync, readdirSync, rmdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -74,6 +74,23 @@ writeFileSync(join(contentsDir, 'Info.plist'), `<?xml version="1.0" encoding="UT
 </dict>
 </plist>
 `)
+
+// codesign --deep treats any nested directory that looks like a bundle as one;
+// pnpm's `.bin` shim dirs make it abort with "bundle format unrecognized", and
+// they are only PATH conveniences the runtime never resolves. Strip them.
+function stripBinShims(dir) {
+  let entries
+  try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return }
+  for (const ent of entries) {
+    const full = join(dir, ent.name)
+    if (ent.name === '.bin' && ent.isDirectory()) { rmdirSync(full, { recursive: true }); continue }
+    if (ent.isDirectory() && !statSync(full).isSymbolicLink()) stripBinShims(full)
+  }
+}
+
+console.log('pack-darwin: strip pnpm .bin shims ...')
+const backendNm = join(macosDir, 'resources', 'app', 'backend', 'node_modules')
+stripBinShims(backendNm)
 
 console.log('pack-darwin: ad-hoc codesign ...')
 run('codesign', ['--force', '--deep', '--sign', '-', join(outDir, 'macos-unpacked', 'CetusPrism.app')])

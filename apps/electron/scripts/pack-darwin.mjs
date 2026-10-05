@@ -89,11 +89,19 @@ function stripBinShims(dir) {
 }
 
 console.log('pack-darwin: strip pnpm .bin shims ...')
-const backendNm = join(macosDir, 'resources', 'app', 'backend', 'node_modules')
-stripBinShims(backendNm)
+const appPath = join(outDir, 'macos-unpacked', 'CetusPrism.app')
+const backendDir = join(appPath, 'Contents', 'MacOS', 'resources', 'app', 'backend')
+stripBinShims(join(backendDir, 'node_modules'))
 
-console.log('pack-darwin: ad-hoc codesign ...')
-run('codesign', ['--force', '--deep', '--sign', '-', join(outDir, 'macos-unpacked', 'CetusPrism.app')])
+// codesign --deep aborts on any directory it mistakes for a bundle (pnpm's
+// `.bin`/`.pnpm` trees), so sign each Mach-O binary individually — arm64
+// refuses to execute unsigned code — then seal the bundle itself.
+console.log('pack-darwin: ad-hoc codesign (per Mach-O binary) ...')
+run('find', [
+  backendDir, '-type', 'f', '-exec', 'sh', '-c',
+  'file -b "$1" | grep -q Mach-O && codesign --force --sign - "$1"', 'sh', '{}', ';',
+])
+run('codesign', ['--force', '--sign', '-', appPath])
 
 console.log('pack-darwin: hdiutil dmg ...')
 rmSync(dmgFile, { force: true })

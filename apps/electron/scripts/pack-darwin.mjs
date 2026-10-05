@@ -49,7 +49,8 @@ run('node', [join(appRoot, 'scripts', 'heal-deploy-links.mjs'), appDir])
 cpSync(process.execPath, join(appDir, 'node'))
 
 console.log('pack-darwin: staging CetusPrism.app ...')
-const contentsDir = join(outDir, 'macos-unpacked', 'CetusPrism.app', 'Contents')
+const appPath = join(outDir, 'macos-unpacked', 'CetusPrism.app')
+const contentsDir = join(appPath, 'Contents')
 const macosDir = join(contentsDir, 'MacOS')
 mkdirSync(macosDir, { recursive: true })
 mkdirSync(join(contentsDir, 'Resources'), { recursive: true })
@@ -57,7 +58,10 @@ const shellBinary = process.env.CARGO_TARGET_DIR
   ? join(process.env.CARGO_TARGET_DIR, 'release', 'CetusPrism')
   : join(appRoot, 'src-tauri', 'target', 'release', 'CetusPrism')
 cpSync(shellBinary, join(macosDir, 'CetusPrism'))
-cpSync(appDir, join(macosDir, 'resources', 'app', 'backend'), { recursive: true })
+// The runtime ships under Resources so the bundle signature seals it as
+// plain resources; anything under MacOS is treated as code and each file
+// would demand a signature.
+cpSync(appDir, join(contentsDir, 'Resources', 'app', 'backend'), { recursive: true })
 writeFileSync(join(contentsDir, 'Info.plist'), `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -89,8 +93,7 @@ function stripBinShims(dir) {
 }
 
 console.log('pack-darwin: strip pnpm .bin shims ...')
-const appPath = join(outDir, 'macos-unpacked', 'CetusPrism.app')
-const backendDir = join(appPath, 'Contents', 'MacOS', 'resources', 'app', 'backend')
+const backendDir = join(appPath, 'Contents', 'Resources', 'app', 'backend')
 stripBinShims(join(backendDir, 'node_modules'))
 
 // codesign --deep aborts on any directory it mistakes for a bundle (pnpm's

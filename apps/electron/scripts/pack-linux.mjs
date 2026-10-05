@@ -60,6 +60,14 @@ for (const entry of ['entry.mjs', 'credentials-home.patch.yml', 'desktop-slim.pa
 execFileSync('cp', [nodeBin, join(appDir, 'backend', 'node')])
 execFileSync('chmod', ['0755', join(appDir, 'backend', 'node')])
 
+// The platform native packages are workspace members whose `bin/` binaries
+// are compiled at pack time (never committed): the Windows host only builds
+// its own addon, so the Linux closure would deploy without
+// `node-addon-system-linux-x64/bin/glibc/system.node` and flock would fail
+// at first launch. Build them here, where the musl/glibc toolchains live.
+console.log('pack-linux: building Linux native prebuilds ...')
+execFileSync(nodeBin, [join(repoRoot, 'native', 'system', 'scripts', 'build.ts')], { cwd: repoRoot, stdio: 'inherit' })
+
 // Deploy the backend closure straight into the output with the workspace's
 // own pnpm. The hoisted linker produces one flat, self-contained
 // `node_modules`; unlike the Windows pack this deploy runs ONLINE (proxy

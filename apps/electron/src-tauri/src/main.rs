@@ -531,7 +531,10 @@ fn user_data_dir() -> PathBuf {
     platform::user_data_dir()
 }
 
-/// Backend location: beside the packaged executable, or a dev override.
+/// Backend location: beside the packaged executable (Windows/Linux pack), in
+/// the macOS bundle's Resources half, or a dev override. The macOS runtime
+/// ships under `Contents/Resources` so codesign seals it as resources —
+/// files under `Contents/MacOS` would each demand a code signature.
 fn resolve_backend_dir() -> PathBuf {
     if let Ok(override_dir) = std::env::var("DSH_SHELL_BACKEND_DIR") {
         if !override_dir.trim().is_empty() {
@@ -539,7 +542,12 @@ fn resolve_backend_dir() -> PathBuf {
         }
     }
     let exe = std::env::current_exe().expect("current executable");
-    exe.parent().expect("executable directory").join("resources").join("app").join("backend")
+    let exe_dir = exe.parent().expect("executable directory");
+    let beside = exe_dir.join("resources").join("app").join("backend");
+    if beside.join("entry.mjs").exists() {
+        return beside;
+    }
+    exe_dir.join("../Resources/app/backend")
 }
 
 #[tauri::command]

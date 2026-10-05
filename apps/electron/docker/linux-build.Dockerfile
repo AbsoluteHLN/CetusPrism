@@ -18,6 +18,7 @@ RUN apt-get update \
        patchelf \
        pkg-config \
        build-essential \
+       musl-tools \
        libssl-dev \
        file \
        xdg-utils \

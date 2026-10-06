@@ -73,6 +73,15 @@ writeFileSync(join(contentsDir, 'Info.plist'), `<?xml version="1.0" encoding="UT
   <key>CFBundleShortVersionString</key><string>${version}</string>
   <key>CFBundleVersion</key><string>${version}</string>
   <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key><string>com.cetusprism.desktop.dsh</string>
+      <key>CFBundleURLSchemes</key>
+      <array><string>dsh</string></array>
+      <key>CFBundleTypeRole</key><string>Viewer</string>
+    </dict>
+  </array>
   <key>LSMinimumSystemVersion</key><string>11.0</string>
   <key>NSHighResolutionCapable</key><true/>
 </dict>
@@ -105,6 +114,11 @@ run('find', [
   'file -b "$1" | grep -q Mach-O && codesign --force --sign - "$1"', 'sh', '{}', ';',
 ])
 run('codesign', ['--force', '--sign', '-', appPath])
+
+// LaunchServices must know the staged bundle before the Info.plist's `dsh`
+// scheme routes `dsh://open`; the copy the user installs re-registers itself
+// on first launch, and this registration covers the staged original.
+run('/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister', ['-f', appPath])
 
 console.log('pack-darwin: hdiutil dmg ...')
 rmSync(dmgFile, { force: true })

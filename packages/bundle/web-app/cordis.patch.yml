@@ -435,6 +435,17 @@
     - id: ui-settings-web-search
       name: '@deepseek-ai/dsh-client-ui-settings-web-search'
 
+    # Token-usage projection section in Settings: reads the usage/credits and
+    # tokenUsage/sessionStats projections into corpus totals; no Remote of its own.
+    - id: ui-settings-usage
+      name: '@deepseek-ai/dsh-client-ui-settings-usage'
+
+    # About & acknowledgements section in Settings: the distribution's own
+    # version, the embedded harness core build, upstream credit, and the
+    # non-affiliation statement; build metadata only, no Remote of its own.
+    - id: ui-settings-about
+      name: '@deepseek-ai/dsh-client-ui-settings-about'
+
     # Plan control: the composer plan seat over the plan projection + /plan channel.
     - id: ui-plan
       name: '@deepseek-ai/dsh-client-ui-plan'

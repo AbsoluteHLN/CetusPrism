@@ -21,7 +21,7 @@
  * post-apply reload.
  */
 
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Button, IconPlusOutlineRegular, Modal, SegmentedControl } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
@@ -250,6 +250,18 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
   const [savedTarget, setSavedTarget] = useState<ProviderIdentity | undefined>(undefined)
   const [dismissedSetup, setDismissedSetup] = useState<ReadonlySet<string>>(() => new Set())
 
+  // First load runs as an effect, not in the render body: the captured `state`
+  // stays `idle` for the whole render pass, so a re-render or StrictMode
+  // remount would otherwise start a second parallel load before the snapshot
+  // flips to `loading`.
+  const initialLoadRequested = useRef(false)
+  useEffect(() => {
+    if (state.status === 'idle' && !initialLoadRequested.current) {
+      initialLoadRequested.current = true
+      void controller.load()
+    }
+  }, [state.status, controller])
+
   const announceSaved = (target: ProviderIdentity): void => {
     // Announced only once the refreshed directory is in the snapshot the
     // notice reads its name from: an apply can rename the route, and the
@@ -310,7 +322,6 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
       .finally(() => { setDeleting(false) })
   }
 
-  if (state.status === 'idle') void controller.load()
   if (state.status === 'error') {
     /* v8 ignore next -- an error status always carries text; the fallback satisfies the nullable type */
     const errorText = state.error ?? ''

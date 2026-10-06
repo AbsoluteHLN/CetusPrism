@@ -214,6 +214,9 @@ importers:
       '@deepseek-ai/cordis':
         specifier: workspace:~
         version: link:../../vendor/cordis
+      '@deepseek-ai/cordis-plugin-group':
+        specifier: workspace:~
+        version: link:../../vendor/group
       '@deepseek-ai/cordis-plugin-include':
         specifier: workspace:~
         version: link:../../vendor/include
@@ -2570,6 +2573,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-settings':
         specifier: workspace:*
         version: link:../../client/ui-settings
+      '@deepseek-ai/dsh-client-ui-settings-about':
+        specifier: workspace:*
+        version: link:../../client/ui-settings-about
       '@deepseek-ai/dsh-client-ui-settings-account':
         specifier: workspace:*
         version: link:../../client/ui-settings-account
@@ -2597,6 +2603,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-settings-subagent':
         specifier: workspace:*
         version: link:../../client/ui-settings-subagent
+      '@deepseek-ai/dsh-client-ui-settings-usage':
+        specifier: workspace:*
+        version: link:../../client/ui-settings-usage
       '@deepseek-ai/dsh-client-ui-settings-web-search':
         specifier: workspace:*
         version: link:../../client/ui-settings-web-search

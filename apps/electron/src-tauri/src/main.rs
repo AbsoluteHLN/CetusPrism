@@ -143,8 +143,16 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("CetusPrism shell failed to initialize")
         .run(|app_handle, event| {
-            if let RunEvent::Exit = event {
-                kill_backend(app_handle);
+            match event {
+                RunEvent::Exit => kill_backend(app_handle),
+                // `dsh://open` lands here while the shell is already running:
+                // LaunchServices hands the open-URLs event to this instance
+                // instead of launching a second one, so the window returns to
+                // the foreground the same way a second launch would through
+                // the focus socket.
+                #[cfg(target_os = "macos")]
+                RunEvent::Opened { .. } => focus_main_window(app_handle),
+                _ => {}
             }
         });
 }

@@ -494,6 +494,7 @@ export function PluginInventorySettingsTab(
                   className={css.groupToggle}
                   aria-expanded={presetEffectiveOpen}
                   aria-controls={`${sectionId}-preset`}
+                  disabled={searching}
                   onClick={() => { setPresetOpen(!presetEffectiveOpen) }}
                 >
                   <IconChevronDownOutlineRegular className={css.chevron} size={12} aria-hidden="true" />
@@ -571,6 +572,7 @@ export function PluginInventorySettingsTab(
                   className={css.groupToggle}
                   aria-expanded={globalEffectiveOpen}
                   aria-controls={`${sectionId}-global`}
+                  disabled={searching}
                   onClick={() => { setGlobalOpen(!globalEffectiveOpen) }}
                 >
                   <IconChevronDownOutlineRegular className={css.chevron} size={12} aria-hidden="true" />

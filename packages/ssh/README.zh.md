@@ -31,7 +31,7 @@ kind: "package-group"
 ## 相关文档
 
 - [SSH 子系统](../../docs/subsystems/ssh.zh.md) — 共享执行坐标及传输归属。
-- [POSIX SSH 决策](../../.agents/notes/implemented/architecture/2026-09-11-posix-ssh-runtime.zh.md) — 替代方案、影响及验证要求。
+- [POSIX SSH 决策](../../.agents/notes/implemented/architecture/2026-09-11-posix-ssh-runtime.md) — 替代方案、影响及验证要求。
 
 <a id="dev-note"></a>
 ## 开发备注

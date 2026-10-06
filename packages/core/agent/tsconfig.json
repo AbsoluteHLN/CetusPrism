@@ -9,6 +9,9 @@
   ],
   "references": [
     {
+      "path": "../../runtime-diagnostics/invariants"
+    },
+    {
       "path": "../../../vendor/cosmokit"
     },
     {
@@ -28,9 +31,6 @@
     },
     {
       "path": "../../core/system-prompt"
-    },
-    {
-      "path": "../../runtime-diagnostics/invariants"
     },
     {
       "path": "../../typert/protocol"

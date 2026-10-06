@@ -18,6 +18,7 @@ import {
   type PackageGraphNode,
 } from './package-graph.ts'
 import { TypeScriptProject } from './ts-project.ts'
+import { renderGeneratedRegion } from './translation-pairing.ts'
 
 const root = resolve(import.meta.dirname, '..')
 type Pkg = PackageGraphNode
@@ -165,6 +166,21 @@ const SERVICE_ROLES: ServiceRole[] = [
     implementations: ['experimental-computer-use-cua-driver-mcp', 'experimental-computer-use-cua-driver-native'],
     consumers: ['experimental-computer-use-cua-driver-mcp', 'experimental-computer-use-cua-driver-native'],
     note: 'One provider-owned name per service instance. Each provider also owns its model tools; the service has no common action API, runtime selection, or Session workflow lock.',
+  },
+  {
+    key: 'productAnalytics',
+    pkg: 'client-product-analytics',
+    title: 'Desktop interaction collection',
+    mode: 'service',
+    note: 'Accepts selected Desktop events, enriches available login identity, and observes live compaction under the live Host collection policy.',
+  },
+  {
+    key: 'otel',
+    pkg: 'otel',
+    title: 'Shared OTel reporting channels',
+    mode: 'service',
+    consumers: ['host-product-telemetry-otel', 'session-telemetry-otel'],
+    note: 'Product analytics and Session feedback adapters create independent reporting channels through one injected service.',
   },
   {
     key: 'computerUseDeliveryPolicy',
@@ -733,6 +749,13 @@ const SERVICE_ROLES: ServiceRole[] = [
     mode: 'core',
     consumers: ['experimental-tool-agent-team'],
     note: 'Owns the implicit-root roster, durable peer mailbox, shared task DAG, and continuable-child lifecycle; tool-agent-team contributes model controls.',
+  },
+  {
+    key: 'claudeCodeMods',
+    pkg: 'experimental-claude-code-mods',
+    title: 'Claude Code mods bridge',
+    mode: 'core',
+    note: 'Loads mods that defineMod plugins add, raises their hook chains from harness extension points, and draws the band above the prompt over its Remote.',
   },
   {
     key: 'inspector',
@@ -1422,13 +1445,13 @@ function renderEventRelations(pkgs: Pkg[], events: readonly EventEntry[]): strin
   lines.push(
     'This matrix shows which packages dispatch each harness-owned event and which packages listen to it. Events are many-to-many, so the dense relation data is presented as a table rather than one large graph. Receiver and event-name types also cover contained dispatch sites that deliberately bypass `ctx.emit`, such as subagent lifecycle containment.',
     '',
-    '| Event | Mode | Declared in | Dispatchers | Listeners |',
-    '| --- | --- | --- | --- | --- |',
   )
+  const rows = ['| Event | Mode | Declared in | Dispatchers | Listeners |', '| --- | --- | --- | --- | --- |']
   for (const event of [...events].sort((a, b) => a.name.localeCompare(b.name))) {
     const relation = relations.get(event.name) ?? { dispatchers: new Map<string, Set<string>>(), listeners: new Set<string>() }
-    lines.push(`| \`${event.name}\` | \`${event.mode}\` | ${sourceLink(event.source)} | ${relationPackages(relation.dispatchers, pkgsByShort)} | ${listenerPackages(relation.listeners, pkgsByShort)} |`)
+    rows.push(`| \`${event.name}\` | \`${event.mode}\` | ${sourceLink(event.source)} | ${relationPackages(relation.dispatchers, pkgsByShort)} | ${listenerPackages(relation.listeners, pkgsByShort)} |`)
   }
+  lines.push(renderGeneratedRegion('event-producer-consumer:events', rows.join('\n')))
   // Every declared event needs a dispatcher: zero means dead vocabulary or an
   // unrecognized semantic dispatch form. Listener-free extension points remain
   // valid. Client-declared events are exempt: the relation scan seeds the HOST
@@ -1450,12 +1473,18 @@ function renderEventRelations(pkgs: Pkg[], events: readonly EventEntry[]): strin
   const declared = new Set(events.map(event => event.name))
   const extra = [...relations.keys()].filter(event => !declared.has(event)).sort()
   if (extra.length > 0) {
-    lines.push('', '## Non-harness or undeclared event strings seen in package source', '', '| Event string | Dispatchers | Listeners |', '| --- | --- | --- |')
+    const extraRows = ['| Event string | Dispatchers | Listeners |', '| --- | --- | --- |']
     for (const event of extra) {
       const relation = relations.get(event)
       if (!relation) continue
-      lines.push(`| \`${event}\` | ${relationPackages(relation.dispatchers, pkgsByShort)} | ${listenerPackages(relation.listeners, pkgsByShort)} |`)
+      extraRows.push(`| \`${event}\` | ${relationPackages(relation.dispatchers, pkgsByShort)} | ${listenerPackages(relation.listeners, pkgsByShort)} |`)
     }
+    lines.push(
+      '',
+      '## Non-harness or undeclared event strings seen in package source',
+      '',
+      renderGeneratedRegion('event-producer-consumer:undeclared', extraRows.join('\n')),
+    )
   }
   lines.push('', ...maintenanceFooter(maintenance))
   return lines.join('\n')

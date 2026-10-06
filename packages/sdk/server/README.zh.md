@@ -71,7 +71,6 @@ Stdout 只承载 JSON-RPC 帧，客户端可以逐字节解析；诊断信息应
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：`Config` schema、stdio 接线、请求分发、共享关闭与退出任务 |
 | [`src/server.ts`](src/server.ts) | `HarnessSdkJsonRpcServer`：协议方法、逐会话 agent 创建、生命周期订阅、清理 |
-| — | 不发布运行时不变式伴生入口；此展示适配器不拥有包内持久事件流；边界与回放测试覆盖协议映射。 |
 
 ### 请求流程
 
@@ -94,7 +93,7 @@ Stdout 只承载 JSON-RPC 帧，客户端可以逐字节解析；诊断信息应
 - [TypeScript SDK 客户端](../client/README.zh.md) — 驱动本插件的客户端。
 - [SDK 应用组合包](../../bundle/sdk-app/README.zh.md) — 启动本插件的 `dsh --profile sdk` 应用。
 - [Python SDK](../../../python/README.zh.md) — 驱动同一服务器的 Python 客户端。
-- [SDK 运行时分发决策](../../../.agents/notes/implemented/architecture/2026-07-10-single-file-executable-sdk-runtime-distribution.zh.md) — 打包运行时为何服务封闭插件树。
+- [SDK 运行时分发决策](../../../.agents/notes/implemented/architecture/2026-07-10-single-file-executable-sdk-runtime-distribution.md) — 打包运行时为何服务封闭插件树。
 
 -----
 

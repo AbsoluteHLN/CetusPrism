@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
+import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import type { ChatConversationViewNode, ToolCallBlock } from '@deepseek-ai/dsh-client-ui-chat/client'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-locale/client'
@@ -38,7 +39,7 @@ function toolNode(anchorSeq: number, root: ToolCallBlock): ChatConversationViewN
 
 /** A dispatched but unsettled computer-use call. */
 function runningCall(name: string, argsRaw: string, anchorSeq: number): ChatConversationViewNode {
-  return toolNode(anchorSeq, { callId: `c${anchorSeq}`, name, turn: 3, step: 1, time: anchorSeq * 10, subCalls: [], phase: 'start', argsRaw })
+  return toolNode(anchorSeq, { callId: `c${anchorSeq}`, name, turn: 3, step: 1, time: anchorSeq * 10, subCalls: [], phase: 'start', args: PartialArguments.fromText(argsRaw), argsRaw })
 }
 
 /** A settled computer-use result, attributable through its backfilled call head. */
@@ -56,6 +57,8 @@ function settledCall(name: string, argsRaw: string, anchorSeq: number, options?:
     seq: anchorSeq,
     time: anchorSeq * 10 + 150,
     callId: `c${anchorSeq}`,
+    name,
+    args: PartialArguments.fromText(argsRaw),
     call: { name, argsRaw },
     callTime: options?.callTime ?? anchorSeq * 10,
     content,
@@ -110,7 +113,7 @@ describe('actionLabel', () => {
 describe('deriveComputerActivity', () => {
   it('keeps only computer-use calls, newest first, and reads settled states', () => {
     const feed = deriveComputerActivity([
-      toolNode(2, { callId: 'bash-1', name: 'bash', turn: 1, step: 1, time: 1, subCalls: [], phase: 'start', argsRaw: '{}' }),
+      toolNode(2, { callId: 'bash-1', name: 'bash', turn: 1, step: 1, time: 1, subCalls: [], phase: 'start', args: PartialArguments.fromText('{}'), argsRaw: '{}' }),
       settledCall('cua_driver_native__click', '{"x":1,"y":2}', 20),
       runningCall('cua_driver_native__type_text', '{"text":"hi"}', 30),
     ], t)
@@ -138,6 +141,8 @@ describe('deriveComputerActivity', () => {
       seq: 40,
       time: 100,
       callId: 'lost',
+      name: '',
+      args: PartialArguments.fromText('{}'),
       call: null,
       callTime: null,
       content: [{ type: 'image', attachment: imageRef('frame-2') }],
@@ -157,6 +162,8 @@ describe('deriveComputerActivity', () => {
       seq: 50,
       time: 100,
       callId: 'f',
+      name: 'cua_driver_native__click',
+      args: PartialArguments.fromText('{}'),
       call: { name: 'cua_driver_native__click', argsRaw: '{}' },
       callTime: 90,
       content: [],

@@ -96,7 +96,6 @@ kind: "package-reference"
 | [`src/index.ts`](src/index.ts) | Config schema 与每次搜索的选项捕获 |
 | [`src/provider.ts`](src/provider.ts) | `DeepSeekSearchProvider`：Messages 请求分发、块解析、引用拼接、凭据解析 |
 | [`src/types.ts`](src/types.ts) | 搜索响应的 Anthropic 协议类型 |
-| — | 不发布运行时不变量配套入口；本包会在分发前发出日志事件，但没有后续的权威分发事件可与之关联；精确的请求包络相等性改由提供方边界保障。 |
 
 ### 请求流程
 
@@ -116,7 +115,7 @@ kind: "package-reference"
 - [dsh-web](../web/README.zh.md)——本提供方注册进入的 web 服务。
 - [dsh-tool-web](../tool-web/README.zh.md)——渲染本提供方来源的面向模型 `web_search` 工具。
 - [生成配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-web-search-deepseek)——每个受支持配置字段及其源声明。
-- [web 能力 seam 决策](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.zh.md)——搜索与抓取为何共用一项提供方选择服务。
+- [web 能力 seam 决策](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.md)——搜索与抓取为何共用一项提供方选择服务。
 
 -----
 

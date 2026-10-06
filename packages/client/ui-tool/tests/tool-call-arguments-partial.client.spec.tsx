@@ -5,6 +5,7 @@ import { act, cleanup, render } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { AssistantChatData, ToolResultNode } from '@deepseek-ai/dsh-client-ui-chat/client'
+import { PartialArguments } from '@deepseek-ai/dsh-util-values'
 import { useDisclosure } from '@deepseek-ai/dsh-client-ui-chat/src/client/chat/use-disclosure.ts'
 import { makeTranslate } from '@deepseek-ai/dsh-client-test-runtime'
 import { en, zh } from '@deepseek-ai/dsh-client-ui-conversation/src/client/locales.ts'
@@ -110,11 +111,11 @@ describe('tool argument prefix Hook', () => {
       expect(view.queryByRole('button')).toBeNull()
     }
     expect(assistant.listeners.size).toBe(1)
-    const started = { phase: 'start' as const, callId: 'first', name: toolName, turn: 1, step: 1, time: 2, subCalls: [], argsRaw: '{"file_path":"file.txt","content":"hello"}' }
+    const started = { phase: 'start' as const, callId: 'first', name: toolName, turn: 1, step: 1, time: 2, subCalls: [], args: PartialArguments.fromText('{"file_path":"file.txt","content":"hello"}'), argsRaw: '{"file_path":"file.txt","content":"hello"}' }
     view.rerender(<FileMutationRow {...props} phase="start" block={started} />)
     expect(assistant.listeners.size).toBe(0)
     expect(view.getByText('file.txt')).toBeTruthy()
-    const result: ToolResultNode = { kind: 'tool-result', callId: 'first', seq: 3, time: 3, callTime: 2, call: { name: toolName, argsRaw: started.argsRaw }, content: [], isError: false, subCalls: [] }
+    const result: ToolResultNode = { kind: 'tool-result', callId: 'first', seq: 3, time: 3, name: toolName, args: PartialArguments.fromText(started.argsRaw), callTime: 2, call: { name: toolName, argsRaw: started.argsRaw }, content: [], isError: false, subCalls: [] }
     view.rerender(<FileMutationRow {...props} phase="result" block={result} />)
     expect(assistant.listeners.size).toBe(0)
     expect(view.getByText('file.txt')).toBeTruthy()

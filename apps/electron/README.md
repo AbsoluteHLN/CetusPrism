@@ -2,10 +2,6 @@
 
 English | [中文](README.zh.md)
 
-# dsh-electron
-
-English | [中文](README.zh.md)
-
 The CetusPrism desktop shell: a Rust (Tauri 2) window over the same web
 surface `dsh --profile web` serves, with the backend shipped inside the app.
 Windows renders the surface through WebView2; Linux uses WebKitGTK. The

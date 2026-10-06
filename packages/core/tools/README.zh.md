@@ -31,6 +31,8 @@ kind: "package-reference"
 
 `defineTool` 构建类型化工具定义：面向模型的名称、描述与参数 schema、规范输出声明，以及只返回所声明 JSON 值的 `execute` 主体。模型参数在执行前被校验；无效输入变成普通错误结果。
 
+规范值属于执行过程；Session 记录渲染后的内容及可选展示元数据。替换或脱敏这些内容不会移除程序化调用方可读取的规范值；需要禁止该访问的策略必须阻止执行或替换该值。
+
 ```ts
 import { readFile } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
@@ -88,7 +90,7 @@ ctx.tools.register(defineTool({
 
 ### Host 展示描述
 
-工具可以为 Host 本地消费方保留纯函数 `presentCall()` 与 `presentResult()` 方法。内置 Web Client 不消费这些值，而是通过 `tool.call.toolview` 选择 renderer，并从原始调用参数、结果内容、失败状态与持久 metadata 派生 card props。[Client 派生展示决策](../../../.agents/notes/implemented/architecture/2026-08-23-client-derived-tool-presentation.zh.md)负责该 transport 拆分。
+工具可以为 Host 本地消费方保留纯函数 `presentCall()` 与 `presentResult()` 方法。内置 Web Client 不消费这些值，而是通过 `tool.call.toolview` 选择 renderer，并从原始调用参数、结果内容、失败状态与持久 metadata 派生 card props。[Client 派生展示决策](../../../.agents/notes/implemented/architecture/2026-08-23-client-derived-tool-presentation.md)负责该 transport 拆分。
 
 -----
 
@@ -116,7 +118,6 @@ ctx.tools.register(defineTool({
 | [`src/ptc.ts`](src/ptc.ts) | PTC mode：SDK 生成、`run_code` 分发桥接层、结算 |
 | [`src/ts-types.ts`](src/ts-types.ts) | TypeScript SDK 类型渲染 |
 | [`src/py-types.ts`](src/py-types.ts) | Python SDK 类型渲染 |
-| [`src/invariant.ts`](src/invariant.ts) | 不变式配套 |
 
 ### 执行与取消
 
@@ -124,9 +125,9 @@ ctx.tools.register(defineTool({
 
 ### PTC mode
 
-在 `ptc` 或 `both` 下，注册表公开保留的 `run_code` 传输以及按所加载运行时语言生成的确定性 SDK。每个 SDK 绑定捕获冻结的 ToolSchema，经由调度器传入该次执行上下文。已开始的调用在策略之前只记录配对 id、名称和规范化参数；其结算事件保留渲染结果与可选结构化错误。描述与参数 schema 仅临时存活，不进入 Session 事件或 SDK 输出。调用通过复用原生并发约定的每次运行独有池调度。在纯 `ptc` 下，模型直呼其他任何可见工具都会在策略之前解析为 `UNKNOWN_TOOL`——通告面与可调用面保持一致。中间绑定值只存在于执行局部；只有外层 `run_code` 结果有硬大小上限。[执行器塌缩 note](../../../.agents/notes/implemented/bug-fix/2026-08-07-ptc-executor-collapse.zh.md) 拥有该收束约定。
+在 `ptc` 或 `both` 下，注册表公开保留的 `run_code` 传输以及按所加载运行时语言生成的确定性 SDK。每个 SDK 绑定捕获冻结的 ToolSchema，经由调度器传入该次执行上下文。已开始的调用在策略之前只记录配对 id、名称和规范化参数；其结算事件保留渲染结果与可选结构化错误。描述与参数 schema 仅临时存活，不进入 Session 事件或 SDK 输出。调用通过复用原生并发约定的每次运行独有池调度。在纯 `ptc` 下，模型直呼其他任何可见工具都会在策略之前解析为 `UNKNOWN_TOOL`——通告面与可调用面保持一致。中间绑定值只存在于执行局部；只有外层 `run_code` 结果有硬大小上限。
 
-新子调用使用 `<parent>:ptc:<n>` 标识。消费方将这些标识视为不透明值，并通过精确相等关联事件；恢复的历史标识保留原始字节。[PTC mode 决策](../../../.agents/notes/implemented/feature/2026-06-15-ptc.zh.md) 负责持久化命名与恢复规则。
+新子调用使用 `<parent>:ptc:<n>` 标识。消费方将这些标识视为不透明值，并通过精确相等关联事件；恢复的历史标识保留原始字节。[PTC mode 决策](../../../.agents/notes/implemented/feature/2026-06-15-ptc.md) 负责持久化命名与恢复规则。
 
 成功且包含图片的子调用结果会成为延后的 user-message 上下文，其 `source.kind` 为 `ptc-mode`。其他 additional context 保留其生产工具的归属。
 
@@ -150,7 +151,7 @@ ctx.tools.register(defineTool({
 - [生成工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tools)——模型收到的已交付工具 schema。
 - [工具执行流水线](../../../docs/tool-execution-pipeline.zh.md)——可视化流水线。
 - [添加工具实操手册](../../../docs/cookbook/adding-a-tool.zh.md)——分步骤的工具编写指南。
-- [协作式取消 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-19-cooperative-tool-cancellation.zh.md)——完整取消约定。
+- [协作式取消 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-19-cooperative-tool-cancellation.md)——完整取消约定。
 - [core 分组地图](../README.zh.md)——core 各包如何组合。
 
 -----
@@ -176,16 +177,16 @@ ctx.tools.register(defineTool({
 
 #### 模型看到什么
 
-PTC mode 会公开生成的 [`run_code` schema](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tools)、下方 SDK 说明，以及按所加载运行时语言生成的精确 SDK 块。TypeScript 说明会把生成声明明确标为只能在程序内使用的绑定。当当前 `bash` 参数 schema 接受示例参数时，说明还会给出以 `run_code` 包住 `tools.bash(...)` 的完整调用。`tools:sdk` 段使用 first-party 顺序 5000，并关闭提示词变量插值，使两种运行时语言都原样保留工具描述和 schema 中的 `{{…}}` 文本。`both` 会同时公开普通 schema 与此 PTC mode API；在 `ptc` 下，提示词还会带上处于更早 first-party 顺序的 `tools:ptc-only` 规则，让模型先读到「可以调用哪些工具」再读「每个工具做什么」。
+PTC mode 会公开生成的 [`run_code` schema](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tools)、下方 SDK 说明，以及按所加载运行时语言生成的精确 SDK 块。两种运行时语言都将 `description` 列在 `code` 前，并在共用的参数描述中要求按此顺序生成；这是指引，不强制 JSON 成员顺序。TypeScript 说明会把生成声明明确标为只能在程序内使用的绑定。当当前 `bash` 参数 schema 接受示例参数时，说明还会给出以 `run_code` 包住 `tools.bash(...)` 的完整调用。`tools:sdk` 段使用 first-party 顺序 5000，并关闭提示词变量插值，使两种运行时语言都原样保留工具描述和 schema 中的 `{{…}}` 文本。`both` 会同时公开普通 schema 与此 PTC mode API；在 `ptc` 下，提示词还会带上处于更早 first-party 顺序的 `tools:ptc-only` 规则，让模型先读到「可以调用哪些工具」再读「每个工具做什么」。
 
 ##### 带 bash 的 TypeScript PTC mode SDK 说明
 
 ```markdown
 ## Writing code for run_code
 
-`run_code` takes two required arguments: `code` — the body of an async TypeScript function (erasable syntax only — no `enum` or namespaces; type annotations are advisory, the code runs type-stripped) — and `description`, a short summary of what the program does. The declarations below are SDK bindings for this program. A declaration does not make its name a directly callable tool; only names supplied as separate tool schemas may be called directly. When no separate `bash` schema is supplied, invoke a declared `bash` binding inside `run_code`:
+`run_code` takes two required arguments: `description`, a short summary of what the program does, and `code` — the body of an async TypeScript function (erasable syntax only — no `enum` or namespaces; type annotations are advisory, the code runs type-stripped). The declarations below are SDK bindings for this program. A declaration does not make its name a directly callable tool; only names supplied as separate tool schemas may be called directly. When no separate `bash` schema is supplied, invoke a declared `bash` binding inside `run_code`:
 
-`run_code({ code: "return await tools.bash({ command: 'pwd', description: 'Show current directory' })", description: "Show current directory" })`
+`run_code({ description: "Show current directory", code: "return await tools.bash({ description: 'Show current directory', command: 'pwd' })" })`
 
 Inside the program:
 
@@ -227,7 +228,7 @@ Program-only SDK bindings:
 这些限制说明注册表何时需要特别留意。它们是当前包约束，不是任务积压。
 
 - **并发策略不是事件门禁**：`executionMode()` 直接读取已解析的工具定义；插件只能在自身拥有的定义上声明分类器。
-- **`tools/pre-execute` 有意不允许改写 `exec.arguments`**：否则日志记录与呈现的参数会与实际运行内容失去同步；改写设计记录在[拟议的 Agent Note](../../../.agents/notes/proposed/feature/2026-06-30-pre-tool-input-rewrite.zh.md)中。
+- **`tools/pre-execute` 有意不允许改写 `exec.arguments`**：否则日志记录与呈现的参数会与实际运行内容失去同步；改写设计记录在[拟议的 Agent Note](../../../.agents/notes/proposed/feature/2026-06-30-pre-tool-input-rewrite.md)中。
 - **调用方定义的 subagent 与工作流结构化输出仍要求对象根**：这是消费方层面的守卫；共享 schema 词汇与工具输出支持任意 JSON 根。
 - **定义中的 `timeoutMs` 仅作声明之用**：注册表绝不会强制执行截止时间；要强制执行，必须使用 `@deepseek-ai/dsh-tool-call-timeout-policy` 包装层。
 - **PTC mode 的 SDK 语言由当前加载的运行时决定，且呈现方式按 agent 而非按工具**：`mode: ptc`/`both` 会拒绝组装提示词，除非 `ctx.ptcRuntime.language` 有已注册的 SDK 渲染器；同一个 agent 内不能让一个工具仅使用 Native，而另一个仅使用 PTC。

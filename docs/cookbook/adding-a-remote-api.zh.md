@@ -2,7 +2,7 @@
 
 [English](adding-a-remote-api.md) | 中文
 
-新增或改动一个 `ctx.remote` 端点按本页五步走：声明方法、声明失败、在包上注册、在 Client 消费、写测试。decorator 语义、lookup 解析、生成管线与 `/api` 路由属于机制，由 [API Gateway 参考](../api-gateway.zh.md)负责；本页给的是每一步的动作与必须遵守的约定。为什么是这套编程面，见 [Typert Remote 方法调用 Agent Note](../../.agents/notes/implemented/architecture/2026-08-02-typert-remote-method-calls.zh.md)；为什么失败面是单个 `RemoteError` 加一张码表，见[失败词汇 Agent Note](../../.agents/notes/implemented/architecture/2026-08-28-ctx-remote-failure-vocabulary.zh.md)。
+新增或改动一个 `ctx.remote` 端点按本页五步走：声明方法、声明失败、在包上注册、在 Client 消费、写测试。decorator 语义、lookup 解析、生成管线与 `/api` 路由属于机制，由 [API Gateway 参考](../api-gateway.zh.md)负责；本页给的是每一步的动作与必须遵守的约定。为什么是这套编程面，见 [Typert Remote 方法调用 Agent Note](../../.agents/notes/implemented/architecture/2026-08-02-typert-remote-method-calls.md)；为什么失败面是单个 `RemoteError` 加一张码表，见[失败词汇 Agent Note](../../.agents/notes/implemented/architecture/2026-08-28-ctx-remote-failure-vocabulary.md)。
 
 ## 1. 声明 API
 

@@ -9,6 +9,9 @@
   ],
   "references": [
     {
+      "path": "../../runtime-diagnostics/invariants"
+    },
+    {
       "path": "../../../vendor/cosmokit"
     },
     {
@@ -19,9 +22,6 @@
     },
     {
       "path": "../storage"
-    },
-    {
-      "path": "../../runtime-diagnostics/invariants"
     }
   ]
 }

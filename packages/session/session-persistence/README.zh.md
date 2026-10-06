@@ -96,7 +96,6 @@ await ctx.sessionPersistence.flush()                           // backend-wide d
 | [`src/storage-contract.ts`](src/storage-contract.ts) | 共享校验：版本门禁、未知事件词汇拒绝、批次实体化、连续性 |
 | [`src/errors.ts`](src/errors.ts) | 稳定的句柄/所有权失败与格式拒绝 |
 | [`src/revision.ts`](src/revision.ts) | 带品牌类型的不透明修订值 token |
-| — | 不发布运行时不变式伴生入口；持久化正确性需要后端往返与崩溃尾部测试；本包不暴露可持续观察的进程内关系。 |
 
 ### 写入路径概览
 
@@ -104,7 +103,7 @@ await ctx.sessionPersistence.flush()                           // backend-wide d
 
 ### 存储记录校验
 
-seam 的共享辅助函数校验由 `SESSION_FORMAT_VERSION` 标识的当前逻辑记录，append 只写当前格式（[理由](../../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.zh.md)）。历史解码与不可变后继发布属于各提供方内部，并在其返回句柄前完成。每个后端都在句柄读取与写 open 预热时运行 `storage-contract` 校验，把未知事件类型作为 `SessionFormatUnsupportedError` 拒绝，把格式错误的当前记录作为 `SessionPersistenceCorruptionError` 拒绝，并在后端为每个会话保留一份产物时附上原始日志的 `SessionLocation`。
+seam 的共享辅助函数校验由 `SESSION_FORMAT_VERSION` 标识的当前逻辑记录，append 只写当前格式（[理由](../../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md)）。历史解码与不可变后继发布属于各提供方内部，并在其返回句柄前完成。每个后端都在句柄读取与写 open 预热时运行 `storage-contract` 校验，把未知事件类型作为 `SessionFormatUnsupportedError` 拒绝，把格式错误的当前记录作为 `SessionPersistenceCorruptionError` 拒绝，并在后端为每个会话保留一份产物时附上原始日志的 `SessionLocation`。
 
 </details>
 -----
@@ -115,7 +114,7 @@ seam 的共享辅助函数校验由 `SESSION_FORMAT_VERSION` 标识的当前逻�
 当包级约定不够用时阅读以下页面。它们从共享持久性模型逐步进入随产品交付的后端与决策证据。
 
 - [会话持久化子系统](../../../docs/subsystems/persistence.zh.md)——完整服务约定、句柄语义、flush 检查点、崩溃恢复与生成的 Cordis API。
-- [基于句柄的持久化 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-27-handle-based-session-persistence.zh.md)——seam 设计及其所有权模型。
+- [基于句柄的持久化 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-27-handle-based-session-persistence.md)——seam 设计及其所有权模型。
 - [JSONL 持久化后端](../session-persistence-jsonl/README.zh.md)——随产品交付、按会话存储文件的后端。
 - [会话检查点策略](../session-checkpoint-policy/README.zh.md)——在语义边界上经由 `session/flush` 刷新的插件。
 - [会话包映射](../README.zh.md)——相邻的持久化、投影、标题与遥测包。

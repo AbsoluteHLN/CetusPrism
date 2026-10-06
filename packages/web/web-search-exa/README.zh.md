@@ -84,7 +84,6 @@ kind: "package-reference"
 | [`src/index.ts`](src/index.ts) | 插件入口：配置 schema、环境变量回退、提供方注册 |
 | [`src/provider.ts`](src/provider.ts) | `ExaSearchProvider`：请求分发、中止分类、结果映射 |
 | [`src/types.ts`](src/types.ts) | Exa 协议类型：`ExaSearchResponse`、`ExaResult`、`ExaError` |
-| — | 不发布运行时不变量配套入口；除所属 seam 强制执行的约定外，本包没有独立的事件序列或可变数据关系。 |
 
 ### 请求与映射流程
 
@@ -104,7 +103,7 @@ kind: "package-reference"
 - [dsh-web](../web/README.zh.md)——本提供方注册进入的 web 服务。
 - [dsh-tool-web](../tool-web/README.zh.md)——渲染本提供方来源的面向模型 `web_search` 工具。
 - [生成配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-web-search-exa)——每个受支持配置字段及其源声明。
-- [web 能力 seam 决策](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.zh.md)——搜索与抓取为何共用一项提供方选择服务。
+- [web 能力 seam 决策](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.md)——搜索与抓取为何共用一项提供方选择服务。
 
 -----
 
@@ -125,7 +124,7 @@ kind: "package-reference"
 这些限制说明提供方在哪些情况下不合适。它们是当前包约束。
 
 - **没有非空白高亮的来源会被整个丢弃**——没有可映射的可移植 snippet，因此返回来源可能少于请求数量。
-- **只公开 `searchType`／`numResults`／`highlightsPerResult`**——Exa 的其他控制项（livecrawl、category、域名／日期过滤条件、全文内容）等待提供方无关的服务字段（见 [seam Agent Note](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.zh.md)）。
+- **只公开 `searchType`／`numResults`／`highlightsPerResult`**——Exa 的其他控制项（livecrawl、category、域名／日期过滤条件、全文内容）等待提供方无关的服务字段（见 [seam Agent Note](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.md)）。
 - **按错误形状分类中止**——只有名为 `AbortError` 的 `DOMException` 才映射为 `WEB_ABORTED`；携带自定义原因的中止（例如 `dsh-timeout` 的 `TimeoutReason`）呈现为 `WEB_PROVIDER_ERROR`。
 
 <a id="dev-note"></a>

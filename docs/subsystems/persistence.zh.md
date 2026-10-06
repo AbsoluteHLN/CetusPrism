@@ -4,7 +4,7 @@
 
 事件日志的**持久性 seam**。[session.md](session.zh.md) 描述了内存中的 `Session`：仅追加的 `SessionEvent` 日志即为真源。本页描述如何使该日志持久化：抽象的 `SessionPersistence` 服务、它的提供方模型与随产品交付的 JSONL 后端、flush 检查点、崩溃恢复，以及随日志一同存储的元数据头。日志承载的事件词汇在生成的[持久化日志事件目录](../persistence-catalog.zh.md)中逐项列举。
 
-该 seam 是一个[能力 seam](../../.agents/notes/implemented/architecture/2026-06-13-capability-seams.zh.md)：一个抽象服务（[dsh-session-persistence](../../packages/session/session-persistence)，`ctx.sessionPersistence`）在现有 `SessionEvent` 上暴露 `create`/`open`/`stat`/`list`——**没有平行的持久化事件类型**——其中 `create` 与 `open` 返回逐会话的 `SessionHandle`（`read`/`append`/`flush`/`close`），它承载全部日志访问与单写者所有权。仓库随产品交付 [dsh-session-persistence-jsonl](../../packages/session/session-persistence-jsonl) 作为其 provider；仓库外 provider 可以实现同一服务约定。见[基于句柄的持久化 Agent Note](../../.agents/notes/implemented/architecture/2026-08-27-handle-based-session-persistence.zh.md)与 [session-persistence Agent Note](../../.agents/notes/implemented/architecture/2026-06-14-session-persistence.zh.md)。
+该 seam 是一个[能力 seam](../../.agents/notes/implemented/architecture/2026-06-13-capability-seams.md)：一个抽象服务（[dsh-session-persistence](../../packages/session/session-persistence)，`ctx.sessionPersistence`）在现有 `SessionEvent` 上暴露 `create`/`open`/`stat`/`list`——**没有平行的持久化事件类型**——其中 `create` 与 `open` 返回逐会话的 `SessionHandle`（`read`/`append`/`flush`/`close`），它承载全部日志访问与单写者所有权。仓库随产品交付 [dsh-session-persistence-jsonl](../../packages/session/session-persistence-jsonl) 作为其 provider；仓库外 provider 可以实现同一服务约定。见[基于句柄的持久化 Agent Note](../../.agents/notes/implemented/architecture/2026-08-27-handle-based-session-persistence.md)与 [session-persistence reference](../../packages/session/session-persistence/README.zh.md)。
 
 ## `SessionHandle`——通向已存储会话的一条打开通道
 
@@ -111,7 +111,7 @@ interface SessionHandle extends AsyncDisposable {
 
 因此修复只在写所有权之下写入：活跃会话的写句柄由其生命周期所有者持有，故并发的 `open(id, 'write')` 会以 `SessionAlreadyOwnedError` 拒绝，而不是让修复与活跃轮次竞速。只读观察方（session-query）仅在内存中用同样的闭合事件配平被中断的冷日志，不回写任何内容。
 
-只读观察即 `open(id, 'read')`：句柄提供经过验证的连续前缀切片，绝不返回撕裂尾部，且同一句柄上的重复读取绝不会观察到比先前读取更旧的状态。持久化侧不存在已准备 Session 缓存：session-query 拥有自己的冷读缓存，按 `stat().revision` 变更令牌为每个 id 缓存一个已配平的冷 Session，仅在令牌变化时重新读取。该生命周期由[基于句柄的持久化 Agent Note](../../.agents/notes/implemented/architecture/2026-08-27-handle-based-session-persistence.zh.md)定义；已归档的 [Session 准备阶段记录](../../.agents/notes/archived/architecture/2026-08-05-session-preparation.md)记载了发布边界 `SessionPreparation` 最初的决策。
+只读观察即 `open(id, 'read')`：句柄提供经过验证的连续前缀切片，绝不返回撕裂尾部，且同一句柄上的重复读取绝不会观察到比先前读取更旧的状态。持久化侧不存在已准备 Session 缓存：session-query 拥有自己的冷读缓存，按 `stat().revision` 变更令牌为每个 id 缓存一个已配平的冷 Session，仅在令牌变化时重新读取。该生命周期由[基于句柄的持久化 Agent Note](../../.agents/notes/implemented/architecture/2026-08-27-handle-based-session-persistence.md)定义；已归档的 [Session 准备阶段记录](../../.agents/notes/archived/architecture/2026-08-05-session-preparation.md)记载了发布边界 `SessionPreparation` 最初的决策。
 
 ## `SessionLocation`——拒绝诊断的产物目标
 
@@ -186,7 +186,7 @@ interface SessionHeader {
 
 ## 格式拒绝：本构建无法可靠读取的日志
 
-后端用 `SessionFormatUnsupportedError` 拒绝无法可靠解读的日志，它与 `SessionPersistenceCorruptionError` 区分，因为数据没有损坏。`stat` 与 `list` 会对最高规范 generation 分类，并在不读取或改变正文的前提下转换受支持的历史 header。历史 `open` 会共享每个 Session 唯一的一次 migration preparation，再返回当前逻辑值，并保持每个源路径、字节与 inode 不变。JSONL provider 直接从该内存结果返回读句柄而不发布；写 open 则在持有单写者 claim 与文件 lease 时复用 preparation、排他发布最终 current generation，随后才返回可写句柄。即使仍有较旧的可读 generation，最高的未来 generation 仍会导致拒绝。当前格式恢复会保留已安装扩展和带 `ignorable: true` 的未知事件；历史 v0/v1/v2 迁移则会拒绝未知类型，即使它带有 ignorable 标记。后端为每个会话保留独立文件时，消息附上选定的原始日志路径。仓库外后端必须在自己的物理格式入口提供等价的仅当前句柄值与方向感知拒绝。[已发布格式迁移决策](../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.zh.md)负责迁移链与不可变发布规则。
+后端用 `SessionFormatUnsupportedError` 拒绝无法可靠解读的日志，它与 `SessionPersistenceCorruptionError` 区分，因为数据没有损坏。`stat` 与 `list` 会对最高规范 generation 分类，并在不读取或改变正文的前提下转换受支持的历史 header。历史 `open` 会共享每个 Session 唯一的一次 migration preparation，再返回当前逻辑值，并保持每个源路径、字节与 inode 不变。JSONL provider 直接从该内存结果返回读句柄而不发布；写 open 则在持有单写者 claim 与文件 lease 时复用 preparation、排他发布最终 current generation，随后才返回可写句柄。即使仍有较旧的可读 generation，最高的未来 generation 仍会导致拒绝。当前格式恢复会保留已安装扩展和带 `ignorable: true` 的未知事件；历史 v0/v1/v2 迁移则会拒绝未知类型，即使它带有 ignorable 标记。后端为每个会话保留独立文件时，消息附上选定的原始日志路径。仓库外后端必须在自己的物理格式入口提供等价的仅当前句柄值与方向感知拒绝。[已发布格式迁移决策](../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md)负责迁移链与不可变发布规则。
 
 ## `CreateSessionOptions`：seed 与元数据
 

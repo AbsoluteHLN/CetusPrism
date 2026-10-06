@@ -456,7 +456,7 @@ function readAllSourceUses(root: string, pkg: WorkspacePackageManifest): Map<str
  * @param pkg - Package manifest and directory.
  * @param role - Selected dependency policy role.
  * @param workspaceNames - Workspace package identities.
- * @param policy - Reviewed Host export and configuration-only classifications.
+ * @param policy - Reviewed Host exports, required services, and development-only relationships.
  * @param generatedHostSource - Host module already emitted in memory by a batched Typert pass.
  * @returns Source-derived dependency facts without writing build artifacts.
  */
@@ -472,17 +472,27 @@ export function readPackageDependencyFacts(
   const hostRuntime = role === 'client-only'
     ? { packageUses: new Map<string, string[]>(), exportUses: [] }
     : readHostRuntimeUses(root, pkg, generatedHostSource)
+  const servicePeers = policy.requiredServicePeers?.[pkg.name] ?? []
+  const allSourceUses = readAllSourceUses(root, pkg)
+  for (const name of servicePeers) {
+    if (!workspaceNames.has(name) || !allSourceUses.has(name)) {
+      throw new Error(`${pkg.manifestPath}: requiredServicePeers must name a referenced workspace package: ${name}`)
+    }
+  }
   return {
     manifestPath: pkg.manifestPath,
     role,
     manifest: pkg.manifest,
     workspaceNames,
-    allSourceUses: readAllSourceUses(root, pkg),
+    allSourceUses,
     hostRuntimeSourceUses: hostRuntime.packageUses,
     hostRuntimeExportUses: hostRuntime.exportUses,
-    peerRequiredHostDependencies: new Set(hostRuntime.exportUses
-      .filter(use => policy.peerRequiredHostExports[use.specifier]?.includes(use.exportName) === true)
-      .map(use => use.packageName)),
+    peerRequiredHostDependencies: new Set([
+      ...hostRuntime.exportUses
+        .filter(use => policy.peerRequiredHostExports[use.specifier]?.includes(use.exportName) === true)
+        .map(use => use.packageName),
+      ...servicePeers,
+    ]),
     configurationOnlyDevDependencies: new Set(
       policy.configurationOnlyDevDependencies[pkg.manifest.name ?? ''] ?? [],
     ),
@@ -575,9 +585,10 @@ export function readPackageDependencyState(
     policyViolations: [
       ...discovered.violations,
       ...collectHostDependencyExportPolicyViolations(facts, workspaceNames, policy),
-      ...Object.keys(policy.configurationOnlyDevDependencies)
-        .filter(name => !selectedNames.has(name))
-        .map(name => `configurationOnlyDevDependencies names unmanaged package ${name}`),
+      ...(['configurationOnlyDevDependencies', 'requiredServicePeers'] as const).flatMap(field =>
+        Object.keys(policy[field] ?? {})
+          .filter(name => !selectedNames.has(name))
+          .map(name => `${field} names unmanaged package ${name}`)),
     ].sort(),
     workspaceNames,
   }
@@ -625,6 +636,9 @@ export function expectedPackageDependencies(
       : 'dependencies'
     for (const path of paths) add(name, expectedSection, path)
   }
+  for (const name of facts.peerRequiredHostDependencies) {
+    if (!facts.hostRuntimeSourceUses.has(name)) add(name, 'peer-dev', 'required Cordis service')
+  }
   return new Map([...expected].map(([name, rule]) => [name, {
     section: rule.section,
     origins: [...rule.origins].sort(),
@@ -664,13 +678,13 @@ export function formatManagedRuntimeDependencies(state: PackageDependencyState):
   ]
 }
 
-/** Format Host runtime edges retained as peers by their imported export classification. */
+/** Format Host runtime edges retained as peers for shared exports or required services. */
 export function formatPeerRequiredRuntimeDependencies(state: PackageDependencyState): string[] {
   const rows = managedRuntimeEdges(state, 'peer-dev')
   const packages = new Set(rows.map(row => row.consumer)).size
   return [
-    `${GATE}: ${String(rows.length)} Host runtime edge(s) remain in peerDependencies because their exports require shared identity across ${String(packages)} package(s):`,
-    ...rows.map(row => `  ${row.consumer} -> ${row.dependency}: ${row.exports.join(', ')}`),
+    `${GATE}: ${String(rows.length)} Host runtime edge(s) remain in peerDependencies for shared exports or required services across ${String(packages)} package(s):`,
+    ...rows.map(row => `  ${row.consumer} -> ${row.dependency}: ${row.exports.join(', ') || 'required Cordis service'}`),
   ]
 }
 

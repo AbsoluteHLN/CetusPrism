@@ -108,7 +108,7 @@ kind: "package-reference"
 - [terminal 服务](../terminal/README.zh.md)——会话操作、所有者限制与清理语义。
 - [terminal-bash 后端](../terminal-bash/README.zh.md)——提供会话的随附 shell 后端。
 - [jobs 包映射](../../jobs/README.zh.md)——收集与停止后台发送的后台任务接口面。
-- [持久 PTY Agent Note](../../../.agents/notes/implemented/feature/2026-07-16-persistent-pty-sessions.zh.md)——能力设计与暂缓边界。
+- [持久 PTY Agent Note](../../../.agents/notes/implemented/feature/2026-07-16-persistent-pty-sessions.md)——能力设计与暂缓边界。
 
 -----
 
@@ -182,5 +182,3 @@ spawn 返回 id 与有界启动输出。发送与读取返回有界终端文本�
 无。
 
 </details>
-
-**运行时不变式：** 不发布伴生入口。这个无状态适配器只贡献工具与提示词指引；PTY 生命周期与后台任务关系仍由其组合的服务持有。

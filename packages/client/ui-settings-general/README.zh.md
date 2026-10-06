@@ -94,7 +94,7 @@ Web 与桌面端的通用设置底部显示当前发布版本，使用构建注�
 - [ui-sidebar](../ui-sidebar/README.zh.md)——承载 `sidebar.settings` 席位的侧边栏外壳。
 - [ui-settings-models](../ui-settings-models/README.zh.md)——贡献 DeepSeek 引导步骤的功能包。
 - [settings](../../settings/README.zh.md)——持久化用户设置 seam 及其文件提供方。
-- [slot 系统标准](../../../.agents/notes/implemented/architecture/2026-07-22-slot-type-chain-implementation.zh.md)——账本背后的组合模型。
+- [slot 系统标准](../../../.agents/notes/implemented/architecture/2026-07-22-slot-type-chain-implementation.md)——账本背后的组合模型。
 
 -----
 
@@ -126,5 +126,3 @@ Web 与桌面端的通用设置底部显示当前发布版本，使用构建注�
 无。
 
 </details>
-
-**运行时不变式：** 不发布伴生入口。settings seam 校验并发布持久 onboarding section，slot core 会拒绝冲突；本地 document action 由 store 与组件测试覆盖。

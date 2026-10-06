@@ -80,7 +80,6 @@ kind: "package-reference"
 | [`src/index.ts`](src/index.ts) | 插件入口：工具注册、配置、系统提示词章节、结果渲染 |
 | [`src/authority.ts`](src/authority.ts) | 执行时权限检查与 Goal Round 接受 |
 | [`src/wrapup.ts`](src/wrapup.ts) | 终局自主更新的结束消息指令 |
-| — | 不发布运行时不变式伴生入口；此面向模型的适配器不拥有独立状态或事件协议；已接受的变更由 goal 领域检查，权限行为则由本包测试验证。 |
 
 ### 工具输出
 
@@ -98,7 +97,7 @@ kind: "package-reference"
 - [goal 服务](../goal/README.zh.md)——工具变更的 goal 状态与生命周期。
 - [goal 组地图](../README.zh.md)——goal 各包及其组合方式。
 - [生成的工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tool-goal)——模型接收的精确 schema。
-- [goal 工具 Agent Note](../../../.agents/notes/implemented/feature/2026-07-19-model-facing-goal-tools.zh.md)——权限拆分与 UX 决策。
+- [goal 工具 Agent Note](../../../.agents/notes/implemented/feature/2026-07-19-model-facing-goal-tools.md)——权限拆分与 UX 决策。
 
 -----
 

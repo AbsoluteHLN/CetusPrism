@@ -33,6 +33,8 @@ Client journal 在发布 follow 快照、live entry 或历史页之前验证当�
 
 每个 endpoint 都声明自己的激活策略。列表只读取持久化 header 与 projection cache row，绝不调用逐 Session stat 或打开冷 Session body。当前格式 cache identity 可以提供全部列表 hint；生命周期匹配的 predecessor cache 只能提供版本兼容的 title，作为可能过时的展示事实，绝不能作为权威 fold seed。搜索、附件、历史页、日志跟随、skill 发现和工作区路径打开可以在不激活 Agent 的情况下检查 persistence；`canOpenWorkspacePath()` 无需指定 Session 即可报告原生打开能力。取消要求 live 状态；queue 变更、模型、重命名、prompt 和文件引用操作可以解析或恢复普通 Session。提示词会在解析 Agent 或追加 Session 事件前，拒绝既没有非空白文本也没有附件的 content；queue edit 只接受非空文本 content。prompt 准入从注入的 [`fileUploads`](../../client/file-upload/README.zh.md) Host 服务取得不透明凭证，在把完整有序内容列表交给 `ctx.attachments` 前解析每个属于同一 Agent 的凭证。`requestId` 已进入 queue 或日志时，prompt 重试直接返回原来的接受结果，不会重复插入消息。只有 create 与 fork 会直接创建新 Agent。该服务把同一套感知 preset 的恢复策略和 subagent ownership fence 同时用于自身方法，以及其他 Remote namespace 使用的 Typert Agent 与 Session lookup。Queue 变更只有一个狭窄例外：当前 projection identity 为 continuable 且来自自身非 seed suffix 的在线 child，可以在两个 inbox 目标上使用普通 Edit、Remove 与 QueueDock Steer action。One-shot、缺失、未知、损坏、仅含 seed identity 或冷 child 继续被拒绝，且不会恢复。skill 目录优先使用已有 live Agent，否则使用所记录 preset 的常驻 scope，因此列表查询绝不会启动 Agent。经过鉴权的文件交付路由通过 `workspaceDesktop()` 获取提供服务的 Host 名称和文件管理器行为。`openWorkspacePath({ path, action: "reveal" })` 将文件管理器导航委托给原生适配器；省略 `action` 时按文件类型关联打开，包括 HTML 和 SVG。两种操作都要求当前文件系统将请求的 Host 路径映射到同一个规范进程路径；无法映射的远端路径会在执行原生命令之前被拒绝。 `session.projections` 通过一次 live-preferred Session observation 读取完整基线，不激活 Agent。Session 不存在时返回 null，并可提供任意已注册的 projection key。Client 通过 `projectionsBySession` 暴露共享值和显式读取状态，由领域选择自身的 key。Session 列表摘要携带 `agentAvailable`，通过已有摘要与状态事件更新，与持久化 projection 相互独立。初始读取与实时 projection 帧使用相同的序号排序规则。
 
+Host 仅在配置的工作时间片耗尽时，于完整条目之间让出事件循环；剩余工作较少时直接返回，不强制让出。每行及每次让出之后检查请求取消，取消时拒绝返回部分结果。每行同步计算；列表不承诺跨 Session 的统一快照。已经进入冷态队列的 Session 若在让出期间接入，仍返回缓存行：Client 对进行中请求的变更重放会纠正其可用性，带序号的投影会覆盖缓存提示。
+
 Client 列表行和驻留 Session 使用当前 `sessionListMetadata` 投影纠正过期的空白会话提示；最近活动时间取摘要时间戳与投影中最后一次用户提示词时间的较晚值。当 SessionManager 在列表行到达前创建实例时，会使用已保留的该 Session 元数据对账空白状态。因此，即使旧列表响应仍将已有对话标为空白，新会话操作也不会复用已经打开过的对话。
 
 显式 ID 的 `session.create` 会收养活动 Session，或恢复持久化 Session 并持续持有其写锁。写锁争用返回 `session/writer-held`；调用方可以尝试其他空白会话，同时保留其他失败。`session.list` 根据缓存元数据列出持久化空白会话，不打开冷日志正文。
@@ -43,7 +45,7 @@ Client 列表刷新保留未变化的行对象，并在顺序和值均相同时�
 
 投影读取独立于其值保留加载与失败状态。重连会取消上一连接的读取，并重新加载已请求的投影；实时成员更新通过 control stream 到达。父 Agent 可用性来自 Host 摘要，在收到对应摘要或成功的列表 baseline 前保持未知。地址查找直接解析投影中的子项，不会选择它们或创建 scope。
 
-已受理的提示词与已观察到的运行，会使客户端展示转换跨列表刷新、重连及 Session 对象替换保留。Manager 按 Session id 保留这些观察；它们不证明持久历史已经产生。草稿、投影存储和侧边栏展示规则保留原有行为。[blank 回退修复决策](../../../.agents/notes/implemented/bug-fix/2026-09-15-client-session-blank-reconciliation.zh.md) 定义保留期限及迟到响应处理。
+已受理的提示词与已观察到的运行，会使客户端展示转换跨列表刷新、重连及 Session 对象替换保留。Manager 按 Session id 保留这些观察；它们不证明持久历史已经产生。草稿、投影存储和侧边栏展示规则保留原有行为。[blank 回退修复决策](../../../.agents/notes/implemented/bug-fix/2026-09-15-client-session-blank-reconciliation.md) 定义保留期限及迟到响应处理。
 
 Client 适配器提供 `SessionEventStream`，即绑定到一个普通 Session 或 direct subagent address 的 Gateway `RemoteJournalStream`。它在读取首个 page 前打开 follow，只发布连续的 `replace`、`prepend`、`append` 与 `settle-assistant` 变更，并通过 tail page 修复重连或 seq 缺口。向后分页有两个动词：`loadOlder()` 拉一页按轮次开头对齐的历史，而 `loadThrough(seq)`——轮次跳转加载器——按轮次开头对齐页面循环拉取直到窗口覆盖目标 seq，重复调用会下调共享目标，遇到无进展的页即停止，忙碌状态复用同一个 `loadingOlder` 快照位。Web 适配器显式选择接收无 cursor 的 Assistant frame：每个 opening 携带活跃 attempt 的 `startedAfterSeq`、`nextIndex` 与紧凑 stream，每个 stream member 都成为排在持久 cursor 之间的 Client-only `assistant/live-chunk` 条目。Host 会随该 baseline 捕获 follower 本地到达序号，并抑制该 cut 及之前的 buffered frame；replacement Agent 可以从 revision 一重新开始。活跃 opening 之后到达的持久 `assistant/message` 或 `assistant/attempt` 只有在其 seq 晚于 `startedAfterSeq` 且轮次与步骤匹配时才会保持暂存；匹配的 end type、seq 与 index 会发布持久条目。成功消息的瞬态 row 保留到所属 `step/end`，让待派发工具的身份持续可用；失败或中断的 settlement 立即移除对应 row，同一步骤中更早的 retry 仍然保留。已知 attempt 的 revision、密集 index 或 settlement 缺口会重新打开 follow；若 controller 错过 start，则忽略 unknown-attempt frame，并正常发布其持久 settlement。Abandoned end 会发布不含持久条目的 settlement delta，使瞬态 row 立即退出。持久缺口修复 page 不携带 Assistant baseline，因此 held notification 会重新打开 follow 一次，以取得配对的 page 与 baseline。每条历史 record 只覆盖自身的事件 seq。业务、persistence 或无法恢复的连续性错误会终止 stream，只有物理载体断开才触发自动恢复。`SessionControlStream` 是 Gateway `RemoteSnapshotStream`；每代都以完整的进程本地 baseline 开始，因此重连会替换 projection 状态，而不会把瞬态值当作 durable event。每次 Host generation 就绪时，同步的 Client 订阅会先清除保留的投影值及其水位，再刷新查询并重新打开 control stream，其中也包括 control baseline 中没有列出的 Session。首次 control stream 会等待 generation 就绪，确保其 opening 值不会先于旧状态清理到达。上一代尚未完成的 list 响应无法重新发布这些值。同一 generation 内，延迟到达的 control baseline 不能覆盖或清除较新的 sequenced 值，无论它们来自活 Session 的 list block、history page 还是 frame；冷 Session 从 projection cache 看出来的 cached list block 则不论水位都让位于建连 Session 的 baseline。持久 `inbox` 投影通过与其他投影相同的冷读取和重连路径传输两份待处理列表。Client Agent 上下文提供独立 [`fileUpload`](../../client/file-upload/README.zh.md) 服务使用的身份；Session 对象提供生命周期、prompt、queue 与历史操作，不提供文件传输。
 
@@ -73,7 +75,7 @@ Client 的首次 `follow`、重连首屏与 `loadOlder()` 至少请求 50 条以
 
 `sessions.retain(target, { source, signal? })` 立即获取一个精确 Client generation 的引用，并启动其共享的首次历史打开。目标是已知 Session id 或持久的直接父子 subagent 地址；Host 在打开历史时校验显式地址。返回引用支持幂等的 `release()` 和 `Symbol.dispose`；其 `ready` Promise 跟随共享的 `Session.open()` 结果，并在该次尝试结算时解析为确切 binding，包括 Remote failure 以 `openState: 'error'` 表示的情况。仅当 `Session.open()` 拒绝、等待方取消或引用提前释放时，`ready` 才拒绝。取消一个等待方不会取消其他 owner 的打开。`sessions.using(target, options, operation)` 等待该次结算，持有引用直到回调结束，并传播被拒绝的就绪与回调失败。
 
-引用保活本地会话数据、作用域 Context 和历史流，不保活 Host Agent。普通 Session 不因保留引用而添加目录行。已保留且具有明确直接父子地址的 subagent 即使尚未收到父目录，也会保留兜底行并通知列表读取方；这些行不加入 Host 列表成员集合。Fork 标题设置直接发送 rename 并应用返回的标题投影，不 retain 子会话，也不打开其历史。最后一个引用释放时，generation 先退出可访问映射，再执行清理；后续获取可以为同一 id 创建新 generation。`binding(id)` 和 `scope(id)` 只借用已有 generation。`retainInfo(id)` 独立于目录成员关系观察稳定的只读来源计数，不执行历史 I/O。消费方来源键可通过声明合并扩展；导航和完成确认属于 UI 消费方，不属于本控制器。所有权与清理规则见 [Client 会话引用](../../../.agents/notes/implemented/architecture/2026-09-15-client-session-references.zh.md)。 模式未知的子代理地址允许读取历史，但仍校验直接父级。成功恢复 descriptor 后确定展示模式；失败只影响该子会话，控制请求仍要求已确认的 continuable 身份。
+引用保活本地会话数据、作用域 Context 和历史流，不保活 Host Agent。普通 Session 不因保留引用而添加目录行。已保留且具有明确直接父子地址的 subagent 即使尚未收到父目录，也会保留兜底行并通知列表读取方；这些行不加入 Host 列表成员集合。Fork 标题设置直接发送 rename 并应用返回的标题投影，不 retain 子会话，也不打开其历史。最后一个引用释放时，generation 先退出可访问映射，再执行清理；后续获取可以为同一 id 创建新 generation。`binding(id)` 和 `scope(id)` 只借用已有 generation。`retainInfo(id)` 独立于目录成员关系观察稳定的只读来源计数，不执行历史 I/O。消费方来源键可通过声明合并扩展；导航和完成确认属于 UI 消费方，不属于本控制器。所有权与清理规则见 [Client 会话引用](../../../.agents/notes/implemented/architecture/2026-09-15-client-session-references.md)。 模式未知的子代理地址允许读取历史，但仍校验直接父级。成功恢复 descriptor 后确定展示模式；失败只影响该子会话，控制请求仍要求已确认的 continuable 身份。
 
 <a id="session-media-references"></a>
 ## 会话媒体引用
@@ -92,6 +94,7 @@ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不�
 | 字段 | 默认值 | 含义 |
 |---|---:|---|
 | `nativeOpen` | 平台探测 | 是否能把 Session 工作区路径交给原生桌面打开器 |
+| `listWorkSliceMs` | `16` | 列表工作时间片，单位为毫秒，取正整数；在完整条目之间检查 |
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-api-session-controller)是所有受支持字段及其 JSDoc 的完整来源。
 
@@ -110,6 +113,7 @@ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不�
 
 <a id="known-limitations-and-deferred-work"></a>
 
+- 单个摘要、查询提供方自身的枚举、最终排序和响应序列化都可能超出列表时间片目标；它不是 Host 延迟的硬上限。
 - 图片字节上限不校验解码后的尺寸或像素数。
 - follow 恢复失败会对调用方可见，而不会无限重试。
 - 浏览器原始字节上传使用一次不带断点续传偏移的流式 HTTP 请求；重试会从第零字节重新传输整个文件。
@@ -127,5 +131,3 @@ GUI 模型选择要求确切提供方／模型对出现在可用目录中；不�
 无。
 
 </details>
-
-**运行时不变式：** 不发布伴生入口。每个分页与帧都会对照其指向的持久 Session 校验。

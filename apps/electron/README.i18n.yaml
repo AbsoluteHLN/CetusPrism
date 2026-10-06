@@ -1,6 +1,37 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write apps/electron/README.md
-README.md: c846b45c13c42df9ee11dae6e5b09307f78bdb0f
-README.zh.md: 8edb6454d7a2cbec9ad10bd750b6af3af84db72c
+/dsh-electron:
+  en: c3f8e4a80fc27c6c
+  zh: 0ed2ac0908f24f82
+/dsh-electron/architecture:
+  en: fc3c086574dee6a4
+  zh: e687c4e4c961719d
+/dsh-electron/tray-and-background-mode:
+  en: 79f05b60cb6db4fe
+  zh: b9db74b875d92444
+/dsh-electron/cli-shims-and-the-installer-s-path-page:
+  en: 6a7a1d975db0fc69
+  zh: 77343e2a99484fa0
+/dsh-electron/experimental-features:
+  en: 20f2c8834cd85446
+  zh: d60824e26d7a433b
+/dsh-electron/first-run-home-inheritance-and-transfer:
+  en: 5f5c21b19da0fecc
+  zh: ce4630a0089ec34a
+/dsh-electron/build-and-pack-windows:
+  en: 083633fb31acb0ac
+  zh: eb99d41985c3cf1c
+/dsh-electron/build-and-pack-linux-deb:
+  en: 3688cac94084fb02
+  zh: 0a718be3affb5be7
+/dsh-electron/deploy-layout-hoisted-self-contained:
+  en: 15dd270d9ccc6c7d
+  zh: b77aa3e9b7431c71
+/dsh-electron/runtime-choice:
+  en: 6581f9bbddafcc49
+  zh: 8863b63ef7238220
+/dsh-electron/machine-local-state:
+  en: 71c7cae7583d976d
+  zh: 5d8e0666d2b2c7f9

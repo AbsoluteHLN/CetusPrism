@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-root",
-  "version": "0.2.0-rc.2",
+  "version": "0.2.1-alpha.1",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -22,8 +22,8 @@
     "build:bench": "npm run build:native-system && npm run build:lib && tsdown --config-loader native --config benchmarks/tsdown.config.ts",
     "build:official": "tsx scripts/build.ts --profile official",
     "build:lib": "pnpm run build:lib:host && pnpm run build:lib:client",
-    "build:lib:host": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc -b configs/tsconfig.host.json && tsdown --config configs/tsdown.config.ts --config-loader tsx --env.DSH_BUILD_FACE host && pnpm --filter @deepseek-ai/dsh-desktop run bundle",
-    "build:lib:client": "tsc -b configs/tsconfig.client.json && tsdown --config configs/tsdown.config.ts --config-loader tsx --env.DSH_BUILD_FACE client",
+    "build:lib:host": "node --max-old-space-size=4096 ./node_modules/typescript/bin/tsc -b configs/tsconfig.host.json && tsdown --config configs/tsdown.config.ts --config-loader native --env.DSH_BUILD_FACE host && pnpm --filter @deepseek-ai/dsh-desktop run bundle",
+    "build:lib:client": "tsc -b configs/tsconfig.client.json && tsdown --config configs/tsdown.config.ts --config-loader native --env.DSH_BUILD_FACE client",
     "build:web": "pnpm --filter @deepseek-ai/dsh-web-frontend run build",
     "build:electron": "pnpm --filter @deepseek-ai/dsh-electron run build",
     "dist:win": "tsx scripts/build.ts && pnpm --filter @deepseek-ai/dsh-electron run dist:win",
@@ -109,9 +109,7 @@
     "verify-package-paths": "tsx scripts/verify-package-paths.ts",
     "verify-dsh-package-licenses": "tsx scripts/verify-dsh-package-licenses.ts",
     "verify-config-source-ownership": "tsx scripts/verify-config-source-ownership.ts",
-    "verify-package-invariants": "tsx scripts/verify-package-invariants.ts",
     "verify-package-meta": "tsx scripts/verify-package-meta.ts",
-    "verify-built-package-invariants": "node scripts/verify-built-package-invariants.mjs",
     "verify-package-readme-model-experience": "tsx scripts/verify-package-readme-model-experience.ts",
     "verify-package-readme-summaries": "tsx scripts/verify-package-readme-summaries.ts",
     "verify-mermaid": "tsx scripts/verify-mermaid.ts",
@@ -123,7 +121,6 @@
     "verify-translation-prompt": "tsx scripts/verify-translation-prompt.ts",
     "verify-translation-pairing": "tsx scripts/verify-translation-pairing.ts",
     "test:docs": "tsx scripts/run-gates.ts doc-quick",
-    "resolve-translation-pairing-conflicts": "tsx scripts/merge-translation-pairing.ts --resolve",
     "gen-translation-brief": "tsx scripts/gen-translation-brief.ts",
     "verify-doc-budgets": "tsx scripts/verify-doc-budgets.ts",
     "docs:dev": "pnpm --filter @deepseek-ai/website run dev",
@@ -206,7 +203,12 @@
     "dev:web": "tsx scripts/dev-web.ts --poll",
     "postinstall": "node scripts/install-lefthook.mjs",
     "check:ci:unit": "tsx scripts/run-gates.ts ci-unit",
-    "verify-upgrade-guides": "tsx scripts/verify-upgrade-guides.ts"
+    "verify-upgrade-guides": "tsx scripts/verify-upgrade-guides.ts",
+    "upload:latest:mac:arm64": "pnpm --filter @deepseek-ai/dsh-desktop run upload:latest:mac:arm64",
+    "upload:latest:mac:x64": "pnpm --filter @deepseek-ai/dsh-desktop run upload:latest:mac:x64",
+    "upload:latest:win:x64": "pnpm --filter @deepseek-ai/dsh-desktop run upload:latest:win:x64",
+    "verify-package-invariants": "tsx scripts/verify-package-invariants.ts",
+    "verify-built-package-invariants": "node scripts/verify-built-package-invariants.mjs"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-agent": "workspace:*",
@@ -261,6 +263,10 @@
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^4.1.8",
     "@deepseek-ai/dsh-skill-office": "workspace:*",
-    "@deepseek-ai/dsh-tool-workspace-dependencies": "workspace:*"
+    "@deepseek-ai/dsh-tool-workspace-dependencies": "workspace:*",
+    "@deepseek-ai/dsh-experimental-claude-code-mods": "workspace:*",
+    "@types/semver": "^7.8.0",
+    "semver": "^7.8.5",
+    "vite": "8.0.16"
   }
 }

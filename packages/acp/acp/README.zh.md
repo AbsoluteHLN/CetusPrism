@@ -93,7 +93,7 @@ kind: "package-reference"
 - **诚实的能力与配置状态。** `initialize` 只公布已挂载支持，拓扑变化会发布完整配置选项，提示词则固定其准入时的确切路由。
 - **停稳后才结算。** 提示词与关闭操作只在其拥有的准入、Agent 活动、有序更新、后代、持久化与释放达到所需终态后才结算。
 
-决策历史记录在 [ACP 作为仅面向自动化的协议笔记](../../../.agents/notes/implemented/simplification/2026-07-23-acp-automation-only-protocol.zh.md) 与[多会话笔记](../../../.agents/notes/archived/feature/2026-06-14-acp-multi-session.md) 中。
+决策历史记录在 [ACP 作为仅面向自动化的协议笔记](../../../.agents/notes/implemented/simplification/2026-07-23-acp-automation-only-protocol.md) 与[多会话笔记](../../../.agents/notes/archived/feature/2026-06-14-acp-multi-session.md) 中。
 
 ### 源码地图
 
@@ -102,7 +102,6 @@ kind: "package-reference"
 | [`src/index.ts`](src/index.ts) | 插件入口：`Config` schema、`AgentSideConnection` 接线、按会话记录、准入与结算、清理 |
 | [`src/content.ts`](src/content.ts) | 协议内容准入与投影：图片校验、路由重查、提示词重建、assistant 块转换 |
 | [`src/codec.ts`](src/codec.ts) | 轮次结束到 ACP `stopReason` 的纯映射 |
-| — | 不发布运行时不变式伴生入口；本传输不拥有持久包内事件流；协议与生命周期测试覆盖其映射。 |
 
 ### 准入与提示词结算
 
@@ -122,7 +121,7 @@ kind: "package-reference"
 当包级约定不够用时阅读以下页面。它们从匹配的客户端逐步进入自动化约定背后的设计记录。
 
 - [dsh-subagent-acp](../../subagent/subagent-acp/README.zh.md)——spawn 并驱动本服务器的进程外 ACP 客户端。
-- [ACP 作为仅面向自动化的协议](../../../.agents/notes/implemented/simplification/2026-07-23-acp-automation-only-protocol.zh.md)——自动化约定及其协议边界的决策记录。
+- [ACP 作为仅面向自动化的协议](../../../.agents/notes/implemented/simplification/2026-07-23-acp-automation-only-protocol.md)——自动化约定及其协议边界的决策记录。
 - [在单个连接上多路复用并发 ACP 会话](../../../.agents/notes/archived/feature/2026-06-14-acp-multi-session.md)——按会话隔离、归属与清理决策。
 - [扩展实操手册](../../../docs/cookbook/extension-cookbook.zh.md)——本包作为扩展作者的仅自动化完整示例。
 

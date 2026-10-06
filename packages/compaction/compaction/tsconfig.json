@@ -9,6 +9,9 @@
   ],
   "references": [
     {
+      "path": "../../runtime-diagnostics/invariants"
+    },
+    {
       "path": "../../util/brand"
     },
     {
@@ -25,9 +28,6 @@
     },
     {
       "path": "../../core/session"
-    },
-    {
-      "path": "../../runtime-diagnostics/invariants"
     }
   ]
 }

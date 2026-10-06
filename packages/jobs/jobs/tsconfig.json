@@ -9,6 +9,9 @@
   ],
   "references": [
     {
+      "path": "../../runtime-diagnostics/invariants"
+    },
+    {
       "path": "../../../vendor/cosmokit"
     },
     {
@@ -22,9 +25,6 @@
     },
     {
       "path": "../../core/session"
-    },
-    {
-      "path": "../../runtime-diagnostics/invariants"
     },
     {
       "path": "../../workspace/workspace"

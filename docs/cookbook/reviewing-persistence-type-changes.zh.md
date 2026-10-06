@@ -8,7 +8,7 @@ description: "在创建 PR 前，本地生成、确认并验证会话持久化�
 
 ## 概述
 
-在已安装依赖的贡献者检出目录中修改会话持久化类型声明后，使用本教程。提供双语兼容性说明，再用一条命令分类变更并生成记录。[记录参考](../persistence-changes/README.zh.md)解释文件和自动规则。所有比较输入都在检出目录中；不需要基线分支或网络访问。
+在已安装依赖的贡献者检出目录中修改会话持久化类型声明后，使用本教程。提供双语兼容性说明，再用一条命令分类变更并生成记录。[记录参考](../persistence-changes/README.md)解释文件和自动规则。所有比较输入都在检出目录中；不需要基线分支或网络访问。
 
 ## 目录
 
@@ -73,7 +73,7 @@ pnpm --silent run persistence-changes --record 2026-09-11-poc-optional --prose .
 
 命令在写入前验证历史和双语说明、推断最低版本决策，并检查所需的头部版本递增。它生成记录对、完整的变更后 schema、两份目录、机器清单和配对记录。提交前审阅说明及返回的 `changes`、`roots` 和 `files`。省略 `--prose` 会创建未完成草稿，验证将拒绝它们，直到说明补齐。
 
-推断遵循[固定兼容性规则](../persistence-changes/README.zh.md#compatibility-rules)，不会更改源码或放宽规则。需要升版本时，先遵循[添加会话格式版本](adding-a-session-format-version.zh.md)。记录必须包含其自身的 `SessionHeader.version` 递增转换；无关的历史升版本不能授权它。日常变更不创建另一条基线。
+推断遵循[固定兼容性规则](../persistence-changes/README.md#compatibility-rules)，不会更改源码或放宽规则。需要升版本时，先遵循[添加会话格式版本](adding-a-session-format-version.zh.md)。记录必须包含其自身的 `SessionHeader.version` 递增转换；无关的历史升版本不能授权它。日常变更不创建另一条基线。
 
 <a id="verify"></a>
 ## 2. 检查、提交并推送
@@ -99,7 +99,7 @@ pnpm --silent run persistence-changes --update 2026-09-11-poc-optional --prose .
 
 命令刷新机器声明、schema、目录和配对。没有 `--prose` 时，它保留已有说明。更新会拒绝初始基线、其他记录所依赖的记录，以及已被定稿检查点锁定的记录。定稿检查点之外，目录不会推断审阅接受状态：保留已接受历史，并创建后继。
 
-集成产生竞争末端记录时，根据剩余历史更新尚未接受的记录，再重新评估最终差异。无关根的确认无需刷新。[机制决策](../../.agents/notes/implemented/process/2026-09-11-persistence-type-history.zh.md)解释为何保留完整快照和逐根前驱。
+集成产生竞争末端记录时，根据剩余历史更新尚未接受的记录，再重新评估最终差异。无关根的确认无需刷新。[机制决策](../../.agents/notes/implemented/process/2026-09-11-persistence-type-history.md)解释为何保留完整快照和逐根前驱。
 
 显式 `--decision` 仍是受检查的断言。若已有属性的值类型发生变化，下面这个故意错误的断言会在写入前失败：
 

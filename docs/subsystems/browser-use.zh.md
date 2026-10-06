@@ -36,7 +36,7 @@ MCP 提供方为其加载后创建的每个活动 Agent 初始化一个客户端
 
 浏览器 MCP 连接还提供[资源和服务器指令](mcp.zh.md)。发往浏览器服务器的资源调用使用其 Session 队列，并拒绝其他 Session 的请求；服务器指令只会组装到所属 Session 的提示词中。
 
-[决策记录](../../.agents/notes/implemented/architecture/2026-09-12-browser-use-provider-registration.zh.md)解释只注册名称的服务与按 Session 管理的所有权。
+[决策记录](../../.agents/notes/implemented/architecture/2026-09-12-browser-use-provider-registration.md)解释只注册名称的服务与按 Session 管理的所有权。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 

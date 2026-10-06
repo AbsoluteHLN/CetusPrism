@@ -88,7 +88,6 @@ const { asOfSeq, values } = ctx.sessionProjections.snapshot(session)
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：`SessionProjectionRegistry` 服务、`ProjectionDefinition`、快照与检查点机制 |
 | [`src/types.ts`](src/types.ts) | 可合并扩展的 `SessionProjectionMap` 与 `SessionProjectionStateMap` 类型表 |
-| — | 不发布运行时不变式伴生入口；注册表自身的约定（拒绝重复键和非法 stateVersion、随 effect 移除、以 `Object.is` 把守变更）由服务同步强制执行并经其规范验证；驱动关系若要检查就必须重新运行驱动，从而重复实现逻辑；所服务值之间的关系由载体协议路径负责。同步单元纪律则尽可能由边界 `schema.parse` 强制执行。 |
 
 ### 驱动与检查点流程
 
@@ -107,7 +106,7 @@ const { asOfSeq, values } = ctx.sessionProjections.snapshot(session)
 - [会话持久化子系统](../../../docs/subsystems/persistence.zh.md)——投影折叠其上的事件日志。
 - [会话投影缓存](../session-projection-cache/README.zh.md)——让冷读跳过全量日志加载的持久检查点。
 - [会话包映射](../README.zh.md)——相邻的持久化、标题与遥测包。
-- [会话投影 RFC](../../../.agents/notes/proposed/architecture/2026-07-27-session-projection-and-command-log.zh.md)——投影与命令日志的设计理由。
+- [会话投影 RFC](../../../.agents/notes/proposed/architecture/2026-07-27-session-projection-and-command-log.md)——投影与命令日志的设计理由。
 
 -----
 

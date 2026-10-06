@@ -11,10 +11,13 @@ apps/electron/
   src-tauri/src/main.rs    shell: single instance, spawn backend, wait for
                            readiness, show frameless window, kill backend on exit;
                            tray icon, close-to-tray background mode
-  src-tauri/src/platform_win.rs   Windows 平台面：命名互斥单实例、焦点事件、
-                           kill-on-close job object、WinRT 通知、%APPDATA% 用户数据
-  src-tauri/src/platform_linux.rs  Linux 平台面：Unix socket 单实例与焦点信号、
-                           后端独立会话 + 父进程死亡信号、notify-send、XDG 用户数据
+  src-tauri/src/platform_win.rs   Windows face: named-mutex single instance,
+                           focus event, kill-on-close job object, WinRT toasts,
+                           %APPDATA% user data, explorer handoff
+  src-tauri/src/platform_linux.rs  Linux face: Unix-socket single instance and
+                           focus signal, backend session + parent-death signal,
+                           notify-send / xdg-open, XDG user data. main.rs picks
+                           one face through the cfg-aliased `platform` module
   src-tauri/src/dsh-home.rs  harness-home detection, first-run decision record,
                            transfer copy (Rust port of the removed dsh-home.ts)
   src-tauri/src/bridge.rs  the injected bridge script: window.dshDesktop plus
@@ -40,10 +43,11 @@ apps/electron/
   scripts/heal-deploy-links.mjs      deploy-layout invariant gate (see below)
   scripts/audit-junctions.mjs        verify every junction stays inside the runtime tree
   scripts/make-installer.mjs         NSIS installer via electron-builder --prepackaged
-  scripts/build-deb.mjs              Linux .deb 构建：在 cetusprism/linux-build 容器内
-                                     编译壳并调用 pack-linux.mjs
-  scripts/pack-linux.mjs             容器内运行：staging + pnpm deploy + dpkg-deb 组装
-  docker/linux-build.Dockerfile      Linux 构建镜像（rust:1-bookworm + WebKitGTK 等）
+  scripts/build-deb.mjs              Linux .deb leg: cargo build + pack inside the
+                           cetusprism/linux-build container (scripts/build-deb.mjs)
+  scripts/pack-linux.mjs             deb staging and dpkg-deb assembly, runs in the container
+  docker/linux-build.Dockerfile      the build image: rust:1-bookworm + WebKitGTK 4.1 +
+                           libayatana-appindicator + librsvg development packages
   build/installer.nsh      NSIS custom page + hooks: the CLI PATH opt-in page
                            (user PATH write, marker registry value, WM_SETTINGCHANGE
                            broadcast), the harness-home detection hint, and the
@@ -92,9 +96,9 @@ dist/CetusPrism-<version>-setup.exe
 ## 构建与打包（Linux .deb）
 
 ```sh
-docker build -f docker/linux-build.Dockerfile -t cetusprism/linux-build .   # 一次
+docker build -f docker/linux-build.Dockerfile -t cetusprism/linux-build .   # once
 node scripts/build-deb.mjs
-dist/CetusPrism-v<版本>-amd64.deb
+dist/CetusPrism-v<version>-amd64.deb
 ```
 
 构建在 `cetusprism/linux-build` 容器内进行（Debian bookworm，即 deb 要求的 glibc）：Tauri 壳对挂载的 cargo registry 缓存离线编译（WebKitGTK 4.1），随后 `pack-linux.mjs`——运行在挂载的 Linux Node v24.18.0 上——staging 出 `dist/linux-unpacked`，用同一 hoisted pnpm deploy 部署运行时闭包，裁剪非 linux-x64 预编译产物，并用 `dpkg-deb` 组装 deb：`/opt/CetusPrism/`、`cetusprism.desktop` 启动项、hicolor 图标与 `/usr/bin/dsh` shim。与 Windows 链路不同，容器内的 deploy 走宿主代理联网（`HTTP(S)_PROXY`，默认 `host.docker.internal:7897`）——store 在 Windows 侧填充，Linux 变体的可选原生包仍需获取。Windows 与 Linux 的目标树在依赖缓存 `cargo/targets/` 下并列（`cetusprism`、`cetusprism-linux`）。

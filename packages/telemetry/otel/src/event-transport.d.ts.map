@@ -1,1 +1,0 @@
-{"version":3,"file":"event-transport.d.ts","sourceRoot":"","sources":["event-transport.ts"],"names":[],"mappings":"AAIA,OAAO,EAAqD,KAAK,0BAA0B,EAAE,MAAM,mCAAmC,CAAA;AAEtI,OAAO,KAAK,EAAE,iBAAiB,EAAE,MAAM,yBAAyB,CAAA;AAGhE;;;;;GAKG;AACH,wBAAgB,sBAAsB,CAAC,OAAO,EAAE,0BAA0B,GAAG;IAAE,GAAG,EAAE,MAAM,CAAA;CAAE,EAAE,MAAM,EAAE,WAAW,GAAG,iBAAiB,CAyCpI"}

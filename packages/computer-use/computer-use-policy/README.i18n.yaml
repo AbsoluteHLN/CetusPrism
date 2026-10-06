@@ -1,0 +1,49 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/computer-use/computer-use-policy/README.md
+/:
+  en: ab391dedeb786c96
+  zh: 55521a84043f02eb
+/deepseek-ai-dsh-computer-use-policy:
+  en: 0a75936d8373bfa0
+  zh: bf3c51656a22275e
+/deepseek-ai-dsh-computer-use-policy/summary:
+  en: cb4f43641f70e894
+  zh: 6fdc884ff348570f
+/deepseek-ai-dsh-computer-use-policy/table-of-contents:
+  en: b563e4ec4727d0de
+  zh: 929f4765a7a91079
+/deepseek-ai-dsh-computer-use-policy/use-this-package:
+  en: 5a021a6a3bfb78fe
+  zh: 8cd348e5edeb3704
+/deepseek-ai-dsh-computer-use-policy/use-this-package/when-to-choose-it:
+  en: 33b33405ea5fe288
+  zh: f8e8ea14384849f5
+/deepseek-ai-dsh-computer-use-policy/use-this-package/minimal-configuration:
+  en: bce591f801baf090
+  zh: bbc569526fb3a8e8
+/deepseek-ai-dsh-computer-use-policy/use-this-package/switching-a-session-s-mode:
+  en: b1c601d9bcdadbe1
+  zh: 5b101b915c9aabc9
+/deepseek-ai-dsh-computer-use-policy/use-this-package/failures-and-recovery:
+  en: 0398bda724a6db53
+  zh: b8f75fdebe21b3fa
+/deepseek-ai-dsh-computer-use-policy/understand-the-implementation:
+  en: e81827b206b74554
+  zh: 2c4c8128e0b95d4f
+/deepseek-ai-dsh-computer-use-policy/further-exploration:
+  en: 338fc3d44bc8a3b3
+  zh: 0efeeab1afce0c7c
+/deepseek-ai-dsh-computer-use-policy/model-experience:
+  en: f9aa4818201feb14
+  zh: b218cb5439d5bee3
+/deepseek-ai-dsh-computer-use-policy/model-experience/kv-cache-effect:
+  en: 42b2d690ed2eabe4
+  zh: c395039562a2158d
+/deepseek-ai-dsh-computer-use-policy/known-limitations-and-deferred-work:
+  en: 08910a4e2cd7dadb
+  zh: 2ababda819ae5c9c
+/deepseek-ai-dsh-computer-use-policy/known-limitations-and-deferred-work/dev-note:
+  en: 4b74b06572876183
+  zh: 3b6f997e14d65817

@@ -180,6 +180,8 @@
     "../apps/desktop-host/tests/**/*.ts",
     "../benchmarks/**/*.ts",
     "../packages/*/*/tests/**/*.ts",
+    "../packages/experimental/claude-code-mods/examples/*/index.ts",
+    "../packages/experimental/inspector/scripts/**/*.ts",
     "../scripts/**/*.ts",
     "../website/**/*.ts",
     "../website/.vitepress/**/*.ts"
@@ -551,6 +553,9 @@
       "path": "../packages/core/system-prompt"
     },
     {
+      "path": "../packages/runtime-diagnostics/invariants"
+    },
+    {
       "path": "../packages/core/agent"
     },
     {
@@ -803,9 +808,6 @@
       "path": "../packages/guard/timeout-policy"
     },
     {
-      "path": "../packages/runtime-diagnostics/invariants"
-    },
-    {
       "path": "../packages/test-support/agent-loop-testkit"
     },
     {
@@ -918,6 +920,15 @@
     },
     {
       "path": "../packages/workflow/tool-workflow"
+    },
+    {
+      "path": "../packages/schedule/tool-schedule"
+    },
+    {
+      "path": "../packages/experimental/claude-code-mods"
+    },
+    {
+      "path": "../packages/experimental/inspector-profile"
     },
     {
       "path": "../packages/workflow/tool-ralph"

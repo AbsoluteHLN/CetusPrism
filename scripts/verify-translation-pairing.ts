@@ -1,6 +1,6 @@
 /**
- * Enforce complete English/Chinese pairs, matching structure, and recorded git
- * blob hashes for every in-scope document. The manifest contains only explicit
+ * Enforce complete English/Chinese pairs, matching structure, and recorded
+ * per-section hashes for every in-scope document. The manifest contains only explicit
  * exclusions, which may have neither a counterpart nor a sidecar.
  * `--list` reports state; `--write <pairs...>` records the named confirmed
  * pairs (`--write --all` records every complete pair); `--cached <pairs...>`
@@ -12,15 +12,12 @@
 
 import { existsSync, globSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join, resolve, sep } from 'node:path'
+import { gitIgnoredPaths, gitIndexPaths, isGitIgnoredPath, readGitIndexBlob } from './translation-pairing-git.ts'
 import {
-  gitBlobHash,
-  gitIndexPaths,
-  readGitIndexBlob,
-  storeGitBlob,
-} from './translation-pairing-git.ts'
-import {
+  computeTranslationPairingRecord,
   parseTranslationPairingRecord,
   renderTranslationPairingRecord,
+  translationPairingRecordDiff,
   translationPairPaths,
 } from './translation-pairing-record.ts'
 import {
@@ -28,7 +25,7 @@ import {
   parseTranslationMarkdown,
   parseTranslationPairingCliArgs,
   parseTranslationPairingManifest,
-  partitionGeneratedRegions,
+  generatedRegions,
   requiresSourceLanguageSwitcher,
   isTranslationPairingManifestExcluded,
   isTranslationScopeFile,
@@ -56,14 +53,33 @@ const writeMode = request.mode === 'write'
 const indexMode = request.input === 'index'
 const indexFiles = indexMode ? gitIndexPaths(root) : undefined
 
+/**
+ * Ignore-rule exclusions for the worktree plane. Both planes must agree that
+ * a gitignored path (`.agents/` in this fork) does not exist: the worktree
+ * otherwise normalizes links the index plane leaves raw, and the two planes
+ * compute different section hashes for the same committed record.
+ */
+function loadIgnoredPaths(): ReadonlySet<string> {
+  if (indexMode) return new Set<string>()
+  try {
+    return gitIgnoredPaths(root)
+  } catch (error) {
+    // Not a Git checkout: no ignore rules exist to honor, and the notice
+    // keeps that plane choice visible instead of silent.
+    console.error(`verify-translation-pairing: Git ignore rules unavailable, checking every on-disk file (${error instanceof Error ? error.message : String(error)})`)
+    return new Set<string>()
+  }
+}
+const ignoredPaths = loadIgnoredPaths()
+
 const contentCache = new Map<string, Buffer | undefined>()
 
 /** Read one repository path from the selected worktree or index plane. */
 function readRepositoryFile(file: string): Buffer | undefined {
   if (contentCache.has(file)) return contentCache.get(file)
   const content = indexMode
-    ? indexFiles?.has(file) ? readGitIndexBlob(root, file)?.content : undefined
-    : existsSync(join(root, file)) && statSync(join(root, file)).isFile()
+    ? indexFiles?.has(file) ? readGitIndexBlob(root, file) : undefined
+    : !isGitIgnoredPath(file, ignoredPaths) && existsSync(join(root, file)) && statSync(join(root, file)).isFile()
       ? readFileSync(join(root, file))
       : undefined
   contentCache.set(file, content)
@@ -100,6 +116,8 @@ function isExcluded(file: string): boolean {
   return isTranslationPairingManifestExcluded(file, manifest)
 }
 
+const recordContext = { repoRoot: root, isTranslationPairSource, repositoryFileExists }
+
 // Enumerate the scope once: the whole corpus, or exactly the named pairs'
 // three files (a named pair whose files are absent is caught by the same
 // completeness rules that cover discovered remnants).
@@ -119,6 +137,9 @@ if (request.scope === 'pairs') {
   for (const pattern of SCOPE_PATTERNS) {
     for (const match of globSync(pattern, { cwd: root, exclude: TRANSLATION_SCOPE_GLOB_EXCLUDES })) {
       const normalized = match.split(sep).join('/')
+      // Gitignored paths are outside both content planes even when the glob
+      // finds them on disk (`.agents/` notes in this fork).
+      if (isGitIgnoredPath(normalized, ignoredPaths)) continue
       if (isTranslationScopeFile(normalized)) files.add(normalized)
     }
   }
@@ -144,7 +165,7 @@ if (request.scope === 'pairs') {
   }
 }
 
-// --write: (re)record both hashes for the requested complete pairs, creating
+// --write: (re)record the section hashes for the requested complete pairs, creating
 // missing records. A named pair that cannot be recorded (missing counterpart)
 // fails loud; corpus scope (--all) skips pairless sources as before.
 if (writeMode) {
@@ -163,13 +184,18 @@ if (writeMode) {
     const sourceContent = readRepositoryFile(source)
     const zhContent = readRepositoryFile(zh)
     if (sourceContent === undefined || zhContent === undefined) throw new Error(`${source}: complete pair became unreadable`)
-    // A consistency record is also a recovery pointer for the briefing
-    // generator. Persist both snapshots even when the sidecar text is already
-    // current, because the bytes may exist only in this working tree.
-    const record = renderTranslationPairingRecord(paths, {
-      sourceHash: storeGitBlob(root, sourceContent),
-      zhHash: storeGitBlob(root, zhContent),
-    })
+    let record: string
+    try {
+      record = renderTranslationPairingRecord(paths, computeTranslationPairingRecord(
+        paths,
+        sourceContent.toString('utf8'),
+        zhContent.toString('utf8'),
+        recordContext,
+      ))
+    } catch (error) {
+      console.error(`verify-translation-pairing: cannot record ${source}: ${error instanceof Error ? error.message : String(error)}`)
+      process.exit(2)
+    }
     if (existsSync(join(root, meta)) && readFileSync(join(root, meta), 'utf8') === record) continue
     writeFileSync(join(root, meta), record)
     console.log(`verify-translation-pairing: recorded ${meta}`)
@@ -225,28 +251,34 @@ for (const source of [...pairAnchors].sort()) {
   if (sourceContent === undefined || zhContent === undefined || metaContent === undefined) {
     throw new Error(`${source}: complete pair became unreadable`)
   }
-  const record = parseTranslationPairingRecord(metaContent.toString('utf8'), paths)
+  const record = parseTranslationPairingRecord(metaContent.toString('utf8'))
   if (record === undefined) {
-    errors.push(`${meta}: malformed consistency record (expected exactly \`${basename(source)}: <40-hex>\` and \`${basename(zh)}: <40-hex>\`)`)
-    continue
-  }
-
-  let consistent = true
-  for (const [file, content] of [[source, sourceContent], [zh, zhContent]] as const) {
-    const current = gitBlobHash(content)
-    const recorded = file === source ? record.sourceHash : record.zhHash
-    if (recorded !== current) {
-      errors.push(`${file}: out of sync — content no longer matches the pair's last confirmed-consistent state in ${meta} (bring the other side along, then re-record with --write)`)
-      consistent = false
-    }
-  }
-  if (!consistent) {
+    errors.push(`${meta}: malformed consistency record (expected \`/<section path>:\` entries, each followed by \`  en: <16-hex>\` and \`  zh: <16-hex>\`)`)
     state.set(source, 'out-of-sync')
     continue
   }
 
   const sourceText = sourceContent.toString('utf8')
   const zhText = zhContent.toString('utf8')
+  let current: ReturnType<typeof computeTranslationPairingRecord>
+  try {
+    current = computeTranslationPairingRecord(paths, sourceText, zhText, recordContext)
+  } catch (error) {
+    errors.push(`${source} ↔ ${zh}: ${error instanceof Error ? error.message : String(error)}`)
+    state.set(source, 'out-of-sync')
+    continue
+  }
+  const recordErrors = translationPairingRecordDiff(record, current).map(message => (
+    `${meta}: out of sync — ${message} (bring the other side along, then re-record with --write)`
+  ))
+  if (recordErrors.length === 0 && renderTranslationPairingRecord(paths, current) !== metaContent.toString('utf8')) {
+    recordErrors.push(`${meta}: not in canonical form (re-record with --write)`)
+  }
+  if (recordErrors.length > 0) {
+    errors.push(...recordErrors)
+    state.set(source, 'out-of-sync')
+    continue
+  }
   const sourceSwitcherTargets = languageSwitcherTargets(source)
   const zhSwitcherTargets = languageSwitcherTargets(zh)
   for (const violation of [
@@ -271,23 +303,23 @@ for (const source of [...pairAnchors].sort()) {
   // are normalized to one semantic target. The structural signature below
   // compares their contents again as part of the whole document; this named
   // check rejects any prose, ordering, code, marker, or non-locale URL drift.
-  let sourceRegions: { regions: string[]; stripped: string }
-  let zhRegions: { regions: string[]; stripped: string }
+  let sourceRegions: string[]
+  let zhRegions: string[]
   try {
-    sourceRegions = partitionGeneratedRegions(sourceText)
-    zhRegions = partitionGeneratedRegions(zhText)
+    sourceRegions = generatedRegions(sourceText).map(region => region.text)
+    zhRegions = generatedRegions(zhText).map(region => region.text)
   } catch (error) {
     errors.push(`${source} ↔ ${zh}: ${error instanceof Error ? error.message : String(error)}`)
     state.set(source, 'out-of-sync')
     continue
   }
-  const normalizedSourceRegions = sourceRegions.regions.map(region => normalizeTranslationMarkdownLinks(region, {
+  const normalizedSourceRegions = sourceRegions.map(region => normalizeTranslationMarkdownLinks(region, {
     repoRoot: root,
     sourcePath: source,
     isTranslationPairSource,
     repositoryFileExists,
   }))
-  const normalizedZhRegions = zhRegions.regions.map(region => normalizeTranslationMarkdownLinks(region, {
+  const normalizedZhRegions = zhRegions.map(region => normalizeTranslationMarkdownLinks(region, {
     repoRoot: root,
     sourcePath: zh,
     isTranslationPairSource,

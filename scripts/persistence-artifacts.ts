@@ -1,11 +1,13 @@
 /** Render complete persistence documentation pairs without Git or file mutation. */
 
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { hasLanguageSwitcher } from './translation-links.ts'
-import { translationPairPaths } from './translation-pairing-record.ts'
+import { computeTranslationPairingRecord, renderTranslationPairingRecord, translationPairPaths } from './translation-pairing-record.ts'
+import { gitIgnoredPaths, isGitIgnoredPath } from './translation-pairing-git.ts'
 import {
-  blobHash, languageSwitcherTargets, parseTranslationMarkdown, parseTranslationPairingManifest,
-  renderPairMeta, requiresSourceLanguageSwitcher, translationPairSourcePredicate,
+  languageSwitcherTargets, parseTranslationMarkdown, parseTranslationPairingManifest,
+  requiresSourceLanguageSwitcher, translationPairSourcePredicate,
   translationStructureDiff, translationStructureSignature,
 } from './translation-pairing.ts'
 
@@ -39,7 +41,12 @@ export function renderPersistencePair(root: string, source: string, en: string, 
     || requiresSourceLanguageSwitcher(source) && !hasLanguageSwitcher(sourceTree, en, zhTargets)) {
     throw new Error(`${source}: both authored languages need their counterpart switcher`)
   }
-  const context = { repoRoot: root, isTranslationPairSource, repositoryFileExists: () => true }
+  const context = {
+    repoRoot: root,
+    isTranslationPairSource,
+    // Match the pairing gate's worktree plane: gitignored paths do not exist.
+    repositoryFileExists: (rel: string) => !isGitIgnoredPath(rel, gitIgnoredPaths(root)) && existsSync(join(root, rel)),
+  }
   const errors = translationStructureDiff(
     translationStructureSignature(sourceTree, zhTargets, { ...context, sourcePath: paths.source, markdown: en }),
     translationStructureSignature(zhTree, sourceTargets, { ...context, sourcePath: paths.zh, markdown: zh }),
@@ -48,6 +55,6 @@ export function renderPersistencePair(root: string, source: string, en: string, 
   return [
     { path: paths.source, content: en },
     { path: paths.zh, content: zh },
-    { path: paths.meta, content: renderPairMeta(paths.source, blobHash(Buffer.from(en)), paths.zh, blobHash(Buffer.from(zh))) },
+    { path: paths.meta, content: renderTranslationPairingRecord(paths, computeTranslationPairingRecord(paths, en, zh, context)) },
   ]
 }

@@ -53,7 +53,7 @@ kind: "package-reference"
 
 摘要失败使用同步的 `compaction/summary-error` waterfall。插件只在传入的摘要选区内选图，记录省略后返回 true。压缩后端重新派生该选区并计价，然后重试。每次重试都会继续省略保留的图片，没有可省略的位置时结束恢复。取消或无关的选区变更会使摘要失败。已经记录的省略在后续失败或取消后仍然有效。
 
-本包不发布运行时 invariant 伴生插件：纯投影在 Session 提交事件前拒绝无效或重复省略的图片引用，执行器不维护独立可变的省略状态。
+纯投影在 Session 提交事件前拒绝无效或重复省略的图片引用，执行器不维护独立可变的省略状态。
 
 </details>
 
@@ -62,7 +62,7 @@ kind: "package-reference"
 <a id="further-exploration"></a>
 ## 进一步探索
 
-- [独立的图片省略事件](../../../.agents/notes/implemented/architecture/2026-09-10-image-offload-events.zh.md)，记录持久选择、职责和被否决的方案。
+- [独立的图片省略事件](../../../.agents/notes/implemented/architecture/2026-09-10-image-offload-events.md)，记录持久选择、职责和被否决的方案。
 - [compaction seam](../compaction/README.zh.md)，相邻的摘要和文本剪枝操作。
 - [compaction-tool-result-pruner](../compaction-tool-result-pruner/README.zh.md)，保留图片选择并修剪工具输出的兄弟执行器。
 - [dsh-llm](../../llm/llm/README.zh.md)——`ImageBlock.offloaded`、`IMAGE_OFFLOAD_REQUIRED` 与占位投影。

@@ -13,11 +13,11 @@ kind: "package-reference"
 
 ## 目录
 
-- [使用本包](#使用本包)
-- [理解实现](#理解实现)
-- [延伸阅读](#延伸阅读)
-- [模型体验](#模型体验)
-- [已知限制与延期工作](#已知限制与延期工作)
+- [使用本包](#use-this-package)
+- [理解实现](#understand-the-implementation)
+- [延伸阅读](#further-exploration)
+- [模型体验](#model-experience)
+- [已知限制与延期工作](#known-limitations-and-deferred-work)
 
 -----
 
@@ -42,7 +42,7 @@ kind: "package-reference"
 |---|---|---|
 | `defaultMode` | `allow-foreground` | 会话在 `/foreground` 覆盖之前运行的投递模式，加载时校验 |
 
-生成的[配置目录](../../../docs/config-catalog.md#deepseek-aidsh-computer-use-policy)是全部字段及其 JSDoc 的详尽来源。
+生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-computer-use-policy)是全部字段及其 JSDoc 的详尽来源。
 
 ### 切换会话模式
 
@@ -62,8 +62,8 @@ kind: "package-reference"
 <a id="延伸阅读"></a>
 ## 延伸阅读
 
-- 提交 `/foreground` 的输入区开关在 Web 客户端：[@deepseek-ai/dsh-client-ui-computer-foreground](../../client/ui-computer-foreground/README.md)。
-- 执行侧提供方：[原生 Cua Driver](../../experimental/computer-use-cua-driver-native/README.md)。
+- 提交 `/foreground` 的输入区开关在 Web 客户端：[@deepseek-ai/dsh-client-ui-computer-foreground](../../client/ui-computer-foreground/README.zh.md)。
+- 执行侧提供方：[原生 Cua Driver](../../experimental/computer-use-cua-driver-native/README.zh.md)。
 
 -----
 

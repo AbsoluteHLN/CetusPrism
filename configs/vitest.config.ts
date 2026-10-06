@@ -152,9 +152,15 @@ const processBoundTests = [
   'packages/boot/app-boot/tests/app-boot.spec.ts',
   'packages/workflow/workflow-ptc/tests/workflow-ptc.spec.ts']
 
+// Claude Code's test-kit module names, served by the mods bridge's test support so the example mods' tests import them unchanged.
+const claudeCodeTestingAliases = {
+  'claude-code/testing': fileURLToPath(new URL('../packages/experimental/claude-code-mods/tests/support/claude-code-testing.ts', import.meta.url)),
+  'claude-code': fileURLToPath(new URL('../packages/experimental/claude-code-mods/tests/support/claude-code.ts', import.meta.url)),
+}
+
 export default defineConfig({
   plugins: [standardDecoratorPlugin()],
-  resolve: { alias: workspaceAliases() },
+  resolve: { alias: [...workspaceAliases(), { find: /^claude-code\/testing$/, replacement: claudeCodeTestingAliases["claude-code/testing"] }, { find: /^claude-code$/, replacement: claudeCodeTestingAliases["claude-code"] }] },
   test: {
     setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-invariants.ts', './scripts/test-dom-environment.ts'],
     // .tsx: client component specs (jsdom via per-file @vitest-environment pragma).
@@ -165,7 +171,7 @@ export default defineConfig({
     projects: [
       {
         plugins: [standardDecoratorPlugin()],
-        resolve: { alias: workspaceAliases() },
+        resolve: { alias: [...workspaceAliases(), { find: /^claude-code\/testing$/, replacement: claudeCodeTestingAliases["claude-code/testing"] }, { find: /^claude-code$/, replacement: claudeCodeTestingAliases["claude-code"] }] },
         test: {
           name: 'thread-safe',
           execArgv: vitestExecArgv,
@@ -184,7 +190,7 @@ export default defineConfig({
       },
       {
         plugins: [standardDecoratorPlugin()],
-        resolve: { alias: workspaceAliases() },
+        resolve: { alias: [...workspaceAliases(), { find: /^claude-code\/testing$/, replacement: claudeCodeTestingAliases["claude-code/testing"] }, { find: /^claude-code$/, replacement: claudeCodeTestingAliases["claude-code"] }] },
         test: {
           name: 'process-bound',
           execArgv: vitestExecArgv,

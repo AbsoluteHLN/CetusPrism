@@ -105,7 +105,6 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：`WebRuntime` 服务、两个提供方注册表与执行时选择 |
 | [`src/types.ts`](src/types.ts) | 词汇：请求／结果类型、封闭的 `WebFetchBody` 联合与 `WebError` 分类体系 |
-| — | 不发布运行时不变式配套项；提供方映射是私有数据，服务会在每次调用时执行提供方选择并强制执行结果上限；该 seam 不发布独立注册表，也不发布请求／结果观测流。 |
 
 ### 数据模型
 
@@ -129,7 +128,7 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 - [dsh-tool-web](../tool-web/README.zh.md)——构建于本服务之上的面向模型 `web_search` 与 `web_fetch` 工具。
 - [dsh-web-fetch-http](../web-fetch-http/README.zh.md)——已交付的匿名 HTTP(S) 抓取后端。
 - [生成配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-web)——每个受支持配置字段及其源声明。
-- [web 能力 seam 决策](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.zh.md)——搜索与抓取为何共用一项提供方选择服务。
+- [web 能力 seam 决策](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.md)——搜索与抓取为何共用一项提供方选择服务。
 
 -----
 
@@ -150,7 +149,7 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 这些限制说明本服务单独使用时在哪些方面不完整。它们是当前包约束。
 
 - **没有观测接口**：没有提供方变更事件或能力状态查询；可用性只能通过执行搜索或抓取并按抛出的 code 路由来观测，无提供方失败是通用的 `WEB_PROVIDER_UNAVAILABLE`，不枚举逐提供方原因（见 [Agent Note](../../../.agents/notes/archived/simplification/2026-07-04-drop-unconsumed-web-observation-surface.md)）。
-- **搜索请求只携带 `query` 与 `maxResults`**：提供方无关的控制项（新近程度、域名过滤条件、区域提示、搜索深度）暂缓至后端都能诚实支持时（见 [seam Agent Note](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.zh.md)）。
+- **搜索请求只携带 `query` 与 `maxResults`**：提供方无关的控制项（新近程度、域名过滤条件、区域提示、搜索深度）暂缓至后端都能诚实支持时（见 [seam Agent Note](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.md)）。
 - **`WebFetchBody` 没有 `pdf` 分支**：可提取文本的 PDF 支持属于明确的延期工作；封闭联合会使新增该分支成为跨 web 包、由编译强制执行的变更。
 - **提供方支持的页面提取不属于 `fetch()` 范围**：Firecrawl/Tavily 风格的 `web_extract` 能力延期，而不会扩展抓取操作。
 

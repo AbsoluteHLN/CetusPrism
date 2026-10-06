@@ -9,6 +9,9 @@
   ],
   "references": [
     {
+      "path": "../../runtime-diagnostics/invariants"
+    },
+    {
       "path": "../../../vendor/cosmokit"
     },
     {
@@ -43,9 +46,6 @@
     },
     {
       "path": "../../jobs/jobs"
-    },
-    {
-      "path": "../../runtime-diagnostics/invariants"
     }
   ]
 }

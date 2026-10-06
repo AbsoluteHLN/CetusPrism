@@ -76,7 +76,6 @@ kind: "package-reference"
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 函数插件：waterfall 监听器、策略查找、退避、持久事件追加 |
-| [`src/history.ts`](src/history.ts) | 从会话日志查找持久重试历史 |
 | [`src/types.ts`](src/types.ts) | 浏览器安全的 `llm/retry` 与 `llm/retry-started` 事件载荷类型 |
 | [`src/brand.ts`](src/brand.ts) | 事件载荷共享的 `RetryId` 品牌 |
 
@@ -100,7 +99,7 @@ kind: "package-reference"
 - [dsh-llm 服务](../llm/README.zh.md)——其适配器拥有 `retryPolicy` 的提供方无关服务。
 - [llm-deepseek 适配器](../llm-deepseek/README.zh.md)——带路由级 `retryPolicy` 的提供方适配器。
 - [llm-pi-ai 适配器](../llm-pi-ai/README.zh.md)——带逐 profile `retryPolicy` 的多提供方适配器。
-- [LLM 流终止失败](../../../.agents/notes/implemented/architecture/2026-07-29-terminal-llm-stream-failures.zh.md)——失败如何以终止分片到达服务边界。
+- [LLM 流终止失败](../../../.agents/notes/implemented/architecture/2026-07-29-terminal-llm-stream-failures.md)——失败如何以终止分片到达服务边界。
 - [LLM 流式子系统](../../../docs/subsystems/llm-streaming.zh.md)——`StreamChunk` 协议与适配器约定（adapter contract）。
 
 -----
@@ -144,6 +143,5 @@ kind: "package-reference"
 本开发备注是不具权威性的工作上下文：维护者备注与开放问题。已交付的行为与既定理由以上文、包代码和相关 Agent Note 为准。
 
 - 重试编号只在同一提供方与完整策略键的事件间延续，因此限额、code 成员或退避不同的路由替换会开启自己的历史；该键包含每个影响行为的字段，并因资格判断使用集合成员而对 normal mode code 排序。
-- 单独发布的 `./invariant` 伴生插件会对照会话日志校验每次计划的重试——点名当前打开轮次与最新闭合步骤、匹配失败请求的持久提供方，并要求每个 `llm/retry-started` 事件点名一次带相同重试 id、轮次、步骤与重试编号的先前计划尝试。
 
 </details>

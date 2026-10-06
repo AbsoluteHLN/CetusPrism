@@ -19,6 +19,8 @@ getPlatformSession 仅在已存授权的 issuer 与 platformOrigin 一致时导�
 
 通过系统浏览器登录，并将账号凭证保存在现有本地凭证存储中。本地取消会阻止迟到的回调和兑换响应使用户登录。
 
+当 fetch 在返回 Response 前拒绝（包括单次请求超时）时，Platform 请求报告 `no-response`。HTTP 错误和响应体失败不使用此代码；授权尝试到期仍使用 `expired`。
+
 设备身份读取会校验已有登录设备记录，仅提供设备 ID、当前账户 ID 和与登录共用的操作系统版本字符串。
 
 ## 目录
@@ -68,7 +70,7 @@ inferenceOrigin 默认为 `https://api.deepseek.com`。私有部署 patch 可将
 <a id="understand-the-implementation"></a>
 ## 理解实现
 
-不发布运行时 invariant：账号是否存在直接读取凭证存储，尝试状态直接投影私有状态；不存在可与另一个独立索引比较的账号索引。异步取消和提交由行为测试验证。
+账号是否存在直接读取凭证存储，尝试状态直接投影私有状态。异步取消和提交由行为测试验证。
 
 <a id="further-exploration"></a>
 ## 深入探索
@@ -95,7 +97,7 @@ attemptTimeoutMs 包含初始化、等待浏览器和兑换的耗时。初始化
 <a id="dev-note"></a>
 ### 开发备注
 
-[桌面登录决策](../../../.agents/notes/implemented/architecture/2026-09-14-deepseek-account-login.zh.md)记录取消和存储的职责。
+[桌面登录决策](../../../.agents/notes/implemented/architecture/2026-09-14-deepseek-account-login.md)记录取消和存储的职责。
 
 登录后首次读取资料使用 auth_exchange 返回并经筛选的 user。user 为 null 或格式无效时回退到 current；后续刷新及 Host 重启也查询 current。current 请求失败时保留 Host 内存中同一凭证最近一次成功的资料；凭证变更或提供者销毁时清空。current 成功返回的稳定账号 ID 首次可用或变化时会通知 watch 订阅者，供标识使用方重新读取 getPlatformSession；重复相同 ID 的刷新不通知。exchange 负责登记提交的设备信息。
 

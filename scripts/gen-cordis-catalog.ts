@@ -18,7 +18,7 @@
  * a missing regeneration.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import {
   projectCordisCatalog,
@@ -30,14 +30,9 @@ import {
 import type { CordisCatalogPolicy } from '@deepseek-ai/dsh-typert-generator'
 import { renderCordisCoreApiPages } from './cordis-core-api.ts'
 import { contextKeyMap, contextMergeFiles, eventNameList } from './cordis-walk.ts'
-import {
-  blobHash,
-  parsePairMeta,
-  parseTranslationPairingManifest,
-  partitionGeneratedRegions,
-  renderPairMeta,
-  translationPairSourcePredicate,
-} from './translation-pairing.ts'
+import { parseTranslationPairingManifest, partitionGeneratedRegions, translationPairSourcePredicate } from './translation-pairing.ts'
+import { computeTranslationPairingRecord, parseTranslationPairingRecord, renderTranslationPairingRecord, translationPairPaths } from './translation-pairing-record.ts'
+import { gitIgnoredPaths, isGitIgnoredPath } from './translation-pairing-git.ts'
 import { rewriteTranslationLinkLocales } from './translation-links.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -54,6 +49,9 @@ export { REGION_BEGIN, REGION_END }
  * errors, so the partition can never silently drift from the service API.
  */
 export const SERVICE_PAGE: Record<string, string> = {
+  invariants: 'invariants.md',
+  otel: 'otel.md',
+  productAnalytics: 'product-telemetry.md',
   schedule: 'schedule.md',
   speechToText: 'voice-input.md',
   speechController: 'voice-input.md',
@@ -96,7 +94,6 @@ export const SERVICE_PAGE: Record<string, string> = {
   goals: 'goal.md',
   inspector: 'extensions.md',
   webServer: 'web-server.md',
-  invariants: 'invariants.md',
   llm: 'llm-streaming.md',
   lsp: 'lsp.md',
   messageFeedback: 'feedback.md',
@@ -130,6 +127,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   jobController: 'jobs.md',
   sessionTelemetry: 'session-telemetry.md',
   agentTeams: 'agent-team.md',
+  claudeCodeMods: 'claude-code-mods.md',
   tokenMeter: 'token-meter.md',
   toolResultPruner: 'compaction.md',
   tools: 'tools.md',
@@ -166,8 +164,6 @@ export const SERVICE_PAGE: Record<string, string> = {
  * to a model as `cordis_runtime_inspect what:"client"`).
  */
 export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
-  otel: 'OTel log export — packages/telemetry/otel/README.md owns the API',
-  productAnalytics: 'client-side product telemetry — packages/client/product-analytics/README.md owns the API',
   shortcuts: 'client-side interface-typed keyboard service — packages/client/shortcuts/README.md owns the API',
   userQuestionPanels: 'client-side slot-contract accessor (UserQuestionPanels) — packages/client/ui-tool/README.md owns the API',
   pluginNavigation: 'client-side bundle navigation — packages/client/ui-plugin-manager/README.md owns the API',
@@ -281,6 +277,13 @@ export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
  * appear on more than one page.
  */
 export const LINK_MAP: Readonly<Record<string, string>> = {
+  InvariantInstaller: 'invariants.md',
+  InvariantRegistration: 'service-local lifecycle handle is owned by packages/runtime-diagnostics/invariants/README.md',
+  ProductEvent: 'product-telemetry.md',
+  EventLogOptions: 'otel.md',
+  EventLogReporter: 'otel.md',
+  SessionLogOptions: 'otel.md',
+  SessionLogReporter: 'otel.md',
   ProductTelemetryRecord: 'product-telemetry.md',
   ProductTelemetryScalar: 'product-telemetry.md',
   WorkspaceChangesSummary: 'deliverables.md',
@@ -667,6 +670,8 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   TeamMemberProjection: 'agent-team.md',
   TeamWaitResult: 'agent-team.md',
   UpdateTeamTaskRequest: 'agent-team.md',
+  ModDefinition: 'claude-code-mods.md',
+  SurfaceSnapshot: 'claude-code-mods.md',
   TokenMeasurement: 'token-meter.md',
   PtcDispatchLog: 'tools.md',
   PostToolDecision: 'tools.md',
@@ -754,7 +759,6 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   PermissionCatalog: 'permission-presets.md',
   PresetOption: 'permission-presets.md',
   PresetSpec: 'permission-presets.md',
-  InvariantInstaller: 'invariants.md',
   WebRoute: 'web-server.md',
   IndexInjection: 'web-server.md',
   StorageBackend: 'storage.md',
@@ -798,14 +802,14 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   ProjectionCheckpoint: 'session-projection.md',
   DirectoryPickerCapability: 'workspace.md',
   DirectoryListing: 'workspace.md',
-  TypertContribution: 'invariants.md',
+  TypertContribution: 'typert.md',
   TypertRemoteEventSource: 'typert.md',
   RemoteEventHostInfo: 'typert.md',
-  TypertFace: 'invariants.md',
-  TypertPackageFilter: 'invariants.md',
-  TypertPackageRecord: 'invariants.md',
-  TypertSchemaFilter: 'invariants.md',
-  TypertSchemaRecord: 'invariants.md',
+  TypertFace: 'typert.md',
+  TypertPackageFilter: 'typert.md',
+  TypertPackageRecord: 'typert.md',
+  TypertSchemaFilter: 'typert.md',
+  TypertSchemaRecord: 'typert.md',
 }
 
 /** TypeScript lib and pinned framework types with no repository-owned data page. */
@@ -864,6 +868,7 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   AsyncDisposable: 'TypeScript explicit resource management interface',
   AgentPresetDocument: 'preset composition view is owned by packages/preset/agent-preset-registry/README.md',
   AgentPresetComposition: 'flattened composition rows are owned by packages/preset/agent-preset-registry/README.md',
+  AgentPresetInspection: 'retained revision modules and isolation diagnostics are owned by packages/preset/agent-preset-registry/README.md',
   PresetMetadata: 'preset display text is owned by packages/preset/agent-preset-registry/README.md',
   BashEnvContributor: 'service-local extension type is owned by packages/shell/tool-bash/src/index.ts',
   BashEnvVariableInfo: 'service-local metadata type is owned by packages/shell/tool-bash/src/index.ts',
@@ -916,7 +921,6 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   Translate: 'service-local bound translator is owned by packages/client/i18n/src/index.ts',
   WebUpgradeRoute:
     'upgrade route registration contract is owned by packages/host/webserver/src/index.ts',
-  InvariantRegistration: 'service-local lifecycle handle is owned by packages/runtime-diagnostics/invariants/README.md',
   JsonValue: 'JSON value union is owned by packages/core/session/src/json.ts',
   KnobState: 'projection unit state fields are owned by packages/interaction/permission-presets/README.md',
   PromptAssembly: 'assembly result is owned by packages/core/system-prompt/README.md',
@@ -1240,10 +1244,20 @@ export function computeOutputs(): [string, string][] {
  * @param scanRoot - repository root override for tests.
  * @returns true when the record was refreshed.
  */
+/**
+ * Re-record a pair's `.i18n.yaml` after a region write ONLY when the write is
+ * region-confined: both sides' region-stripped content must be byte-equal to
+ * the region-stripped previous content. The caller supplies the previous bytes
+ * (read before writing); human-content drift leaves the record untouched so
+ * the pairing gate still demands the normal translation flow.
+ * @param pageRel - repo-relative English page path (`docs/subsystems/x.md`).
+ * @param before - pre-write bytes per repo-relative path.
+ * @param scanRoot - repository root override for tests.
+ * @returns true when the record was refreshed.
+ */
 export function maybeRecordPair(pageRel: string, before: Map<string, Buffer>, scanRoot: string = root): boolean {
-  const zhRel = pageRel.replace(/\.md$/, '.zh.md')
-  const metaRel = pageRel.replace(/\.md$/, '.i18n.yaml')
-  const metaAbs = resolve(scanRoot, metaRel)
+  const paths = translationPairPaths(pageRel)
+  const metaAbs = resolve(scanRoot, paths.meta)
   let meta: string
   try {
     meta = readFileSync(metaAbs, 'utf8')
@@ -1252,24 +1266,30 @@ export function maybeRecordPair(pageRel: string, before: Map<string, Buffer>, sc
     // after review, never silently by regeneration.
     return false
   }
-  // The record must contain exactly the two valid entries for THIS pair;
-  // a malformed or renamed-key sidecar is the pairing gate's problem to
-  // report, never something regeneration silently repairs into validity.
-  const recorded = parsePairMeta(meta)
-  const names = [pageRel, zhRel].map(rel => rel.split('/').at(-1) ?? rel)
-  if (!recorded || recorded.size !== 2 || !names.every(name => recorded.has(name))) return false
-  for (const rel of [pageRel, zhRel]) {
+  // The record must parse in the per-section format; a malformed sidecar is
+  // the pairing gate's problem to report, never something regeneration
+  // silently repairs into validity.
+  if (parseTranslationPairingRecord(meta) === undefined) return false
+  for (const rel of [pageRel, paths.zh]) {
     const previous = before.get(rel)
     if (!previous) return false
-    if (recorded.get(rel.split('/').at(-1) ?? rel) !== blobHash(previous)) return false
     const current = readFileSync(resolve(scanRoot, rel))
     const strippedBefore = partitionGeneratedRegions(previous.toString('utf8')).stripped
     const strippedAfter = partitionGeneratedRegions(current.toString('utf8')).stripped
     if (strippedBefore !== strippedAfter) return false
   }
-  const source = readFileSync(resolve(scanRoot, pageRel))
-  const zh = readFileSync(resolve(scanRoot, zhRel))
-  writeFileSync(metaAbs, renderPairMeta(pageRel, blobHash(source), zhRel, blobHash(zh)))
+  const source = readFileSync(resolve(scanRoot, pageRel)).toString('utf8')
+  const zh = readFileSync(resolve(scanRoot, paths.zh)).toString('utf8')
+  const context = {
+    repoRoot: scanRoot,
+    isTranslationPairSource: translationPairSourcePredicate(parseTranslationPairingManifest(
+      readFileSync(resolve(scanRoot, 'scripts/translation-pairing.manifest.json'), 'utf8'),
+    )),
+    repositoryFileExists: (rel: string) =>
+      // Match the pairing gate's worktree plane: gitignored paths do not exist.
+      !isGitIgnoredPath(rel, gitIgnoredPaths(root)) && existsSync(resolve(scanRoot, rel)),
+  }
+  writeFileSync(metaAbs, renderTranslationPairingRecord(paths, computeTranslationPairingRecord(paths, source, zh, context)))
   return true
 }
 

@@ -84,7 +84,6 @@ kind: "package-reference"
 | [`src/index.ts`](src/index.ts) | 插件入口：后端注册、`path`／`journalMode` 配置、单元表 |
 | [`src/schema.ts`](src/schema.ts) | 打开顺序、物理布局版本、元数据表、记录表命名 |
 | [`src/unit.ts`](src/unit.ts) | 一个已打开单元：预处理语句、JSON 值解析、关闭 |
-| — | 不发布运行时不变式伴生入口；schema 版本与单元版本的一致性在打开时检查，不一致时会在单元创建前拒绝打开；持久性需要由共享 KV 符合性测试套件中的后端往返测试验证；本包不暴露可持续观察的进程内关系。 |
 
 </details>
 
@@ -98,7 +97,7 @@ kind: "package-reference"
 - [存储子系统](../../../docs/subsystems/storage.zh.md)——后端约定、领域语义与生成的 API。
 - [存储包映射](../README.zh.md)——家族的各包及其在仓库中的位置。
 - [JSON 存储后端](../storage-json/README.zh.md)——面向小而可检查数据的人类可读介质。
-- [领域 KV 存储 Agent Note](../../../.agents/notes/proposed/architecture/2026-07-24-domain-kv-storage-and-workspace.zh.md)——后端家族背后的设计与被推迟的会话后端迁移。
+- [领域 KV 存储 Agent Note](../../../.agents/notes/proposed/architecture/2026-07-24-domain-kv-storage-and-workspace.md)——后端家族背后的设计与被推迟的会话后端迁移。
 
 -----
 

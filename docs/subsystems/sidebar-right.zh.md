@@ -4,7 +4,7 @@
 
 右侧 Sidebar 是 Web Client 里每个会话一份的停靠面：会话区旁的一列 pane 与 tab，按地址寻址的内容——工作区文件、目录树、产品自带页面——在这里打开、分栏、浮出、关闭。[`dsh-client-ui-sidebar-right`](../../packages/client/ui-sidebar-right/README.zh.md) 拥有这个面、tab 类型注册表与导航服务；[`dsh-client-ui-dockkit`](../../packages/client/ui-dockkit/README.zh.md) 是它内部的布局引擎；[`dsh-client-resources`](../../packages/client/resources/README.zh.md) 把地址变成任何组件都能读的活数据；[`dsh-api-workspace-files`](../../packages/api/workspace-files/README.zh.md) 同时提供 Host 工作区文件服务与 Client `file` 资源提供者。
 
-本页是该子系统契约的参考：地址、tab 类型注册、导航服务、扩展 slot 与其 owner props、资源模型、Workspace Files 服务、内置类型，以及明确不做的事。布局引擎、frame 与停靠面如何拼在一起见 [Agent Note](../../.agents/notes/implemented/feature/2026-09-04-right-sidebar-docking-infrastructure.zh.md)；slot 机制见 [Slots 参考](slots.zh.md)。
+本页是该子系统契约的参考：地址、tab 类型注册、导航服务、扩展 slot 与其 owner props、资源模型、Workspace Files 服务、内置类型，以及明确不做的事。布局引擎、frame 与停靠面如何拼在一起见 [Agent Note](../../.agents/notes/implemented/feature/2026-09-04-right-sidebar-docking-infrastructure.md)；slot 机制见 [Slots 参考](slots.zh.md)。
 
 ## 定位与归属
 
@@ -108,13 +108,13 @@ Sidebar 声明四个扩展 slot；其文档 tab 另行声明下表中的 keyed �
 
 ## 文档渲染器
 
-`text` tab 是共享的 Document Preview 所有者。其[根注册](../../packages/client/ui-sidebar-documentpreview/src/client/index.ts)声明 `sidebar.right.tab.document` 并提供 `ctx.documentPreviews`。渲染器在自己的 effect 中注册 `DocumentPreviewDefinition` 元数据，再通过 `ctx.slots.inject('sidebar.right.tab.document', ...)` 等待 slot，以 `key: definition.id` 和自己的 locale 命名空间注册组件。渲染器注册自己的正文，并可通过子 slot 复用共享展示组件。切换渲染器不改变 tab 或资源地址；[扩展决议](../../.agents/notes/implemented/architecture/2026-09-08-document-preview-operations.zh.md)将预览策略与资源归属分开。
+`text` tab 是共享的 Document Preview 所有者。其[根注册](../../packages/client/ui-sidebar-documentpreview/src/client/index.ts)声明 `sidebar.right.tab.document` 并提供 `ctx.documentPreviews`。渲染器在自己的 effect 中注册 `DocumentPreviewDefinition` 元数据，再通过 `ctx.slots.inject('sidebar.right.tab.document', ...)` 等待 slot，以 `key: definition.id` 和自己的 locale 命名空间注册组件。渲染器注册自己的正文，并可通过子 slot 复用共享展示组件。切换渲染器不改变 tab 或资源地址；[扩展决议](../../.agents/notes/implemented/architecture/2026-09-08-document-preview-operations.md)将预览策略与资源归属分开。
 
 [注册表](../../packages/client/ui-sidebar-documentpreview/src/client/document/registry.ts)记录唯一的 `id`、`extensions`、本地化 `title()`、`loading`，以及可选的 `priority` 和 `wrap`。后缀匹配不区分大小写，先排 `extension`（缺省值）、再排 `builtin`，随后比较后缀长度（长者优先）与注册顺序。与 tab kind 替换不同，注册表保留所有实现；工具栏列出匹配的候选，按 tab 记住选择。未知扩展名使用纯文本。`binaryExtensions` 声明的后缀不提供纯文本备选，见[包 README](../../packages/client/ui-sidebar-documentpreview/README.zh.md#what-it-registers)。`loading` 为 `text-pages`、`bytes-complete` 或 `renderer`；`wrap` 声明是否支持共享的源码换行控件。
 
 [`DocumentPreviewProps`](../../packages/client/ui-sidebar-documentpreview/src/client/document/contract.ts) 派生自 `PropsRuntime<'sidebar.right.tab.document'>`。owner 提供原始 `resourceAddress`、`content`、当前 `wrap`，以及声明依赖的 `addResource` / `setResources` 回调：文本内容为 `{ kind: 'text', text, pages: [{ offset, text, lines }], eof }`，其中 `text` 为累积文本；完整字节为 `{ kind: 'bytes', data }`，其中 `data` 为 `Uint8Array<ArrayBuffer>`。这些瞬时缓冲区按只读方式借用，不得进入持久布局或 Session JSON。PDF 在转移到 Worker 前复制字节，以保留 owner 的缓冲区。子组件收到同一个框架绑定的 `useTabInfo`，以及全局共享、仅提供元数据的 `useResource`。父组件通过 `remote.workspaceFiles.read` 读取文本，通过 `remote.workspaceFiles.readBytes` 读取字节，拥有追加分页、逐 tab 刷新与加载状态。HTML 向同一个字节读取方法传入 `baseFile`；路径由 Host 代码解析。Markdown 和代码在追加期间保留同一个增量渲染器，到 EOF 完成最终解析；HTML 和 PDF 接收完整字节。
 
-Preview 记录已载入版本和读取开始时的观察版本。自动刷新默认开启；成员首次元数据只建立基线，后续变化才重新加载 tab。刷新只重读当前 tab，不改变共享元数据或其他 tab 的内容。读取不具备事务性；版本是不透明的相等性令牌，不是可排序的时间戳（[资源观察与 Preview RPC](../../.agents/notes/implemented/architecture/2026-09-08-document-preview-operations.zh.md)）。
+Preview 记录已载入版本和读取开始时的观察版本。自动刷新默认开启；成员首次元数据只建立基线，后续变化才重新加载 tab。刷新只重读当前 tab，不改变共享元数据或其他 tab 的内容。读取不具备事务性；版本是不透明的相等性令牌，不是可排序的时间戳（[资源观察与 Preview RPC](../../.agents/notes/implemented/architecture/2026-09-08-document-preview-operations.md)）。
 
 自行加载的渲染器接收 `{ kind: 'renderer', revision, loaded, failed, reload }`，而不是文件字节。正文调用自己的注入 face，在 revision 变化和卸载时取消请求，并通过 `loaded(version)` 报告已展示的源版本。加载失败时调用 `failed()`，使后续文件变化能够触发重试。父组件忽略过期报告，保留共享的重新加载与源文件变更控件。Office 使用此模式请求 [Host 渲染的 PDF](office-to-pdf.zh.md)；其 face 将转换字节、字体元数据和失败写入自己的 store，正文渲染嵌套 PDF 视图。`OfficeFontAction` 通过 `sidebar.right.tab.document.action` 在刷新按钮前显示缺失字体警告。[包 README](../../packages/client/ui-sidebar-documentpreview/README.zh.md#what-it-registers)定义加载生命周期。
 
@@ -151,4 +151,4 @@ Host 的 `ctx.workspaceFiles` 服务与生成的 `workspaceFiles` Remote 命名�
 - 打开时点名某个 tab 实现：`openResource` 最多点名一个 kind；文档渲染器由文件 tab 的工具栏选择。
 - 服务上的地址查找（`find`）：调用方用 `revealIfOpened` 打开，由停靠面去重。
 - Sidebar 自身 `sidebar://<kind>` 记账之外的导航地址；其语法等导航控制器整体做时再定。
-- 面向用户的撤销与跨类型通用内容导航栈（[暂缓](../../.agents/notes/implemented/feature/2026-09-04-right-sidebar-docking-infrastructure.zh.md#deferred)）；Browser 只拥有自身页面历史。
+- 面向用户的撤销与跨类型通用内容导航栈（[暂缓](../../.agents/notes/implemented/feature/2026-09-04-right-sidebar-docking-infrastructure.md#deferred)）；Browser 只拥有自身页面历史。

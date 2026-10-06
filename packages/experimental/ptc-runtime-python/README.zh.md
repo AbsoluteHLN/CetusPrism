@@ -77,7 +77,6 @@ kind: "package-reference"
 | [`py/protocol.py`](py/protocol.py) | Python 侧：`PROTOCOL_FD`、`TypedDict` 帧镜像、`log_truncation_marker` |
 | [`tests/runtime.spec.ts`](tests/runtime.spec.ts) | 真实子进程套件：预算、隔离、敌意帧、名称重绑 |
 | [`tests/protocol-mirror.e2e.ts`](tests/protocol-mirror.e2e.ts) | 对照真实 `python3` 的跨语言镜像测试 |
-| — | 不发布运行时不变式配套项：帧顺序、预算计量与拆卸发生在 CPython 子进程或 fd 3 上，因此本包没有可供 Cordis listener 比较的同进程事件序列或独立维护的可变关系；协议镜像与真实子进程测试覆盖这些进程边界行为。 |
 
 </details>
 
@@ -89,7 +88,7 @@ kind: "package-reference"
 当 runtime 契约不够时阅读这些。它们从 seam 定义走向设计记录与配套后端。
 
 - [PTC 运行时 seam](../../ptc-runtime/ptc-runtime/README.zh.md) — 本后端实现的抽象契约。
-- [fd-3 协议 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-31-ptc-runtime-python-fd3-protocol.zh.md) — 设计理由与 wire 契约。
+- [fd-3 协议 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-31-ptc-runtime-python-fd3-protocol.md) — 设计理由与 wire 契约。
 - [结算修复 Agent Note](../../../.agents/notes/archived/bug-fix/2026-07-31-code-runtime-python-settlement-fixes.md) — 结算、计量与隔离修复及其回归用例。
 - [Node 进程后端](../../ptc-runtime/ptc-runtime-node/README.zh.md) — 已发布的 TypeScript 兄弟。
 - [PTC 运行时子系统参考](../../../docs/subsystems/ptc-runtime.zh.md) — 请求／结果词汇、binding 与失败分类。

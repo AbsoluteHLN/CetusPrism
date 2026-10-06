@@ -96,7 +96,6 @@ kind: "package-reference"
 | [`src/per-record-unit.ts`](src/per-record-unit.ts) | 一个 `per-record` 单元：目录树读取、路径安全记录与单文档写入 |
 | [`src/format.ts`](src/format.ts) | 带版本校验的整单元与记录序列化 |
 | [`src/atomic.ts`](src/atomic.ts) | 原子文件替换：临时文件写入、fsync、rename、目录 fsync |
-| — | 不发布运行时不变式伴生入口；此处要求保证写入持久性及发布后重新解析的等价性，这两点需要通过介质往返测试（共享后端符合性测试套件）验证；本后端不公开任何可持续观察的进程内关系。 |
 
 </details>
 
@@ -110,7 +109,7 @@ kind: "package-reference"
 - [存储子系统](../../../docs/subsystems/storage.zh.md)——后端约定、领域语义与生成的 API。
 - [存储包映射](../README.zh.md)——家族的各包及其在仓库中的位置。
 - [SQLite 存储后端](../storage-sqlite/README.zh.md)——面向高频数据的定点更新介质。
-- [领域 KV 存储 Agent Note](../../../.agents/notes/proposed/architecture/2026-07-24-domain-kv-storage-and-workspace.zh.md)——后端家族背后的设计及其延期工作。
+- [领域 KV 存储 Agent Note](../../../.agents/notes/proposed/architecture/2026-07-24-domain-kv-storage-and-workspace.md)——后端家族背后的设计及其延期工作。
 
 -----
 

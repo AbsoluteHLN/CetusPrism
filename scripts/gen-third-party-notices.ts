@@ -313,6 +313,18 @@ function workspaceLinkedManifest(name: string, manifests: Map<string, Manifest>)
   return undefined
 }
 
+/**
+ * Read the workspace-pinned virtual store directory from `pnpm-workspace.yaml`.
+ * The shared-cache layout moves pnpm's virtual store out of `node_modules/.pnpm`,
+ * so store scans must consult the declared location.
+ * @param root - repository root.
+ * @returns the configured virtual store directory, or undefined at the default layout.
+ */
+function virtualStoreDirectory(root: string): string | undefined {
+  const settings = readFileSync(resolve(root, 'pnpm-workspace.yaml'), 'utf8')
+  const match = /^virtualStoreDir:(?:\s+|\s*)(\S+)/m.exec(settings)
+  return match?.[1] === undefined ? undefined : resolve(root, match[1])
+}
 /** Resolve one installed external package manifest from either pnpm store. */
 function installedManifest(name: string, manifests: Map<string, Manifest>, expectedVersion?: string): VirtualManifest | undefined {
   const linked = workspaceLinkedManifest(name, manifests)
@@ -320,8 +332,9 @@ function installedManifest(name: string, manifests: Map<string, Manifest>, expec
   let manifest: (Manifest & { license?: string; repository?: string | { url?: string }; homepage?: string }) | undefined
   // Workspace-local link farms can expose a dependency that is not linked at
   // the repository root; both are backed by the root workspace's lockfile.
-  for (const store of ['node_modules', 'native/system/node_modules']) {
-    const direct = resolve(root, store, name, 'package.json')
+  const stores = [resolve(root, 'node_modules'), resolve(root, 'native/system/node_modules'), virtualStoreDirectory(root)]
+  for (const store of stores.filter((entry): entry is string => entry !== undefined)) {
+    const direct = resolve(store, name, 'package.json')
     if (existsSync(direct)) {
       const candidate = JSON.parse(readFileSync(direct, 'utf8')) as typeof manifest
       if (expectedVersion === undefined || candidate?.version === expectedVersion) {
@@ -329,10 +342,15 @@ function installedManifest(name: string, manifests: Map<string, Manifest>, expec
         break
       }
     }
-    const virtual = resolve(root, store, '.pnpm')
-    if (!existsSync(virtual)) continue
-    manifest = virtualManifest(virtual, name, expectedVersion)
-    if (manifest !== undefined) break
+    const virtual = resolve(store, '.pnpm')
+    if (existsSync(virtual)) {
+      manifest = virtualManifest(virtual, name, expectedVersion)
+      if (manifest !== undefined) break
+    }
+    if (store === virtualStoreDirectory(root) && existsSync(store)) {
+      manifest = virtualManifest(store, name, expectedVersion)
+      if (manifest !== undefined) break
+    }
   }
   return manifest
 }

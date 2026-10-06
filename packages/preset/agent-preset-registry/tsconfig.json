@@ -9,6 +9,9 @@
   ],
   "references": [
     {
+      "path": "../../runtime-diagnostics/invariants"
+    },
+    {
       "path": "../../boot/app-boot"
     },
     {
@@ -52,9 +55,6 @@
     },
     {
       "path": "../../util/atomic-write"
-    },
-    {
-      "path": "../../runtime-diagnostics/invariants"
     },
     {
       "path": "../../boot/hmr"

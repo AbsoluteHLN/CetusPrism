@@ -84,7 +84,6 @@ kind: "package-reference"
 | [`src/index.ts`](src/index.ts) | 插件入口：配置 schema、环境变量回退、提供方注册 |
 | [`src/provider.ts`](src/provider.ts) | `PerplexitySearchProvider`：请求分发、中止分类、答案与来源映射 |
 | [`src/types.ts`](src/types.ts) | chat-completions 响应的 Perplexity 协议类型 |
-| — | 不发布运行时不变量配套入口；除所属 seam 强制执行的约定外，本包不公开独立的事件序列或可变数据关系。 |
 
 ### 请求与映射流程
 
@@ -104,7 +103,7 @@ kind: "package-reference"
 - [dsh-web](../web/README.zh.md)——本提供方注册进入的 web 服务。
 - [dsh-tool-web](../tool-web/README.zh.md)——渲染本提供方来源的面向模型 `web_search` 工具。
 - [生成配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-web-search-perplexity)——每个受支持配置字段及其源声明。
-- [web 能力 seam 决策](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.zh.md)——搜索与抓取为何共用一项提供方选择服务。
+- [web 能力 seam 决策](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.md)——搜索与抓取为何共用一项提供方选择服务。
 
 -----
 
@@ -148,7 +147,7 @@ kind: "package-reference"
 
 - **引用回退来源只含 URL**——Perplexity 省略结构化 `search_results[]` 时，来源不含 `title`／`snippet`／`publishedAt`，因此工具只渲染纯主机名标签。
 - **超量返回的来源仍会增加 token 消耗与延迟**——协议没有结果数量控制，`maxResults` 只能由服务在事后截断。
-- **只公开 `model`／`maxTokens`／`searchRecency`**——Perplexity 的其他搜索控制项（域名过滤条件、`web_search_options` 上下文大小、图片）等待提供方无关的服务字段（见 [seam Agent Note](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.zh.md)）。
+- **只公开 `model`／`maxTokens`／`searchRecency`**——Perplexity 的其他搜索控制项（域名过滤条件、`web_search_options` 上下文大小、图片）等待提供方无关的服务字段（见 [seam Agent Note](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.md)）。
 - **按错误形状分类中止**——只有名为 `AbortError` 的 `DOMException` 才映射为 `WEB_ABORTED`；携带自定义原因的中止（例如 `dsh-timeout` 的 `TimeoutReason`）呈现为 `WEB_PROVIDER_ERROR`。
 
 <a id="dev-note"></a>

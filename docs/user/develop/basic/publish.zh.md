@@ -4,7 +4,7 @@
 
 前几篇教程通过 `--patch` overlay 加载本地插件。本教程把它打包成可安装的**组合包**（bundle），用 `dsh plugin add` 安装进一个 **profile**，并解释决定组合后配置的层顺序。本文假设 `dsh` CLI 已安装。请先完成[插件配置](./config.zh.md)。
 
-如果改用全新的源码 checkout，请先按照[从源码运行章节](../../../../README.zh.md#run-from-source)完成准备，将本教程的 `hello-plugin` 目录放在仓库根目录，并从该目录把下文的 `dsh ...` 命令改为 `pnpm dsh ...`。构建与启动器行为见[源码执行](../../../../apps/cli/reference/README.zh.md#source-execution)。
+如果改用全新的源码 checkout，请先按照[从源码运行章节](../../../../README.md#run-from-source)完成准备，将本教程的 `hello-plugin` 目录放在仓库根目录，并从该目录把下文的 `dsh ...` 命令改为 `pnpm dsh ...`。构建与启动器行为见[源码执行](../../../../apps/cli/reference/README.zh.md#source-execution)。
 
 ## 两个概念，两种 manifest
 
@@ -102,7 +102,7 @@ dsh plugin --profile demo add ./hello-plugin
 
 通过链接安装的 checkout 保留自己的 `node_modules`。与 harness 自身的包一样，需要与宿主共享实例的 dsh 包同时声明在 `peerDependencies` 与 `devDependencies` 中。在该 manifest 的查询位置，运行中 dsh 的 runtime resolution 已包含的 peer 使用安装中的副本；devDependency 副本供类型检查和独立测试使用。需要独立版本的第三方依赖和无状态 dsh 工具包放在 `dependencies` 中。
 
-普通 linked import 遵循 Node 的祖先顺序，检查每个目录当前的 peer 声明。更近的物理包先于更高的 peer 声明。link 目标可以没有 `package.json`，祖先 peer 仍可生效，即使该 manifest 旁没有物理 `node_modules`。显式 `require.resolve(..., { paths })` 始终是原生查询，包括指向 profile 内的路径。npm、Desktop 与源码启动共用这些规则；规则不会使已加载模块失效，也不校验 peer 版本范围。作用域和文件查询行为见[解析规则](../../../../.agents/notes/implemented/architecture/2026-09-19-profile-resolution-lookup-order.zh.md)。
+普通 linked import 遵循 Node 的祖先顺序，检查每个目录当前的 peer 声明。更近的物理包先于更高的 peer 声明。link 目标可以没有 `package.json`，祖先 peer 仍可生效，即使该 manifest 旁没有物理 `node_modules`。显式 `require.resolve(..., { paths })` 始终是原生查询，包括指向 profile 内的路径。npm、Desktop 与源码启动共用这些规则；规则不会使已加载模块失效，也不校验 peer 版本范围。作用域和文件查询行为见[解析规则](../../../../.agents/notes/implemented/architecture/2026-09-19-profile-resolution-lookup-order.md)。
 
 链接整个 checkout 不会对运行中安装自身的包目录应用 peer 拦截。目标仍位于 profile 内的链接（包括它的 pnpm store）属于 profile 自己安装的内容，不算外部 linked root。外部链接互相重叠也不改变查找顺序，每个请求仍从其 importer 所在目录开始。
 

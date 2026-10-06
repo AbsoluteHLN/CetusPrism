@@ -80,7 +80,6 @@ kind: "package-reference"
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：shell 注册表、命令包装、scrollback 轮询、提取与渲染 |
-| — | 不发布运行时不变式伴生入口；适配器私有的 owner-to-shell 缓存没有可观察的事件或数据关系。shell 复用仍可通过工具执行观察。生命周期测试会验证其清理行为，无需仅为不变式增加公共 API。 |
 
 ### 命令流程
 
@@ -99,7 +98,7 @@ kind: "package-reference"
 - [terminal seam](../../terminal/terminal/README.zh.md)——工具背后的 `ctx.terminals` 服务。
 - [terminal-bash 后端](../../terminal/terminal-bash/README.zh.md)——默认的 `shell` 后端。
 - [tool-terminal](../../terminal/tool-terminal/README.zh.md)——面向交互工作的六个模型侧 terminal 工具。
-- [持久 PTY 会话 Agent Note](../../../.agents/notes/implemented/feature/2026-07-16-persistent-pty-sessions.zh.md)——按所有者会话的设计及其理由。
+- [持久 PTY 会话 Agent Note](../../../.agents/notes/implemented/feature/2026-07-16-persistent-pty-sessions.md)——按所有者会话的设计及其理由。
 - [生成的工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tool-bash-persistent)——`bash` 参数 schema 的确切内容。
 - [生成的配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-tool-bash-persistent)——每个受支持配置字段及其源声明。
 

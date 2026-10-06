@@ -82,7 +82,6 @@ kind: "package-reference"
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：shell 注册表、命令包装、scrollback 轮询、提取与渲染 |
-| — | 不发布运行时不变式伴生入口；适配器私有的 owner-to-shell 缓存不存在可观察的事件或数据关系。生命周期测试无需仅为不变式增加公共 API 即可验证其清理。 |
 
 ### 命令流程
 
@@ -101,7 +100,7 @@ kind: "package-reference"
 - [terminal seam](../../terminal/terminal/README.zh.md)——工具背后的 `ctx.terminals` 服务。
 - [terminal-bash 后端](../../terminal/terminal-bash/README.zh.md)——默认后端，配置 `shellDialect: pwsh`。
 - [pwsh 持久 PTY Agent Note](../../../.agents/notes/archived/architecture/2026-08-11-pwsh-persistent-pty.md)——pwsh 侧会话设计及其理由。
-- [持久 PTY 会话 Agent Note](../../../.agents/notes/implemented/feature/2026-07-16-persistent-pty-sessions.zh.md)——按所有者会话的设计及其理由。
+- [持久 PTY 会话 Agent Note](../../../.agents/notes/implemented/feature/2026-07-16-persistent-pty-sessions.md)——按所有者会话的设计及其理由。
 - [生成的工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tool-pwsh-persistent)——`pwsh` 参数 schema 的确切内容。
 - [生成的配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-tool-pwsh-persistent)——每个受支持配置字段及其源声明。
 

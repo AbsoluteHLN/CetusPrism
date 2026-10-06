@@ -2,7 +2,7 @@
 
 [English](client-resources.md) | 中文
 
-客户端资源模型把一个地址变成任何 Web Client 组件都能读的活数据。[`dsh-client-resources`](../../packages/client/resources/README.zh.md) 提供 `ctx.resources` 服务与 `useResource` 全局标准 hook；拥有某类内容的包为它的**协议**注册一个**提供方**，组件按**地址**读取该内容的当前状态，而无需引用拥有者的运行时。右侧 Sidebar 的 tab 是这个模型的第一个消费方（[右侧 Sidebar](sidebar-right.zh.md)）；决策记录见 [客户端资源模型 Agent Note](../../.agents/notes/implemented/architecture/2026-09-05-client-resource-model.zh.md)。
+客户端资源模型把一个地址变成任何 Web Client 组件都能读的活数据。[`dsh-client-resources`](../../packages/client/resources/README.zh.md) 提供 `ctx.resources` 服务与 `useResource` 全局标准 hook；拥有某类内容的包为它的**协议**注册一个**提供方**，组件按**地址**读取该内容的当前状态，而无需引用拥有者的运行时。右侧 Sidebar 的 tab 是这个模型的第一个消费方（[右侧 Sidebar](sidebar-right.zh.md)）；决策记录见 [客户端资源模型 Agent Note](../../.agents/notes/implemented/architecture/2026-09-05-client-resource-model.md)。
 
 本页是面向开发者的参考：地址怎么写、提供方怎么注册、资源怎么读、状态与失败各是什么意思、模型怎样持有与释放一份资源。
 

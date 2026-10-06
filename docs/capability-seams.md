@@ -32,6 +32,12 @@ flowchart LR
   svc_computerUse["ctx.computerUse<br/>Computer-use provider registration"]
   pkg_experimental_computer_use_cua_driver_mcp["experimental-computer-use-cua-driver-mcp"]
   pkg_experimental_computer_use_cua_driver_native["experimental-computer-use-cua-driver-native"]
+  pkg_client_product_analytics["client-product-analytics"]
+  svc_productAnalytics["ctx.productAnalytics<br/>Desktop interaction collection"]
+  pkg_otel["otel"]
+  svc_otel["ctx.otel<br/>Shared OTel reporting channels"]
+  pkg_host_product_telemetry_otel["host-product-telemetry-otel"]
+  pkg_session_telemetry_otel["session-telemetry-otel"]
   pkg_computer_use_policy["computer-use-policy"]
   svc_computerUseDeliveryPolicy["ctx.computerUseDeliveryPolicy<br/>Computer-use delivery policy"]
   pkg_client_ui_computer_foreground["client-ui-computer-foreground"]
@@ -115,13 +121,11 @@ flowchart LR
   pkg_api_account_controller["api-account-controller"]
   pkg_authorization["authorization"]
   svc_authorization["ctx.authorization<br/>Authorization flow registry"]
-  pkg_host_product_telemetry_otel["host-product-telemetry-otel"]
   svc_productTelemetry["ctx.productTelemetry<br/>Product usage event sender"]
   pkg_schedule["schedule"]
   svc_schedule["ctx.schedule<br/>Scheduled follow-ups"]
   pkg_session_telemetry["session-telemetry"]
   svc_sessionTelemetry["ctx.sessionTelemetry<br/>Session telemetry seam"]
-  pkg_session_telemetry_otel["session-telemetry-otel"]
   pkg_storage["storage"]
   svc_storage["ctx.storage<br/>Non-session storage hub"]
   pkg_storage_json["storage-json"]
@@ -237,6 +241,8 @@ flowchart LR
   pkg_experimental_agent_team["experimental-agent-team"]
   svc_agentTeams["ctx.agentTeams<br/>Agent Teams coordination domain"]
   pkg_experimental_tool_agent_team["experimental-tool-agent-team"]
+  pkg_experimental_claude_code_mods["experimental-claude-code-mods"]
+  svc_claudeCodeMods["ctx.claudeCodeMods<br/>Claude Code mods bridge"]
   pkg_inspector["inspector"]
   svc_inspector["ctx.inspector<br/>Cross-realm runtime inspection"]
   pkg_jobs["jobs"]
@@ -299,6 +305,7 @@ flowchart LR
   pkg_client_connection --> svc_connection
   pkg_client_file_upload --> svc_fileUploads
   pkg_client_modules --> svc_clientModules
+  pkg_client_product_analytics --> svc_productAnalytics
   pkg_client_ui_plugin_manager --> svc_pluginRegistryProbe
   pkg_command_feedback --> svc_sessionFeedback
   pkg_commands --> svc_commands
@@ -320,6 +327,7 @@ flowchart LR
   pkg_experimental_browser_use_chrome_devtools_mcp --> svc_browserUse
   pkg_experimental_browser_use_playwright_mcp --> svc_browserUse
   pkg_experimental_browser_use_stagehand_native --> svc_browserUse
+  pkg_experimental_claude_code_mods --> svc_claudeCodeMods
   pkg_experimental_computer_use_cua_driver_mcp --> svc_computerUse
   pkg_experimental_computer_use_cua_driver_native --> svc_computerUse
   pkg_experimental_ptc_runtime_python --> svc_ptcRuntime
@@ -352,6 +360,7 @@ flowchart LR
   pkg_mcp_resources --> svc_mcpResources
   pkg_message_feedback --> svc_messageFeedback
   pkg_office_to_pdf --> svc_officeToPdf
+  pkg_otel --> svc_otel
   pkg_permission_presets --> svc_permissionPresets
   pkg_plan_mode --> svc_planMode
   pkg_plugin_manager --> svc_pluginManager
@@ -478,6 +487,8 @@ flowchart LR
   svc_lsp --> pkg_tool_lsp
   svc_mcpResources --> pkg_mcp_resources
   svc_officeToPdf --> pkg_client_ui_sidebar_documentpreview
+  svc_otel --> pkg_host_product_telemetry_otel
+  svc_otel --> pkg_session_telemetry_otel
   svc_pluginManager --> pkg_plugin_manager
   svc_pluginManager --> pkg_ui_settings_plugin_inventory
   svc_pluginRegistryProbe --> pkg_client_ui_plugin_manager
@@ -582,6 +593,8 @@ flowchart LR
 | `ctx.mcpResources` | `seam` | [`mcp-resources`](../packages/mcp/mcp-resources) | [`mcp-client`](../packages/mcp/mcp-client) | [`mcp-resources`](../packages/mcp/mcp-resources) | - | Connection-owned providers serve shared resource tools in the calling agent scope. |
 | `ctx.browserUse` | `seam` | [`browser-use`](../packages/browser-use/browser-use) | [`experimental-browser-use-playwright-mcp`](../packages/experimental/browser-use-playwright-mcp), [`experimental-browser-use-chrome-devtools-mcp`](../packages/experimental/browser-use-chrome-devtools-mcp), [`experimental-browser-use-stagehand-native`](../packages/experimental/browser-use-stagehand-native) | [`experimental-browser-use-playwright-mcp`](../packages/experimental/browser-use-playwright-mcp), [`experimental-browser-use-chrome-devtools-mcp`](../packages/experimental/browser-use-chrome-devtools-mcp), [`experimental-browser-use-stagehand-native`](../packages/experimental/browser-use-stagehand-native) | - | One provider-owned name per service instance. Providers own their tools and browser resources per live Session; the shared service has no browser operation API. |
 | `ctx.computerUse` | `seam` | [`computer-use`](../packages/computer-use/computer-use) | [`experimental-computer-use-cua-driver-mcp`](../packages/experimental/computer-use-cua-driver-mcp), [`experimental-computer-use-cua-driver-native`](../packages/experimental/computer-use-cua-driver-native) | [`experimental-computer-use-cua-driver-mcp`](../packages/experimental/computer-use-cua-driver-mcp), [`experimental-computer-use-cua-driver-native`](../packages/experimental/computer-use-cua-driver-native) | - | One provider-owned name per service instance. Each provider also owns its model tools; the service has no common action API, runtime selection, or Session workflow lock. |
+| `ctx.productAnalytics` | `service` | [`client-product-analytics`](../packages/client/product-analytics) | - | - | - | Accepts selected Desktop events, enriches available login identity, and observes live compaction under the live Host collection policy. |
+| `ctx.otel` | `service` | [`otel`](../packages/telemetry/otel) | - | [`host-product-telemetry-otel`](../packages/host/product-telemetry-otel), [`session-telemetry-otel`](../packages/session/session-telemetry-otel) | - | Product analytics and Session feedback adapters create independent reporting channels through one injected service. |
 | `ctx.computerUseDeliveryPolicy` | `core` | [`computer-use-policy`](../packages/computer-use/computer-use-policy) | - | [`experimental-computer-use-cua-driver-native`](../packages/experimental/computer-use-cua-driver-native), [`client-ui-computer-foreground`](../packages/client/ui-computer-foreground) | - | The service stores the per-session foreground-delivery switch as one log-only session event behind its projection unit; the enforcing provider reads the mode per tool call and the composer toggle writes through the /foreground command. |
 | `ctx.officeToPdf` | `core` | [`office-to-pdf`](../packages/document/office-to-pdf) | - | [`client-ui-sidebar-documentpreview`](../packages/client/ui-sidebar-documentpreview) | - | Authorized Office bytes are converted on the Host using the declared native target engine, or Node WASM when no native target is declared. |
 | `ctx.attachments` | `seam` | [`attachment`](../packages/attachment/attachment) | [`attachment-local`](../packages/attachment/attachment-local) | [`api-session-controller`](../packages/api/session-controller), [`tool-fs`](../packages/fs/tool-fs), [`llm-pi-ai`](../packages/llm/llm-pi-ai), [`llm-deepseek`](../packages/llm/llm-deepseek) | - | The host commits accepted images before session events; provider adapters resolve authorized durable references into provider-native content. |
@@ -653,6 +666,7 @@ flowchart LR
 | `ctx.subagents` | `seam` | [`subagent`](../packages/subagent/subagent) | [`subagent-spawn-in-process`](../packages/subagent/subagent-spawn-in-process), [`subagent-fork-in-process`](../packages/subagent/subagent-fork-in-process), [`subagent-acp`](../packages/subagent/subagent-acp), [`subagent-codex`](../packages/subagent/subagent-codex), [`subagent-claude-code`](../packages/subagent/subagent-claude-code), [`subagent-dsh-sdk`](../packages/subagent/subagent-dsh-sdk) | [`tool-subagent`](../packages/subagent/tool-subagent), [`tool-subagent-control`](../packages/subagent/tool-subagent-control), [`tool-ralph`](../packages/workflow/tool-ralph) | - | Providers implement transports; the service also owns optional Activation-based continuation orchestration, tool-subagent selects one-shot or continuable delegation, tool-subagent-control delivers follow-ups, and tool-ralph requires one fresh structured-output route. |
 | `ctx.speechToText` | `seam` | [`experimental-speech-to-text`](../packages/experimental/speech-to-text) | [`experimental-speech-to-text-sensevoice`](../packages/experimental/speech-to-text-sensevoice) | [`experimental-api-speech-to-text`](../packages/experimental/api-speech-to-text) | - | Routes explicit recognizers; the browser uses the authenticated Remote and keeps transcripts in the draft until submission. |
 | `ctx.agentTeams` | `core` | [`experimental-agent-team`](../packages/experimental/agent-team) | - | [`experimental-tool-agent-team`](../packages/experimental/tool-agent-team) | - | Owns the implicit-root roster, durable peer mailbox, shared task DAG, and continuable-child lifecycle; tool-agent-team contributes model controls. |
+| `ctx.claudeCodeMods` | `core` | [`experimental-claude-code-mods`](../packages/experimental/claude-code-mods) | - | - | - | Loads mods that defineMod plugins add, raises their hook chains from harness extension points, and draws the band above the prompt over its Remote. |
 | `ctx.inspector` | `core` | `inspector` | - | - | - | Owns the Worker-hosted CDP target and the transport-independent Host and Client observation and Cordis-tree query API. |
 | `ctx.jobs` | `seam` | [`jobs`](../packages/jobs/jobs) | [`jobs-local`](../packages/jobs/jobs-local) | [`tool-bash`](../packages/shell/tool-bash), [`tool-pwsh`](../packages/shell/tool-pwsh), [`tool-terminal`](../packages/terminal/tool-terminal), [`tool-subagent`](../packages/subagent/tool-subagent), [`tool-jobs`](../packages/jobs/tool-jobs), [`api-job-controller`](../packages/api/job-controller) | - | Producers (background bash/pwsh, PTY sends, and subagent delegations) register running work; record-declaring jobs additionally stream raw output for non-consuming observers; tool-jobs is the model-facing controller that reads, lists, and kills it; jobs-local is the process-local registry. |
 | `ctx.web` | `seam` | [`web`](../packages/web/web) | [`web-search-exa`](../packages/web/web-search-exa), [`web-search-perplexity`](../packages/web/web-search-perplexity), [`web-search-deepseek`](../packages/web/web-search-deepseek), [`web-fetch-http`](../packages/web/web-fetch-http) | [`tool-web`](../packages/web/tool-web) | - | Search and fetch providers register into one ctx.web seam; tool-web owns the stable model-facing names. |

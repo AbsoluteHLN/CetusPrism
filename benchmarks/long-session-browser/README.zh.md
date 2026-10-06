@@ -14,4 +14,4 @@
 
 fixture（测试前置数据）在首条用户消息前保留空 system 头节点，每条用户消息都位于其步骤内。它包含混合语言提示词、正文、推理（reasoning）、20 个围栏代码块和 40 个合成工具结果。每条历史 Assistant 都含紧凑流，由生产 accumulator 从匹配的推理、文本、工具参数、usage 和 finish 分片构建。其内容不来自模型、工具、外部网络、录制会话或私有 Harness 主目录。流式回复以 16 ms 回放间隔发送 120 个文本 delta，经过真实输入框、agent loop（智能体循环）、传输与持久化。
 
-[决策记录](../../.agents/notes/implemented/testing/2026-09-06-frontend-performance-budgets.zh.md)拥有校准、排除项与替代方案。更大规模的[手动诊断](../../apps/web/tests/complex-history.perf.ts)保持独立。
+[决策记录](../../.agents/notes/implemented/testing/2026-09-06-frontend-performance-budgets.md)拥有校准、排除项与替代方案。更大规模的[手动诊断](../../apps/web/tests/complex-history.perf.ts)保持独立。

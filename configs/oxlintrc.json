@@ -24,6 +24,7 @@
     "website/.generated/**",
     "vendor/**", // Vendored source keeps upstream style and idioms.
     "apps/web/public/**", // Vendored HLN UI System dist and its typings keep upstream style.
+    "packages/experimental/claude-code-mods/examples/*/{hooks,tests,types}/**", // Claude Code's published example mods and their tests keep the upstream style; see the headers.
     "native/**", // The imported landlock-run subtree has its own gates; see native/README.md.
     "**/*.js",
     "**/*.mjs",

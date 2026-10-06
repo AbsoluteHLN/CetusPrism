@@ -92,7 +92,6 @@ timer 只在某个迭代器 `next()` 尚未完成时启动，并会因不产生�
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | `clampTimeout`、`deadline`、`idleWatchdog`、`timeoutOf`、`TimeoutReason`、`MAX_TIMER_DELAY_MS` |
-| — | 不发布运行时不变式伴生入口；这个纯工具不拥有事件流或可变运行时数据；其值代数约束由单元测试保障。 |
 
 ### deadline 如何融合来源
 
@@ -115,7 +114,7 @@ timer 只在某个迭代器 `next()` 尚未完成时启动，并会因不产生�
 
 当你需要消费方或库背后的边界决策时，阅读以下页面。
 
-- [超时 deadline 库 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-06-timeout-deadline-library.zh.md)——共享时序、本地强制终止的边界。
+- [超时 deadline 库 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-06-timeout-deadline-library.md)——共享时序、本地强制终止的边界。
 - [工具调用超时策略](../../guard/timeout-policy/README.zh.md)——强制执行已声明工具超时的消费方。
 - [bash 提供方](../../shell/bash-local/README.zh.md)——杀死进程组的前台 deadline 消费方。
 - [文件系统子系统](../../../docs/subsystems/filesystem.zh.md)——本地文件 IO 为何不设时限。

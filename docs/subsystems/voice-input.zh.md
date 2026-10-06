@@ -28,7 +28,7 @@ Host Provider 在页面和 Session 变化期间拥有同一个准备任务。Cli
 
 ## 设计依据
 
-[语音输入决策](../../.agents/notes/implemented/architecture/2026-09-16-experimental-voice-input.zh.md)解释临时音频、显式 Provider 选择和延迟准备本地运行时。
+[语音输入决策](../../.agents/notes/implemented/architecture/2026-09-16-experimental-voice-input.md)解释临时音频、显式 Provider 选择和延迟准备本地运行时。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 

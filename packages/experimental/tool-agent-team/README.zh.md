@@ -85,14 +85,13 @@ kind: "package-reference"
 - **声明式结果，紧凑 JSON。** 每个工具都声明完整结果 schema，并把该值渲染为紧凑 JSON，因此编译器会对照向模型承诺的结果检查 `execute`，任何结果都不会在缩进上消耗 token。
 - **领域掌握裁决权。** 工具委托给 `ctx.agentTeams`，后者强制执行 Lead 权限与 revision 校验；适配器不添加更弱的路径。
 
-[Agent Teams Agent Note](../../../.agents/notes/implemented/feature/2026-08-05-agent-teams.zh.md)负责模型侧与 scoping 决策。
+[Agent Teams Agent Note](../../../.agents/notes/implemented/feature/2026-08-05-agent-teams.md)负责模型侧与 scoping 决策。
 
 ### 源码地图
 
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：配置、固定策略文本与九个 scoped 工具注册 |
-| — | 不发布运行时不变式伴生入口；Team 服务拥有持久化与授权关系。 |
 
 ### 策略与工具
 
@@ -114,7 +113,7 @@ member scope 上的一个 `team:policy` 段落说明共享的协作规则；固�
 - [agent-team 包](../agent-team/README.zh.md)——这些工具背后的 `ctx.agentTeams` 领域服务。
 - [Agent Teams 子系统](../../../docs/subsystems/agent-team.zh.md)——持久 Team 类型与服务 API。
 - [生成的工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-experimental-tool-agent-team)——模型接收的每个工具 schema。
-- [Agent Teams Agent Note](../../../.agents/notes/implemented/feature/2026-08-05-agent-teams.zh.md)——模型侧、scoping 与隔离决策。
+- [Agent Teams Agent Note](../../../.agents/notes/implemented/feature/2026-08-05-agent-teams.md)——模型侧、scoping 与隔离决策。
 
 -----
 

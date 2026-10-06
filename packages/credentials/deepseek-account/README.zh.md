@@ -21,6 +21,8 @@ getUnnotifiedBonuses 返回平台尚未记录为已展示的赠金及其所属�
 
 账号使用方可读取本地登录状态、发起或取消浏览器登录，并在保留 API Key 的情况下退出。Host 模型使用方仅能为提供者配置的推理来源解析账号凭证。
 
+`SignInErrorCode` 将 `no-response`（fetch 未返回 Response）与 HTTP 和响应校验失败区分开，使客户端可以提示检查网络。
+
 `getDeviceIdentity()` 返回已有设备和账户 ID 以及登录使用的操作系统版本字符串，不返回凭据，也不创建设备标识。
 
 ## 目录
@@ -43,7 +45,7 @@ getUnnotifiedBonuses 返回平台尚未记录为已展示的赠金及其所属�
 <a id="understand-the-implementation"></a>
 ## 理解实现
 
-服务只定义账号操作，不维护第二份凭证索引，因此不发布 invariant。提供者负责持久化和登录生命周期检查。
+服务只定义账号操作，不维护第二份凭证索引。提供者负责持久化和登录生命周期检查。
 
 <a id="further-exploration"></a>
 ## 深入探索
@@ -70,6 +72,6 @@ AccountDetails.balance 就绪时，value 保存充值钱包，bonusWallets 保�
 <a id="dev-note"></a>
 ### 开发备注
 
-[桌面登录决策](../../../.agents/notes/implemented/architecture/2026-09-14-deepseek-account-login.zh.md)记录取消和存储的职责。
+[桌面登录决策](../../../.agents/notes/implemented/architecture/2026-09-14-deepseek-account-login.md)记录取消和存储的职责。
 
 PlatformSession 可将仅限 Host 的 requestHeaders 从 Host 传至 Electron 主进程，其中只有部署请求头，因为内嵌文档的客户端身份在其语言、时区和版本可知处组装。消费者必须从渲染层 bootstrap 排除这些请求头，并将其限定于配置来源。userId 同样仅限 Host，绝不进入渲染层 bootstrap。mergePlatformCookies 替换同名 Cookie，同时保留其他 Cookie。

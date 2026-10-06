@@ -91,7 +91,7 @@ kind: "package-reference"
 - [fs-sandbox](../fs-sandbox/README.zh.md)——实现该约定的沙箱强制后端。
 - [tool-fs](../tool-fs/README.zh.md)——消费 `ctx.fs` 的面向模型工具。
 - [fs-observation-policy](../fs-observation-policy/README.zh.md)——通过 `fs/*` 事件防护变更的策略插件。
-- [能力 seam 笔记](../../../.agents/notes/implemented/architecture/2026-06-13-capability-seams.zh.md)——文件系统栈为何拆分为约定、提供方、策略与工具。
+- [能力 seam 笔记](../../../.agents/notes/implemented/architecture/2026-06-13-capability-seams.md)——文件系统栈为何拆分为约定、提供方、策略与工具。
 
 -----
 

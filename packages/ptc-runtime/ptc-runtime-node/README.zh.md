@@ -103,7 +103,6 @@ Host 擦除可擦除类型，在配置的执行世界中解析可执行文件与
 | [`src/bootstrap.ts`](src/bootstrap.ts) | 程序求值、绑定代理与输出捕获 |
 | [`src/channel.ts`](src/channel.ts) | 分帧、有界写入与协议失败 |
 | [`src/output-ledger.ts`](src/output-ledger.ts) | Host 外层结果计量 |
-| — | 不发布运行时不变式配套模块；分帧与进程清理跨进程边界强制执行，不依靠同进程中的独立观测。 |
 
 </details>
 
@@ -115,8 +114,8 @@ Host 擦除可擦除类型，在配置的执行世界中解析可执行文件与
 直接使用提供方前先读服务约定；决策记录解释策略与消费方职责。
 
 - [PTC 运行时服务](../ptc-runtime/README.zh.md)——请求、已解析 spec 与结果。
-- [沙箱 Node 决策](../../../.agents/notes/implemented/architecture/2026-09-11-sandboxed-node-ptc-runtime.zh.md)——安全、生命周期与 timeout 取舍。
-- [PTC 基础](../../../.agents/notes/implemented/feature/2026-06-15-ptc.zh.md)——注册表呈现与嵌套工具分派。
+- [沙箱 Node 决策](../../../.agents/notes/implemented/architecture/2026-09-11-sandboxed-node-ptc-runtime.md)——安全、生命周期与 timeout 取舍。
+- [PTC 基础](../../../.agents/notes/implemented/feature/2026-06-15-ptc.md)——注册表呈现与嵌套工具分派。
 - [子进程提供方](../../subprocess/subprocess-local/README.zh.md)——受管进程范围与平台限制。
 
 -----
@@ -150,6 +149,6 @@ Host 擦除可擦除类型，在配置的执行世界中解析可执行文件与
 <details>
 <summary>维护者工作上下文——点击展开</summary>
 
-[timeout 讨论](../../../.agents/notes/implemented/architecture/2026-09-11-sandboxed-node-ptc-runtime.zh.md#deferred-timeout-design)记录 yield、总生命周期、审批等待计时和进程树 CPU/RSS 上限的开放选择。这些选择不改变数值截止的默认值或显式的不设截止服务选项。
+[timeout 讨论](../../../.agents/notes/implemented/architecture/2026-09-11-sandboxed-node-ptc-runtime.md#deferred-timeout-design)记录 yield、总生命周期、审批等待计时和进程树 CPU/RSS 上限的开放选择。这些选择不改变数值截止的默认值或显式的不设截止服务选项。
 
 </details>

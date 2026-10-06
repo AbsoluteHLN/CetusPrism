@@ -46,6 +46,7 @@
   ],
   "references": [
     { "path": "../apps/desktop/tsconfig.client.json" },
+    { "path": "../packages/util/atomic-write" },
     { "path": "../packages/experimental/client-ui-voice-input" },
 
     { "path": "../packages/client/ui-sidebar-terminal" },
@@ -67,6 +68,7 @@
     { "path": "../packages/client/ui-primitives" },
     { "path": "../packages/client/modules" },
     { "path": "../packages/experimental/inspector/tsconfig.client.json" },
+    { "path": "../packages/experimental/session-inspector" },
     { "path": "../packages/client/hmr" },
     { "path": "../packages/client/connection/tsconfig.client.json" },
     { "path": "../packages/client/file-upload/tsconfig.client.json" },
@@ -94,6 +96,7 @@
     { "path": "../packages/client/ui-skill" },
     { "path": "../packages/client/ui-reference" },
     { "path": "../packages/client/ui-subagent" },
+    { "path": "../packages/experimental/client-ui-claude-code-mods" },
     { "path": "../packages/experimental/client-ui-agent-team" },
     { "path": "../packages/client/ui-dockkit" },
     { "path": "../packages/client/ui-sidebar-right" },

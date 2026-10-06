@@ -5,7 +5,7 @@ kind: "package-reference"
 
 # @deepseek-ai/dsh-client-ui-sidebar-computer
 
-English | [中文](README.zh.md)
+[English](README.md) | 中文
 
 ## 概述
 
@@ -13,11 +13,11 @@ English | [中文](README.zh.md)
 
 ## 目录
 
-- [注册内容](#注册内容)
-- [操作记录](#操作记录)
-- [模型体验](#模型体验)
-- [已知限制与后续工作](#已知限制与后续工作)
-- [开发备注](#开发备注)
+- [注册内容](#what-it-registers)
+- [操作记录](#the-feed)
+- [模型体验](#model-experience)
+- [已知限制与后续工作](#known-limitations-and-deferred-work)
+- [开发备注](#dev-note)
 
 -----
 

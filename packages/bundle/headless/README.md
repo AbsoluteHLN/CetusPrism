@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-headless` runs one dsh task from the command line and prints the final answer, then exits — no GUI, server, browser, or ports. Type `dsh --profile headless "run the tests"` and the agent handles it with the same model, tools, and safety defaults; on a terminal the run renders live: a header card, an animated status line, tool cards, and a streaming answer. It suits scripts, CI, and one-off jobs. `--json` switches stdout to a machine-readable event stream; `--session-id` resumes a conversation. Exit code 0 means completed; 1 means aborted or errored. One task per invocation, no interactive follow-up.
+`dsh-headless` runs one dsh task from the command line and prints the final answer, then exits — no GUI, no server, no browser. Type `dsh --profile headless "run the tests"` and the agent handles it with the same model, tools, and safety defaults as every other surface. It suits scripts, CI, and one-off jobs: it opens no ports and leaves nothing running behind. It also offers a JSON event stream (`--json`) and `--session-id` to resume a conversation. Exit code 0 means the task completed; 1 means it aborted or errored. The boundary: one task per invocation, no interactive follow-up.
 
 ## Table of Contents
 
@@ -33,21 +33,19 @@ Run one task, get the final answer, and exit. The task is the command-line argum
 dsh --profile headless "run the tests"
 ```
 
-The agent works through the task and exits. On a terminal, stdout renders the live terminal UI: a header card with the provider, model, session, and working directory; a status line that animates through thinking, answering, and each running tool; dimmed reasoning lines; tool cards carrying an argument summary and a result line; and the answer streamed as it arrives, ending in a summary footer with the elapsed time, step and tool counts, and token usage. The answer's text still derives from the committed Session log, so the footer and the durable history always agree. When stdout is not a terminal — or `--plain` forces the classic mode — the run streams each non-empty provider reasoning delta to stderr under a `dsh: reasoning:` heading, then prints the final answer on stdout and exits; consecutive reasoning deltas stay in one section, and the runner closes that section before later output when the provider supplied no trailing newline. A successful run without reasoning keeps stderr empty; a failure exits 1 and prints `dsh: <code>: <message>` to stderr. The task comes from the positional argument, or from stdin when the argument is omitted or is a lone `-`; a blank positional argument or an empty pipe is rejected before anything runs. A positional task is used as-is and stdin is not read, so put the whole prompt in the pipe when you want piped input; a piped task is sent verbatim, its trailing newline included.
+The agent works through the task, streams each non-empty provider reasoning delta to stderr under a `dsh: reasoning:` heading, then prints the final answer on stdout and exits. Consecutive reasoning deltas stay in one section, and the runner closes that section before later output when the provider supplied no trailing newline. A successful run without reasoning keeps stderr empty; a failure exits 1 and prints `dsh: <code>: <message>` to stderr. The task comes from the positional argument, or from stdin when the argument is omitted or is a lone `-`; a blank positional argument or an empty pipe is rejected before anything runs. A positional task is used as-is and stdin is not read, so put the whole prompt in the pipe when you want piped input; a piped task is sent verbatim, its trailing newline included.
 
 ```sh
 { echo "Summarize these changes:"; git diff --stat; } | dsh --profile headless
 ```
 
-The task and run options are supplied through five settings:
+The task and run options are supplied through three settings:
 
 | Field | Default | Meaning |
 |---|---|---|
 | `task` | stdin | The task text; stdin supplies it when omitted or `-` |
 | `sessionId` | `session-<uuid>` | Exact Session identity to adopt; an unknown id fails |
 | `json` | `false` | Project the run as newline-delimited events on stdout |
-| `tui` | `false` | Render the live terminal UI even when stdout is not a terminal |
-| `plain` | `false` | Print the classic plain output even when stdout is a terminal |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-headless) is the exhaustive source for every accepted field and its JSDoc.
 
@@ -57,11 +55,7 @@ Every invocation defaults to a fresh `session-<uuid>` identity, which `--json` r
 
 ### Machine-readable output
 
-`--json` replaces the final-text stdout line with a newline-delimited JSON event stream, while stderr keeps only the `dsh:` diagnostics. The stream opens with `session` (carrying the identity the run used) and closes with `final`, and carries `status`, `text`, `thinking`, `tool_call`, and `tool_result` events in between. `text` and `thinking` are projected from committed assistant messages, so a retried or discarded attempt never reaches the stream; they arrive when the step commits, not per token, and classic-mode stderr reasoning remains the only live text channel. The terminal `final` event carries the same lossless answer as the classic mode and is not capped; every other string and object key is capped at 8 KiB and flagged with `truncated`, and one event line, its newline included, is capped at 32 KiB — an over-long event keeps its scalar fields, drops structured ones, and at the extreme reduces to `type` and `truncated`, while a payload nested 64 levels or deeper is cut at that depth. An empty tool-argument string projects as `{}`, matching what the executor runs, while arguments that JSON cannot round-trip — an overflowing number such as `1e400` — keep their raw text rather than the `null` that `JSON.stringify` would report. A failure the runner raises outside a turn writes an `error` event and ends the stream without `final`, in addition to the `dsh:` stderr line; a profile whose own plugins fail to load exits before the runner mounts, so that case keeps only the loader's stderr diagnostics. A turn that fails in-turn still ends with a `final` event (often empty) and no `error` event, so a well-formed stream can still describe a failed run: treat exit code 1 and the `turn_end` reason as the failure signal.
-
-### Live terminal UI
-
-By default the live UI is on when stdout is a terminal and off otherwise, so piped scripts keep the classic byte-stable output. `--tui` forces the UI on for a piped stdout, where it renders as a static, uncolored transcript with no in-place redraws; `--plain` forces the classic output on a terminal. `--json` owns stdout as the event stream, so it is mutually exclusive with `--tui` at the command line, while `--json` and `--plain` can be combined. The UI renders inline without an alternate screen and writes nothing to stderr, where the `dsh:` diagnostics still land; a failed run ends in a `✗` footer carrying the failure message instead of the `✓` summary. The layout clamps to a 40-column minimum, wraps long lines, counts CJK and emoji characters as two columns, and honors `NO_COLOR` on a terminal.
+`--json` replaces the final-text stdout line with a newline-delimited JSON event stream, while stderr keeps only the `dsh:` diagnostics. The stream opens with `session` (carrying the identity the run used) and closes with `final`, and carries `status`, `text`, `thinking`, `tool_call`, and `tool_result` events in between. `text` and `thinking` are projected from committed assistant messages, so a retried or discarded attempt never reaches the stream; they arrive when the step commits, not per token, and default-mode stderr reasoning remains the only live text channel. The terminal `final` event carries the same lossless answer as the default mode and is not capped; every other string and object key is capped at 8 KiB and flagged with `truncated`, and one event line, its newline included, is capped at 32 KiB — an over-long event keeps its scalar fields, drops structured ones, and at the extreme reduces to `type` and `truncated`, while a payload nested 64 levels or deeper is cut at that depth. An empty tool-argument string projects as `{}`, matching what the executor runs, while arguments that JSON cannot round-trip — an overflowing number such as `1e400` — keep their raw text rather than the `null` that `JSON.stringify` would report. A failure the runner raises outside a turn writes an `error` event and ends the stream without `final`, in addition to the `dsh:` stderr line; a profile whose own plugins fail to load exits before the runner mounts, so that case keeps only the loader's stderr diagnostics. A turn that fails in-turn still ends with a `final` event (often empty) and no `error` event, so a well-formed stream can still describe a failed run: treat exit code 1 and the `turn_end` reason as the failure signal.
 
 ### When to use it
 
@@ -83,35 +77,27 @@ The runner is a direct driver over the core API carrier: it resolves the Agent i
 
 ### Run flow
 
-The runner awaits the complete application (`ctx.get('loader')?.await()`) so the composed tools and adapters are not half-mounted, reads the shared [`agentDefaultModel`](../../core/agent-default-model/README.md) selection, resolves the task from config or stdin, then resolves the Agent identity: a fresh `session-<uuid>` by default, or the persisted Session `--session-id` names, which it adopts through [`sessionQuery`](../../session-query/session-query/README.md) and refuses when no log exists. It submits the task as an ordinary user message. It then selects the output mode: `--json` projects the run as events, the live UI renders it on a TTY stdout (or whenever `--tui` forces it), and the classic mode otherwise streams that Agent's non-empty reasoning deltas to stderr. It waits for quiescence, then flushes the Session and folds the owned interval (`firstSeq` onward) into the last non-empty `assistant/message` text and final `turn/end` reason. It writes the final text to stdout (the `final` event, or the live-UI footer) and requests exit.
+The runner awaits the complete application (`ctx.get('loader')?.await()`) so the composed tools and adapters are not half-mounted, reads the shared [`agentDefaultModel`](../../core/agent-default-model/README.md) selection, resolves the task from config or stdin, then resolves the Agent identity: a fresh `session-<uuid>` by default, or the persisted Session `--session-id` names, which it adopts through [`sessionQuery`](../../session-query/session-query/README.md) and refuses when no log exists. It submits the task as an ordinary user message. Without `--json` it streams that Agent's non-empty reasoning deltas to stderr; with `--json` it projects the run instead. It waits for quiescence, then flushes the Session and folds the owned interval (`firstSeq` onward) into the last non-empty `assistant/message` text and final `turn/end` reason. It writes the final text to stdout (or the `final` event) and requests exit.
 
 ### Patch surface over base
 
-The patch rides over `dsh-base`: it inherits the projection cache and shared PTC runtime, sets the coding persona prefix and separate cwd suffix on the base `system-prompt` row, keeps the same temporary process-wide PTC mode opt-in (`DSH_TOOLS_MODE`) as the Web surface, disables the shared HMR row, and mounts the startup provider and the runner. The cache checkpoints each persisted one-shot session for later consumers; its durability barrier flushes each covered log prefix before publishing the cache row and may split otherwise coalesced JSONL runs. The startup provider ([`src/startup.ts`](src/startup.ts)) injects `ctx.cmdlineArgs` ([`dsh-cmdline`](../../boot/cmdline/README.md)), reads the positional argument and the `--session-id`/`--json`/`--tui`/`--plain` options, prints the app's `--help`, and provides `headlessStartup`; the runner injects that service and reads its task and run options from lazy config.
+The patch rides over `dsh-base`: it inherits the projection cache and shared PTC runtime, sets the coding persona prefix and separate cwd suffix on the base `system-prompt` row, keeps the same temporary process-wide PTC mode opt-in (`DSH_TOOLS_MODE`) as the Web surface, disables the shared HMR row, and mounts the startup provider and the runner. The cache checkpoints each persisted one-shot session for later consumers; its durability barrier flushes each covered log prefix before publishing the cache row and may split otherwise coalesced JSONL runs. The startup provider ([`src/startup.ts`](src/startup.ts)) injects `ctx.cmdlineArgs` ([`dsh-cmdline`](../../boot/cmdline/README.md)), reads the positional argument and the `--session-id`/`--json` options, prints the app's `--help`, and provides `headlessStartup`; the runner injects that service and reads its task and run options from lazy config.
 
 ### Exit mapping
 
-A completed final `turn/end` exits 0; any other outcome — aborted, error, or no turn in the owned interval — exits 1. An `error` reason also writes `dsh: <code>: <message>` to stderr, and the live UI ends the run in a `✗` footer carrying the same text. A direct driver failure (for example, Agent creation or an unusable `--session-id`) writes `dsh: <message>` to stderr and exits 1, in `--json` mode also emits an `error` event, and in the live UI ends in a `✗` footer.
+A completed final `turn/end` exits 0; any other outcome — aborted, error, or no turn in the owned interval — exits 1. An `error` reason also writes `dsh: <code>: <message>` to stderr. A direct driver failure (for example, Agent creation or an unusable `--session-id`) writes `dsh: <message>` to stderr and exits 1, and in `--json` mode also emits an `error` event.
 
 ### Source map
 
 | File | Role |
 |---|---|
-| [`src/index.ts`](src/index.ts) | The `headless-runner` plugin: run flow, session resolution, output mode, exit mapping |
-| [`src/startup.ts`](src/startup.ts) | The `headless-startup` provider: task positional, `--session-id`, `--json`, `--tui`, `--plain`, and `--help` |
+| [`src/index.ts`](src/index.ts) | The `headless-runner` plugin: run flow, session resolution, output contract, exit mapping |
+| [`src/startup.ts`](src/startup.ts) | The `headless-startup` provider: task positional, `--session-id`, `--json`, and `--help` |
 | [`src/json-stream.ts`](src/json-stream.ts) | The `--json` projection: event vocabulary, commit-point emission, string bounding |
-| [`src/tui.ts`](src/tui.ts) | The live-UI projection: session-event and stream-frame selection, tool summary, phase tracking |
-| [`src/tui-renderer.ts`](src/tui-renderer.ts) | The pure TUI renderer: header, status line, wrapping, tool cards, footer, ANSI |
 | [`cordis.patch.yml`](cordis.patch.yml) | The one-shot patch over `dsh-base` |
-| — | No runtime invariant companion is published; the runner's observable contract (output mode on stdout, exit code by turn-end reason) is process-level and owned by the launcher e2e; it registers nothing and holds no mutable relation to audit inside the tree. |
-| [`tests/headless.spec.ts`](tests/headless.spec.ts) | Run flow, aggregation, flush, session adoption, exit mapping, and live-UI mode selection |
+| [`tests/headless.spec.ts`](tests/headless.spec.ts) | Run flow, aggregation, flush, session adoption, and exit mapping |
 | [`tests/json-stream.spec.ts`](tests/json-stream.spec.ts) | Projection ordering, commit-point emission, bounding, and disposal |
-| [`tests/tui.spec.ts`](tests/tui.spec.ts) | Renderer layout, wrapping, footer, and projection behavior |
 | [`tests/startup.spec.ts`](tests/startup.spec.ts) | Command-line parsing over a real Loader tree |
-
-### Invariant ownership
-
-No invariant companion is published because the runner's observable contract (output mode on stdout, exit code by turn-end reason) is process-level and owned by the launcher e2e; the plugin registers nothing and holds no mutable relation to audit inside the tree.
 
 </details>
 
@@ -148,10 +134,9 @@ These limits tell you when headless does not fit and what it needs from the `dsh
 
 - **One task per run** — after the task is answered the process exits; there is no interactive follow-up, so split multi-step work into separate runs.
 - **Runs through the `dsh` launcher** — starting the headless profile another way fails at startup, because only the launcher can request the process exit.
-- **No pre-token heartbeat in classic mode** — stderr stays silent until the provider emits a non-empty reasoning delta, so a delayed first token exposes no earlier progress signal; the live UI's status line is the only pre-token progress there is.
-- **Reasoning enters stderr logs in classic mode** — redirection and supervisors may retain substantially more and potentially sensitive model output; route stderr to a controlled sink when needed.
-- **Classic stdout carries only the final answer** — in classic mode a run without an assistant message prints an empty stdout line and exits 1; intermediate tool output is not printed unless you opt into `--json`.
-- **The piped UI is a transcript, not a terminal** — `--tui` on a non-TTY stdout renders a static, uncolored layout with no in-place redraws, so it documents the run rather than animating it.
+- **No pre-token heartbeat** — in default mode stderr stays silent until the provider emits a non-empty reasoning delta; a delayed first token exposes no earlier progress signal.
+- **Reasoning enters stderr logs** — in default mode, redirection and supervisors may retain substantially more and potentially sensitive model output; route stderr to a controlled sink when needed.
+- **Default stdout carries only the final answer** — a run without an assistant message prints an empty stdout line and exits 1; intermediate tool output is not printed unless you opt into `--json`.
 - **Adoption is cwd-, ownership-, and preset-scoped** — `--session-id` refuses a Session recorded in another working directory, one that recorded no working directory, one that is a subagent or forked session, or one that runs under an agent preset this profile does not compose or whose preset record is malformed, and requires the composed Session query and persistence services; an identity already live in the process is refused too, because the runner cannot own an exclusive run interval over it.
 - **The event stream is a projection, not the log** — `--json` caps every string except the terminal `final` at 8 KiB and omits events the projection does not model, so it is not a lossless copy of the Session log.
 

@@ -99,7 +99,6 @@ flow 声明它写入的凭据记录、面向用户的标签以及它提供的登
 |---|---|
 | [`src/index.ts`](src/index.ts) | Service Definition：flow 注册表、每键单尝试生命周期、交互路由、提交确认 |
 | [`src/types.ts`](src/types.ts) | 跨进程安全的词汇：方法、notice、prompt、结果、entry |
-| [`src/invariant.ts`](src/invariant.ts) | 不变式伴生插件：`authorization/settled` 点名的键必已释放 |
 
 ### 生命周期
 
@@ -126,7 +125,7 @@ notice 是单向的，且从不携带机密：一条消息，以及可选的「�
 - [凭据包映射](../README.zh.md)——凭据引用、本地存储与授权三个包。
 - [凭据引用 seam](../credentials/README.zh.md)——每个 flow 都经由它提交的记录存储。
 - [能力 seam](../../../docs/capability-seams.zh.md)——本 seam 遵循的 Service Definition / Service Provider / Consumer 拆分。
-- [凭据记录与授权 flow](../../../.agents/notes/implemented/architecture/2026-08-13-credential-records-and-authorization-flows.zh.md)——记录半侧与本 seam 背后的理由与决策。
+- [凭据记录与授权 flow](../../../.agents/notes/implemented/architecture/2026-08-13-credential-records-and-authorization-flows.md)——记录半侧与本 seam 背后的理由与决策。
 
 -----
 
@@ -158,7 +157,7 @@ notice 是单向的，且从不携带机密：一条消息，以及可选的「�
 
 本开发备注是维护者的工作上下文：开放问题与尚未决定的探索方向。它明确不具权威性——已交付的行为、限制与既定理由以上文、包代码和相关 Agent Note 为准。
 
-上文限制点名的开放方向——可恢复的尝试、服务端吊销、孤儿记录发现——每一项落地前都需要各自的设计与存储。不变式伴生插件是唯一承重的运行时检查：结算时键必须已释放，因为卡死的键与繁忙的键无法区分，只有重启才能释放它。
+上文限制点名的开放方向——可恢复的尝试、服务端吊销、孤儿记录发现——每一项落地前都需要各自的设计与存储。
 
 </details>
 

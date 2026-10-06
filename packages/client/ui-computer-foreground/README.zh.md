@@ -13,10 +13,10 @@ kind: "package-reference"
 
 ## 目录
 
-- [注册内容](#注册内容)
-- [开关行为](#开关行为)
-- [模型体验](#模型体验)
-- [已知限制与延期工作](#已知限制与延期工作)
+- [注册内容](#what-it-registers)
+- [开关行为](#the-toggle)
+- [模型体验](#model-experience)
+- [已知限制与延期工作](#known-limitations-and-deferred-work)
 
 -----
 
@@ -31,7 +31,7 @@ kind: "package-reference"
 <a id="开关行为"></a>
 ## 开关行为
 
-芯片读取会话的 `computerDelivery` 投影视图，由[前台策略服务](../../computer-use/computer-use-policy/README.md)产出；键缺失说明宿主未装配策略服务，芯片不渲染。可见标签描述当前状态（`允许抢前台` / `禁止抢前台`），`aria-pressed` 标记受限状态。点击经 `/foreground` 命令提交另一模式——与斜杠命令共用同一条写路径，推送的投影帧即唯一确认。提交失败会解除等待锁并保留当前显示状态，投影帧本就会纠正它。
+芯片读取会话的 `computerDelivery` 投影视图，由[前台策略服务](../../computer-use/computer-use-policy/README.zh.md)产出；键缺失说明宿主未装配策略服务，芯片不渲染。可见标签描述当前状态（`允许抢前台` / `禁止抢前台`），`aria-pressed` 标记受限状态。点击经 `/foreground` 命令提交另一模式——与斜杠命令共用同一条写路径，推送的投影帧即唯一确认。提交失败会解除等待锁并保留当前显示状态，投影帧本就会纠正它。
 
 输入区锁定（回合进行中或会话不可用）时芯片禁用，与权限控件一致。
 

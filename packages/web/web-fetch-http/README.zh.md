@@ -92,7 +92,6 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 | [`src/provider.ts`](src/provider.ts) | `HttpFetchProvider`：固定连接、重定向跟随、有界读取、charset 解码 |
 | [`src/network.ts`](src/network.ts) | 公开地址解析、DNS64 发现与连接固定 |
 | [`src/policy.ts`](src/policy.ts) | URL 校验、同源检查、内容类型分类、charset 解析 |
-| — | 不发布运行时不变量配套入口；除所属 seam 强制执行的约定外，本包没有独立的事件序列或可变数据关系。 |
 
 ### 读取路径
 
@@ -112,7 +111,7 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 - [dsh-web](../web/README.zh.md)——本提供方注册进入的 web 服务。
 - [dsh-tool-web](../tool-web/README.zh.md)——渲染本提供方正文的面向模型 `web_fetch` 工具。
 - [生成配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-web-fetch-http)——每个受支持配置字段及其源声明。
-- [web 能力 seam 决策](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.zh.md)——搜索与抓取为何共用一项提供方选择服务。
+- [web 能力 seam 决策](../../../.agents/notes/implemented/architecture/2026-06-24-web-capability-seam.md)——搜索与抓取为何共用一项提供方选择服务。
 
 -----
 

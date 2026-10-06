@@ -19,7 +19,7 @@ export type LoggerMethod = (format: any, ...param: any[]) => void
 export type Formatter = (value: any, exporter: Exporter, message: Message) => any
 
 /** Numeric severity used when exporters decide whether to emit a message. */
-export const enum LoggerLevel {
+export enum LoggerLevel {
   ERROR = 0,
   INFO = 1,
   WARN = 2,

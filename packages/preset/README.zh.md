@@ -31,7 +31,7 @@ kind: "package-group"
 
 - [Scope](../../docs/subsystems/scope.zh.md)
 - [Cordis](../../docs/cordis-primer.zh.md)
-- [Agent preset](../../.agents/notes/implemented/architecture/2026-09-18-declarative-agent-presets.zh.md)
+- [Agent preset](../../.agents/notes/implemented/architecture/2026-09-18-declarative-agent-presets.md)
 
 <a id="dev-note"></a>
 ## 开发笔记

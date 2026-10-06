@@ -4,7 +4,7 @@
 
 ## 概述
 
-本教程介绍如何添加下一个结构性 Session 日志版本，同时不改写已发布数据。阅读[版本与发布状态真源](../session-format-status.zh.md)，确定工作区写入器与最新已发布格式。令 N 表示经核实的已发布格式，N+1 表示目标版本；名称与元数据中的这些占位符须替换为数字。开始前，请准备可用的贡献者工作区，并阅读[包检查清单](adding-a-package.zh.md)、[格式库](../../packages/session/session-format/README.zh.md)和[已发布格式决策](../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.zh.md)。
+本教程介绍如何添加下一个结构性 Session 日志版本，同时不改写已发布数据。阅读[版本与发布状态真源](../session-format-status.zh.md)，确定工作区写入器与最新已发布格式。令 N 表示经核实的已发布格式，N+1 表示目标版本；名称与元数据中的这些占位符须替换为数字。开始前，请准备可用的贡献者工作区，并阅读[包检查清单](adding-a-package.zh.md)、[格式库](../../packages/session/session-format/README.zh.md)和[已发布格式决策](../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md)。
 
 ## 目录
 
@@ -20,7 +20,7 @@
 <a id="choose-the-version"></a>
 ## 1. 选择版本与发布基线
 
-当 header、事件信封、核心事件语义或表面重建发生结构性变更时，提升格式版本。向后兼容的变更可以通过新的确认记录保留当前版本；遵循[版本规则](../../.agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.zh.md)与[类型变更规则](../persistence-changes/README.zh.md#compatibility-rules)。区分 Session 格式整数与包发布版本、SQLite schema 版本、投影单元版本及协议包装层版本。
+当 header、事件信封、核心事件语义或表面重建发生结构性变更时，提升格式版本。向后兼容的变更可以通过新的确认记录保留当前版本；遵循[版本规则](../../.agents/notes/implemented/architecture/2026-08-10-session-log-version-mechanism.md)与[类型变更规则](../persistence-changes/README.md#compatibility-rules)。区分 Session 格式整数与包发布版本、SQLite schema 版本、投影单元版本及协议包装层版本。
 
 规划下一次破坏性变更时，N 取[版本／状态](../session-format-status.zh.md)中的已接受或已发布版本。因此，即使尚未记录 V4 发布，已接受 V4 之后的破坏性变更也需要 V5；兼容新增不需要这一步。
 
@@ -30,7 +30,7 @@
 
 N+1 尚处于开放集成阶段时，应使用可丢弃、相互隔离的 Harness home。中间版本产生的 N+1 文件已标为目标写入器版本，因此后续对 N→N+1 的修改不会再次迁移该文件。请在全新测试 home 中从未变更的历史输入重新运行；绝不通过改写已提交代际或复用真实用户 home 来修复这个问题。
 
-变更写入器之前，使用[归档命令](../persistence-changes/historical-formats/README.zh.md#maintenance)保留其完整持久化 schema，再在 `docs/persistence-changes/historical-formats/vN.*` 下添加双语格式参考。保留所有更早的记录。格式覆盖检查要求低于新写入器的每个整数版本都有独立文档；当前生成的目录只覆盖新写入器。
+变更写入器之前，使用[归档命令](../persistence-changes/historical-formats/README.md#maintenance)保留其完整持久化 schema，再在 `docs/persistence-changes/historical-formats/vN.*` 下添加双语格式参考。保留所有更早的记录。格式覆盖检查要求低于新写入器的每个整数版本都有独立文档；当前生成的目录只覆盖新写入器。
 
 <a id="add-an-identity-edge"></a>
 ## 2. 添加恒等迁移边
@@ -56,7 +56,7 @@ pnpm run gen-session-format-catalog
 
 继承截点是逻辑事件数量，不是物理行数。只有在 EOF 前已知时才公开 `headerInheritedEventCount`；`finish` 返回精确的目标截点。前一条改变事件数量的迁移边可能使该数量在构造时不可知。必要时从已校验的种子标记推导它，并测试从每个受支持历史代际到 N+1 的有种子多跳恢复，而非仅测试直接 N 输入。绝不以零替代未知截点。
 
-显式定义新迁移边的事件准入与变换规则。[V2 到 V3 源审计](../../packages/session/session-format-v2-to-v3/README.zh.md#source-audit)和 [Alpha V0→V1 规则](../../.agents/notes/implemented/architecture/2026-08-31-alpha-historical-unknown-event-refusal.zh.md)分别负责对应已发布迁移边的策略，而非新迁移边的策略。不要将任一策略推广到所有迁移边。结构或事件位置变化时，必须分类源事件、载荷成员与引用，并显式判断不透明数据能否保持有效。[同版本保留](../../.agents/notes/implemented/architecture/2026-08-30-retain-ignorable-external-session-events.zh.md)本身不能证明结构变换安全。校验目标语义，并为每个新增可接受案例提供一个被拒绝的反例；绝不放宽旧迁移边来掩盖不受支持的转换。
+显式定义新迁移边的事件准入与变换规则。[V2 到 V3 源审计](../../packages/session/session-format-v2-to-v3/README.zh.md#source-audit)和 [Alpha V0→V1 规则](../../.agents/notes/implemented/architecture/2026-08-31-alpha-historical-unknown-event-refusal.md)分别负责对应已发布迁移边的策略，而非新迁移边的策略。不要将任一策略推广到所有迁移边。结构或事件位置变化时，必须分类源事件、载荷成员与引用，并显式判断不透明数据能否保持有效。[同版本保留](../../.agents/notes/implemented/architecture/2026-08-30-retain-ignorable-external-session-events.md)本身不能证明结构变换安全。校验目标语义，并为每个新增可接受案例提供一个被拒绝的反例；绝不放宽旧迁移边来掩盖不受支持的转换。
 
 以原生 writer 输出作为转换对照：用相同录制的 LLM 消息、工具输出和其他输入回放旧 writer 与目标 writer。任何格式归一化 helper 运行前，比较迁移后的旧输出与目标原始输出，只屏蔽已说明的易变字段。V4 的普通工具结果变为包含普通内容块的平铺 tool-role 消息。旧类型理论上允许某种结构，本身不足以支持新增核心内容类型。
 
@@ -75,7 +75,7 @@ Alpha 转换器可以明确拒绝尚无已实现、有证据映射的历史场�
 
 不要自动提升无关版本。请求包装层的 `sessionFormatVersion` 标识嵌入的 Session 代际；外层 schema 版本有自己的含义。投影单元状态版本同样不能替代缓存的 Session 代际身份。
 
-验证读取与写入两条路径。仅 header 的列表操作不得读取正文或发布。历史读取打开可以直接返回迁移后的内存产物而不写入；写入打开必须先校验并发布唯一的最终当前后继代际，再允许追加。源路径、字节与 inode 保持不变。所选代际高于当前版本或无效时，不得回退到前代。[准备阶段决策](../../.agents/notes/implemented/architecture/2026-09-05-read-only-session-migration-preparation.zh.md)负责发布时序。
+验证读取与写入两条路径。仅 header 的列表操作不得读取正文或发布。历史读取打开可以直接返回迁移后的内存产物而不写入；写入打开必须先校验并发布唯一的最终当前后继代际，再允许追加。源路径、字节与 inode 保持不变。所选代际高于当前版本或无效时，不得回退到前代。[准备阶段决策](../../.agents/notes/implemented/architecture/2026-09-05-read-only-session-migration-preparation.md)负责发布时序。
 
 <a id="snapshot-successors"></a>
 ## 5. 创建快照后继代际
@@ -106,7 +106,7 @@ pnpm run test:snapshot scripts/session-snapshot-corpus.corpus.ts
 
 实现新迁移边后，将其实际测试路径加入聚焦的 Vitest 命令。根据实际 diff 添加受影响的 JSONL、回放、投影与 SDK 测试；发布 Worker 路径变化时还需构建产物冒烟测试。要求严格迁移成功、骨架保持恒等、拒绝格式错误与未知必需事件、重复恢复确定、并发 Stage 状态独立、有种子的多跳截点正确、前代不变且无回退。报告确切命令与失败，不要推断整个测试套件的结果。
 
-更新[所属 Agent Note](../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.zh.md)，而非添加重复决策记录。发布前保持[发布记录](../session-format-status.zh.md#updating-the-record)不变；发布后，使用已核实的发布证据更新它。审计相关活跃记录的取代关系；保留独立理由，并保持归档记录冻结。一起更新双语正文，通过仓库工具重新记录每个变更的配对，然后运行文档检查：
+更新[所属 Agent Note](../../.agents/notes/implemented/architecture/2026-08-31-released-session-format-migrations.md)，而非添加重复决策记录。发布前保持[发布记录](../session-format-status.zh.md#updating-the-record)不变；发布后，使用已核实的发布证据更新它。审计相关活跃记录的取代关系；保留独立理由，并保持归档记录冻结。一起更新双语正文，通过仓库工具重新记录每个变更的配对，然后运行文档检查：
 
 ```sh
 pnpm run verify-translation-pairing --write docs/cookbook/adding-a-session-format-version.md

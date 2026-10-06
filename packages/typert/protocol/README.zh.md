@@ -107,7 +107,6 @@ Host 装配以转发给消费方的 Cordis 事件扩展 `TypertRemoteEventSelect
 | [`src/json-value.ts`](src/json-value.ts) | 各载体共享的无损 JSON 校验 `isRemoteJsonValue` 与 `isRemoteUplinkItem` |
 | [`src/remote-error.ts`](src/remote-error.ts) | `RemoteError` 与结构式识别函数 `remoteErrorOf` |
 | [`src/types.ts`](src/types.ts) | 协议映射、`RemoteErrorDetailsMap`、`RemoteResult`、`RemoteStream`、`RemoteStreamHandle`、`PeerScope`、`RemoteInvocation`、`InvocationDescriptor`、编解码器、提供方约定、注册表接口、`TypertClientRemote` |
-| — | 不发布运行时不变量伴生入口；decorator 只保留私有不可变声明，binding 也是冻结值，没有可供交叉核对的独立事件流。 |
 
 </details>
 
@@ -122,7 +121,7 @@ Host 装配以转发给消费方的 Cordis 事件扩展 `TypertRemoteEventSelect
 - [Typert 子系统参考](../../../docs/subsystems/typert.zh.md)——从协议与 Gateway 类型记录的字面公共约定。
 - [Typert 注册表](../registry/README.zh.md)——描述符与提供方在运行时存放的位置。
 - [Typert 生成器](../generator/README.zh.md)——生成消费方声明与描述符的包。
-- [Remote 调用 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-02-typert-remote-method-calls.zh.md)——Remote 调用背后的架构与传输决策。
+- [Remote 调用 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-02-typert-remote-method-calls.md)——Remote 调用背后的架构与传输决策。
 
 -----
 

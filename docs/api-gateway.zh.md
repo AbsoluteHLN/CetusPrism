@@ -160,6 +160,6 @@ pnpm run build:lib
 
 Remote 处理单请求单结果的一元方法调用，以及项沿 Host → Client 方向流动、而 Client 的项经 `this.ctx.invocation.uplink()` 到达正在运行的 Host 方法的流方法。会话事件流、分页、增量 reduce、projection 和实体子流仍需要独立的数据协议与注册模型；即使它们复用 Connection，也不应伪装成 Remote 方法或放入调用描述符。
 
-API 各层按 `remotes → gateway → connection → webserver` 组织。BFF 与 Typert RPC 层位于 `packages/api`；Connection 与 WebServer 位于 `packages/client/connection` 和 `packages/host/webserver`。包含 `Uint8Array` 的一元结果（包括嵌套字段和数组条目）使用[二进制 Remote 传输](../.agents/notes/implemented/architecture/2026-09-17-workspace-file-binary-transfer.zh.md)。需要 RPC 信封之外响应的功能注册精确的 Connection Fetch 路由。
+API 各层按 `remotes → gateway → connection → webserver` 组织。BFF 与 Typert RPC 层位于 `packages/api`；Connection 与 WebServer 位于 `packages/client/connection` 和 `packages/host/webserver`。包含 `Uint8Array` 的一元结果（包括嵌套字段和数组条目）使用[二进制 Remote 传输](../.agents/notes/implemented/architecture/2026-09-17-workspace-file-binary-transfer.md)。需要 RPC 信封之外响应的功能注册精确的 Connection Fetch 路由。
 
 lookup 策略按 key 配置，因此所有 `agent` 或 `session` 参数共享冷恢复行为。只接受 live 对象需要显式的逐参数或逐 endpoint 策略，而这种策略并不存在；不能通过业务方法内部猜测对象是否来自恢复。

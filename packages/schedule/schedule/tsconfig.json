@@ -9,10 +9,16 @@
   ],
   "references": [
     {
+      "path": "../../runtime-diagnostics/invariants"
+    },
+    {
       "path": "../../../vendor/cosmokit"
     },
     {
       "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../../vendor/schemastery"
     },
     {
       "path": "../../util/brand"
@@ -36,9 +42,6 @@
       "path": "../../session/session-persistence-jsonl"
     },
     {
-      "path": "../../runtime-diagnostics/invariants"
-    },
-    {
       "path": "../../api/session-controller/tsconfig.host.json"
     },
     {
@@ -49,9 +52,6 @@
     },
     {
       "path": "../../workspace/workspace"
-    },
-    {
-      "path": "../../runtime-diagnostics/invariants"
     }
   ]
 }

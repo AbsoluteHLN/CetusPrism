@@ -1184,8 +1184,8 @@ export class SessionStore extends Service {
    * store owns the carrier, so callers (the checkpoint policy's per-request
    * barrier, goal-round-driver's idle checkpoint, teardown drains, and consumers
    * that flush themselves before reading storage) must come through here
-   * rather than dispatch a raw `ctx.parallel('session/flush', …)` — one owner,
-   * one spelling, and the scoped-dispatch invariant can pin it.
+   * rather than dispatch a raw `ctx.parallel('session/flush', …)` — one owner
+   * and one spelling.
    * @param session - the session whose buffered events must reach durable storage.
    * @returns whether at least one durability listener participated, after every
    *   listener has settled successfully.

@@ -27,7 +27,7 @@ kind: "package-reference"
 
 ### 何时使用
 
-持久化通过 `dsh-session-format-catalog` 获取该迁移边；功能组合不会挂载它。只有在装配或测试静态已发布格式目录，或检查精确的 v1 到 v2 转换时，才直接导入本包。它不发布运行时不变式伴生入口，因为本包没有状态可能彼此分歧的、可独立观测的运行时注册项；decoder 与 transformer 状态只属于一次还原。
+持久化通过 `dsh-session-format-catalog` 获取该迁移边；功能组合不会挂载它。只有在装配或测试静态已发布格式目录，或检查精确的 v1 到 v2 转换时，才直接导入本包。
 
 ### 入口
 
@@ -78,7 +78,7 @@ v2 物理 header 要求 `isSeeded`，且不存储数值切点。编解码器从�
 - [已发布 v0 到 v1 迁移边](../session-format-v0-to-v1/README.zh.md)——本包复用的源编解码器与冻结历史词表。
 - [静态目录](../session-format-catalog/README.zh.md)——构建拥有的编解码器与迁移顺序。
 - [Session 持久化子系统](../../../docs/subsystems/persistence.zh.md)——不可变 generation 选择与发布。
-- [嵌入式 Assistant stream 决策](../../../.agents/notes/implemented/architecture/2026-09-01-v2-embedded-assistant-streams.zh.md)——理由、替代方案与后果。
+- [嵌入式 Assistant stream 决策](../../../.agents/notes/implemented/architecture/2026-09-01-v2-embedded-assistant-streams.md)——理由、替代方案与后果。
 
 -----
 

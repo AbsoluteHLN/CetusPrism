@@ -87,7 +87,7 @@ Slots provider 的精确 `listSubTree` 查询包含带说明的 owner 字段及�
 - [工具包](../tool-cordis/README.zh.md)——只读运行时 API 发现。
 - [UI 包](../ui-cordis/README.zh.md)——操作这个面的面板与卡片。
 - [extensions 子系统](../../../docs/subsystems/extensions.zh.md)——生成的 `ctx.dynamicCordisRunner` API 与 `cordis/*` 事件。
-- [客户端外壳与动态包 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-15-client-shells-and-dynamic-packages.zh.md)——浏览器半的包归属与构建面。
+- [客户端外壳与动态包 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-15-client-shells-and-dynamic-packages.md)——浏览器半的包归属与构建面。
 
 -----
 
@@ -143,5 +143,3 @@ React 可能在加载成功后失败。Client 报告其拥有的每个 entry 失
 无。
 
 </details>
-
-**运行时不变式：** 不发布伴生入口。所属关系（一个 live Plugin 的 loader entry 仅在一个 Plugin Run ID 存活期间存在）是只能通过 Client 半服务访问的浏览器侧状态，Node 平面的伴生入口无法观察。该关系改由本包自己的装载与拆除测试直接断言。

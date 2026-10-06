@@ -6,6 +6,9 @@
   },
   "include": ["src"],
   "references": [
+    {
+      "path": "../../runtime-diagnostics/invariants"
+    },
     { "path": "../../../vendor/cosmokit" },
     { "path": "../../../vendor/schemastery" },
     { "path": "../../../vendor/cordis" },
@@ -15,7 +18,6 @@
     { "path": "../../core/agent" },
     { "path": "../../subagent/subagent" },
     { "path": "../../session/session-persistence" },
-    { "path": "../../session/session-projection" },
-    { "path": "../../runtime-diagnostics/invariants" }
+    { "path": "../../session/session-projection" }
   ]
 }

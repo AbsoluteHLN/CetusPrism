@@ -9,6 +9,9 @@
   ],
   "references": [
     {
+      "path": "../../runtime-diagnostics/invariants"
+    },
+    {
       "path": "../../../vendor/cordis"
     },
     {
@@ -43,9 +46,6 @@
     },
     {
       "path": "../../workspace/workspace"
-    },
-    {
-      "path": "../../runtime-diagnostics/invariants"
     }
   ]
 }

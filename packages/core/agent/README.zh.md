@@ -53,7 +53,7 @@ handle.agent.followup({
 })
 handle.agent.steer({
   content: [{ type: 'text', text: 'Focus on the tests.' }],
-  source: { kind: 'plugin', plugin: 'my-plugin' },
+  source: { kind: 'my-plugin' },
 })
 await handle.agent.whenIdle()
 ```
@@ -100,7 +100,6 @@ await handle.agent.whenIdle()
 | [`src/dispatch.ts`](src/dispatch.ts) | `agentEvents` 融合分发器与 `assembleContextFor(agent)` |
 | [`src/consumed-work.ts`](src/consumed-work.ts) | `foldConsumedWork(events)`：日志消费掉的工作最终怎样了 |
 | [`src/model-selection.ts`](src/model-selection.ts) | `installModelSelection`：把一个选择耦合到组装与路由 |
-| [`src/invariant.ts`](src/invariant.ts) | 不变式配套：无操作的 `agent/status` 转换会失败 |
 | [`src/archive-admission.ts`](src/archive-admission.ts) | Workspace 注册表归档准入中的 `turn` 族：运行中的回合及其用户原因取消 |
 
 ### 注册表与生命周期
@@ -111,7 +110,7 @@ await handle.agent.whenIdle()
 
 ### 发起方作用域
 
-每个驱动器在 `ctx.agents.withInitiator(agent, ...)` 内运行其完整生命周期，因此继承的异步链会观察到该 agent；`withoutInitiator()` 为共享定时器等无关的进程本地工作隐藏它。该边界只是进程本地归因——环境中的身份既不是存活证明，也不是授权，显式身份在 worker、进程、持久化与 wire 边界保持权威。Teardown 拒绝新边界，让返回 Promise 的边界排空，然后禁用底层存储。[发起方作用域决策](../../../.agents/notes/implemented/architecture/2026-07-15-agent-initiator-scope.zh.md) 拥有详细约定。
+每个驱动器在 `ctx.agents.withInitiator(agent, ...)` 内运行其完整生命周期，因此继承的异步链会观察到该 agent；`withoutInitiator()` 为共享定时器等无关的进程本地工作隐藏它。该边界只是进程本地归因——环境中的身份既不是存活证明，也不是授权，显式身份在 worker、进程、持久化与 wire 边界保持权威。Teardown 拒绝新边界，让返回 Promise 的边界排空，然后禁用底层存储。[发起方作用域决策](../../../.agents/notes/implemented/architecture/2026-07-15-agent-initiator-scope.md) 拥有详细约定。
 
 ### 所有权不变式
 
@@ -129,7 +128,7 @@ await handle.agent.whenIdle()
 - [Core 子系统](../../../docs/subsystems/core.zh.md)——循环图、`Agent` 句柄、拦截决策与生成的服务 API。
 - [agent-loop 包](../agent-loop/README.zh.md)——创建、驱动并拆除 agent 的默认驱动器。
 - [会话子系统](../../../docs/subsystems/session.zh.md)——句柄背后的持久日志与派生历史。
-- [发起方作用域 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-15-agent-initiator-scope.zh.md)——边界与 teardown 约定。
+- [发起方作用域 Agent Note](../../../.agents/notes/implemented/architecture/2026-07-15-agent-initiator-scope.md)——边界与 teardown 约定。
 - [core 分组地图](../README.zh.md)——core 各包如何组合。
 
 -----

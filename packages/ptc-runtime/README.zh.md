@@ -38,7 +38,7 @@ kind: "package-group"
 先从子系统参考了解服务约定，再看消费此能力的 PTC mode 设计，以及它所遵循的能力 seam 模型。
 
 - [PTC 运行时子系统参考](../../docs/subsystems/ptc-runtime.zh.md)——请求／结果词汇、绑定与 `ctx.ptcRuntime` 的 Cordis 接口面。
-- [PTC mode Agent Note](../../.agents/notes/implemented/feature/2026-06-15-ptc.zh.md)——工具注册表如何把 `run_code` 呈现给模型。
+- [PTC mode Agent Note](../../.agents/notes/implemented/feature/2026-06-15-ptc.md)——工具注册表如何把 `run_code` 呈现给模型。
 - [能力 seam](../../docs/capability-seams.zh.md)——本家族遵循的 Service Definition / Service Provider / Consumer 拆分。
 
 <a id="dev-note"></a>

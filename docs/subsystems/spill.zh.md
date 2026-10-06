@@ -2,7 +2,7 @@
 
 [English](spill.md) | 中文
 
-spill 存储[能力 seam](../../.agents/notes/implemented/architecture/2026-07-08-tool-output-spill-files.zh.md)持久保存调用方提供的文本，并返回面向模型的定位符与检索指引。其 Service Definition 是 [dsh-spill](../../packages/spill/spill)（`ctx.spillStore`），本地 Service Provider 是 [dsh-spill-local](../../packages/spill/spill-local)。消费方包括[工具结果策略](../../packages/spill/spill-policy)与[会话引用](../../packages/context/session-reference/README.zh.md)。spill 是可选能力，不属于[智能体循环主干](core.zh.md)；预览与 spill 决策由消费方负责，存储则原样保存所提供的文本。
+spill 存储[能力 seam](../../.agents/notes/implemented/architecture/2026-07-08-tool-output-spill-files.md)持久保存调用方提供的文本，并返回面向模型的定位符与检索指引。其 Service Definition 是 [dsh-spill](../../packages/spill/spill)（`ctx.spillStore`），本地 Service Provider 是 [dsh-spill-local](../../packages/spill/spill-local)。消费方包括[工具结果策略](../../packages/spill/spill-policy)与[会话引用](../../packages/context/session-reference/README.zh.md)。spill 是可选能力，不属于[智能体循环主干](core.zh.md)；预览与 spill 决策由消费方负责，存储则原样保存所提供的文本。
 
 源码：[`packages/spill/spill/src/types.ts`](../../packages/spill/spill/src/types.ts)
 

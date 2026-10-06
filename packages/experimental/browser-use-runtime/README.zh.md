@@ -51,8 +51,6 @@ MCP 提供方使用 `@deepseek-ai/dsh-experimental-browser-use-runtime/mcp` 中�
 
 [MCP 辅助库](src/mcp.ts)在串行 `agent/created` 中建立连接；[AgentLoop](../../core/agent-loop/README.zh.md#understand-the-implementation)保留排队输入并负责创建回滚。提示词组装读取已初始化的目录。辅助库在资源清理期间保留提供方注册，并通过 [MCP 客户端](../../mcp/mcp-client/README.zh.md)处理传输、schema 发现、结果转换与持久图像接纳。
 
-不发布运行时不变量伴随入口：资源所有权与待处理工作是私有生命周期状态，没有可供比较的独立维护运行时投影。所属测试覆盖隔离、释放与清理失败。
-
 </details>
 
 -----
@@ -62,7 +60,7 @@ MCP 提供方使用 `@deepseek-ai/dsh-experimental-browser-use-runtime/mcp` 中�
 
 - [浏览器操作](../../../docs/subsystems/browser-use.zh.md) — 提供方选择与 Session 所有权。
 - [MCP 客户端](../../mcp/mcp-client/README.zh.md) — 发现、取消与结果接纳。
-- [浏览器所有权决策](../../../.agents/notes/implemented/architecture/2026-09-12-browser-use-provider-registration.zh.md) — 仅注册名称的服务与资源生命周期。
+- [浏览器所有权决策](../../../.agents/notes/implemented/architecture/2026-09-12-browser-use-provider-registration.md) — 仅注册名称的服务与资源生命周期。
 
 -----
 

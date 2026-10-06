@@ -25,7 +25,7 @@
 
 工具使用常规执行流程和 Session 日志。支持图像的模型路由在挂载附件存储时接收持久化截图；不支持图像的路由接收现有 MCP 图像诊断。提供方 README 负责说明安装、权限和平台限制。
 
-[决策记录](../../.agents/notes/implemented/architecture/2026-09-12-computer-use-provider-registration.zh.md)解释只负责注册的服务和两个 Cua Driver 集成。
+[决策记录](../../.agents/notes/implemented/architecture/2026-09-12-computer-use-provider-registration.md)解释只负责注册的服务和两个 Cua Driver 集成。
 
 <!-- BEGIN GENERATED cordis-surface (gen-cordis-catalog.ts) — do not edit between markers -->
 

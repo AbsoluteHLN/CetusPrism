@@ -1,6 +1,37 @@
-# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
-# side as of the last confirmed-consistent state. Both languages carry equal authority;
-# after editing either side, bring the other along and re-record with:
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/client/ui-desktop-notify/README.md
-README.md: 735d80dde3d78f0e3859cfd25a65ce84417a8f95
-README.zh.md: a57649b5a02a1bbd0668d8e697f63ed01b294383
+/:
+  en: 532857fbf13cd8e1
+  zh: 97a9e7ba7cd669b1
+/deepseek-ai-dsh-client-ui-desktop-notify:
+  en: a44657eb70607178
+  zh: 2c37a4f0cc268e9d
+/deepseek-ai-dsh-client-ui-desktop-notify/summary:
+  en: 87c479f83c81520b
+  zh: 7300ca5b288029c4
+/deepseek-ai-dsh-client-ui-desktop-notify/table-of-contents:
+  en: d152484eb41ac6b4
+  zh: b3ad7867f23dad1c
+/deepseek-ai-dsh-client-ui-desktop-notify/use-this-package:
+  en: 2f84b9eaf8649168
+  zh: 11812c30570e05b6
+/deepseek-ai-dsh-client-ui-desktop-notify/understand-the-implementation:
+  en: 19dd7116e3e85de5
+  zh: 406351c12d9c41ba
+/deepseek-ai-dsh-client-ui-desktop-notify/further-exploration:
+  en: d1f26cb33b3c818c
+  zh: e23c1f39c4cffe06
+/deepseek-ai-dsh-client-ui-desktop-notify/model-experience:
+  en: 3b80de7fb9c25e22
+  zh: 8d094247a09d1fcb
+/deepseek-ai-dsh-client-ui-desktop-notify/model-experience/kv-cache-effect:
+  en: 1293487f790e5e9d
+  zh: 8702caecafa3de08
+/deepseek-ai-dsh-client-ui-desktop-notify/known-limitations-and-deferred-work:
+  en: 775eb38cd07c423a
+  zh: b946044a225079a8
+/deepseek-ai-dsh-client-ui-desktop-notify/known-limitations-and-deferred-work/dev-note:
+  en: 126a63cda538a035
+  zh: 45ff79f148269dde

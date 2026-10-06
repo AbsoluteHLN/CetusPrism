@@ -76,7 +76,6 @@ kind: "package-reference"
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 提供方注册：前缀计算、`Config` schema、能力声明 |
-| — | 不发布运行时不变式伴生入口；本包没有独立事件序列或可变数据关系，相关约定在所属 seam 强制执行。 |
 
 ### 运行流程
 
@@ -84,7 +83,7 @@ kind: "package-reference"
 
 ### 生命周期绑定
 
-base 组合包与 ACP（Agent Client Protocol）/headless 示例在委派工具上把本提供方绑定为 `backgroundMode: one-shot`，CLI（命令行界面）预设则选择 `continuable`。两者都保留继承的请求前缀：父级与子级获得定义和顺序相同的消息工具，可继续子级的父级 ID 与返回指导位于继承历史之后的初始用户任务中（见[保持 fork 缓存的 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-10-fork-children-stay-one-shot.zh.md)）。
+base 组合包与 ACP（Agent Client Protocol）/headless 示例在委派工具上把本提供方绑定为 `backgroundMode: one-shot`，CLI（命令行界面）预设则选择 `continuable`。两者都保留继承的请求前缀：父级与子级获得定义和顺序相同的消息工具，可继续子级的父级 ID 与返回指导位于继承历史之后的初始用户任务中（见[保持 fork 缓存的 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-10-fork-children-stay-one-shot.md)）。
 
 </details>
 
@@ -100,7 +99,7 @@ base 组合包与 ACP（Agent Client Protocol）/headless 示例在委派工具�
 - [dsh-subagent-spawn-in-process](../subagent-spawn-in-process/README.zh.md)——全新子级的兄弟后端。
 - [dsh-tool-subagent](../tool-subagent/README.zh.md)——指向该提供方的面向模型委派工具。
 - [生成配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-subagent-fork-in-process)——每个受支持配置字段及其源声明。
-- [fork 保持 one-shot](../../../.agents/notes/implemented/architecture/2026-08-10-fork-children-stay-one-shot.zh.md)——随附组合为何把 fork 绑定为 one-shot。
+- [fork 保持 one-shot](../../../.agents/notes/implemented/architecture/2026-08-10-fork-children-stay-one-shot.md)——随附组合为何把 fork 绑定为 one-shot。
 
 -----
 
@@ -119,7 +118,7 @@ fork 会把保留的已完成历史复制到子 agent 的请求中，子 agent �
 
 #### KV Cache 影响
 
-在提供方与模型相同的前提下，子 agent 可以复用继承的逐字节相同前缀。persona、工具过滤、生成 SDK 或路由变化可能在继承历史之前使复用失效；后续子 agent 历史仅追加。可继续消息不会增加子级专属的系统提示词区段或工具 schema；父级 ID 与返回指导在初始用户任务中位于继承历史之后（见[保持 fork 缓存的 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-10-fork-children-stay-one-shot.zh.md)）。
+在提供方与模型相同的前提下，子 agent 可以复用继承的逐字节相同前缀。persona、工具过滤、生成 SDK 或路由变化可能在继承历史之前使复用失效；后续子 agent 历史仅追加。可继续消息不会增加子级专属的系统提示词区段或工具 schema；父级 ID 与返回指导在初始用户任务中位于继承历史之后（见[保持 fork 缓存的 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-10-fork-children-stay-one-shot.md)）。
 
 ### 父级工具结果（间接）
 
@@ -143,8 +142,8 @@ fork 会把保留的已完成历史复制到子 agent 的请求中，子 agent �
 这些限制说明何时选择该后端是错误的；它们是当前包约束。
 
 - **初始内容是一次性快照**——子 agent 只能看到 fork 时父级已完成的轮次，看不到父级此后记录的任何内容；不会实时共享上下文。
-- **fork 生命周期策略因组合而异**——base 组合包与 ACP/headless 示例使用一次性 fork，CLI 预设使用可继续 fork。两者都因父级与子级的消息定义逐字节相同而让继承前缀保持可复用；显式 persona、工具过滤、生成 SDK 或路由变化仍可破坏相等性。理由见[保持 fork 缓存的 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-10-fork-children-stay-one-shot.zh.md)。
-- **随附 fork 工具不公开子级 LLM（大语言模型）路由选择**——它们继承父级提供方与模型，使复制的历史仍有资格复用 KV Cache。在某项改动能保留复用或公开有界重算成本前，路由选择保持禁用；[模型选择路由 Agent Note](../../../.agents/notes/implemented/feature/2026-08-18-model-selected-subagent-routes.zh.md)说明这项限制。
+- **fork 生命周期策略因组合而异**——base 组合包与 ACP/headless 示例使用一次性 fork，CLI 预设使用可继续 fork。两者都因父级与子级的消息定义逐字节相同而让继承前缀保持可复用；显式 persona、工具过滤、生成 SDK 或路由变化仍可破坏相等性。理由见[保持 fork 缓存的 Agent Note](../../../.agents/notes/implemented/architecture/2026-08-10-fork-children-stay-one-shot.md)。
+- **随附 fork 工具不公开子级 LLM（大语言模型）路由选择**——它们继承父级提供方与模型，使复制的历史仍有资格复用 KV Cache。在某项改动能保留复用或公开有界重算成本前，路由选择保持禁用。
 
 <a id="dev-note"></a>
 ### 开发备注

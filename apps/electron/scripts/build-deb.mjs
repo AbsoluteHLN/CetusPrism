@@ -43,7 +43,10 @@ const containerStore = join(dirname(cargoRegistry), 'pnpm', 'store-container-lin
 // The virtual store holds the workspace's pnpm package; the project
 // node_modules is a junction shell with no real content to mount.
 const containerVstore = process.env.DSH_PNPM_VSTORE ?? 'E:/dependency-cache/pnpm/vstore'
-const outDir = join(appRoot, 'dist')
+// The .deb output joins the other build artifacts in the dependency cache on
+// Windows (matching pack-tauri); other hosts keep the in-tree dist.
+const outDir = process.env.CETUS_DIST_DIR
+  ?? (process.platform === 'win32' ? 'E:/dependency-cache/cetusprism/dist' : join(appRoot, 'dist'))
 mkdirSync(linuxTarget, { recursive: true })
 mkdirSync(containerStore, { recursive: true })
 mkdirSync(outDir, { recursive: true })

@@ -31,7 +31,9 @@ const appRoot = resolve(here, '..')
 const repoRoot = resolve(appRoot, '..', '..')
 // Runtime root defaults to the Windows unpacked tree (pack-tauri flow); the
 // Linux pack passes its linux-unpacked runtime as argv[2].
-const runtimeRoot = resolve(process.argv[2] ?? join(appRoot, 'dist', 'win-unpacked', 'resources', 'app', 'backend', 'runtime'))
+const distDir = process.env.CETUS_DIST_DIR
+  ?? (process.platform === 'win32' ? 'E:/dependency-cache/cetusprism/dist' : join(appRoot, 'dist'))
+const runtimeRoot = resolve(process.argv[2] ?? join(distDir, 'win-unpacked', 'resources', 'app', 'backend', 'runtime'))
 const nm = join(runtimeRoot, 'node_modules')
 const pnpmDir = join(nm, '.pnpm')
 

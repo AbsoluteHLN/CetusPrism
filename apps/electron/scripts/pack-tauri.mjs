@@ -30,7 +30,12 @@ import { fileURLToPath } from 'node:url'
 
 const appRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const repoRoot = join(appRoot, '..', '..')
-const outDir = join(appRoot, 'dist', 'win-unpacked')
+// The assembled payload embeds a full dependency closure (~500MB), so on
+// Windows it lives beside the other dependency stores in the dependency
+// cache instead of the project tree; other hosts keep the in-tree dist.
+const distDir = process.env.CETUS_DIST_DIR
+  ?? (process.platform === 'win32' ? 'E:/dependency-cache/cetusprism/dist' : join(appRoot, 'dist'))
+const outDir = join(distDir, 'win-unpacked')
 const appDir = join(outDir, 'resources', 'app')
 // Plain Node for the backend child, from the dependency cache like every
 // other runtime input.

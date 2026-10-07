@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { builtinModules } from 'node:module'
 import { join, dirname } from 'node:path'
 
-const runtimeRoot = 'E:/Projects/CetusPrism/apps/electron/dist/win-unpacked/resources/app/backend/runtime'
+const runtimeRoot = 'E:/dependency-cache/cetusprism/dist/win-unpacked/resources/app/backend/runtime'
 const nm = join(runtimeRoot, 'node_modules')
 const builtins = new Set([...builtinModules, 'node:inspector'])
 

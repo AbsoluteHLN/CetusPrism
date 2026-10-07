@@ -39,7 +39,7 @@ apps/electron/
                            feature set (host roster/task DAG, team tools, browser
                            Team action); restates agent-team-profile's composition
   scripts/build-shell.mjs            cargo build --release --offline from the dependency cache
-  scripts/pack-tauri.mjs             assemble dist/win-unpacked (no network)
+  scripts/pack-tauri.mjs             assemble the win-unpacked payload (no network)
   scripts/heal-deploy-links.mjs      deploy-layout invariant gate (see below)
   scripts/audit-junctions.mjs        verify every junction stays inside the runtime tree
   scripts/make-installer.mjs         NSIS installer via electron-builder --prepackaged
@@ -86,22 +86,22 @@ harness 从 `$DSH_HOME`（默认 `~/.dsh`）解析其用户数据根目录。首
 ```sh
 pnpm run build:lib && pnpm run build:web   # repo-root face builds the deploy needs
 node scripts/build-shell.mjs               # cargo build --release --offline
-node scripts/pack-tauri.mjs                # dist/win-unpacked/CetusPrism.exe + backend/
+node scripts/pack-tauri.mjs                # win-unpacked/CetusPrism.exe + backend/
 node scripts/make-installer.mjs            # NSIS installer via electron-builder
-dist/CetusPrism-<version>-setup.exe
+CetusPrism-<version>-setup.exe  (Windows output: E:/dependency-cache/cetusprism/dist)
 ```
 
-整条链路不触碰网络：Rust 工具链与 cargo crate 缓存位于依赖缓存中（`CARGO_HOME`/`RUSTUP_HOME` 可覆盖钉死的 `E:/dependency-cache` 位置），后端宿主是普通 Node 可执行文件（`BACKEND_NODE_EXE` 可覆盖默认钉死的 node-v24.18.0-win-x64 副本，即随包的 `backend/node.exe`），NSIS 打包经 electron-builder 以 `--prepackaged` 运行。`pack-tauri.mjs` 复制 release 可执行文件（图标与版本元数据在编译期嵌入，因此不再运行 rcedit），以 hoisted pnpm deploy 把 CLI 闭包直接部署到 `resources/app/backend/runtime/`，执行 heal（见下文），并裁剪非 win32-x64 原生预编译产物与 LibreOffice kit。`CARGO_TARGET_DIR` 可重定向 Rust 目标树。
+整条链路不触碰网络：Rust 工具链与 cargo crate 缓存位于依赖缓存中（`CARGO_HOME`/`RUSTUP_HOME` 可覆盖钉死的 `E:/dependency-cache` 位置），后端宿主是普通 Node 可执行文件（`BACKEND_NODE_EXE` 可覆盖默认钉死的 node-v24.18.0-win-x64 副本，即随包的 `backend/node.exe`），NSIS 打包经 electron-builder 以 `--prepackaged` 运行。`pack-tauri.mjs` 复制 release 可执行文件（图标与版本元数据在编译期嵌入，因此不再运行 rcedit），以 hoisted pnpm deploy 把 CLI 闭包直接部署到 `resources/app/backend/runtime/`，执行 heal（见下文），并裁剪非 win32-x64 原生预编译产物与 LibreOffice kit。`CARGO_TARGET_DIR` 可重定向 Rust 目标树；`CETUS_DIST_DIR` 可重定向组装产物与安装器的输出位置：Windows 上两者默认落在 `E:/dependency-cache/cetusprism/dist`，约 500MB 的产物因此不进项目树；其他宿主保留 `apps/electron/dist`。
 
 ## 构建与打包（Linux .deb）
 
 ```sh
 docker build -f docker/linux-build.Dockerfile -t cetusprism/linux-build .   # once
 node scripts/build-deb.mjs
-dist/CetusPrism-v<version>-amd64.deb
+CetusPrism-v<version>-amd64.deb  (Windows output: E:/dependency-cache/cetusprism/dist)
 ```
 
-构建在 `cetusprism/linux-build` 容器内进行（Debian bookworm，即 deb 要求的 glibc）：Tauri 壳对挂载的 cargo registry 缓存离线编译（WebKitGTK 4.1），随后 `pack-linux.mjs`——运行在挂载的 Linux Node v24.18.0 上——staging 出 `dist/linux-unpacked`，用同一 hoisted pnpm deploy 部署运行时闭包，裁剪非 linux-x64 预编译产物，并用 `dpkg-deb` 组装 deb：`/opt/CetusPrism/`、`cetusprism.desktop` 启动项、hicolor 图标与 `/usr/bin/dsh` shim。与 Windows 链路不同，容器内的 deploy 走宿主代理联网（`HTTP(S)_PROXY`，默认 `host.docker.internal:7897`）——store 在 Windows 侧填充，Linux 变体的可选原生包仍需获取。Windows 与 Linux 的目标树在依赖缓存 `cargo/targets/` 下并列（`cetusprism`、`cetusprism-linux`）。
+构建在 `cetusprism/linux-build` 容器内进行（Debian bookworm，即 deb 要求的 glibc）：Tauri 壳对挂载的 cargo registry 缓存离线编译（WebKitGTK 4.1），随后 `pack-linux.mjs`——运行在挂载的 Linux Node v24.18.0 上——staging 出 linux-unpacked 目录，用同一 hoisted pnpm deploy 部署运行时闭包，裁剪非 linux-x64 预编译产物，并用 `dpkg-deb` 组装 deb：`/opt/CetusPrism/`、`cetusprism.desktop` 启动项、hicolor 图标与 `/usr/bin/dsh` shim。与 Windows 链路不同，容器内的 deploy 走宿主代理联网（`HTTP(S)_PROXY`，默认 `host.docker.internal:7897`）——store 在 Windows 侧填充，Linux 变体的可选原生包仍需获取。Windows 与 Linux 的目标树在依赖缓存 `cargo/targets/` 下并列（`cetusprism`、`cetusprism-linux`）。
 
 ## 部署布局：hoisted、自包含
 

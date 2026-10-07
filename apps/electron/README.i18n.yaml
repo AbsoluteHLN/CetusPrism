@@ -21,11 +21,11 @@
   en: 5f5c21b19da0fecc
   zh: ce4630a0089ec34a
 /dsh-electron/build-and-pack-windows:
-  en: 083633fb31acb0ac
-  zh: eb99d41985c3cf1c
+  en: 5403fab0e1c75231
+  zh: 533bbd7a96443efc
 /dsh-electron/build-and-pack-linux-deb:
-  en: 3688cac94084fb02
-  zh: 0a718be3affb5be7
+  en: c46b943cef84e21d
+  zh: 1f2e8157bff55d7f
 /dsh-electron/deploy-layout-hoisted-self-contained:
   en: 15dd270d9ccc6c7d
   zh: b77aa3e9b7431c71

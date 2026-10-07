@@ -2,7 +2,7 @@
 // resolves within the packed tree. Run: node scripts/audit-junctions.mjs
 import { readdirSync, readlinkSync, existsSync } from 'node:fs'
 
-const root = 'E:/Projects/CetusPrism/apps/electron/dist/win-unpacked/resources/app/backend/runtime'
+const root = 'E:/dependency-cache/cetusprism/dist/win-unpacked/resources/app/backend/runtime'
 const p = root + '/node_modules'
 const out = []
 let n = 0

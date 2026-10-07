@@ -19,7 +19,12 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const appRoot = dirname(dirname(fileURLToPath(import.meta.url)))
-const unpackedDir = join(appRoot, 'dist', 'win-unpacked')
+// The payload and installer are build artifacts with an embedded dependency
+// closure: on Windows they live in the dependency cache (matching pack-tauri);
+// other hosts keep the in-tree dist.
+const distDir = process.env.CETUS_DIST_DIR
+  ?? (process.platform === 'win32' ? 'E:/dependency-cache/cetusprism/dist' : join(appRoot, 'dist'))
+const unpackedDir = join(distDir, 'win-unpacked')
 const iconPath = join(appRoot, 'build', 'icon.ico')
 
 const builderCache = process.env.ELECTRON_BUILDER_CACHE ?? 'E:/dependency-cache/electron-builder/Cache'
@@ -63,7 +68,8 @@ if (!existsSync(builderCli)) {
   process.exit(1)
 }
 execFileSync(process.execPath, [
-  builderCli, '--win', 'nsis', '--x64', '--prepackaged', 'dist/win-unpacked',
+  builderCli, '--win', 'nsis', '--x64', '--prepackaged', unpackedDir,
+  '-c.directories.output=' + distDir,
 ], { cwd: appRoot, stdio: 'inherit' })
 
-console.log(`make-installer: installer ready in ${join(appRoot, 'dist')}`)
+console.log(`make-installer: installer ready in ${distDir}`)

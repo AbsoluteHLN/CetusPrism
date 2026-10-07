@@ -43,7 +43,7 @@ apps/electron/
                            feature set (host roster/task DAG, team tools, browser
                            Team action); restates agent-team-profile's composition
   scripts/build-shell.mjs            cargo build --release --offline from the dependency cache
-  scripts/pack-tauri.mjs             assemble dist/win-unpacked (no network)
+  scripts/pack-tauri.mjs             assemble the win-unpacked payload (no network)
   scripts/heal-deploy-links.mjs      deploy-layout invariant gate (see below)
   scripts/audit-junctions.mjs        verify every junction stays inside the runtime tree
   scripts/make-installer.mjs         NSIS installer via electron-builder --prepackaged
@@ -178,9 +178,9 @@ shell, so an existing install upgrades in place.
 ```sh
 pnpm run build:lib && pnpm run build:web   # repo-root face builds the deploy needs
 node scripts/build-shell.mjs               # cargo build --release --offline
-node scripts/pack-tauri.mjs                # dist/win-unpacked/CetusPrism.exe + backend/
+node scripts/pack-tauri.mjs                # win-unpacked/CetusPrism.exe + backend/
 node scripts/make-installer.mjs            # NSIS installer via electron-builder
-dist/CetusPrism-<version>-setup.exe
+CetusPrism-<version>-setup.exe  (Windows output: E:/dependency-cache/cetusprism/dist)
 ```
 
 Nothing in the chain touches the network: the Rust toolchain and the cargo
@@ -193,21 +193,21 @@ copies the release executable (icon and version metadata are embedded at
 compile time, so no rcedit pass runs), deploys the CLI closure straight into
 `resources/app/backend/runtime/` with a hoisted pnpm deploy, heals the
 deploy (below), and prunes non-win32-x64 native prebuilds and the
-LibreOffice kit. `CARGO_TARGET_DIR` redirects the Rust target tree.
+LibreOffice kit. `CARGO_TARGET_DIR` redirects the Rust target tree, and `CETUS_DIST_DIR` redirects the assembled payload and installer output: on Windows both default to `E:/dependency-cache/cetusprism/dist` so the ~500MB artifact stays out of the project tree; other hosts keep `apps/electron/dist`.
 
 ## Build and pack (Linux .deb)
 
 ```sh
 docker build -f docker/linux-build.Dockerfile -t cetusprism/linux-build .   # once
 node scripts/build-deb.mjs
-dist/CetusPrism-v<version>-amd64.deb
+CetusPrism-v<version>-amd64.deb  (Windows output: E:/dependency-cache/cetusprism/dist)
 ```
 
 The build runs inside the `cetusprism/linux-build` container (Debian
 bookworm, glibc the deb requires): the Tauri shell compiles against
 WebKitGTK 4.1 from the mounted cargo registry cache (offline), then
 `pack-linux.mjs` — running on the mounted Linux Node v24.18.0 — stages
-`dist/linux-unpacked`, deploys the runtime closure with the same hoisted
+the linux-unpacked tree, deploys the runtime closure with the same hoisted
 pnpm deploy, prunes non-linux-x64 prebuilds, and assembles the deb with
 `dpkg-deb`: `/opt/CetusPrism/`, a `cetusprism.desktop` launcher, hicolor
 icons, and a `/usr/bin/dsh` shim. Unlike the Windows chain, the in-container

@@ -21,7 +21,9 @@ import { fileURLToPath } from 'node:url'
 
 const appRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const repoRoot = join(appRoot, '..', '..')
-const outDir = join(appRoot, 'dist')
+// macOS runners keep the in-tree dist; the Windows cache convention applies
+// only where the dependency cache exists (CETUS_DIST_DIR overrides).
+const outDir = process.env.CETUS_DIST_DIR ?? join(appRoot, 'dist')
 const appDir = join(outDir, 'macos-unpacked', 'backend')
 const { version } = JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8'))
 const dmgFile = join(outDir, `CetusPrism-v${version}-macos-arm64.dmg`)

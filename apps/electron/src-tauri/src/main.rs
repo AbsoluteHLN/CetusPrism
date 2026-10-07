@@ -88,8 +88,21 @@ struct ShellState {
 }
 
 fn main() {
+    // The NSIS installer launches the installed shell with this flag while a
+    // tray instance is running: a plain close request hides to the tray, so
+    // the graceful path routes through the single-instance handshake instead.
+    let installer_quit = std::env::args().skip(1).any(|arg| arg == "--dsh-installer-quit");
     if !platform::first_instance() {
-        platform::signal_focus();
+        if installer_quit {
+            platform::signal_quit();
+        } else {
+            platform::signal_focus();
+        }
+        return;
+    }
+    if installer_quit {
+        // The instance the installer saw died between its check and this
+        // launch; booting a fresh shell would run through the file copy.
         return;
     }
     platform::set_app_user_model_id();

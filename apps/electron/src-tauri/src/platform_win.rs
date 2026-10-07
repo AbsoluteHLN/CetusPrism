@@ -24,6 +24,7 @@ use crate::notify;
 
 const SINGLE_INSTANCE_MUTEX: PCWSTR = w!("Local\\CetusPrism.SingleInstance");
 const FOCUS_EVENT_NAME: PCWSTR = w!("Local\\CetusPrism.Focus");
+const QUIT_EVENT_NAME: PCWSTR = w!("Local\\CetusPrism.Quit");
 
 /// Hold a named mutex for the process lifetime; `false` when another shell
 /// instance already owns it.
@@ -57,9 +58,33 @@ pub fn signal_focus() {
     }
 }
 
+/// Ask the running instance to quit cleanly (`--dsh-installer-quit`): the
+/// reinstalling installer needs the shell and its backend child gone.
+pub fn signal_quit() {
+    if let Ok(event) = unsafe { CreateEventW(None, false, false, QUIT_EVENT_NAME) } {
+        let _ = unsafe { SetEvent(event) };
+    }
+}
+
 /// Watch a named auto-reset event; a second launch signals it to focus the
 /// existing window (the Electron shell's `second-instance` handler).
 pub fn spawn_focus_listener(app: AppHandle) {
+    // The quit event runs beside the focus event: the installer signals it
+    // while the window may be hidden, and the shell tears the backend down
+    // through the same exit path the tray's quit item uses.
+    let quit_app = app.clone();
+    std::thread::spawn(move || {
+        let event = match unsafe { CreateEventW(None, false, false, QUIT_EVENT_NAME) } {
+            Ok(event) => event,
+            Err(_) => return,
+        };
+        loop {
+            if unsafe { WaitForSingleObject(event, INFINITE) } != WAIT_OBJECT_0 {
+                return;
+            }
+            quit_app.exit(0);
+        }
+    });
     std::thread::spawn(move || {
         let event = match unsafe { CreateEventW(None, false, false, FOCUS_EVENT_NAME) } {
             Ok(event) => event,

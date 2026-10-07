@@ -59,13 +59,24 @@ pub fn first_instance() -> bool {
 
 /// Nudge the running instance's window to the front.
 pub fn signal_focus() {
+    signal_instance(b"f");
+}
+
+/// Ask the running instance to quit cleanly (`--dsh-installer-quit`): the
+/// reinstalling installer needs the shell and its backend child gone.
+pub fn signal_quit() {
+    signal_instance(b"q");
+}
+
+fn signal_instance(kind: &[u8; 1]) {
     let Ok(mut stream) = UnixStream::connect(instance_socket_path()) else { return };
-    let _ = std::io::Write::write_all(&mut stream, b"f");
+    let _ = std::io::Write::write_all(&mut stream, kind);
 }
 
 /// Accept on the instance socket; every connection is a second launch asking
 /// to focus the existing window (the Electron shell's `second-instance`
-/// handler). The socket was bound by [`first_instance`].
+/// handler), or an installer handshake asking for a clean quit. The socket
+/// was bound by [`first_instance`].
 pub fn spawn_focus_listener(app: AppHandle) {
     let listener = INSTANCE_LISTENER.lock().expect("instance listener mutex").take();
     let Some(listener) = listener else { return };
@@ -73,8 +84,13 @@ pub fn spawn_focus_listener(app: AppHandle) {
         for stream in listener.incoming() {
             match stream {
                 Ok(mut stream) => {
-                    let _ = std::io::Read::read_exact(&mut stream, &mut [0u8; 1]);
-                    crate::focus_main_window(&app);
+                    let mut kind = [b'f'];
+                    let _ = std::io::Read::read_exact(&mut stream, &mut kind);
+                    if kind[0] == b'q' {
+                        app.exit(0);
+                    } else {
+                        crate::focus_main_window(&app);
+                    }
                 }
                 Err(_) => return,
             }

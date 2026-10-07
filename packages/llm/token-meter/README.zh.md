@@ -65,7 +65,7 @@ const price = ctx.tokenMeter.estimateMessage(message)
 
 ### 解读数字
 
-占用是参考数字，不是计费记录：harness 中没有任何机制依据它做决定，压缩读取的是 `measure()`。UI 用测量压力除以所选模型独立解析的容量来计算占用。`contextBreakdown` 数字是估算值，其总和不会等于 `projectedTokens`；后者的提供方锚点恰好携带启发式误差——CJK 文本与 JSON schema 在每 token 四字符下严重低估。
+占用是参考数字，不是计费记录：harness 中没有任何机制依据它做决定，压缩读取的是 `measure()`。UI 用测量压力除以所选模型独立解析的容量来计算占用；当提供方完全不报告用量时，压力投影回退到启发式表面总量，仪表仍有读数。`contextBreakdown` 数字是估算值，其总和不会等于 `projectedTokens`；后者的提供方锚点恰好携带启发式误差。固定启发式规则对普通文本按每 token 四字符计价，对 CJK 字符按每字符 0.75 token 计价，中文、日文与韩文内容不再被低估；JSON schema 保持普通比率。
 
 -----
 
@@ -86,7 +86,7 @@ const price = ctx.tokenMeter.estimateMessage(message)
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | `TokenMeter` 服务：回放状态、fold、`measure()` 与 `estimateMessage()` |
-| [`src/estimate.ts`](src/estimate.ts) | 固定启发式规则：每 token 四字符加块与角色开销 |
+| [`src/estimate.ts`](src/estimate.ts) | 固定启发式规则：每 token 四字符、每 CJK 字符 0.75 token，加块与角色开销 |
 | [`src/surface-fold.ts`](src/surface-fold.ts) | 与 `measure()` 共享的位置表面 fold |
 | [`src/surface-projection.ts`](src/surface-projection.ts) | O(1) 投影单元的影价协议 |
 | [`src/usage-projection.ts`](src/usage-projection.ts) | `tokenUsage` 与 `contextPressure` 投影定义 |

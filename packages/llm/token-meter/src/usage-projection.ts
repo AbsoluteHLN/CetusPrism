@@ -334,15 +334,18 @@ export const usageTimelineProjectionDefinition = {
  * therefore carries a running surface total alongside it and publishes
  * `projectedTokens` — the sample plus the surface's signed movement since it
  * was taken — so occupancy answers for the next request rather than the last
- * one. The total rides {@link foldSurfaceProjection}, so the state stays O(1)
- * and a replacement shrinks it by its logged shadow price. A replacement
+ * one. When no usage sample exists at all (a provider that reports none), the
+ * running surface total itself becomes `projectedTokens`, the only occupancy
+ * signal such a route leaves; the meter stays dark while the surface is
+ * empty. The total rides {@link foldSurfaceProjection}, so the state stays
+ * O(1) and a replacement shrinks it by its logged shadow price. A replacement
  * without a claim preserves the previous total. A usage sample is stamped
  * BEFORE the same event joins the surface, so an `assistant/message` anchors
  * against the surface its own request saw.
  */
 export const contextPressureProjectionDefinition = {
   key: 'contextPressure',
-  stateVersion: 5,
+  stateVersion: 6,
   stateSchema: contextPressureStateSchema,
   init: () => ({ surfaceTokens: 0 }),
   apply: (state, event) => {
@@ -377,12 +380,17 @@ export const contextPressureProjectionDefinition = {
   },
   wire: {
     viewSchema: pressureSchema,
-    view: ({ contextWindow, pressureTokens, surfaceTokens, sampledSurfaceTokens }) => ({
-      ...contextWindow === undefined ? {} : { contextWindow },
-      ...pressureTokens === undefined ? {} : { pressureTokens },
-      ...pressureTokens === undefined || sampledSurfaceTokens === undefined
-        ? {}
-        : { projectedTokens: Math.max(0, pressureTokens + surfaceTokens - sampledSurfaceTokens) },
-    }),
+    view: ({ contextWindow, pressureTokens, surfaceTokens, sampledSurfaceTokens }) => {
+      const projectedTokens = pressureTokens === undefined
+        ? surfaceTokens === 0 ? undefined : surfaceTokens
+        : sampledSurfaceTokens === undefined
+          ? pressureTokens
+          : Math.max(0, pressureTokens + surfaceTokens - sampledSurfaceTokens)
+      return {
+        ...contextWindow === undefined ? {} : { contextWindow },
+        ...pressureTokens === undefined ? {} : { pressureTokens },
+        ...projectedTokens === undefined ? {} : { projectedTokens },
+      }
+    },
   },
 } satisfies ProjectionDefinition<'contextPressure', ContextPressureState>

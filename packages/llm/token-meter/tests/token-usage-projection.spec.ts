@@ -390,6 +390,15 @@ describe('contextPressure session projection', () => {
     expect(pressure(ctx, session)).toEqual({ contextWindow: 64_000 })
   })
 
+  it('publishes the heuristic surface total as occupancy when no usage is ever reported', async () => {
+    // A route whose provider reports no usage leaves `pressureTokens` unset
+    // forever; the meter must still read the surface estimate instead of 0%.
+    const { ctx, session } = await harness()
+    recordContext(session, 'unmetered', 128_000)
+    appendUser(session, 'abcd')
+    expect(pressure(ctx, session)).toEqual({ contextWindow: 128_000, projectedTokens: 9 })
+  })
+
   it('sums prompt-side buckets and excludes response output', async () => {
     const { ctx, session } = await harness()
     startStep(session, 1, 1)
@@ -465,7 +474,7 @@ describe('contextPressure session projection', () => {
     const checkpoint = JSON.parse(JSON.stringify(
       ctx.sessionProjections.checkpoint(session),
     )) as ReturnType<typeof ctx.sessionProjections.checkpoint>
-    expect(checkpoint.contextPressure?.ver).toBe(5)
+    expect(checkpoint.contextPressure?.ver).toBe(6)
 
     await meterFiber.dispose()
     expect(ctx.sessionProjections.snapshot(session).values).not.toHaveProperty('contextPressure')

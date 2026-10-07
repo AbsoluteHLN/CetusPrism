@@ -8,6 +8,7 @@ import type { EpochHeader, SessionEvent, SessionSeq as SessionSeqType } from '@d
 import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import TokenMeter from '@deepseek-ai/dsh-token-meter'
 import type { TokenMeasurement, TokenMeterConfig } from '@deepseek-ai/dsh-token-meter'
+import { estimateTextTokens } from '../src/estimate.ts'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
@@ -158,6 +159,19 @@ describe('TokenMeter pricing', () => {
     }))
     expect(estimated).toBeGreaterThan(30)
     expect(service.estimateMessage(textMessage('abcd'))).toBe(9)
+  })
+
+  it('prices CJK text at the dense rate so pressure estimates stop undercounting it', () => {
+    // Eight CJK characters: 0.75 tokens each, rounded once, plus block and
+    // role framing — against the plain rate's 2, a threefold recovery.
+    expect(estimateTextTokens('六个汉字六个汉字')).toBe(6)
+    // Mixed script rounds one combined total: four plain characters plus two CJK.
+    expect(estimateTextTokens('abcd中文')).toBe(3)
+    // A supplementary-plane ideograph is one dense character, not two plain units.
+    expect(estimateTextTokens('𠀀')).toBe(1)
+    // Empty and plain strings keep the historical numbers exactly.
+    expect(estimateTextTokens('')).toBe(0)
+    expect(estimateTextTokens('abcd')).toBe(1)
   })
 
   it('returns a detached deeply immutable empty measurement', () => {

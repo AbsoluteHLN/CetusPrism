@@ -65,7 +65,7 @@ Both plugins have usable defaults. The meter consumes only the optional `llm` se
 
 ### Reading the numbers
 
-Occupancy is a reference figure, not a billing record: nothing in the harness makes decisions from it, and compaction reads `measure()` instead. A UI computes occupancy by dividing measured pressure by the separately resolved capacity for the selected model. The `contextBreakdown` figures are estimates that will not sum to `projectedTokens`, whose provider anchor carries exactly the heuristic error — CJK text and JSON schemas underprice badly at four characters per token.
+Occupancy is a reference figure, not a billing record: nothing in the harness makes decisions from it, and compaction reads `measure()` instead. A UI computes occupancy by dividing measured pressure by the separately resolved capacity for the selected model; when the provider reports no usage at all, the pressure projection falls back to the heuristic surface total so the meter still reads. The `contextBreakdown` figures are estimates that will not sum to `projectedTokens`, whose provider anchor carries exactly the heuristic error. The fixed heuristic prices plain text at four characters per token and CJK scripts at 0.75 tokens per character, so Chinese, Japanese, and Korean content no longer undercounts; JSON schemas keep the plain rate.
 
 -----
 
@@ -86,7 +86,7 @@ The service is built on one fold and one anchor. Each session gets an isolated r
 | File | Role |
 |---|---|
 | [`src/index.ts`](src/index.ts) | The `TokenMeter` service: replay state, fold, `measure()` and `estimateMessage()` |
-| [`src/estimate.ts`](src/estimate.ts) | The fixed heuristic: four characters per token plus block and role overhead |
+| [`src/estimate.ts`](src/estimate.ts) | The fixed heuristic: four characters per token, 0.75 tokens per CJK character, plus block and role overhead |
 | [`src/surface-fold.ts`](src/surface-fold.ts) | The positional surface fold shared with `measure()` |
 | [`src/surface-projection.ts`](src/surface-projection.ts) | Shadow-price protocol for the O(1) projection units |
 | [`src/usage-projection.ts`](src/usage-projection.ts) | `tokenUsage` and `contextPressure` projection definitions |

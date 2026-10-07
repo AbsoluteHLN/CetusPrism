@@ -287,6 +287,13 @@ describe('session reference URI and inline mentions', () => {
     })
   })
 
+  it('matches the historical Buffer base64url bytes for any session id', () => {
+    for (const sessionId of [SessionId('plain'), SessionId('a/b+c'), SessionId('会话'), SessionId(' padded '), SessionId('🙂')]) {
+      expect(encodeSessionReferenceUri(sessionId))
+        .toBe(`dsh-session:${Buffer.from(JSON.stringify(sessionId), 'utf8').toString('base64url')}`)
+    }
+  })
+
   it('rejects malformed explicit references and base64url-shaped bare candidates', () => {
     expect(() => decodeSessionReferenceUri('https://example.test')).toThrow(expectCode('SESSION_REFERENCE_INVALID_REFERENCE'))
     expect(() => parseSessionReferenceText('see dsh-session:IiJ')).toThrow(expectCode('SESSION_REFERENCE_INVALID_REFERENCE'))

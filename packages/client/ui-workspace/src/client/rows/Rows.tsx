@@ -11,7 +11,7 @@
  * session and workspace hover cards are suppressed while a menu is open.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { RefObject } from 'react'
+import type { ReactNode, RefObject } from 'react'
 import clsx from 'clsx'
 import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import {
@@ -22,6 +22,7 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ShortcutCatalogEntry } from '@deepseek-ai/dsh-client-shortcuts/client'
 import type { StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
+import { writeSessionDrag } from '@deepseek-ai/dsh-session-reference/drag'
 import { abbreviateHomePath } from '@deepseek-ai/dsh-util-workspace-path'
 import type { MenuOpenState, WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
@@ -328,6 +329,40 @@ export function ProjectRowItem({ group, containsCurrentDescendant = false, onTog
   )
 }
 
+/**
+ * Header row of a synthetic section (the pinned section): folds its rows via
+ * the shared persisted expansion map and carries the section's row count.
+ */
+export function SectionHeaderRow({ sectionKey, label, count, icon, expanded, onToggle }: {
+  sectionKey: string
+  label: string
+  count: string
+  icon: ReactNode
+  expanded: boolean
+  onToggle: () => void
+}) {
+  return (
+    <div
+      className={css.projectRow}
+      data-row-key={`section:${sectionKey}`}
+      role="treeitem"
+      aria-expanded={expanded}
+      onClick={onToggle}
+    >
+      <span className={clsx(css.slot, css.folder)}>{icon}</span>
+      <span className={clsx(css.slot, css.chevron)}>
+        <IconTriangleRightFillRegular className={clsx(css.arrow, expanded && css.arrowOpen)} />
+      </span>
+      <span className={css.projectText}>
+        <span className={css.sectionTitleLine}>
+          <span className={css.title}>{label}</span>
+          <span className={css.sectionCount}>{count}</span>
+        </span>
+      </span>
+    </div>
+  )
+}
+
 /* v8 ignore next 3 -- closed-union backstop; only reached if the status is forged */
 function assertNever(value: never): never {
   throw new Error(`unknown pending interaction: ${String(value)}`)
@@ -602,8 +637,11 @@ export function SessionNodeItem({
       onDragStart={!draggable
         ? undefined
         : (e) => {
-          e.dataTransfer.effectAllowed = 'move'
+          // The reorder payload stays primary ('move'); the session-reference
+          // payload rides beside it so the composer card can accept a copy.
+          e.dataTransfer.effectAllowed = 'copyMove'
           e.dataTransfer.setData('text/plain', node.id)
+          writeSessionDrag(e.dataTransfer, { sessionId: node.id, title: node.title })
           drag.start()
         }}
       onDragEnd={!draggable ? undefined : drag.end}

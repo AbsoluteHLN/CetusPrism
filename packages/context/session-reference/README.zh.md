@@ -78,7 +78,8 @@ kind: "package-reference"
 |---|---|
 | [`src/index.ts`](src/index.ts) | `SessionReferenceResolver`：pre-step 监听器、候选发现、准备 |
 | [`src/config.ts`](src/config.ts) | `Config` schema、`SessionReferenceError` 错误分类体系 |
-| [`src/uri.ts`](src/uri.ts) | `dsh-session:` URI 编解码、mention 格式化与解析 |
+| [`src/uri.ts`](src/uri.ts) | `dsh-session:` URI 编解码、mention 格式化与解析（以 `./uri` 子路径导出，浏览器可用） |
+| [`src/drag.ts`](src/drag.ts) | 侧栏到 composer 的拖拽载荷编解码与 chip 构建（以 `./drag` 子路径导出，浏览器可用） |
 | [`src/projection.ts`](src/projection.ts) | 当前表层投影与字节预算保留 |
 | [`src/serialization.ts`](src/serialization.ts) | 快照载荷的标签安全 JSON 转义 |
 | [`src/spill.ts`](src/spill.ts) | 完整 transcript 序列化与模型可见省略通知 |

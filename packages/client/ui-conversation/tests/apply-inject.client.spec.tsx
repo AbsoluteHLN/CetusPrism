@@ -18,6 +18,7 @@ import {
   type ConversationSessionHeaderInjected, type ConversationSessionInjected, type ViewTab,
 } from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { formatSessionReferenceMention } from '@deepseek-ai/dsh-session-reference/uri'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import { createConversationStore } from '../src/client/stores.ts'
 import type { SessionInputShell } from '../src/client/input/facade.ts'
@@ -376,6 +377,19 @@ describe('Conversation inject API', () => {
     })
     b.composerApi(ROOT).stop!()
     await vi.waitFor(() => { expect(b.sessionFake.cancel).toHaveBeenCalledOnce() })
+    await b.runtime.dispose()
+  })
+
+  it('inserts a dragged session reference as a chip without touching attachments', async () => {
+    const b = await bench()
+    const composer = b.composerApi(ROOT)
+    const mention = formatSessionReferenceMention({ sessionId: 'other-session' as SessionId, label: 'elsewhere' })
+    expect(composer.addReferences?.([{
+      source: 'reference', ref: mention, label: 'elsewhere', appearance: 'session', clipboardText: mention,
+    }])).toBeNull()
+    const state = b.inputApi(ROOT).state.getSnapshot()
+    expect(state.draft).toBe(`${mention} `)
+    expect(state.attachmentIds).toEqual([])
     await b.runtime.dispose()
   })
 

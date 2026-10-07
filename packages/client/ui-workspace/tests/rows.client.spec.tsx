@@ -16,6 +16,7 @@ import {
 } from '../src/client/rows/Rows.tsx'
 import type { GroupNode, SearchResultNode, SessionNode } from '../src/client/tree.ts'
 import { en, zh } from '../src/client/locales.ts'
+import { SESSION_DRAG_MIME } from '@deepseek-ai/dsh-session-reference/drag'
 
 afterEach(cleanup)
 
@@ -905,6 +906,30 @@ describe('workspace browser rows', () => {
       <SessionNodeItem node={node} currentId={undefined} now={0} onOpen={vi.fn()} drag={after} t={t} />,
     )
     expect(screen.getByRole('treeitem').className).toMatch(/dropAfter/)
+  })
+
+  it('drag start carries the session-reference payload beside the reorder id', () => {
+    const node: SessionNode = {
+      id: sid('s1'), title: '会话甲', blank: false, running: false,
+      runningSubagentCount: 0, completed: false, updatedAt: 0, pinned: false, archived: false,
+    }
+    const start = vi.fn()
+    const transfer = { effectAllowed: '', setData: vi.fn() }
+    render(
+      <SessionNodeItem
+        node={node} currentId={undefined} now={0} onOpen={vi.fn()} drag={{ ...dragProps(), start, end: vi.fn() }} t={t}
+      />,
+    )
+    const row = screen.getByRole('treeitem')
+    stubRect(row)
+    fireEvent.dragStart(row, { dataTransfer: transfer })
+    // The reorder payload stays primary; the composer reads the reference payload.
+    expect(transfer.effectAllowed).toBe('copyMove')
+    expect(transfer.setData).toHaveBeenCalledWith('text/plain', 's1')
+    expect(transfer.setData).toHaveBeenCalledWith(
+      SESSION_DRAG_MIME, JSON.stringify({ sessionId: 's1', title: '会话甲' }),
+    )
+    expect(start).toHaveBeenCalledOnce()
   })
 
   it('marks a pinned row and keeps it draggable', () => {

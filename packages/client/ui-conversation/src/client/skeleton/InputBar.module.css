@@ -107,6 +107,18 @@
   color: var(--dsw-alias-state-business-primary);
 }
 
+/* A dragged session row hovers over the card: a full-stroke accent marks the
+   live drop target (the ::after layer keeps the rounded corners clipped). */
+.cardSessionDrop::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  border: 1.5px solid var(--dsw-alias-state-business-primary);
+  border-radius: var(--dsw-radius-panel);
+  pointer-events: none;
+}
+
 .accessory {
   display: flex;
   align-items: center;

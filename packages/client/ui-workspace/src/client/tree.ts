@@ -267,23 +267,29 @@ export interface SessionRowState {
 }
 
 /**
- * Keep the visible New Session placeholder first, then partition pinned and
- * ordinary rows without changing either partition's caller order.
+ * Keep the visible New Session placeholder first, then the ordinary rows,
+ * without changing either partition's caller order. Pinned rows never land
+ * here: they leave their home list for the global pinned section
+ * ({@link pinnedSectionIds}), while archived pins keep their grayed slot.
  */
-function sectionMembers(
+function bodyMembers(
   members: readonly SessionSummary[],
   pinned: ReadonlySet<SessionId>,
   archived: ReadonlySet<SessionId>,
 ): SessionSummary[] {
   const placeholders: SessionSummary[] = []
-  const leading: SessionSummary[] = []
   const rest: SessionSummary[] = []
   for (const member of members) {
-    if (member.blank) placeholders.push(member)
-    else if (!archived.has(member.id) && pinned.has(member.id)) leading.push(member)
-    else rest.push(member)
+    if (member.blank) {
+      // A pinned blank (the selected provisional row) lives in the pinned
+      // section like any other pin; archived pins keep their grayed slot.
+      if (!pinned.has(member.id) || archived.has(member.id)) placeholders.push(member)
+      continue
+    }
+    if (!archived.has(member.id) && pinned.has(member.id)) continue
+    rest.push(member)
   }
-  return [...placeholders, ...leading, ...rest]
+  return [...placeholders, ...rest]
 }
 
 /**
@@ -422,7 +428,7 @@ function sessionNode(
  *
  * Every group shows, except that the archived-only filter drops groups
  * without visible members; sessions populate under expanded groups with
- * pinned rows leading in the selected local order. Blank sessions are
+ * pinned rows pulled out into the global pinned section. Blank sessions are
  * excluded except for the selected provisional New Session row; archived
  * sessions keep their slots and appear per the archived filter. Content
  * search lives outside this derivation (see {@link deriveSearchResults}).
@@ -449,6 +455,9 @@ export function deriveGroups(
     : owningGroupKey(workspaces, current)
   const groups: GroupNode[] = []
   for (const g of groupByWorkspace(list, workspaces, archived, rowState.archivedFilter, view.ungroupedOrder)) {
+    // Pinned rows leave their home group for the pinned section; the saved
+    // account orders keep their slots so unpinning restores the position.
+    const members = g.sessions.filter(member => !pinned.has(member.id) || archived.has(member.id))
     const expanded = expandedGroups.has(g.key)
     groups.push({
       key: g.key,
@@ -456,11 +465,11 @@ export function deriveGroups(
       cwd: g.cwd,
       createdAt: g.createdAt,
       label: g.label,
-      sessionCount: g.sessions.length,
+      sessionCount: members.length,
       expanded,
       containsCurrent: g.key === currentGroup,
       sessions: expanded
-        ? sectionMembers(g.sessions, pinned, archived)
+        ? bodyMembers(members, pinned, archived)
           .map(session => sessionNode(session, list, statuses, pinned, archived))
         : [],
     })
@@ -499,12 +508,12 @@ export function visibleSessionIds(
 
 /**
  * Derive flat rows from the browser's complete ordered Session ids, with
- * pinned rows fronted ahead of the supplied order.
+ * pinned rows pulled out into the global pinned section.
  * @param list - sessions list snapshot used to select the ids.
  * @param sessionIds - complete account members in the selected order, including hidden archives.
  * @param rowState - registry-global pin and archive sets plus the archived filter.
  * @param statuses - unified UI status by Session.
- * @returns flat rows in sectioned order with current status indicators.
+ * @returns flat body rows in caller order with current status indicators.
  */
 export function deriveFlat(
   list: SessionListState,
@@ -521,8 +530,72 @@ export function deriveFlat(
       ? [session]
       : []
   })
-  return sectionMembers(members, pinned, archived)
+  return bodyMembers(members, pinned, archived)
     .map(session => sessionNode(session, list, statuses, pinned, archived))
+}
+
+/**
+ * Order the pinned section's members: the manual pin order — each account's
+ * projected order in display order, so saved pin drags hold — with pins
+ * outside every projected account following in Host pin order (the same
+ * order `reconcileManualOrder` fronts unsaved pins in); the recency order
+ * when Manual is not the selected session order.
+ * @param rowState - registry-global pin and archive membership.
+ * @param summaries - current Session metadata; members without a summary drop until theirs arrives.
+ * @param orderBy - the selected session order.
+ * @param accountOrders - projected account memberships in display order.
+ * @returns pinned non-archived member ids in section order.
+ */
+export function pinnedSectionIds(
+  rowState: Pick<SessionRowState, 'pinnedSessionIds' | 'archivedSessionIds'>,
+  summaries: SessionListState['byId'],
+  orderBy: SessionOrderBy,
+  accountOrders: readonly (readonly SessionId[])[],
+): SessionId[] {
+  const archived = new Set(rowState.archivedSessionIds)
+  const members = new Set<SessionId>()
+  for (const id of rowState.pinnedSessionIds) {
+    if (archived.has(id) || summaries[id] === undefined) continue
+    members.add(id)
+  }
+  if (orderBy === 'updated') return orderByRecency([...members], summaries)
+  const ordered: SessionId[] = []
+  for (const ids of accountOrders) {
+    for (const id of ids) {
+      if (!members.delete(id)) continue
+      ordered.push(id)
+    }
+  }
+  // Members no projection accounted for (a lagging baseline) keep Host pin order.
+  return [...ordered, ...members]
+}
+
+/**
+ * The pinned section's rows: every pinned non-archived Session with a known
+ * summary, in the supplied section order. Blank placeholders other than the
+ * current one and subagent children never render (their rules match list
+ * membership); archived pins drop — they keep their grayed in-place slot.
+ * @param list - sessions list snapshot (`mainView` retention feeds the current-blank rule).
+ * @param rowState - registry-global pin and archive sets plus the archived filter.
+ * @param statuses - unified UI status by Session.
+ * @param order - pinned member ids in section order ({@link pinnedSectionIds}).
+ * @returns pinned section rows.
+ */
+export function derivePinnedRows(
+  list: SessionListState,
+  rowState: SessionRowState,
+  statuses: SessionStatuses,
+  order: readonly SessionId[],
+): SessionNode[] {
+  const archived = new Set(rowState.archivedSessionIds)
+  const pinned = new Set(rowState.pinnedSessionIds)
+  const current = mainSessionId(list)
+  return order.flatMap((id) => {
+    const session = list.byId[id]
+    if (session === undefined || !pinned.has(id) || archived.has(id)) return []
+    if (session.origin === 'subagent' || (session.blank && session.id !== current)) return []
+    return [sessionNode(session, list, statuses, pinned, archived)]
+  })
 }
 
 /**

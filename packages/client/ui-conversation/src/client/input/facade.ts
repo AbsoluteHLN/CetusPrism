@@ -284,6 +284,17 @@ export class SessionInputShell implements SessionInput {
   }
 
   /**
+   * Insert reference chips without an attachment payload (dragged session
+   * references), while admission is editable.
+   * @param references - reference chips in source order.
+   * @returns false when admission is locked or the editor refuses the insertion.
+   */
+  addReferences(references: readonly ReferenceInsert[]): boolean {
+    if (this.snapshot.phase === 'adjudicating' || this.snapshot.phase === 'submitting') return false
+    return this.draftEditor.insertFileReferences(references)
+  }
+
+  /**
    * Remove one attachment id from this draft. Busy admission phases refuse, like
    * {@link addAttachments}: a removal landing while a command submit serializes
    * would otherwise vanish from the rail yet still ride the in-flight send.

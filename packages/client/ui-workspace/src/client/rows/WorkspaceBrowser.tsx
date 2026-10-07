@@ -19,7 +19,7 @@ import clsx from 'clsx'
 import {
   Button, IconArchiveCheckOutlineRegular, IconArchiveOffOutlineRegular, IconArchiveOutlineRegular,
   IconChevronsUpDownOutlineRegular, IconClockOutlineRegular, IconCloseFillRegular,
-  IconFlatListOutlineRegular, IconFolderCloseRegular, IconProjectAddOutlineRegular,
+  IconFlatListOutlineRegular, IconFolderCloseRegular, IconPinFillRegular, IconProjectAddOutlineRegular,
   IconQueueOutlineRegular, IconSearchOutlineRegular, IconSlidersTwoOutlineRegular,
   IconWorkspaceTreeOutlineRegular, Menu, Modal, Toast, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -33,12 +33,13 @@ import type { PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { ArchivedFilter, GroupNode, SessionNode, SessionOrderBy, SessionRowState } from '../tree.ts'
 import {
-  deriveFlat, deriveGroups, deriveSearchResults, orderByRecency, owningGroupKey, owningParentFolder,
-  pinCurrentBlank, reconcileManualOrder, sessionMemberIds, UNGROUPED_KEY,
+  deriveFlat, deriveGroups, derivePinnedRows, deriveSearchResults, orderByRecency, owningGroupKey,
+  owningParentFolder, pinnedSectionIds, pinCurrentBlank, reconcileManualOrder, sessionMemberIds,
+  UNGROUPED_KEY,
 } from '../tree.ts'
-import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './Rows.tsx'
+import { ProjectRowItem, SectionHeaderRow, SearchResultItem, SessionNodeItem } from './Rows.tsx'
 import { AnimatedRows } from './AnimatedRows.tsx'
-import { FLAT_SESSION_ORDER_KEY, type SessionGroupBy } from '../stores.ts'
+import { FLAT_SESSION_ORDER_KEY, PINNED_SECTION_KEY, type SessionGroupBy } from '../stores.ts'
 import { WorkspacePickFlow } from '../WorkspacePicker.tsx'
 import css from './WorkspaceBrowser.module.css'
 
@@ -233,6 +234,8 @@ type SessionTreeProps = Pick<
   workspaces: readonly WorkspaceView[]
   /** Browser-projected order for Sessions outside every Workspace. */
   ungroupedSessionIds: readonly SessionId[]
+  /** Selected session order; the pinned section follows it. */
+  orderBy: SessionOrderBy
   /** Whether the current Workspace stream has a complete Host baseline. */
   workspaceReady: boolean
   /** Grouping, ordering, and filter changes replace the view without row motion. */
@@ -277,11 +280,47 @@ function EmptySessions({ rowState, onLeaveArchivedOnly, t }: Pick<SessionTreePro
   )
 }
 
+function sectionCountLabel(rows: readonly SessionNode[], t: WorkspaceBrowserProps['t']): string {
+  return t(rows.length === 1 ? 'sessions.count.one' : 'sessions.count.other', { n: rows.length })
+}
+
+/**
+ * One synthetic section flanking the Workspace groups: a collapsible header
+ * row plus its Session rows while expanded. The section carries no idle-row
+ * quota — its header is the only fold control, and surfacing its membership
+ * is the point of the section.
+ */
+function SessionSectionBlock({ sectionKey, label, count, icon, expanded, onToggle, rows, renderRow }: {
+  sectionKey: string
+  label: string
+  count: string
+  icon: ReactNode
+  expanded: boolean
+  onToggle: () => void
+  rows: readonly SessionNode[]
+  renderRow: (node: SessionNode) => ReactNode
+}) {
+  return (
+    // Same section rhythm as the Workspace groups (the class owns the margin).
+    <div className={css.groupSection}>
+      <SectionHeaderRow
+        sectionKey={sectionKey}
+        label={label}
+        count={count}
+        icon={icon}
+        expanded={expanded}
+        onToggle={onToggle}
+      />
+      {expanded && rows.map(node => renderRow(node))}
+    </div>
+  )
+}
+
 /** The scrolling session tree; unmounting drops the sessions subscription and local row limits. */
 function SessionTree({
   list, useSessionStatus, startSession, open, workspaces, ungroupedSessionIds,
   rowState, onLeaveArchivedOnly,
-  workspaceReady, animationResetKey, usePanelInfo,
+  workspaceReady, animationResetKey, usePanelInfo, orderBy,
   onRenameRequest, onDeleteRequest, onSessionRenameRequest,
   renderSlot,
   insertWorkspaceBefore,
@@ -340,13 +379,44 @@ function SessionTree({
     }),
     [list, workspaces, rowState, statuses, expandedGroups, ungroupedSessionIds],
   )
+  // The pinned section flanks the Workspace groups; its rows derive from the
+  // registry-global pin set, not from group membership.
+  const pinnedRows = useMemo(
+    () => derivePinnedRows(list, rowState, statuses, pinnedSectionIds(rowState, list.byId, orderBy, [
+      ...workspaces.map(workspace => workspace.sessionIds),
+      ungroupedSessionIds,
+    ])),
+    [list, orderBy, rowState, statuses, ungroupedSessionIds, workspaces],
+  )
+  // Owning account per Session: a pinned-section drag commits into its
+  // source's account order, so fellow pins of other accounts are inert targets.
+  const pinnedAccounts = useMemo(() => {
+    const accounts = new Map<SessionId, string>()
+    for (const workspace of workspaces) {
+      for (const id of workspace.sessionIds) if (!accounts.has(id)) accounts.set(id, workspace.workspaceId)
+    }
+    for (const id of ungroupedSessionIds) if (!accounts.has(id)) accounts.set(id, UNGROUPED_KEY)
+    return accounts
+  }, [ungroupedSessionIds, workspaces])
+  // The pinned section defaults expanded.
+  const pinnedExpanded = groupExpansion[PINNED_SECTION_KEY] ?? true
+  const showPinnedSection = rowState.archivedFilter !== 'only' && pinnedRows.length > 0
+  const pinnedRowIds = useMemo(() => new Set(pinnedRows.map(row => row.id)), [pinnedRows])
   useEffect(() => {
+    // A search hit on a pinned row lives in the pinned section, not its home
+    // group: unfold the section instead of the group chain.
+    if (revealSessionId !== undefined && pinnedRowIds.has(revealSessionId)) return
     for (let key = revealGroup; key !== undefined; key = parents.get(key)) {
       if (groupExpansion[key] === false || (key === revealGroup && groupExpansion[key] !== true)) {
         setGroupExpanded(key, true)
       }
     }
-  }, [groupExpansion, parents, revealGroup, setGroupExpanded])
+  }, [groupExpansion, parents, pinnedRowIds, revealGroup, revealSessionId, setGroupExpanded])
+  useEffect(() => {
+    if (revealSessionId === undefined || !pinnedRowIds.has(revealSessionId)) return
+    if (groupExpansion[PINNED_SECTION_KEY] !== false) return
+    setGroupExpanded(PINNED_SECTION_KEY, true)
+  }, [groupExpansion, pinnedRowIds, revealSessionId, setGroupExpanded])
   useEffect(() => {
     if (revealSessionId === undefined || revealGroup === undefined) return
     const group = groups.find(candidate => candidate.key === revealGroup)
@@ -359,9 +429,23 @@ function SessionTree({
     if (sessionDropCommitted.current) return
     sessionDropCommitted.current = true
     setDrag(null)
+    if (over.id === activeDrag.sessionId) return
+    if (activeDrag.accountKey === PINNED_SECTION_KEY) {
+      // A pinned-section drop writes the source's own account order; fellow
+      // pins of other accounts share the section but no single order exists
+      // across accounts, so those targets resolve to nothing.
+      const account = pinnedAccounts.get(activeDrag.sessionId) ?? UNGROUPED_KEY
+      const accountSessionIds = account === UNGROUPED_KEY
+        ? ungroupedSessionIds
+        : workspaces.find(workspace => workspace.workspaceId === account)?.sessionIds
+      if (accountSessionIds === undefined) return
+      const renderedSessions = pinnedRows.filter(row => (pinnedAccounts.get(row.id) ?? UNGROUPED_KEY) === account)
+      const nextOrder = sessionDragOrder(accountSessionIds, renderedSessions, activeDrag, over)
+      if (nextOrder !== undefined) setSessionOrder(account, nextOrder)
+      return
+    }
     const group = groups.find(candidate => candidate.key === activeDrag.accountKey)
     if (group === undefined) return
-    if (over.id === activeDrag.sessionId) return
     const accountSessionIds = activeDrag.accountKey === UNGROUPED_KEY
       ? ungroupedSessionIds
       : workspaces.find(workspace => workspace.workspaceId === activeDrag.accountKey)?.sessionIds
@@ -412,6 +496,10 @@ function SessionTree({
     && workspaceDrag.over.half === 'before'
 
   const rowKeys: string[] = groups.length === 0 ? ['empty'] : []
+  if (showPinnedSection) {
+    rowKeys.push(`section:${PINNED_SECTION_KEY}`)
+    if (pinnedExpanded) for (const node of pinnedRows) rowKeys.push(`session:${node.id}`)
+  }
   const renderGroup = (group: GroupNode, depth: number): ReactNode => {
     const workspaceId = group.workspaceId
     const children = childrenByParent.get(group.key) ?? []
@@ -618,6 +706,64 @@ function SessionTree({
         {groups.length === 0 && (
           <EmptySessions rowState={rowState} onLeaveArchivedOnly={onLeaveArchivedOnly} t={t} />
         )}
+        {showPinnedSection && (
+          <SessionSectionBlock
+            sectionKey={PINNED_SECTION_KEY}
+            label={t('section.pinned')}
+            count={sectionCountLabel(pinnedRows, t)}
+            icon={<IconPinFillRegular size={14} />}
+            expanded={pinnedExpanded}
+            onToggle={() => { setGroupExpanded(PINNED_SECTION_KEY, !pinnedExpanded) }}
+            rows={pinnedRows}
+            renderRow={(node) => {
+              // Pinned rows drag within the pinned section: a drop lands in
+              // the source's own account order, so pins of other accounts are
+              // inert targets.
+              const samePinnedDrag = drag !== null && drag.accountKey === PINNED_SECTION_KEY
+              const compatibleTarget = samePinnedDrag && drag.pinned === node.pinned
+                && pinnedAccounts.get(drag.sessionId) === pinnedAccounts.get(node.id)
+              const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' =>
+                node.blank ? 'after' : half
+              return (
+                <SessionNodeItem
+                  key={node.id}
+                  node={node}
+                  currentId={current}
+                  now={now}
+                  onOpen={open}
+                  onRenameRequest={onSessionRenameRequest}
+                  renderSlot={renderSlot}
+                  onReveal={node.id === revealSessionId ? () => { onSessionRevealed(node.id) } : undefined}
+                  drag={{
+                    start: () => {
+                      sessionDropCommitted.current = false
+                      setDrag({ accountKey: PINNED_SECTION_KEY, sessionId: node.id, pinned: node.pinned, over: null })
+                    },
+                    active: compatibleTarget,
+                    marker: samePinnedDrag && drag.over?.id === node.id ? drag.over.half : null,
+                    hover: (half: 'before' | 'after') => {
+                    /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
+                      setDrag(d => (d === null ? d : {
+                        ...d, over: { id: node.id, half: normalizeHalf(half) },
+                      }))
+                    },
+                    drop: (half: 'before' | 'after') => {
+                    /* v8 ignore next -- narrowing guard: Rows gates drop on `active`, which is false while the drag state is null. */
+                      if (drag === null) return
+                      commitSessionDrag(drag, { id: node.id, half: normalizeHalf(half) })
+                    },
+                    end: () => {
+                      if (drag?.over !== null && drag?.over !== undefined) commitSessionDrag(drag, drag.over)
+                      else setDrag(null)
+                      sessionDropCommitted.current = false
+                    },
+                  }}
+                  t={t}
+                />
+              )
+            }}
+          />
+        )}
         {groupRows}
       </AnimatedRows>
       <span className={css.fade} />
@@ -630,6 +776,7 @@ function FlatList({
   list, sessionIds, rowState, onLeaveArchivedOnly, useSessionStatus, open, onSessionRenameRequest,
   usePanelInfo, setSessionOrder, workspaceReady, animationResetKey,
   revealSessionId, onSessionRevealed, renderSlot, t,
+  groupExpansion: groupExpansionFlat, setGroupExpanded: setGroupExpandedFlat,
 }: Pick<
   SessionTreeProps,
   | 'useSessionStatus'
@@ -645,12 +792,20 @@ function FlatList({
   | 'rowState'
   | 'onLeaveArchivedOnly'
   | 't'
+  | 'groupExpansion'
+  | 'setGroupExpanded'
 > & {
   list: SessionListState
   sessionIds: readonly SessionId[]
 }) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const statuses = useSessionStatus(s => s)
+  // The pinned and archive sections flank the flat list; pin order follows
+  // the flat order, which already carries the selected session order.
+  const pinnedRows = useMemo(
+    () => derivePinnedRows(list, rowState, statuses, pinnedSectionIds(rowState, list.byId, 'manual', [sessionIds])),
+    [list, rowState, statuses, sessionIds],
+  )
   const rows = useMemo(
     () => deriveFlat(list, sessionIds, rowState, statuses),
     [list, sessionIds, rowState, statuses],
@@ -661,67 +816,107 @@ function FlatList({
   const currentId = panelActive
     ? undefined
     : Object.values(list.byId).find(session => (session.retainedBy.mainView ?? 0) > 0)?.id
+  const pinnedExpanded = groupExpansionFlat[PINNED_SECTION_KEY] ?? true
+  const showPinnedSection = rowState.archivedFilter !== 'only' && pinnedRows.length > 0
+  const pinnedRowIds = useMemo(() => new Set(pinnedRows.map(row => row.id)), [pinnedRows])
+  useEffect(() => {
+    if (revealSessionId === undefined || !pinnedRowIds.has(revealSessionId)) return
+    if (groupExpansionFlat[PINNED_SECTION_KEY] !== false) return
+    setGroupExpandedFlat(PINNED_SECTION_KEY, true)
+  }, [groupExpansionFlat, pinnedRowIds, revealSessionId, setGroupExpandedFlat])
   const commitDrag = (activeDrag: DragState, over: NonNullable<DragState['over']>): void => {
     if (dropCommitted.current) return
     dropCommitted.current = true
     setDrag(null)
+    if (over.id === activeDrag.sessionId) return
+    if (activeDrag.accountKey === PINNED_SECTION_KEY) {
+      // The flat view's single account owns every session, so a pinned-section
+      // drop reorders that one flat order.
+      const nextOrder = sessionDragOrder(sessionIds, pinnedRows, activeDrag, over)
+      if (nextOrder !== undefined) setSessionOrder(FLAT_SESSION_ORDER_KEY, nextOrder)
+      return
+    }
     const nextOrder = sessionDragOrder(sessionIds, rows, activeDrag, over)
     if (nextOrder !== undefined) setSessionOrder(FLAT_SESSION_ORDER_KEY, nextOrder)
   }
   const now = Date.now()
+  const rowKeys: string[] = rows.length === 0 ? ['empty'] : []
+  if (showPinnedSection) {
+    rowKeys.unshift(`section:${PINNED_SECTION_KEY}`)
+    if (pinnedExpanded) rowKeys.splice(1, 0, ...pinnedRows.map(row => `session:${row.id}`))
+  }
+  const renderRow = (node: SessionNode, inSection: boolean) => {
+    const active = drag !== null && drag.pinned === node.pinned
+      && (inSection
+        ? drag.accountKey === PINNED_SECTION_KEY
+        : drag.accountKey === FLAT_SESSION_ORDER_KEY)
+    const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' =>
+      node.blank ? 'after' : half
+    return (
+      <SessionNodeItem
+        key={node.id}
+        node={node}
+        currentId={currentId}
+        now={now}
+        onOpen={open}
+        onRenameRequest={onSessionRenameRequest}
+        renderSlot={renderSlot}
+        onReveal={node.id === revealSessionId
+          ? () => { onSessionRevealed(node.id) }
+          : undefined}
+        drag={{
+          start: () => {
+            dropCommitted.current = false
+            setDrag({
+              accountKey: inSection ? PINNED_SECTION_KEY : FLAT_SESSION_ORDER_KEY,
+              sessionId: node.id, pinned: node.pinned, over: null,
+            })
+          },
+          active,
+          marker: active && drag.over?.id === node.id ? drag.over.half : null,
+          hover: (half) => {
+            setDrag(current => current === null ? current : {
+              ...current, over: { id: node.id, half: normalizeHalf(half) },
+            })
+          },
+          drop: (half) => {
+            if (drag !== null) commitDrag(drag, { id: node.id, half: normalizeHalf(half) })
+          },
+          end: () => {
+            if (drag?.over !== null && drag?.over !== undefined) commitDrag(drag, drag.over)
+            else setDrag(null)
+            dropCommitted.current = false
+          },
+        }}
+        t={t}
+      />
+    )
+  }
   return (
     <div className={clsx(css.treeBody, css.wide)}>
       <AnimatedRows
         className={clsx(css.list, css.flatList)}
         label={t('section.sessions')}
-        rowKeys={rows.length === 0 ? ['empty'] : rows.map(row => `session:${row.id}`)}
+        rowKeys={rowKeys}
         ready={list.phase === 'ready' && workspaceReady && drag === null}
         resetKey={animationResetKey}
       >
-        {rows.length === 0 && (
+        {rows.length === 0 && pinnedRows.length === 0 && (
           <EmptySessions rowState={rowState} onLeaveArchivedOnly={onLeaveArchivedOnly} t={t} />
         )}
-        {rows.map((node) => {
-          const active = drag !== null && drag.pinned === node.pinned
-          const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' =>
-            node.blank ? 'after' : half
-          return (
-            <SessionNodeItem
-              key={node.id}
-              node={node}
-              currentId={currentId}
-              now={now}
-              onOpen={open}
-              onRenameRequest={onSessionRenameRequest}
-              renderSlot={renderSlot}
-              onReveal={node.id === revealSessionId
-                ? () => { onSessionRevealed(node.id) }
-                : undefined}
-              drag={{
-                start: () => {
-                  dropCommitted.current = false
-                  setDrag({ accountKey: FLAT_SESSION_ORDER_KEY, sessionId: node.id, pinned: node.pinned, over: null })
-                },
-                active,
-                marker: active && drag.over?.id === node.id ? drag.over.half : null,
-                hover: (half) => {
-                  setDrag(current => current === null ? current : {
-                    ...current, over: { id: node.id, half: normalizeHalf(half) },
-                  })
-                },
-                drop: (half) => {
-                  if (drag !== null) commitDrag(drag, { id: node.id, half: normalizeHalf(half) })
-                },
-                end: () => {
-                  if (drag?.over !== null && drag?.over !== undefined) commitDrag(drag, drag.over)
-                  else setDrag(null)
-                  dropCommitted.current = false
-                },
-              }}
-              t={t}
-            />
-          )
-        })}
+        {showPinnedSection && (
+          <SessionSectionBlock
+            sectionKey={PINNED_SECTION_KEY}
+            label={t('section.pinned')}
+            count={sectionCountLabel(pinnedRows, t)}
+            icon={<IconPinFillRegular size={14} />}
+            expanded={pinnedExpanded}
+            onToggle={() => { setGroupExpandedFlat(PINNED_SECTION_KEY, !pinnedExpanded) }}
+            rows={pinnedRows}
+            renderRow={node => renderRow(node, true)}
+          />
+        )}
+        {rows.map(node => renderRow(node, false))}
       </AnimatedRows>
       <span className={css.fade} />
     </div>
@@ -1373,6 +1568,8 @@ export function WorkspaceBrowser({
                 onSessionRenameRequest={requestSessionRename}
                 renderSlot={renderSlot}
                 setSessionOrder={saveSessionOrder}
+                groupExpansion={groupExpansion}
+                setGroupExpanded={actions.setGroupExpanded}
                 revealSessionId={revealSessionId}
                 onSessionRevealed={acknowledgeSessionReveal}
                 t={t}
@@ -1388,6 +1585,7 @@ export function WorkspaceBrowser({
                 renderSlot={renderSlot}
                 workspaces={orderedWorkspaces}
                 ungroupedSessionIds={orderedUngroupedSessionIds}
+                orderBy={orderBy}
                 workspaceReady={workspaceReady}
                 nestWorkspaces={groupBy === 'workspace-tree'}
                 animationResetKey={`${groupBy}/${orderBy}/${archivedFilter}`}

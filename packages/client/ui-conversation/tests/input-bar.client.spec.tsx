@@ -12,7 +12,7 @@ import './control-row-dom.ts'
 import type { InboxState } from '@deepseek-ai/dsh-agent/types'
 import type { GlobalStandardProps } from '@deepseek-ai/dsh-client-ui-slots'
 import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
-import { act, cleanup, fireEvent, render } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, type RenderResult } from '@testing-library/react'
 import { $getRoot, $isTextNode } from 'lexical'
 import {
   bindSnapshotSelector, conversationSnapshot as conversationFixture, makeTranslate, RemoteError,
@@ -31,9 +31,12 @@ import type {
   ComposerAttachment, ComposerAttachmentsOwnerProps, DraftFileUploads, InputActivityOwnerProps,
 } from '../src/client/contract/slots.ts'
 import type { DraftAttachmentId } from '../src/client/contract/input.ts'
+import type { ReferenceInsert } from '../src/client/contract/draft-editor.ts'
 import { InputBar } from '../src/client/skeleton/InputBar.tsx'
 import type { InputBarProps } from '../src/client/skeleton/InputBar.tsx'
 import { en, zh } from '../src/client/locales.ts'
+import { SESSION_DRAG_MIME } from '@deepseek-ai/dsh-session-reference/drag'
+import { formatSessionReferenceMention } from '@deepseek-ai/dsh-session-reference/uri'
 
 // Every fixture carries the resource hook the resources plugin merges into GlobalStandardProps.
 const useResource = (() => ({ status: 'none' as const, value: undefined, failure: undefined })) as GlobalStandardProps['useResource']
@@ -101,6 +104,7 @@ interface BenchOptions {
   /** Upload states served for file-kind drafts (absent = every file is ready). */
   fileUploads?: DraftFileUploads
   addFiles?: (files: readonly File[], directories?: ReadonlySet<File>) => string | null
+  addReferences?: (references: readonly ReferenceInsert[]) => string | null
   commandMenuOpen?: boolean
   busyEnter?: 'queue' | 'steer'
   toggleCommandMenu?: (selection: { start: number; end: number }) => void
@@ -196,6 +200,8 @@ function bench(over?: BenchOptions) {
     inputActions: shell.actions,
     keyboard: shell,
     addFiles: over?.addFiles ?? (() => null),
+    addReferences: over?.addReferences
+      ?? ((references: readonly ReferenceInsert[]) => shell.addReferences(references) ? null : zh['attachment.dropBlocked']),
     useFileUploads: bindSnapshotSelector(createSnapshotStore<DraftFileUploads>(over?.fileUploads ?? {})),
     retryFileUpload: undefined,
     removeAttachment,
@@ -1776,4 +1782,56 @@ it('places context usage below the composer and hides it until the activity clos
   fireEvent.click(view.getByRole('button', { name: '上下文已用 25%' }))
   expect(view.getByRole('dialog', { name: '上下文已用' })).toBeTruthy()
   expect(view.getByRole('button', { name: '发送消息' })).toBeTruthy()
+})
+
+describe('session reference drops', () => {
+  const cardOf = (view: RenderResult): HTMLElement =>
+    view.container.querySelector('[data-composer-card]') as HTMLElement
+  const sessionTransfer = (payload: { sessionId: string; title: string } | undefined) => ({
+    types: payload === undefined ? ['text/plain'] : [SESSION_DRAG_MIME],
+    getData: (type: string) =>
+      payload !== undefined && type === SESSION_DRAG_MIME ? JSON.stringify(payload) : '',
+  })
+
+  it('inserts a dropped session as a reference chip at the draft end', async () => {
+    const { view, shell } = bench()
+    fireEvent.drop(cardOf(view), {
+      dataTransfer: sessionTransfer({ sessionId: 'other-session' as SessionId, title: '标题' }),
+    })
+    await vi.waitFor(() => {
+      expect(shell.snapshot.draft).toBe(
+        `${formatSessionReferenceMention({ sessionId: 'other-session' as SessionId, label: '标题' })} `,
+      )
+    })
+  })
+
+  it('mentions an untitled dropped session by its session id', async () => {
+    const { view, shell } = bench()
+    fireEvent.drop(cardOf(view), {
+      dataTransfer: sessionTransfer({ sessionId: 'other-session' as SessionId, title: '' }),
+    })
+    await vi.waitFor(() => {
+      expect(shell.snapshot.draft).toBe(`${formatSessionReferenceMention({ sessionId: 'other-session' as SessionId })} `)
+    })
+  })
+
+  it('leaves drags without the session payload to their own handlers', () => {
+    const addReferences = vi.fn(() => null)
+    const { view, shell } = bench({ addReferences })
+    const card = cardOf(view)
+    // RTL reports false only for a prevented default: neither event is ours.
+    expect(fireEvent.dragOver(card, { dataTransfer: sessionTransfer(undefined) })).toBe(true)
+    expect(fireEvent.drop(card, { dataTransfer: sessionTransfer(undefined) })).toBe(true)
+    expect(addReferences).not.toHaveBeenCalled()
+    expect(shell.snapshot.draft).toBe('')
+  })
+
+  it('announces a refused session drop through the shared toast', () => {
+    const addReferences = vi.fn(() => zh['attachment.dropBlocked'])
+    const { view } = bench({ addReferences })
+    fireEvent.drop(cardOf(view), {
+      dataTransfer: sessionTransfer({ sessionId: 'other-session' as SessionId, title: '标题' }),
+    })
+    expect(view.getByRole('alert').textContent).toContain(zh['attachment.dropBlocked'])
+  })
 })

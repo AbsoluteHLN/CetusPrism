@@ -162,6 +162,23 @@
   gap: 2px;
 }
 
+/* Synthetic-section header line: the label clips and the row count sits
+   beside it, so a long locale label cannot push the count out of view. */
+.sectionTitleLine {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sectionCount {
+  flex: none;
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+}
+
 .title {
   min-width: 0;
   overflow: hidden;

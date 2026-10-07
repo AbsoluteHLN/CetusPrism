@@ -9,13 +9,32 @@ import type { SessionReferenceInput } from './types.ts'
 export const SESSION_REFERENCE_SCHEME = 'dsh-session:'
 
 /**
+ * Base64url (RFC 4648 §5, unpadded) of the UTF-8 bytes of one string. Built
+ * on the universal `btoa`/`TextEncoder` pair rather than Node's `Buffer` so
+ * the same encoding runs in the host and in the browser composer.
+ */
+function encodeBase64Url(value: string): string {
+  const bytes = new TextEncoder().encode(value)
+  let binary = ''
+  for (const byte of bytes) binary += String.fromCharCode(byte)
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
+}
+
+/** Inverse of {@link encodeBase64Url}; accepts padded or unpadded input. */
+function decodeBase64Url(payload: string): string {
+  let base64 = payload.replaceAll('-', '+').replaceAll('_', '/')
+  while (base64.length % 4 !== 0) base64 += '='
+  const bytes = Uint8Array.from(atob(base64), character => character.charCodeAt(0))
+  return new TextDecoder().decode(bytes)
+}
+
+/**
  * Encode any JavaScript session-id string as a canonical lossless URI.
  * @param sessionId - opaque session id to serialize.
  * @returns canonical `dsh-session:` URI.
  */
 export function encodeSessionReferenceUri(sessionId: SessionIdType): string {
-  const payload = Buffer.from(JSON.stringify(sessionId), 'utf8').toString('base64url')
-  return `${SESSION_REFERENCE_SCHEME}${payload}`
+  return `${SESSION_REFERENCE_SCHEME}${encodeBase64Url(JSON.stringify(sessionId))}`
 }
 
 /**
@@ -30,7 +49,7 @@ export function decodeSessionReferenceUri(uri: string): SessionIdType {
   const payload = uri.slice(SESSION_REFERENCE_SCHEME.length)
   if (!/^[A-Za-z0-9_-]+$/.test(payload)) throw invalidUri(uri)
   try {
-    const parsed: unknown = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'))
+    const parsed: unknown = JSON.parse(decodeBase64Url(payload))
     if (typeof parsed !== 'string') throw new TypeError('decoded session id is not a string')
     const sessionId = brandString<SessionIdType>(parsed)
     if (encodeSessionReferenceUri(sessionId) !== uri) throw new TypeError('URI is not canonical')

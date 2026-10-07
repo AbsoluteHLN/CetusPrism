@@ -14,7 +14,7 @@
  */
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import type { ChangeEvent, KeyboardEvent, MouseEvent } from 'react'
+import type { ChangeEvent, DragEvent, KeyboardEvent, MouseEvent } from 'react'
 import clsx from 'clsx'
 import {
   IconPlusOutlineMedium, IconWarningOutlineRegular, Toast, Tooltip,
@@ -35,6 +35,7 @@ import {
   keepDraftFocus, revealDraftSelection,
 } from '../input/editor/view-binding.ts'
 import { resolveSubmitMode } from '../input/submission-policy.ts'
+import { readSessionDrag, sessionReferenceChip } from '@deepseek-ai/dsh-session-reference/drag'
 import { attachmentErrorText, imageSizeText } from '../image-labels.ts'
 import { ContextMeter } from './ContextMeter.tsx'
 import { observeControlRow } from './control-row-layout.ts'
@@ -43,7 +44,7 @@ import css from './InputBar.module.css'
 export type InputBarProps = ComposerBarProps
 
 export const InputBar = memo(function InputBar({
-  useSession, useInput, inputActions, keyboard, addFiles, removeAttachment, resolveDraftAttachments,
+  useSession, useInput, inputActions, keyboard, addFiles, addReferences, removeAttachment, resolveDraftAttachments,
   retryFileUpload,
   toggleCommandMenu, stop, t,
   renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut,
@@ -234,6 +235,31 @@ export const InputBar = memo(function InputBar({
 
   const canAcceptDrop = subagent === null && !locked && !machineBusy && addFiles !== undefined
 
+  // Sessions dragged from the workspace sidebar land on the composer card as
+  // reference chips. The card is the target (the editor drop path stays with
+  // text/file drags); a card highlight marks the live target.
+  const canAcceptSessionDrop = subagent === null && !locked && !machineBusy && addReferences !== undefined
+  const [sessionDragOver, setSessionDragOver] = useState(false)
+  const sessionDragHover = (e: DragEvent<HTMLDivElement>): void => {
+    if (readSessionDrag(e.dataTransfer) === undefined) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'copy'
+    setSessionDragOver(true)
+  }
+  const sessionDragLeave = (e: DragEvent<HTMLDivElement>): void => {
+    if (cardRef.current?.contains(e.relatedTarget as Node | null)) return
+    setSessionDragOver(false)
+  }
+  const sessionDrop = (e: DragEvent<HTMLDivElement>): void => {
+    const payload = readSessionDrag(e.dataTransfer)
+    if (payload === undefined || addReferences === undefined) return
+    e.preventDefault()
+    e.stopPropagation()
+    setSessionDragOver(false)
+    const rejected = addReferences([sessionReferenceChip(payload)])
+    if (rejected !== null) showToast(rejected)
+  }
+
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const onPickFiles = (e: ChangeEvent<HTMLInputElement>): void => {
     const picked = e.target.files === null ? [] : [...e.target.files]
@@ -374,10 +400,17 @@ export const InputBar = memo(function InputBar({
           click's reopen (close-then-open flickers the chip's open echo). */}
       <div
         ref={cardRef}
-        className={clsx(css.card, workspaceTrigger && css.cardWorkspaceTrigger)}
+        className={clsx(
+          css.card,
+          workspaceTrigger && css.cardWorkspaceTrigger,
+          sessionDragOver && css.cardSessionDrop,
+        )}
         data-composer-card
         onClick={workspaceTrigger ? onRequestWorkspace : undefined}
         onPointerDown={workspaceTrigger ? (e) => { e.stopPropagation() } : undefined}
+        onDragOver={canAcceptSessionDrop ? sessionDragHover : undefined}
+        onDragLeave={canAcceptSessionDrop ? sessionDragLeave : undefined}
+        onDrop={canAcceptSessionDrop ? sessionDrop : undefined}
       >
         {sessionId !== undefined && (
           <div className={css.overlayAnchor}>{renderSlot('conversation.input.overlay', {})}</div>

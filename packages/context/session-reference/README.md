@@ -78,7 +78,8 @@ The budget uses the provider and model captured after `system-prompt/assemble` c
 |---|---|
 | [`src/index.ts`](src/index.ts) | `SessionReferenceResolver`: pre-step listener, candidate discovery, preparation |
 | [`src/config.ts`](src/config.ts) | `Config` schema, `SessionReferenceError` taxonomy |
-| [`src/uri.ts`](src/uri.ts) | `dsh-session:` URI codec, mention formatting and parsing |
+| [`src/uri.ts`](src/uri.ts) | `dsh-session:` URI codec, mention formatting and parsing (exported browser-safe as the `./uri` subpath) |
+| [`src/drag.ts`](src/drag.ts) | Sidebar-to-composer drag payload codec and chip building (exported browser-safe as the `./drag` subpath) |
 | [`src/projection.ts`](src/projection.ts) | Current-surface projection and byte-budget retention |
 | [`src/serialization.ts`](src/serialization.ts) | Tag-safe JSON escaping for snapshot payloads |
 | [`src/spill.ts`](src/spill.ts) | Full transcript serialization and model-visible omission notices |

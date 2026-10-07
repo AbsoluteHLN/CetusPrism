@@ -437,6 +437,7 @@ export function apply(ctx: Context, config: Config = Config({})): void {
         return {
           keyboard: undefined,
           addFiles: undefined,
+          addReferences: undefined,
           removeAttachment: undefined,
           resolveDraftAttachments: undefined,
           retryFileUpload: undefined,
@@ -499,6 +500,11 @@ export function apply(ctx: Context, config: Config = Config({})): void {
         },
         removeAttachment: (id) => {
           if (shell.removeAttachment(id)) conversation.releaseDraftAttachment(id)
+        },
+        addReferences: (references) => {
+          if (sessions.binding(sessionId) === undefined) return t('file.sessionUnavailable')
+          if (!shell.addReferences(references)) return t('attachment.dropBlocked')
+          return null
         },
         resolveDraftAttachments: ids => conversation.resolveDraftAttachments(ids),
         retryFileUpload: (id) => {

@@ -22,6 +22,14 @@
       "types": "./lib/types/types.d.ts",
       "default": "./lib/types/types.js"
     },
+    "./uri": {
+      "types": "./lib/types/uri.d.ts",
+      "default": "./lib/types/uri.js"
+    },
+    "./drag": {
+      "types": "./lib/types/drag.d.ts",
+      "default": "./lib/types/drag.js"
+    },
     "./typert": {
       "types": "./lib/typert.host.d.ts",
       "default": "./lib/typert.host.js"

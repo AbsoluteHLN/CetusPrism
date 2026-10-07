@@ -1970,7 +1970,7 @@ describe('WorkspaceBrowser', () => {
     expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['two', 'one', 'three'])
   })
 
-  it('drags a pinned row by moving its position in the complete Session sequence', () => {
+  it('drags a pinned row by moving its position in its account order', () => {
     const sessions = sessionState([
       summary('one', 4), summary('two', 3), summary('three', 2), summary('four', 1),
     ])
@@ -1982,8 +1982,13 @@ describe('WorkspaceBrowser', () => {
       )),
     })
     fireEvent.click(screen.getByText('alpha'))
-    expect(screen.getAllByRole('treeitem').slice(1).map(row => row.textContent)).toEqual([
+    const rowTitles = () => screen.getAllByRole('treeitem').map(row => row.textContent ?? '')
+    // Pinned rows leave their home group for the leading pinned section;
+    // the section follows the saved account order (one precedes two).
+    expect(rowTitles()).toEqual([
+      expect.stringContaining('置顶'),
       expect.stringContaining('one'), expect.stringContaining('two'),
+      expect.stringContaining('alpha'),
       expect.stringContaining('three'), expect.stringContaining('four'),
     ])
     const one = screen.getByText('one').closest('[role="treeitem"]') as HTMLElement
@@ -1995,13 +2000,15 @@ describe('WorkspaceBrowser', () => {
     fireDrag(one, 'dragOver', 105)
     fireDrag(one, 'drop', 105)
     expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['three', 'two', 'one', 'four'])
-    expect(screen.getAllByRole('treeitem').slice(1).map(row => row.textContent)).toEqual([
+    expect(rowTitles()).toEqual([
+      expect.stringContaining('置顶'),
       expect.stringContaining('two'), expect.stringContaining('one'),
+      expect.stringContaining('alpha'),
       expect.stringContaining('three'), expect.stringContaining('four'),
     ])
 
     // Dropping the trailing pinned row after the leading one restates the
-    // current block: a no-op that writes nothing.
+    // current section: a no-op that writes nothing.
     const oneAgain = screen.getByText('one').closest('[role="treeitem"]') as HTMLElement
     const twoAgain = screen.getByText('two').closest('[role="treeitem"]') as HTMLElement
     twoAgain.getBoundingClientRect = () => ({

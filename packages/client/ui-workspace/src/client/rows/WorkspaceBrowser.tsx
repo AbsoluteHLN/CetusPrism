@@ -290,12 +290,13 @@ function sectionCountLabel(rows: readonly SessionNode[], t: WorkspaceBrowserProp
  * quota — its header is the only fold control, and surfacing its membership
  * is the point of the section.
  */
-function SessionSectionBlock({ sectionKey, label, count, icon, expanded, onToggle, rows, renderRow }: {
+function SessionSectionBlock({ sectionKey, label, count, icon, expanded, active = false, onToggle, rows, renderRow }: {
   sectionKey: string
   label: string
   count: string
   icon: ReactNode
   expanded: boolean
+  active?: boolean
   onToggle: () => void
   rows: readonly SessionNode[]
   renderRow: (node: SessionNode) => ReactNode
@@ -309,6 +310,7 @@ function SessionSectionBlock({ sectionKey, label, count, icon, expanded, onToggl
         count={count}
         icon={icon}
         expanded={expanded}
+        active={active}
         onToggle={onToggle}
       />
       {expanded && rows.map(node => renderRow(node))}
@@ -711,8 +713,9 @@ function SessionTree({
             sectionKey={PINNED_SECTION_KEY}
             label={t('section.pinned')}
             count={sectionCountLabel(pinnedRows, t)}
-            icon={<IconPinFillRegular size={14} />}
+            icon={<IconPinFillRegular />}
             expanded={pinnedExpanded}
+            active={current !== undefined && pinnedRowIds.has(current)}
             onToggle={() => { setGroupExpanded(PINNED_SECTION_KEY, !pinnedExpanded) }}
             rows={pinnedRows}
             renderRow={(node) => {
@@ -800,8 +803,8 @@ function FlatList({
 }) {
   const panelActive = usePanelInfo(info => info.activePanelId !== null)
   const statuses = useSessionStatus(s => s)
-  // The pinned and archive sections flank the flat list; pin order follows
-  // the flat order, which already carries the selected session order.
+  // The pinned section flanks the flat list; pin order follows the flat
+  // order, which already carries the selected session order.
   const pinnedRows = useMemo(
     () => derivePinnedRows(list, rowState, statuses, pinnedSectionIds(rowState, list.byId, 'manual', [sessionIds])),
     [list, rowState, statuses, sessionIds],
@@ -909,8 +912,9 @@ function FlatList({
             sectionKey={PINNED_SECTION_KEY}
             label={t('section.pinned')}
             count={sectionCountLabel(pinnedRows, t)}
-            icon={<IconPinFillRegular size={14} />}
+            icon={<IconPinFillRegular />}
             expanded={pinnedExpanded}
+            active={currentId !== undefined && pinnedRowIds.has(currentId)}
             onToggle={() => { setGroupExpandedFlat(PINNED_SECTION_KEY, !pinnedExpanded) }}
             rows={pinnedRows}
             renderRow={node => renderRow(node, true)}

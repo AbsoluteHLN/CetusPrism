@@ -2019,6 +2019,29 @@ describe('WorkspaceBrowser', () => {
     expect(b.store.getSnapshot().sessionOrderByAccount.alpha).toEqual(['three', 'two', 'one', 'four'])
   })
 
+  it('highlights the pinned section only while it holds the current session', () => {
+    const sessions = sessionState([summary('one', 2), summary('two', 1)], { main: sid('one') })
+    const b = mount({
+      useSessions: hook(sessions),
+      useWorkspaces: hook(workspaceState(
+        [workspace('alpha', ['one', 'two'])], [], [sid('one')],
+      )),
+    })
+    fireEvent.click(screen.getByText('alpha'))
+    expect(screen.getByText('置顶').closest('[role="treeitem"]')!.querySelector('[class*="folderActive"]'))
+      .not.toBeNull()
+
+    // The accent follows the current Session out of the section.
+    rerender(b, {
+      useSessions: hook(sessionState([summary('one', 2), summary('two', 1)], { main: sid('two') })),
+      useWorkspaces: hook(workspaceState(
+        [workspace('alpha', ['one', 'two'])], [], [sid('one')],
+      )),
+    })
+    expect(screen.getByText('置顶').closest('[role="treeitem"]')!.querySelector('[class*="folderActive"]'))
+      .toBeNull()
+  })
+
   it('keeps pinned and unpinned rows in separate drag domains', () => {
     const sessions = sessionState([summary('one', 2), summary('two', 1)])
     const b = mount({

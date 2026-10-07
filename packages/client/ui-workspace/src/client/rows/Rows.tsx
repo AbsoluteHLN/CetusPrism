@@ -333,12 +333,14 @@ export function ProjectRowItem({ group, containsCurrentDescendant = false, onTog
  * Header row of a synthetic section (the pinned section): folds its rows via
  * the shared persisted expansion map and carries the section's row count.
  */
-export function SectionHeaderRow({ sectionKey, label, count, icon, expanded, onToggle }: {
+export function SectionHeaderRow({ sectionKey, label, count, icon, expanded, active = false, onToggle }: {
   sectionKey: string
   label: string
   count: string
   icon: ReactNode
   expanded: boolean
+  /** Folder accent while the section holds the current Session, as the Workspace groups show. */
+  active?: boolean
   onToggle: () => void
 }) {
   return (
@@ -349,7 +351,7 @@ export function SectionHeaderRow({ sectionKey, label, count, icon, expanded, onT
       aria-expanded={expanded}
       onClick={onToggle}
     >
-      <span className={clsx(css.slot, css.folder)}>{icon}</span>
+      <span className={clsx(css.slot, css.folder, active && css.folderActive)}>{icon}</span>
       <span className={clsx(css.slot, css.chevron)}>
         <IconTriangleRightFillRegular className={clsx(css.arrow, expanded && css.arrowOpen)} />
       </span>

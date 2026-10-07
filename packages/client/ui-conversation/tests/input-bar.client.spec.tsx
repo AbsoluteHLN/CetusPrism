@@ -1826,6 +1826,19 @@ describe('session reference drops', () => {
     expect(shell.snapshot.draft).toBe('')
   })
 
+  it('marks the card as the drop target while a session drag hovers', () => {
+    const { view } = bench()
+    const card = cardOf(view)
+    const marked = () => card.className.includes('cardSessionDrop')
+    expect(marked()).toBe(false)
+    fireEvent.dragOver(card, {
+      dataTransfer: sessionTransfer({ sessionId: 'other-session' as SessionId, title: '标题' }),
+    })
+    expect(marked()).toBe(true)
+    fireEvent.dragLeave(card)
+    expect(marked()).toBe(false)
+  })
+
   it('announces a refused session drop through the shared toast', () => {
     const addReferences = vi.fn(() => zh['attachment.dropBlocked'])
     const { view } = bench({ addReferences })

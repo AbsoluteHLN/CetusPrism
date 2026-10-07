@@ -61,6 +61,8 @@
   border-radius: var(--dsw-radius-panel);
   background: var(--dsw-specific-input-major);
   box-shadow: var(--dsw-elevation-soft);
+  /* The drop-highlight ground eases in and out instead of snapping. */
+  transition: background-color 120ms ease-out;
   /* The draft text follows the Settings font-size preference (the textarea,
      mirror, and backdrop all inherit from here, so the three layers stay in
      step); the line height keeps the default 10px leading via the shared px
@@ -107,16 +109,23 @@
   color: var(--dsw-alias-state-business-primary);
 }
 
-/* A dragged session row hovers over the card: a full-stroke accent marks the
-   live drop target (the ::after layer keeps the rounded corners clipped). */
+/* A dragged session row hovers over the card: the dock drop-active treatment —
+   an accent dashed frame over a tinted ground — marks the live drop target
+   (the same business accent as the rest of this sheet). The frame rides the
+   ::after layer so the rounded corners stay clipped; the ground mixes into
+   the input surface on the card itself. */
 .cardSessionDrop::after {
   content: '';
   position: absolute;
   inset: 0;
   box-sizing: border-box;
-  border: 1.5px solid var(--dsw-alias-state-business-primary);
+  border: 1.5px dashed var(--dsw-alias-state-business-primary);
   border-radius: var(--dsw-radius-panel);
   pointer-events: none;
+}
+
+.cardSessionDrop {
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 8%, var(--dsw-specific-input-major));
 }
 
 .accessory {

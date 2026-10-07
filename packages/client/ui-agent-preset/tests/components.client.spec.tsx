@@ -53,10 +53,8 @@ function renderSeat(
   state: Partial<AgentPresetSeatState> = {},
   select: () => Promise<string | undefined> = () => Promise.resolve(undefined),
   session?: { id: string; retainInfo: SessionRetainInfo | undefined },
-  enabled = true,
 ) {
   const store = createSnapshotStore<AgentPresetSeatState>({ ...SEAT_READY, ...state })
-  const developerTools = createSnapshotStore(enabled)
   const actions = {
     load: vi.fn(() => Promise.resolve()), select: vi.fn(select), introduced: vi.fn(),
     dismissRefusal: vi.fn((error: AgentPresetSeatState['error']) => {
@@ -68,7 +66,6 @@ function renderSeat(
   const props = {
     ...actions,
     sessionId: session === undefined ? undefined : SessionId(session.id),
-    useDeveloperTools: bindSnapshotSelector(developerTools),
     useAgentPresetSeat: bindSnapshotSelector(store),
     useSessionRetainInfo: session === undefined
       ? useSessionRetainInfo
@@ -76,7 +73,7 @@ function renderSeat(
     t: translate,
   } as AgentPresetSeatProps
   render(<AgentPresetSeat {...props} />)
-  return { ...actions, developerTools, store }
+  return { ...actions, store }
 }
 
 function renderLabel(
@@ -100,52 +97,25 @@ function renderLabel(
 }
 
 describe('the new-session chip', () => {
-  it.each([false, true])('offers Standard, Creator and custom presets with Developer tools %s', (enabled) => {
+  it('offers Standard, PTC, Minimal, Creator and custom presets', () => {
     const actions = renderSeat({ options: [
       { id: 'standard' }, { id: 'ptc' }, { id: 'minimal' }, { id: 'cordis' }, { id: 'mine' },
-    ] }, undefined, undefined, enabled)
+    ] })
 
     fireEvent.click(screen.getByRole('button'))
-    expect(screen.getAllByRole('menuitem')).toHaveLength(enabled ? 5 : 3)
+    expect(screen.getAllByRole('menuitem')).toHaveLength(5)
     expect(screen.getByRole('menuitem', { name: /^Standard mode/ })).toBeTruthy()
     expect(screen.getByRole('menuitem', { name: /^mine/ })).toBeTruthy()
-    expect(screen.queryByRole('menuitem', { name: /^PTC mode/ }) !== null).toBe(enabled)
-    expect(screen.queryByRole('menuitem', { name: /^Minimal mode/ }) !== null).toBe(enabled)
+    expect(screen.getByRole('menuitem', { name: /^PTC mode/ })).toBeTruthy()
+    expect(screen.getByRole('menuitem', { name: /^Minimal mode/ })).toBeTruthy()
     fireEvent.click(screen.getByRole('menuitem', { name: /^Creator mode/ }))
     expect(actions.select).toHaveBeenCalledWith('cordis')
   })
 
   it('keeps a named custom preset that overrides a development preset id', () => {
-    renderSeat({ options: [{ id: 'ptc', name: 'My workflow' }] }, undefined, undefined, false)
+    renderSeat({ options: [{ id: 'ptc', name: 'My workflow' }] })
     fireEvent.click(screen.getByRole('button'))
     expect(screen.getByRole('menuitem', { name: /^My workflow/ })).toBeTruthy()
-  })
-
-  it('keeps the current mode visible without opening a picker when all options are hidden', () => {
-    const actions = renderSeat({ current: 'minimal', options: [{ id: 'ptc' }, { id: 'minimal' }] }, undefined, undefined, false)
-    const trigger = screen.getByRole<HTMLButtonElement>('button', { name: en.presetMinimalName })
-    expect(trigger.disabled).toBe(true)
-    fireEvent.click(trigger)
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByRole('menu')).toBeNull()
-    expect(actions.select).not.toHaveBeenCalled()
-  })
-
-  it('closes a picker when its last visible option disappears and keeps it closed when options return', () => {
-    const options = [{ id: 'minimal' }, { id: 'mine' }]
-    const actions = renderSeat({ current: 'minimal', options }, undefined, undefined, false)
-    const trigger = screen.getByRole<HTMLButtonElement>('button', { name: en.presetMinimalName })
-    fireEvent.click(trigger)
-    expect(screen.getByRole('menuitem', { name: /^mine/ })).toBeTruthy()
-    act(() => { actions.store.set({ ...actions.store.getSnapshot(), options: [{ id: 'ptc' }, { id: 'minimal' }] }) })
-    expect(trigger.disabled).toBe(true)
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByRole('menu')).toBeNull()
-    act(() => { actions.store.set({ ...actions.store.getSnapshot(), options }) })
-    expect(trigger.disabled).toBe(false)
-    expect(trigger.getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByRole('menu')).toBeNull()
-    expect(actions.select).not.toHaveBeenCalled()
   })
 
   it('renders only for a Session retained by the main view', () => {
@@ -179,19 +149,6 @@ describe('the new-session chip', () => {
     // in for the name.
     expect(screen.getByText(en.noDescription)).toBeTruthy()
     expect(screen.getByText('mine')).toBeTruthy()
-  })
-
-  it('closes the picker immediately when developer tools turn off without changing the staged preset', () => {
-    const actions = renderSeat()
-    fireEvent.click(screen.getByRole('button'))
-    expect(screen.getByText(en.presetStandardDescription)).toBeTruthy()
-    act(() => { actions.developerTools.set(false) })
-    expect(screen.getByRole('button').getAttribute('aria-expanded')).toBe('false')
-    expect(screen.queryByText(en.presetStandardDescription)).toBeNull()
-    expect(actions.select).not.toHaveBeenCalled()
-    act(() => { actions.developerTools.set(true) })
-    expect(screen.getByRole('button').getAttribute('aria-expanded')).toBe('false')
-    expect(screen.getByRole('button').textContent).toContain(en.presetStandardName)
   })
 
   it('falls back to the id when the staged preset published no name', () => {
@@ -255,7 +212,7 @@ describe('a refused switch', () => {
     vi.useFakeTimers({ shouldAdvanceTime: true })
     try {
       const reason = 'failed to import loader entry live-on-mac (@deepseek-ai/dsh-also-gone)'
-      const actions = renderSeat({ current: '' }, undefined, undefined, false)
+      const actions = renderSeat({ current: '' })
       const refusal = { preset: { id: 'cordis' }, reason }
       act(() => { actions.store.set({ ...actions.store.getSnapshot(), error: refusal }) })
 

@@ -4,11 +4,10 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   Button, IconBrowseOutlineRegular, IconPlusOutlineRegular, Modal, Tag, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AgentPresetSectionState } from './section-store.ts'
 import { isBuiltInPreset, presetDisplayText } from './locales.ts'
-import { requiresCodingTools } from './settings-store.ts'
 import { PresetGuideDialog, presetGuide, trapPresetReaderTab, type PresetGuidePage } from './PresetGuideDialog.tsx'
 import css from './AgentPresetSection.module.css'
 
@@ -16,8 +15,6 @@ import css from './AgentPresetSection.module.css'
 export interface AgentPresetSectionInjected {
   hooks: {
     agentPresetSection: SnapshotStore<AgentPresetSectionState>
-    /** Shared Coding Tools preference; off hides the built-in PTC and Minimal cards. */
-    developerTools: ObservableSnapshot<boolean>
   }
   /** Stage the `cordis` preset and start a Creator-mode task; absent without a conversation flow. */
   startCreatorDraft?: () => void
@@ -63,10 +60,9 @@ function CardDescription({ text }: { text: string }): ReactNode {
  */
 export function AgentPresetSection({
   useAgentPresetSection, load, view, closeView, makeDefault, startCreatorDraft,
-  close: closeSettings, useDeveloperTools, t,
+  close: closeSettings, t,
 }: AgentPresetSectionProps) {
   const state = useAgentPresetSection(value => value)
-  const developerTools = useDeveloperTools(enabled => enabled)
   const [guide, setGuide] = useState<{
     content: NonNullable<ReturnType<typeof presetGuide>>
     page: PresetGuidePage
@@ -103,8 +99,7 @@ export function AgentPresetSection({
     <p className={css.intro}>{t('sectionIntro')}</p>
     {state.error === null ? null : <p className={css.error} role="alert">{state.error}</p>}
     {([true, false] as const).map((builtIn) => {
-      const rows = state.rows.filter(row => isBuiltInPreset(row) === builtIn
-        && (developerTools || !requiresCodingTools(row)))
+      const rows = state.rows.filter(row => isBuiltInPreset(row) === builtIn)
       const entry = builtIn ? null : creatorButton
       if (rows.length === 0 && entry === null) return null
       return <section key={String(builtIn)} className={css.group}>

@@ -12,9 +12,8 @@
  * edited where the roster is visible — the settings section's "make default"
  * — so General settings carries no duplicate control for the same field.
  *
- * Coding Tools (General settings) hide PTC and Minimal from the hero menu
- * and Settings roster when off. Hidden saved defaults fall back to Standard;
- * the existing gate clears staged choices while existing sessions keep their composition.
+ * PTC and Minimal stay offered everywhere the roster renders; the Developer
+ * tools preference governs developer views, never preset availability.
  */
 
 // Type-only: pulls the Session Controller service merge (ctx.sessions).
@@ -62,7 +61,7 @@ export { AGENT_PRESET_SETTINGS_NS, writeDefaultPreset } from './settings-store.t
 
 /** Required services (cordis fiber inject). */
 export const inject = [
-  'slots', 'sessions', 'locale', 'remote', 'remote.agentPresets', 'remote.settings', 'configForms',
+  'slots', 'sessions', 'locale', 'remote', 'remote.agentPresets', 'remote.settings',
 ]
 
 /**
@@ -70,12 +69,6 @@ export const inject = [
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
-  const toolsSettings = ctx.configForms.get<{ enabled: boolean }>('ui-settings')
-  const presetSettings = ctx.configForms.get(AGENT_PRESET_SETTINGS_NS)
-  let active = true
-  // Host preferences start at false before their first accepted document.
-  const codingToolsDisabled = (): boolean => active && toolsSettings.getSnapshot().mode === 'host'
-    && toolsSettings.getSnapshot().value?.enabled === false
   const controller = new AgentPresetSettingsController(ctx)
   const staged: AgentPresetStage = { id: undefined, introduce: false }
   const seats = new WeakMapWithValues<SessionBinding, AgentPresetSeatController>()
@@ -108,15 +101,6 @@ export function apply(ctx: ClientContext): void {
     return seat
   }
   const section = new AgentPresetSectionController(ctx)
-  // Turning Developer tools off clears the shared stage before any apply can compose it.
-  const developerTools = ctx.configForms.developerTools.enabled
-  ctx.effect(() => developerTools.subscribe(() => {
-    if (developerTools.getSnapshot()) return
-    staged.id = undefined
-    staged.introduce = false
-    void unboundSeat.apply()
-    for (const seat of seats.values) void seat.apply()
-  }), 'ui-agent-preset: Developer tools gate')
   const mainBlankSeat = (): AgentPresetSeatController | undefined => {
     const summary = Object.values(ctx.sessions.list.getSnapshot().byId)
       .find((session) => {
@@ -130,22 +114,6 @@ export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register('settings.agentPreset', { zh, en }), 'ui-agent-preset: settings row dictionaries')
 
   ctx.effect(() => {
-    let requested = 0
-    let pending: Promise<void> | undefined
-    // Settings invalidations may land while a correction is waiting on a
-    // person's selection. Recheck once that work settles using the latest values.
-    const reconcile = (): void => {
-      requested++
-      pending ??= Promise.resolve().then(async () => {
-        try {
-          for (;;) {
-            const revision = requested
-            await section.reconcileCodingTools(codingToolsDisabled)
-            if (!active || requested === revision) return
-          }
-        } finally { pending = undefined }
-      })
-    }
     // The roster reflects live declarations and the default is a settings field, so
     // both an external settings edit and a reconnect can move this row.
     const refresh = (): void => {
@@ -155,23 +123,15 @@ export function apply(ctx: ClientContext): void {
       if (section.store.getSnapshot().status !== 'idle') void section.load()
       void unboundSeat.load()
       for (const seat of seats.values) void seat.load()
-      reconcile()
     }
     const disposers = [
-      toolsSettings.subscribe(reconcile),
-      presetSettings.subscribe(reconcile),
       ctx.remote.$on('settings/document-updated', (ns) => {
         if (ns !== AGENT_PRESET_SETTINGS_NS) return
         refresh()
       }),
       ctx.on('connection/reset', refresh),
     ]
-    reconcile()
-    return async () => {
-      active = false
-      for (const dispose of disposers) dispose()
-      await pending
-    }
+    return () => { for (const dispose of disposers) dispose() }
   }, 'ui-agent-preset: settings refresh')
 
   // The settings section's conversational authoring entry: stage the
@@ -185,7 +145,7 @@ export function apply(ctx: ClientContext): void {
       const binding = sessionId === undefined ? undefined : ctx.sessions.binding(sessionId)
       const seat = binding === undefined ? unboundSeat : seatFor(binding)
       return {
-        hooks: { agentPresetSeat: seat.store, developerTools: ctx.configForms.developerTools.enabled },
+        hooks: { agentPresetSeat: seat.store },
         load: () => seat.load(),
         select: (id: string) => seat.select(id),
         dismissRefusal: (error) => { seat.dismissRefusal(error) },
@@ -254,7 +214,7 @@ export function apply(ctx: ClientContext): void {
   }
 
   const sectionInjected = (): AgentPresetSectionInjected => ({
-    hooks: { agentPresetSection: section.store, developerTools: ctx.configForms.developerTools.enabled },
+    hooks: { agentPresetSection: section.store },
     load: () => section.load(),
     view: (id: string) => section.view(id),
     closeView: () => { section.closeView() },

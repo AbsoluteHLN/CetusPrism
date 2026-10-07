@@ -25,7 +25,6 @@ export type AgentPresetSettingsKey =
   | 'noDescription'
   | 'brokenBadge'
   | 'switchRefused'
-  | 'standardUnavailable'
   | 'close'
   | 'creatorDraft'
   | 'createPlugin'
@@ -66,7 +65,6 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   brokenBadge: 'Failed to load',
 
   switchRefused: 'Could not switch to {name}: {reason}',
-  standardUnavailable: 'Standard mode is unavailable. Restore it or choose another available mode.',
 
   close: 'Close',
 
@@ -107,7 +105,6 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   brokenBadge: '加载失败',
 
   switchRefused: '无法切换到「{name}」：{reason}',
-  standardUnavailable: '标准模式不可用，请恢复该模式或选择其他可用模式。',
 
   close: '关闭',
 

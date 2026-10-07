@@ -12,8 +12,8 @@
  * Picking stages; the choice reaches a session when one becomes current.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import type { ObservableSnapshot, SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import { useEffect, useRef, useState } from 'react'
+import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import {
   IconAgentPresetOutlineRegular, IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
@@ -22,14 +22,11 @@ import {
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { AgentPresetSeatState } from './seat-store.ts'
 import { presetDisplayText } from './locales.ts'
-import { requiresCodingTools } from './settings-store.ts'
 import css from './AgentPresetSeat.module.css'
 
 /** Registration-side business face for the hero chip. */
 export interface AgentPresetSeatInjected {
   hooks: {
-    /** Shared Developer tools preference; off hides the PTC and Minimal menu choices. */
-    developerTools: ObservableSnapshot<boolean>
     /** Seat snapshot bound by the renderer as useAgentPresetSeat. */
     agentPresetSeat: SnapshotStore<AgentPresetSeatState>
   }
@@ -79,9 +76,8 @@ export type AgentPresetSeatProps =
  * @returns The chip and any pending selection refusal, or null outside the main view.
  */
 export function AgentPresetSeat({
-  sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced, useAgentPresetSeat, useDeveloperTools, t,
+  sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced, useAgentPresetSeat, t,
 }: AgentPresetSeatProps) {
-  const developerTools = useDeveloperTools(value => value)
   const state = useAgentPresetSeat(snapshot => snapshot)
   const main = useSessionRetainInfo(info => sessionId === undefined
     || (info?.retainedBy.mainView ?? 0) > 0)
@@ -101,15 +97,6 @@ export function AgentPresetSeat({
   useEffect(() => {
     void load()
   }, [load])
-
-  const options = useMemo(
-    () => state.options.filter(option => developerTools || !requiresCodingTools(option)),
-    [state.options, developerTools],
-  )
-
-  useEffect(() => {
-    setOpen(false)
-  }, [developerTools, options.length])
 
   const chosen = state.options.find(option => option.id === state.current)
   const chosenText = chosen === undefined ? undefined : presetDisplayText(chosen, t)
@@ -162,9 +149,9 @@ export function AgentPresetSeat({
   return (
     <>
       {ready && <Menu
-        open={open && options.length > 0}
+        open={open && state.options.length > 0}
         onClose={() => { setOpen(false) }}
-        items={options.map((option) => {
+        items={state.options.map((option) => {
           const text = presetDisplayText(option, t)
           return {
             id: option.id,
@@ -191,9 +178,9 @@ export function AgentPresetSeat({
             type="button"
             className={css.seat}
             aria-haspopup="menu"
-            aria-expanded={open && options.length > 0}
+            aria-expanded={open && state.options.length > 0}
             title={(typeof state.error === 'object' ? state.error?.reason : state.error) ?? t('seatHint')}
-            disabled={state.busy || options.length === 0}
+            disabled={state.busy || state.options.length === 0}
             onClick={() => { setOpen(value => !value) }}
           >
             <IconAgentPresetOutlineRegular className={introducing ? `${css.seatIcon} ${css.introIcon}` : css.seatIcon} />

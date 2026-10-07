@@ -23,7 +23,6 @@ import { AgentPresetSeat } from '../src/client/AgentPresetSeat.tsx'
 import type { AgentPresetSeatInjected } from '../src/client/AgentPresetSeat.tsx'
 import { AgentPresetSeatController } from '../src/client/seat-store.ts'
 import { CreatePluginMenuItem, type CreatePluginMenuItemInjected } from '../src/client/CreatePluginMenuItem.tsx'
-import { AgentPresetSectionController } from '../src/client/section-store.ts'
 import { apply as hostApply } from '../src/index.ts'
 import type { AgentPresetRow } from '@deepseek-ai/dsh-agent-preset-registry/types'
 
@@ -343,7 +342,7 @@ describe('ui-agent-preset apply', () => {
 
   it('declares the services it uses', () => {
     expect(inject).toEqual([
-      'slots', 'sessions', 'locale', 'remote', 'remote.agentPresets', 'remote.settings', 'configForms',
+      'slots', 'sessions', 'locale', 'remote', 'remote.agentPresets', 'remote.settings',
     ])
   })
 
@@ -375,7 +374,7 @@ describe('ui-agent-preset apply', () => {
   })
 
   it('binds the Add plugin menu item to the roster and Creator flow and removes it with the feature', async () => {
-    const { ctx, slots, setDeveloperTools } = await bench()
+    const { ctx, slots } = await bench()
     try {
       slots.register({
         name: 'root',
@@ -402,10 +401,8 @@ describe('ui-agent-preset apply', () => {
       await action.load()
       expect(action.hooks.agentPresets.getSnapshot().options).toEqual([{ id: 'standard' }])
 
-      await setDeveloperTools(false)
       action.startCreatorDraft()
       expect(uiWorkspace.starts).toHaveLength(1)
-      expect(ctx.configForms.developerTools.enabled.getSnapshot()).toBe(false)
 
       await feature.dispose()
       expect(slots.entries('plugins.add.actions')).toHaveLength(0)
@@ -414,17 +411,14 @@ describe('ui-agent-preset apply', () => {
     }
   })
 
-  it('hands the section its own store, live Coding Tools preference, and default write', async () => {
-    const { ctx, slots, setDeveloperTools } = await bench()
+  it('hands the section its own store and default write', async () => {
+    const { ctx, slots } = await bench()
     ctx.provide('sessions', sessionsDouble(ctx, { byId: {} }) as never)
     declareRoot(slots)
     await ctx.plugin({ inject: [...inject], apply }).await()
 
     const section = (slots.entries('settings.section')[0]!.inject as unknown as () => AgentPresetSectionInjected)()
 
-    expect(section.hooks.developerTools).toBe(ctx.configForms.developerTools.enabled)
-    await setDeveloperTools(false)
-    expect(section.hooks.developerTools.getSnapshot()).toBe(false)
     await section.load()
     await section.makeDefault('standard')
     expect(section.hooks.agentPresetSection.getSnapshot().rows)
@@ -799,266 +793,6 @@ describe('ui-agent-preset apply', () => {
     // switching sessions the user never picked for.
     await Promise.resolve()
     expect(calls.filter(call => call === 'select:minimal')).toHaveLength(spent)
-  })
-
-  it.each(['standard', 'cordis', 'mine', 'ptc', 'minimal']
-    .flatMap(preset => ['unbound', 'inactive bound'].map(source => ({ preset, source }))))(
-    'clears the staged $preset choice on Coding Tools off without changing the Session ($source)', async ({ preset, source }) => {
-      const { ctx, slots, calls, setDeveloperTools } = await bench({ presets: [
-        ...ROSTER_MOVED.value.presets, { id: 'ptc', isDefault: false },
-        { id: 'cordis', isDefault: false }, { id: 'mine', name: 'Mine', isDefault: false },
-      ] })
-      declareRoot(slots)
-      declareConversation(slots)
-      ctx.provide('conversation', {} as never)
-      const state: {
-        current?: string
-        byId: Record<string, { id: string; blank: boolean; projectionValues?: { agentPreset?: string | null } }>
-      } = {
-        byId: { s1: { id: 's1', blank: true, projectionValues: { agentPreset: 'minimal' } } },
-      }
-      const sessions = sessionsDouble(ctx, state)
-      ctx.provide('sessions', sessions as never)
-      ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
-      await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
-      const injectSeat = slots.entries('conversation.hero.agentPreset')[0]!
-        .inject as (sessionId?: SessionId) => AgentPresetSeatInjected & Record<string, unknown>
-      const chip = injectSeat(source === 'unbound' ? undefined : SessionId('s1'))
-      await chip.load()
-      await chip.select(preset)
-      await setDeveloperTools(false)
-      await vi.waitFor(() => { expect(calls.filter(call => call.startsWith('settings:'))).toEqual(['settings:{"selectedDefault":"standard"}']) })
-      await chip.load()
-      expect(chip.hooks.agentPresetSeat.getSnapshot().current).toBe('standard')
-      expect(calls.filter(call => call.startsWith('select:'))).toEqual([])
-
-      state.current = 's1'
-      const bound = injectSeat(SessionId('s1'))
-      sessions.notify()
-      await bound.load()
-      expect(calls.filter(call => call.startsWith('select:'))).toEqual([])
-      expect(bound.hooks.agentPresetSeat.getSnapshot().current).toBe('minimal')
-      if (['standard', 'cordis', 'mine'].includes(preset)) {
-        await bound.select(preset)
-        expect(calls.filter(call => call.startsWith('select:'))).toEqual([`select:${preset}`])
-        expect(bound.hooks.agentPresetSeat.getSnapshot().current).toBe(preset)
-      }
-      await ctx.fiber.dispose()
-    },
-  )
-
-  it('does not cancel an in-flight preset selection when Coding Tools turn off', async () => {
-    const selection = Promise.withResolvers<undefined>()
-    const b = await bench({ selectGate: selection.promise, presets: ROSTER_MOVED.value.presets })
-    try {
-      declareRoot(b.slots)
-      declareConversation(b.slots)
-      b.ctx.provide('conversation', {} as never)
-      b.ctx.provide('sessions', sessionsDouble(b.ctx, {
-        current: 's1', byId: { s1: { id: 's1', blank: true, projectionValues: { agentPreset: 'standard' } } },
-      }) as never)
-      b.ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
-      await b.ctx.plugin({ inject: [...inject], apply }).await()
-      const chip = (b.slots.entries('conversation.hero.agentPreset')[0]!
-        .inject as (sessionId: SessionId) => AgentPresetSeatInjected & Record<string, unknown>)(SessionId('s1'))
-      await chip.load()
-      const selecting = chip.select('minimal')
-      expect(chip.hooks.agentPresetSeat.getSnapshot().busy).toBe(true)
-      await b.setDeveloperTools(false)
-      await vi.waitFor(() => { expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual(['settings:{"selectedDefault":"standard"}']) })
-      expect(b.calls.filter(call => call.startsWith('select:'))).toEqual(['select:minimal'])
-      selection.resolve(undefined)
-      await selecting
-      expect(chip.hooks.agentPresetSeat.getSnapshot()).toMatchObject({ current: 'minimal', busy: false })
-      expect(b.calls.filter(call => call.startsWith('select:'))).toEqual(['select:minimal'])
-    } finally {
-      selection.resolve(undefined)
-      await b.ctx.fiber.dispose()
-    }
-  })
-
-  it('does not reset a default during bootstrap or after accepting Coding Tools on', async () => {
-    const described = Promise.withResolvers<undefined>()
-    const b = await bench({ describeGate: described.promise, presets: ROSTER_MOVED.value.presets })
-    b.ctx.provide('sessions', sessionsDouble(b.ctx, { byId: {} }) as never)
-    declareRoot(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
-    expect(b.ctx.configForms.developerTools.enabled.getSnapshot()).toBe(false)
-    await Promise.resolve()
-    expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual([])
-    described.resolve(undefined)
-    await vi.waitFor(() => { expect(b.ctx.configForms.developerTools.enabled.getSnapshot()).toBe(true) })
-    expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual([])
-    await b.ctx.fiber.dispose()
-  })
-
-  it.each(['ptc', 'minimal'])('resets an accepted disabled %s default once, without restoring it on enable', async (id) => {
-    const b = await bench({ developerToolsEnabled: false, presets: [
-      { id: 'standard', isDefault: false }, { id, isDefault: true },
-    ] })
-    b.ctx.provide('sessions', sessionsDouble(b.ctx, { byId: {} }) as never)
-    declareRoot(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
-    await vi.waitFor(() => { expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual(['settings:{"selectedDefault":"standard"}']) })
-    const section = (b.slots.entries('settings.section')[0]!.inject as () => AgentPresetSectionInjected & Record<string, unknown>)()
-    await vi.waitFor(() => { expect(section.hooks.agentPresetSection.getSnapshot().rows.find(row => row.isDefault)?.id).toBe('standard') })
-    await b.setDeveloperTools(true)
-    expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual(['settings:{"selectedDefault":"standard"}'])
-    expect(section.hooks.agentPresetSection.getSnapshot().rows.find(row => row.isDefault)?.id).toBe('standard')
-    await b.ctx.fiber.dispose()
-  })
-
-  it.each([['standard', undefined], ['cordis', undefined], ['mine', 'Mine'], ['ptc', 'Custom PTC'], ['minimal', 'Custom Minimal']] as const)(
-    'keeps the allowed default %s (%s) when Coding Tools are disabled', async (id, name) => {
-      const b = await bench({ developerToolsEnabled: false, presets: [
-        { id, isDefault: true, ...(name === undefined ? {} : { name }) },
-        ...(id === 'standard' ? [] : [{ id: 'standard', isDefault: false }]),
-      ] })
-      b.ctx.provide('sessions', sessionsDouble(b.ctx, { byId: {} }) as never)
-      declareRoot(b.slots)
-      await b.ctx.plugin({ inject: [...inject], apply }).await()
-      const section = (b.slots.entries('settings.section')[0]!.inject as () => AgentPresetSectionInjected & Record<string, unknown>)()
-      await section.load()
-      await Promise.resolve()
-      expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual([])
-      expect(section.hooks.agentPresetSection.getSnapshot().rows.find(row => row.isDefault)?.id).toBe(id)
-      await b.ctx.fiber.dispose()
-    },
-  )
-
-  it('resets an existing hidden default when the accepted preference turns off', async () => {
-    const b = await bench({ presets: ROSTER_MOVED.value.presets })
-    b.ctx.provide('sessions', sessionsDouble(b.ctx, { byId: {} }) as never)
-    declareRoot(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
-    expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual([])
-    await b.setDeveloperTools(false)
-    expect(b.ctx.configForms.get('agent-preset-registry').getSnapshot()).toMatchObject({ status: 'ready', mode: 'host', writable: true, revision: 0 })
-    await vi.waitFor(() => { expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual(['settings:{"selectedDefault":"standard"}']) })
-    await b.ctx.fiber.dispose()
-  })
-
-  it('corrects a hidden default when accepted settings arrive as the previous reconciliation settles', async () => {
-    const b = await bench({ presets: ROSTER_MOVED.value.presets })
-    b.ctx.provide('sessions', sessionsDouble(b.ctx, { byId: {} }) as never)
-    declareRoot(b.slots)
-    const answer = await b.ctx.remote.settings.describe()
-    if (!answer.ok) throw new Error(answer.error.message)
-    const describe = vi.spyOn(b.ctx.remote.settings, 'describe').mockResolvedValue({
-      ...answer,
-      value: { ...answer.value, namespaces: answer.value.namespaces.map(row => row.ns === 'ui-settings'
-        ? { ...row, value: { enabled: false } } : row) },
-    })
-    const disabled = Promise.withResolvers<undefined>()
-    const reconcile = vi.spyOn(AgentPresetSectionController.prototype, 'reconcileCodingTools')
-      .mockImplementationOnce(function (this: AgentPresetSectionController, shouldReset) {
-        reconcile.mockRestore()
-        const result = this.reconcileCodingTools(shouldReset)
-        // The real settings mirror publishes its already-answered read while
-        // the prior reconciliation's promise is settling.
-        void result.then(() => { void b.setDeveloperTools(false).then(() => { disabled.resolve(undefined) }, disabled.reject) })
-        return result
-      })
-    try {
-      await b.ctx.plugin({ inject: [...inject], apply }).await()
-      await disabled.promise
-      expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual(['settings:{"selectedDefault":"standard"}'])
-    } finally {
-      await b.ctx.fiber.dispose()
-      reconcile.mockRestore()
-      describe.mockRestore()
-    }
-  })
-
-  it.each([['cordis', true], ['mine', true], ['ptc', true], ['minimal', true], ['ptc', false], ['minimal', false]] as const)(
-    'resets only the default while the current task uses %s (blank: %s)', async (preset, blank) => {
-      const b = await bench({ presets: [
-        { id: 'standard', isDefault: false }, { id: 'minimal', isDefault: true }, { id: 'ptc', isDefault: false },
-        { id: 'cordis', isDefault: false }, { id: 'mine', name: 'Mine', isDefault: false },
-      ] })
-      declareRoot(b.slots)
-      declareConversation(b.slots)
-      b.ctx.provide('conversation', {} as never)
-      b.ctx.provide('sessions', sessionsDouble(b.ctx, {
-        current: 'blank', byId: { blank: { id: 'blank', blank, projectionValues: { agentPreset: preset } } },
-      }) as never)
-      b.ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
-      await b.ctx.plugin({ inject: [...inject], apply }).await()
-      const chip = (b.slots.entries('conversation.hero.agentPreset')[0]!.inject as (id: SessionId) => AgentPresetSeatInjected & Record<string, unknown>)(SessionId('blank'))
-      await chip.load()
-      expect(chip.hooks.agentPresetSeat.getSnapshot().current).toBe(preset)
-      await b.setDeveloperTools(false)
-      await vi.waitFor(() => { expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual(['settings:{"selectedDefault":"standard"}']) })
-      await chip.load()
-      expect(b.calls.filter(call => call.startsWith('select:'))).toEqual([])
-      expect(chip.hooks.agentPresetSeat.getSnapshot().current).toBe(preset)
-      if (blank) {
-        const section = (b.slots.entries('settings.section')[0]!.inject as () => AgentPresetSectionInjected & Record<string, unknown>)()
-        await section.makeDefault('cordis')
-        expect(b.calls.filter(call => call.startsWith('select:'))).toEqual(preset === 'cordis' ? [] : ['select:cordis'])
-        expect(chip.hooks.agentPresetSeat.getSnapshot().current).toBe('cordis')
-      }
-      await b.ctx.fiber.dispose()
-    },
-  )
-
-  it('does not correct a default when settings first arrive after the feature is disposed', async () => {
-    const described = Promise.withResolvers<undefined>()
-    const b = await bench({ describeGate: described.promise, developerToolsEnabled: false, presets: ROSTER_MOVED.value.presets })
-    b.ctx.provide('sessions', sessionsDouble(b.ctx, { byId: {} }) as never)
-    declareRoot(b.slots)
-    const feature = b.ctx.plugin({ inject: [...inject], apply })
-    await feature.await()
-    await feature.dispose()
-    described.resolve(undefined)
-    await vi.waitFor(() => { expect(b.ctx.configForms.get('ui-settings').getSnapshot().status).toBe('ready') })
-    expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual([])
-    expect(b.calls.filter(call => call.startsWith('select:'))).toEqual([])
-    await b.ctx.fiber.dispose()
-  })
-
-  it('exposes a refused correction without repeatedly writing the same default', async () => {
-    const b = await bench({ failSettingsUpdate: true, presets: ROSTER_MOVED.value.presets })
-    b.ctx.provide('sessions', sessionsDouble(b.ctx, { byId: {} }) as never)
-    declareRoot(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const section = (b.slots.entries('settings.section')[0]!.inject as () => AgentPresetSectionInjected & Record<string, unknown>)()
-    await b.setDeveloperTools(false)
-    await vi.waitFor(() => { expect(section.hooks.agentPresetSection.getSnapshot().error).toBe('settings write disconnected') })
-    expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual(['settings:{"selectedDefault":"standard"}'])
-    expect(section.hooks.agentPresetSection.getSnapshot().rows.find(row => row.isDefault)?.id).toBe('minimal')
-    await b.ctx.fiber.dispose()
-  })
-
-  it.each(['ptc', 'minimal'])('clears a browser-local staged %s choice without rewriting the Host default', async (preset) => {
-    const b = await bench({ memory: true, presets: [
-      ...ROSTER_MOVED.value.presets, { id: 'ptc', isDefault: false },
-    ] })
-    declareRoot(b.slots)
-    declareConversation(b.slots)
-    b.ctx.provide('conversation', {} as never)
-    const state: { current?: string; byId: Record<string, { id: string; blank: boolean }> } = {
-      byId: { s1: { id: 's1', blank: true } },
-    }
-    const sessions = sessionsDouble(b.ctx, state)
-    b.ctx.provide('sessions', sessions as never)
-    b.ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const injectSeat = b.slots.entries('conversation.hero.agentPreset')[0]!
-      .inject as (sessionId?: SessionId) => AgentPresetSeatInjected & Record<string, unknown>
-    const chip = injectSeat()
-    await chip.load()
-    await chip.select(preset)
-    await b.ctx.configForms.developerTools.setEnabled(false)
-    const section = (b.slots.entries('settings.section')[0]!.inject as () => AgentPresetSectionInjected & Record<string, unknown>)()
-    await section.load()
-    expect(section.hooks.agentPresetSection.getSnapshot().rows.find(row => row.isDefault)?.id).toBe('minimal')
-    expect(b.calls.filter(call => call.startsWith('settings:'))).toEqual([])
-    state.current = 's1'
-    await injectSeat(SessionId('s1')).load()
-    sessions.notify()
-    expect(b.calls.filter(call => call.startsWith('select:'))).toEqual([])
-    await b.ctx.fiber.dispose()
   })
 
   it('loads the header label from the shared roster store', async () => {

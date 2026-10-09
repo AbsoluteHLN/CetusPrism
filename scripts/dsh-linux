@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Run the supported dsh CLI through tsx's ESM hook, preserving the caller's cwd.
+set -euo pipefail
+script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+cetus_root=${CETUS_ROOT:-$(dirname -- "$script_dir")}
+dependency_root=${CETUS_DEPENDENCY_ROOT:-${DEP_CACHE:-$HOME/dependency-cache}}
+node_bin=${CETUS_NODE_BIN:-node}
+hook="$cetus_root/node_modules/tsx/dist/esm/index.mjs"
+if [[ ! -f "$hook" || ! -f "$cetus_root/apps/cli/src/bin.ts" ]]; then
+  printf '%s\n' 'dsh-linux: runtime links are missing; run scripts/bootstrap-linux.sh first.' >&2
+  exit 127
+fi
+export TSX_TSCONFIG_PATH="$cetus_root/tsconfig.json"
+export COREPACK_HOME="$dependency_root/npm-cache/corepack"
+export PATH="$dependency_root/pnpm/bin:$PATH"
+export npm_config_cache="$dependency_root/npm-cache"
+export npm_config_store_dir="$dependency_root/pnpm/store"
+export npm_config_virtual_store_dir="$dependency_root/pnpm/virtual"
+exec "$node_bin" --import "$hook" "$cetus_root/apps/cli/src/bin.ts" "$@"

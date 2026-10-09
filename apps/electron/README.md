@@ -47,11 +47,10 @@ apps/electron/
   scripts/heal-deploy-links.mjs      deploy-layout invariant gate (see below)
   scripts/audit-junctions.mjs        verify every junction stays inside the runtime tree
   scripts/make-installer.mjs         NSIS installer via electron-builder --prepackaged
-  scripts/build-deb.mjs              Linux .deb leg: cargo build + pack inside the
-                           cetusprism/linux-build container (scripts/build-deb.mjs)
-  scripts/pack-linux.mjs             deb staging and dpkg-deb assembly, runs in the container
-  docker/linux-build.Dockerfile      the build image: rust:1-bookworm + WebKitGTK 4.1 +
-                           libayatana-appindicator + librsvg development packages
+  scripts/build-deb.mjs              Linux .deb leg: native cargo build + pack, with
+                           an optional Ubuntu 22.04.2 sysroot adapter
+  scripts/pack-linux.mjs             native deb staging and dpkg-deb assembly
+  docker/linux-build.Dockerfile      legacy Windows-host compatibility image (not used by Linux)
   build/installer.nsh      NSIS custom page + hooks: the CLI PATH opt-in page
                            (user PATH write, marker registry value, WM_SETTINGCHANGE
                            broadcast), the harness-home detection hint, and the
@@ -198,24 +197,38 @@ LibreOffice kit. `CARGO_TARGET_DIR` redirects the Rust target tree, and `CETUS_D
 ## Build and pack (Linux .deb)
 
 ```sh
-docker build -f docker/linux-build.Dockerfile -t cetusprism/linux-build .   # once
+pnpm run build:lib && pnpm run build:web
 node scripts/build-deb.mjs
-CetusPrism-v<version>-amd64.deb  (Windows output: E:/dependency-cache/cetusprism/dist)
+CetusPrism-v<version>-amd64.deb  (apps/electron/dist)
 ```
 
-The build runs inside the `cetusprism/linux-build` container (Debian
-bookworm, glibc the deb requires): the Tauri shell compiles against
-WebKitGTK 4.1 from the mounted cargo registry cache (offline), then
-`pack-linux.mjs` — running on the mounted Linux Node v24.18.0 — stages
-the linux-unpacked tree, deploys the runtime closure with the same hoisted
-pnpm deploy, prunes non-linux-x64 prebuilds, and assembles the deb with
-`dpkg-deb`: `/opt/CetusPrism/`, a `cetusprism.desktop` launcher, hicolor
-icons, and a `/usr/bin/dsh` shim. Unlike the Windows chain, the in-container
-deploy runs online through the host proxy (`HTTP(S)_PROXY`,
-`host.docker.internal:7897` by default) because the store was populated on
-Windows and the Linux-variant optional native packages still need fetching.
-The Windows and Linux target trees live side by side under the dependency
-cache's `cargo/targets/` (`cetusprism`, `cetusprism-linux`).
+The Linux path uses the native Rust/Cargo toolchain, Node, and `dpkg-deb`; it
+does not require Docker. Rust, Cargo, pnpm, WebKitGTK development files, and
+musl tools may all live in the shared dependency cache. Override locations with
+`CARGO_HOME`, `RUSTUP_HOME`, `CARGO_TARGET_DIR`, and `CETUS_NATIVE_SYSROOT`.
+The script temporarily copies the web build into Tauri's `frontend` directory
+and restores the source placeholder after compiling. Missing crates are
+downloaded into the shared Cargo cache unless `CETUS_CARGO_OFFLINE=true` is
+set.
+
+The package contains the native Tauri shell, web frontend, Node backend
+runtime, Linux glibc/musl native extensions, `/usr/bin/dsh`, and the desktop
+launcher. Windows and Linux Rust target trees live under the shared cache's
+`cargo/targets/` directory.
+
+The Ubuntu 22.04.2 LTS adapter uses a shared sysroot and never installs system
+packages. Set `CETUS_UBUNTU_TARGET=22.04.2` and
+`CETUS_UBUNTU_SYSROOT=/home/kalcirite/dependency-cache/sysroot/ubuntu-22.04.2`
+to link the Rust shell, GTK/WebKitGTK bindings, and native Node extensions
+against Ubuntu 22.04's glibc 2.35 baseline. The sysroot, GCC 11, development
+packages, and pnpm remain in the shared dependency cache.
+
+```sh
+CETUS_UBUNTU_TARGET=22.04.2 \
+CETUS_UBUNTU_SYSROOT=/home/kalcirite/dependency-cache/sysroot/ubuntu-22.04.2 \
+CETUS_CARGO_OFFLINE=true \
+node scripts/build-deb.mjs
+```
 
 ## Deploy layout: hoisted, self-contained
 

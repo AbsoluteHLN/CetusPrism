@@ -1,35 +1,33 @@
 #!/usr/bin/env node
 /**
- * Assemble the Linux desktop payload and build the .deb — runs INSIDE the
- * `cetusprism/linux-build` container (invoked by `build-deb.mjs`), on the
- * Linux Node runtime. Mirrors `pack-tauri.mjs`: stage `dist/linux-unpacked`
+ * Assemble the Linux desktop payload and build the .deb on the native Linux
+ * Node runtime. Mirrors `pack-tauri.mjs`: stage `dist/linux-unpacked`
  * (shell binary + backend runtime closure), deploy the workspace package
  * with pnpm's hoisted linker, prune non-Linux payload, then hand-roll the
  * deb with `dpkg-deb` (control + postinst + desktop entry + hicolor icons +
  * `/usr/bin/dsh` shim).
  *
- * Container mounts:
- *   /repo   the workspace checkout
- *   /target the Linux cargo target tree
- *   /node   the Linux Node runtime (bin/node)
- *   /out    the deb output directory (apps/electron/dist)
+ * The output and all transient staging paths live in the shared dependency
+ * cache when invoked by `build-deb.mjs`.
  *
  * @module @deepseek-ai/dsh-electron/pack-linux
  */
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, cpSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const repoRoot = '/repo'
+const repoRoot = resolve(process.env.CETUS_REPO_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..'))
 const appRoot = join(repoRoot, 'apps', 'electron')
-const targetDir = '/target'
-const nodeBin = '/node/bin/node'
-// The final .deb lands on the /out bind mount; all staging runs in the
-// container-local /work — bind-mount rename semantics (EACCES on pnpm's
-// tmp-dir swaps) and cross-mount I/O make /out unusable for the tree.
-const outDir = '/out'
-const workRoot = '/work'
+const targetDir = resolve(process.env.CARGO_TARGET_DIR ?? join('/home/kalcirite/dependency-cache', 'cargo', 'targets', 'cetusprism-linux'))
+const nodeBin = resolve(process.env.CETUS_NODE_BIN ?? process.execPath)
+// The final .deb lands in the output directory; all staging runs in the
+// shared-cache work root so pnpm can freely rename its temporary directories.
+const outDir = resolve(process.env.CETUS_DIST_DIR ?? join(appRoot, 'dist'))
+const workRoot = resolve(process.env.CETUS_PACK_WORK_ROOT ?? join('/home/kalcirite/dependency-cache', 'cetusprism', 'linux-work'))
+const pnpmStore = resolve(process.env.CETUS_PNPM_STORE ?? join('/home/kalcirite/dependency-cache', 'pnpm', 'store'))
+const pnpmVstore = resolve(process.env.CETUS_PNPM_VSTORE ?? join('/home/kalcirite/dependency-cache', 'pnpm', 'virtual'))
 const unpackedDir = join(workRoot, 'linux-unpacked')
 const appDir = join(unpackedDir, 'resources', 'app')
 const debStaging = join(workRoot, 'deb-root')
@@ -73,11 +71,11 @@ execFileSync(nodeBin, [join(repoRoot, 'native', 'system', 'scripts', 'build.ts')
 // `node_modules`; unlike the Windows pack this deploy runs ONLINE (proxy
 // env), because the store was populated on Windows and the Linux-variant
 // optional native packages (bindings, prebuilds) still need fetching.
-// pnpm itself comes from the mounted virtual store (DSH_PNPM_VSTORE, set by
+// pnpm itself comes from the shared virtual store (DSH_PNPM_VSTORE, set by
 // build-deb.mjs); the project node_modules is a junction shell with no
-// package content to traverse inside the container.
+// package content to traverse.
 const pnpmCandidates = [
-  ...[process.env.DSH_PNPM_VSTORE ?? '/vstore'].flatMap(vstore => {
+  ...[pnpmVstore].flatMap(vstore => {
     try { return readdirSync(vstore).filter(name => /^pnpm@\d+\./.test(name)).map(name => join(vstore, name, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs')) } catch { return [] }
   }),
   join(repoRoot, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs'),
@@ -91,12 +89,13 @@ execFileSync(nodeBin, [
   pnpmCjs,
   '--filter', '@deepseek-ai/dsh', 'deploy', '--prod',
   '--node-linker=hoisted', '--config.inject-workspace-packages=true',
-  // The container store holds no build side-effects for the injected
+// The shared store holds no build side-effects for the injected
   // workspace packages, so the default build policy refuses their postinstall
   // (dsh-subprocess-local's spawn-helper chmod) and fails the deploy; the
   // closure is pinned by the shared lockfile, so allow all builds here.
   '--config.dangerouslyAllowAllBuilds=true',
-  '--config.store-dir=/store',
+  `--config.store-dir=${pnpmStore}`,
+  `--config.virtual-store-dir=${pnpmVstore}`,
   join(appDir, 'backend', 'runtime'),
 ], { cwd: repoRoot, stdio: 'inherit' })
 execFileSync(nodeBin, [join(appRoot, 'scripts', 'heal-deploy-links.mjs'), join(appDir, 'backend', 'runtime')], { stdio: 'inherit' })

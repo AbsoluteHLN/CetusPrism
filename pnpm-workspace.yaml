@@ -14,13 +14,11 @@ packages:
   # closure is what the exe bundles and what the Python runtime distributes.
   - python/sdk-runtime
 
-# All dependency content lives in the machine's dependency cache; the
-# project's node_modules hard-links into it (same volume), so nothing is
-# duplicated. Pinning storeDir keeps any future pnpm invocation from
-# silently creating a second store at the drive default (E:\.pnpm-store).
-# virtualStoreDir likewise keeps the .pnpm package content out of the tree.
-storeDir: E:\dependency-cache\pnpm\store
-virtualStoreDir: E:\dependency-cache\pnpm\vstore
+# scripts/bootstrap-linux.sh explicitly selects the shared dependency root,
+# store and virtual store. Machine paths belong to that invocation rather than
+# this portable workspace manifest.
+childConcurrency: 2
+workspaceConcurrency: 2
 
 overrides:
   'extract-zip>yauzl': '3.4.0'

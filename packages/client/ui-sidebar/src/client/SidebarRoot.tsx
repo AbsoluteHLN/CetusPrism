@@ -220,7 +220,7 @@ export function SidebarRoot({
       {/* macOS hiddenInset titlebar: the strip shares the row with the
           traffic lights and keeps the toggle at the sidebar's top-right. */}
       {darwinDesktop && <div className={css.topStrip} data-window-drag>{toggle}</div>}
-      <div className={css.logoRow} data-window-drag>
+      <div className={css.logoRow} data-window-drag data-sidebar-logo-row>
         {/* Expanded, the brand doubles as a New Session shortcut — except on
             macOS, where it stays part of the logo row's window-drag surface
             (a button would subtract itself through the global no-drag rule);
@@ -266,6 +266,7 @@ export function SidebarRoot({
       <Tooltip label={t('session.new.label')} shortcutKeys={newShortcut?.keys} delayMs={500} disabled={wide} side={captionTooltipSide}>
         <button
           type="button"
+          data-sidebar-new-session
           className={css.newSession}
           aria-label={t('session.new.label')}
           aria-keyshortcuts={newShortcut?.aria}
@@ -309,7 +310,7 @@ export function SidebarRoot({
       </div>
 
       {/* Footer actions stack above Settings in both sidebar widths. */}
-      <div className={css.footArea}>
+      <div className={css.footArea} data-sidebar-foot-area>
         <div className={css.footerActions}>
           {renderSlot('sidebar.footer.action', { wide })}
         </div>

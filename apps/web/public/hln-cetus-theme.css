@@ -627,27 +627,83 @@ html body [role='menu'] [role='menuitemradio'][aria-checked='true'] {
 
 /* ---------- Composer card ---------- */
 
-/* The composer card takes the v3.5 large-surface anatomy: square panel with
-   the hairline line-color edge, no blur, no glow. The fill rides
-   --dsw-specific-input-major, mapped above. */
+/* The composer card takes the v3.5 large-surface anatomy: precision hairline
+   vector panel with line-color edge, zero blur, zero elevation shadow. */
 html body #root [data-composer-card] {
-  border-radius: 0;
-  border-color: var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  border: 1px solid var(--hln-ui-line) !important;
   background: var(--dsw-specific-input-major);
+  box-shadow: none !important;
   transition: border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+html body #root [data-composer-card] button {
+  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+}
+
+html body #root [data-composer-card] [class*='add'] {
+  border: 1px solid var(--hln-ui-line) !important;
+  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  background: color-mix(in srgb, var(--hln-ui-bg-2) 70%, transparent) !important;
+  color: var(--hln-ui-text) !important;
+}
+
+html body #root [data-composer-card] [class*='primary'] {
+  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  border: 1px solid transparent !important;
+  background: var(--hln-ui-accent) !important;
+  color: var(--hln-ui-bg-0) !important;
+}
+
+html body #root [data-composer-card] [class*='primary']:hover:not(:disabled) {
+  background: var(--hln-ui-accent-strong, var(--hln-ui-accent)) !important;
+}
+
+html body #root [data-composer-card] [class*='primary']:disabled {
+  opacity: 0.35 !important;
 }
 
 /* The pick-a-workspace dashed ring squares off with the card: same SVG dash
    mask at radius 0. */
 html body #root [data-composer-card]::after {
-  border-radius: 0;
+  border-radius: var(--hln-ui-radius-sm, 2px) !important;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='none' stroke='black' stroke-width='2' stroke-dasharray='4 4'/%3E%3C/svg%3E");
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='none' stroke='black' stroke-width='2' stroke-dasharray='4 4'/%3E%3C/svg%3E");
 }
 
 /* The frame lights while the textarea holds focus: the accent hairline only. */
 html body #root [data-composer-card]:focus-within {
-  border-color: var(--hln-ui-accent);
+  border-color: var(--hln-ui-accent) !important;
+}
+
+/* ---------- Precision vector tags, pills and badges ---------- */
+html body #root [class*='tag'],
+html body #root [class*='pill'],
+html body #root [class*='Pill'],
+html body #root [class*='Tag'],
+html body #root [class*='badge'],
+html body #root [class*='Badge'] {
+  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  corner-shape: straight !important;
+}
+
+/* User message bubbles: precision hairline vector surface */
+html body #root [class*='userStack'] [class*='bubble'],
+html body #root [class*='userRow'] [class*='bubble'] {
+  border: 1px solid var(--hln-ui-line) !important;
+  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  box-shadow: none !important;
+}
+
+/* Markdown code blocks: hairline vector frame */
+html body #root .md-code-block {
+  border: 1px solid var(--hln-ui-line) !important;
+  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  overflow: hidden;
+}
+
+html body #root .md-code-block [data-code-block-banner] {
+  border-bottom: 1px solid var(--hln-ui-line);
 }
 
 /* ---------- Desktop titlebar (frameless Electron shell) ---------- */

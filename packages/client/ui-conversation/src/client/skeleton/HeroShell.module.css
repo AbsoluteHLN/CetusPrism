@@ -62,16 +62,16 @@
 .previewBadge {
   align-self: flex-start;
   margin-top: 2px;
-  padding: 1px 7px 0;
-  border: 0.5px solid var(--dsw-alias-interactive-bg-hover);
-  border-radius: 999px;
-  corner-shape: round;
-  background: var(--dsw-alias-state-business-tertiary);
-  color: var(--dsw-alias-label-primary-bluish);
-  font-family: var(--ds-font-family-code);
-  font-size: 12px;
-  line-height: 18px;
-  font-weight: 500;
+  padding: 2px 7px;
+  border: 1px solid color-mix(in srgb, var(--hln-ui-accent, #00f0ff) 50%, var(--hln-ui-line, #233247));
+  border-radius: var(--hln-ui-radius-sm, 2px);
+  background: color-mix(in srgb, var(--hln-ui-accent, #00f0ff) 10%, transparent);
+  color: var(--hln-ui-accent, #00f0ff);
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
   white-space: nowrap;
 }
 
@@ -152,23 +152,27 @@
 .workspace {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   max-width: min(100%, 360px);
   min-height: 28px;
-  padding: 0 8px;
-  border: none;
-  border-radius: var(--dsw-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-primary);
-  font-size: 13px;
+  padding: 0 10px;
+  border: 1px solid var(--hln-ui-line, transparent);
+  border-radius: var(--hln-ui-radius-sm, 2px);
+  background: color-mix(in srgb, var(--hln-ui-bg-1, #0f1622) 75%, transparent);
+  color: var(--hln-ui-text, var(--dsw-alias-label-primary));
+  font-size: 12.5px;
   line-height: 20px;
   font-weight: 500;
   cursor: pointer;
+  transition:
+    border-color var(--hln-ui-duration-fast, 160ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    background-color var(--hln-ui-duration-fast, 160ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 .workspace:not(:disabled):hover,
 .workspace[aria-expanded='true'] {
-  background: var(--dsw-alias-interactive-bg-hover);
+  border-color: color-mix(in srgb, var(--hln-ui-accent, #00f0ff) 50%, var(--hln-ui-line, #233247));
+  background: color-mix(in srgb, var(--hln-ui-accent, #00f0ff) 8%, var(--hln-ui-bg-1, #0f1622));
 }
 
 /* Locked form (bound guidance state): a static echo — no hover feedback, no

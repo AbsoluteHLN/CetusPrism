@@ -212,7 +212,7 @@
       var font = isFont(saved.font) ? saved.font : FONT_MIGRATIONS[saved.font]
       if (font) applyFont(font)
       if (isCjkFont(saved.cjkFont)) applyCjkFont(saved.cjkFont)
-      var bgMotion = isBgMotion(saved.bgMotion) ? saved.bgMotion : BG_MIGRATIONS[saved.bgMotion]
+      var bgMotion = isBgMotion(saved.bgMotion) ? saved.bgMotion : BG_MOTION_MIGRATIONS[saved.bgMotion]
       if (bgMotion) applyBgMotion(bgMotion)
     }
   } catch (err) {

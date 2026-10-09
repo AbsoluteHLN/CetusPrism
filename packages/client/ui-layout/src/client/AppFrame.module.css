@@ -24,7 +24,7 @@
 
 /* The Windows caption row remains outside every conversation and file panel. */
 :global([data-windows-titlebar]) .frame {
-  --dsh-windows-content-radius: 16px;
+  --dsh-windows-content-radius: 0px;
   box-sizing: border-box;
   padding-top: var(--dsh-windows-titlebar-height);
   background: var(--dsw-specific-sidebar-fill);
@@ -33,7 +33,6 @@
 :global([data-windows-titlebar]) .centerCol {
   background: var(--dsw-alias-bg-base);
   border-radius: var(--dsh-windows-content-radius) 0 0 0;
-  corner-shape: round;
 }
 
 :global([data-windows-titlebar]) .frame::before {

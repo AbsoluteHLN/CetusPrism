@@ -53,10 +53,8 @@
   width: 100%;
   max-width: var(--dsh-composer-card-max-width);
   padding-top: 8px;
-  /* Input stroke: the light neutral (l2, one step above the menus' l1),
-     drawn as the elevation hairline so it costs no layout; the shadow is the
-     soft elevation tier. Fill: the input surface token (elevated in dark). */
-  border: 0;
+  /* Input stroke: 1px hairline border. Fill: input surface token. */
+  border: 1px solid var(--dsw-alias-border-l2);
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
   border-radius: var(--dsw-radius-panel);
   background: var(--dsw-specific-input-major);
@@ -331,16 +329,15 @@
   }
 }
 
-/* Attach circle (figma + control): 28px, selector fill, primary glyph. */
+/* Attach button: 28px, hairline border, vector radius. */
 .add {
   display: grid;
   place-items: center;
   flex: none;
   width: 28px;
   height: 28px;
-  border: none;
-  border-radius: 999px;
-  corner-shape: round;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: var(--dsw-radius-sm);
   background: var(--dsw-specific-selector);
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
@@ -387,18 +384,15 @@
   cursor: default;
 }
 
-/* Primary send (figma IconButton 34:10465): 34px circle, #3964FE light /
-   #679EFE dark — the info-fill pair (500→400), NOT button-primary (ink);
-   white glyph; empty text = 0.4 opacity. */
+/* Primary send: 34px vector control, info fill, on-accent ink. */
 .primary {
   display: grid;
   place-items: center;
   flex: none;
   width: 34px;
   height: 34px;
-  border: none;
-  border-radius: 999px;
-  corner-shape: round;
+  border: 1px solid transparent;
+  border-radius: var(--dsw-radius-sm);
   background: var(--dsw-alias-button-info-fill);
   /* Static white, not the foreground token: the arrow stays white on the blue
      fill in both themes (design 34:10465). Brand themes that re-point the

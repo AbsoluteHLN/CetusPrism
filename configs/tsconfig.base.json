@@ -432,8 +432,14 @@
     "@deepseek-ai/dsh-file-reference/types": [
       "../packages/context/file-reference/src/types.ts"
     ],
+    "@deepseek-ai/dsh-session-reference/drag": [
+      "../packages/context/session-reference/src/drag.ts"
+    ],
     "@deepseek-ai/dsh-session-reference/types": [
       "../packages/context/session-reference/src/types.ts"
+    ],
+    "@deepseek-ai/dsh-session-reference/uri": [
+      "../packages/context/session-reference/src/uri.ts"
     ],
     "@deepseek-ai/dsh-tools/presentation": [
       "../packages/core/tools/src/presentation.ts"

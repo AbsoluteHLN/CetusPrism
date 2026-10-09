@@ -243,6 +243,9 @@ export const InputBar = memo(function InputBar({
   const sessionDragHover = (e: DragEvent<HTMLDivElement>): void => {
     if (readSessionDrag(e.dataTransfer) === undefined) return
     e.preventDefault()
+    // Stop before the sidebar's document-level drag acceptance can re-write
+    // the effect: the card alone owns this drag's cursor while it hovers here.
+    e.stopPropagation()
     e.dataTransfer.dropEffect = 'copy'
     setSessionDragOver(true)
   }

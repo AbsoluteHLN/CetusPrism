@@ -37,7 +37,7 @@ import {
   owningParentFolder, pinnedSectionIds, pinCurrentBlank, reconcileManualOrder, sessionMemberIds,
   UNGROUPED_KEY,
 } from '../tree.ts'
-import { ProjectRowItem, SectionHeaderRow, SearchResultItem, SessionNodeItem } from './Rows.tsx'
+import { ProjectRowItem, RowDragProps, SectionHeaderRow, SearchResultItem, SessionNodeItem } from './Rows.tsx'
 import { AnimatedRows } from './AnimatedRows.tsx'
 import { FLAT_SESSION_ORDER_KEY, PINNED_SECTION_KEY, type SessionGroupBy } from '../stores.ts'
 import { WorkspacePickFlow } from '../WorkspacePicker.tsx'
@@ -268,7 +268,7 @@ type SessionTreeProps = Pick<
 function EmptySessions({ rowState, onLeaveArchivedOnly, t }: Pick<SessionTreeProps, 'rowState' | 'onLeaveArchivedOnly' | 't'>) {
   const archivedOnly = rowState.archivedFilter === 'only'
   return (
-    <div className={css.emptyState} data-row-key="empty">
+    <div className={css.emptyState} data-row-key="empty" data-workspace-empty>
       {archivedOnly ? <IconArchiveOutlineRegular size={24} /> : <IconQueueOutlineRegular size={24} />}
       <div>{archivedOnly ? t('empty.noneArchived') : t('empty.none')}</div>
       {archivedOnly && (
@@ -315,6 +315,30 @@ function SessionSectionBlock({ sectionKey, label, count, icon, expanded, active 
       />
       {expanded && rows.map(node => renderRow(node))}
     </div>
+  )
+}
+
+/** The pinned section for one body: shared label, count, and icon; fold state and rows belong to the caller. */
+function PinnedSectionBlock({ t, expanded, active, onToggle, rows, renderRow }: {
+  t: WorkspaceBrowserProps['t']
+  expanded: boolean
+  active: boolean
+  onToggle: () => void
+  rows: readonly SessionNode[]
+  renderRow: (node: SessionNode) => ReactNode
+}) {
+  return (
+    <SessionSectionBlock
+      sectionKey={PINNED_SECTION_KEY}
+      label={t('section.pinned')}
+      count={sectionCountLabel(rows, t)}
+      icon={<IconPinFillRegular />}
+      expanded={expanded}
+      active={active}
+      onToggle={onToggle}
+      rows={rows}
+      renderRow={renderRow}
+    />
   )
 }
 
@@ -455,6 +479,37 @@ function SessionTree({
     const renderedSessions = collapsedSessionRows(group.sessions, sessionLimits[group.key]).rows
     const nextOrder = sessionDragOrder(accountSessionIds, renderedSessions, activeDrag, over)
     if (nextOrder !== undefined) setSessionOrder(activeDrag.accountKey, nextOrder)
+  }
+  /** Row-drag wiring for one rendered account: Rows gates hover/drop on `active`, so the compatibility check stays with the caller. */
+  const sessionDragProps = (node: SessionNode, account: string, active: boolean): RowDragProps => {
+    const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' =>
+      node.blank ? 'after' : half
+    return {
+      start: () => {
+        sessionDropCommitted.current = false
+        setDrag({ accountKey: account, sessionId: node.id, pinned: node.pinned, over: null })
+      },
+      active,
+      marker: drag !== null && drag.accountKey === account && drag.over?.id === node.id
+        ? drag.over.half
+        : null,
+      hover: (half) => {
+      /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
+        setDrag(d => (d === null ? d : {
+          ...d, over: { id: node.id, half: normalizeHalf(half) },
+        }))
+      },
+      drop: (half) => {
+      /* v8 ignore next -- narrowing guard: Rows gates drop on `active`, which is false while the drag state is null. */
+        if (drag === null) return
+        commitSessionDrag(drag, { id: node.id, half: normalizeHalf(half) })
+      },
+      end: () => {
+        if (drag?.over !== null && drag?.over !== undefined) commitSessionDrag(drag, drag.over)
+        else setDrag(null)
+        sessionDropCommitted.current = false
+      },
+    }
   }
   const commitWorkspaceDrag = (
     activeDrag: WorkspaceDragState,
@@ -623,34 +678,7 @@ function SessionTree({
         {sessions.map((node) => {
         // Session drag never leaves its browser-local account, and pinned
         // rows reorder only within their leading pinned block.
-          const sameGroupDrag = drag !== null && drag.accountKey === group.key
-          const compatibleTarget = sameGroupDrag && drag.pinned === node.pinned
-          const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' =>
-            node.blank ? 'after' : half
-          const dragProps = {
-            start: () => {
-              sessionDropCommitted.current = false
-              setDrag({ accountKey: group.key, sessionId: node.id, pinned: node.pinned, over: null })
-            },
-            active: compatibleTarget,
-            marker: sameGroupDrag && drag.over?.id === node.id ? drag.over.half : null,
-            hover: (half: 'before' | 'after') => {
-            /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
-              setDrag(d => (d === null ? d : {
-                ...d, over: { id: node.id, half: normalizeHalf(half) },
-              }))
-            },
-            drop: (half: 'before' | 'after') => {
-            /* v8 ignore next -- narrowing guard: Rows gates drop on `active`, which is false while the drag state is null. */
-              if (drag === null) return
-              commitSessionDrag(drag, { id: node.id, half: normalizeHalf(half) })
-            },
-            end: () => {
-              if (drag?.over !== null && drag?.over !== undefined) commitSessionDrag(drag, drag.over)
-              else setDrag(null)
-              sessionDropCommitted.current = false
-            },
-          }
+          const active = drag !== null && drag.accountKey === group.key && drag.pinned === node.pinned
           return (
             <SessionNodeItem
               key={node.id}
@@ -663,7 +691,7 @@ function SessionTree({
               onReveal={node.id === revealSessionId && group.key === revealGroup
                 ? () => { onSessionRevealed(node.id) }
                 : undefined}
-              drag={dragProps}
+              drag={sessionDragProps(node, group.key, active)}
               t={t}
             />
           )
@@ -709,11 +737,8 @@ function SessionTree({
           <EmptySessions rowState={rowState} onLeaveArchivedOnly={onLeaveArchivedOnly} t={t} />
         )}
         {showPinnedSection && (
-          <SessionSectionBlock
-            sectionKey={PINNED_SECTION_KEY}
-            label={t('section.pinned')}
-            count={sectionCountLabel(pinnedRows, t)}
-            icon={<IconPinFillRegular />}
+          <PinnedSectionBlock
+            t={t}
             expanded={pinnedExpanded}
             active={current !== undefined && pinnedRowIds.has(current)}
             onToggle={() => { setGroupExpanded(PINNED_SECTION_KEY, !pinnedExpanded) }}
@@ -722,11 +747,9 @@ function SessionTree({
               // Pinned rows drag within the pinned section: a drop lands in
               // the source's own account order, so pins of other accounts are
               // inert targets.
-              const samePinnedDrag = drag !== null && drag.accountKey === PINNED_SECTION_KEY
-              const compatibleTarget = samePinnedDrag && drag.pinned === node.pinned
+              const active = drag !== null && drag.accountKey === PINNED_SECTION_KEY
+                && drag.pinned === node.pinned
                 && pinnedAccounts.get(drag.sessionId) === pinnedAccounts.get(node.id)
-              const normalizeHalf = (half: 'before' | 'after'): 'before' | 'after' =>
-                node.blank ? 'after' : half
               return (
                 <SessionNodeItem
                   key={node.id}
@@ -737,30 +760,7 @@ function SessionTree({
                   onRenameRequest={onSessionRenameRequest}
                   renderSlot={renderSlot}
                   onReveal={node.id === revealSessionId ? () => { onSessionRevealed(node.id) } : undefined}
-                  drag={{
-                    start: () => {
-                      sessionDropCommitted.current = false
-                      setDrag({ accountKey: PINNED_SECTION_KEY, sessionId: node.id, pinned: node.pinned, over: null })
-                    },
-                    active: compatibleTarget,
-                    marker: samePinnedDrag && drag.over?.id === node.id ? drag.over.half : null,
-                    hover: (half: 'before' | 'after') => {
-                    /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
-                      setDrag(d => (d === null ? d : {
-                        ...d, over: { id: node.id, half: normalizeHalf(half) },
-                      }))
-                    },
-                    drop: (half: 'before' | 'after') => {
-                    /* v8 ignore next -- narrowing guard: Rows gates drop on `active`, which is false while the drag state is null. */
-                      if (drag === null) return
-                      commitSessionDrag(drag, { id: node.id, half: normalizeHalf(half) })
-                    },
-                    end: () => {
-                      if (drag?.over !== null && drag?.over !== undefined) commitSessionDrag(drag, drag.over)
-                      else setDrag(null)
-                      sessionDropCommitted.current = false
-                    },
-                  }}
+                  drag={sessionDragProps(node, PINNED_SECTION_KEY, active)}
                   t={t}
                 />
               )
@@ -908,11 +908,8 @@ function FlatList({
           <EmptySessions rowState={rowState} onLeaveArchivedOnly={onLeaveArchivedOnly} t={t} />
         )}
         {showPinnedSection && (
-          <SessionSectionBlock
-            sectionKey={PINNED_SECTION_KEY}
-            label={t('section.pinned')}
-            count={sectionCountLabel(pinnedRows, t)}
-            icon={<IconPinFillRegular />}
+          <PinnedSectionBlock
+            t={t}
             expanded={pinnedExpanded}
             active={currentId !== undefined && pinnedRowIds.has(currentId)}
             onToggle={() => { setGroupExpandedFlat(PINNED_SECTION_KEY, !pinnedExpanded) }}
@@ -1405,9 +1402,12 @@ export function WorkspaceBrowser({
 
   return (
     <div className={clsx(css.root, !wide && css.rail)}>
-      <div className={css.sectionHeader}>
+      <div className={css.sectionHeader} data-workspace-section-header>
         {wide && (
-          <span className={clsx(css.sectionLabel, css.wide, searchExpanded && css.sectionLabelHidden)}>
+          <span
+            className={clsx(css.sectionLabel, css.wide, searchExpanded && css.sectionLabelHidden)}
+            data-workspace-section-label
+          >
             {groupBy === 'flat' ? t('section.sessions') : t('section.workspaces')}
           </span>
         )}

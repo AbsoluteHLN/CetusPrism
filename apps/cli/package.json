@@ -131,7 +131,8 @@
     "@deepseek-ai/dsh-webhook-github": "workspace:*",
     "@deepseek-ai/dsh-workflow": "workspace:*",
     "@deepseek-ai/dsh-workflow-ptc": "workspace:*",
-    "@deepseek-ai/schemastery": "workspace:~"
+    "@deepseek-ai/schemastery": "workspace:~",
+    "commander": "^15.0.0"
   },
   "devDependencies": {
     "@agentclientprotocol/sdk": "1.4.0",

@@ -547,6 +547,9 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: link:../../vendor/schemastery
         version: link:../../vendor/schemastery
+      commander:
+        specifier: ^15.0.0
+        version: 15.0.0
     devDependencies:
       '@agentclientprotocol/sdk':
         specifier: 1.4.0

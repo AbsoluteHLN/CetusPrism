@@ -32,6 +32,8 @@
         json: !!js ctx.headlessStartup.json
         tui: !!js ctx.headlessStartup.tui
         plain: !!js ctx.headlessStartup.plain
+        interactive: !!js ctx.headlessStartup.interactive
+        oneShot: !!js ctx.headlessStartup.oneShot
 
 - id: hmr
   disabled: true

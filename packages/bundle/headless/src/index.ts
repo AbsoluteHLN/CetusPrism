@@ -23,7 +23,7 @@ import type {} from '@deepseek-ai/dsh-fs'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import { SessionSeq } from '@deepseek-ai/dsh-session'
-import type { Session, SessionEvent, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
+import type { Session, SessionEvent, SessionId } from '@deepseek-ai/dsh-session'
 import { SessionQueryError } from '@deepseek-ai/dsh-session-query'
 // Empty type imports carry the loader Context merge for the settlement await,
 // the cmdline Context merge for the appExit host value, and the sessionQuery
@@ -34,6 +34,10 @@ import type {} from '@deepseek-ai/dsh-session-query'
 import { internals } from './runner-internals.ts'
 import { projectJsonRun, boundJsonLine } from './json-stream.ts'
 import { projectTuiRun, type TuiProjection } from './tui.ts'
+import { summarize, type HeadlessIo, type RunOutcome } from './summary.ts'
+import { runInteractiveRepl } from './interactive-repl.ts'
+
+export { summarize, type HeadlessIo, type RunOutcome }
 
 /** Stable Cordis plugin name. */
 export const name = 'headless-runner'
@@ -53,6 +57,10 @@ export interface Config {
   tui?: boolean
   /** Print the classic plain output even when stdout is a terminal. */
   plain?: boolean
+  /** Whether to run an interactive persistent CLI session. */
+  interactive?: boolean
+  /** Whether one-shot mode is forced. */
+  oneShot?: boolean
 }
 
 export const Config: z<Config> = z.object({
@@ -61,50 +69,10 @@ export const Config: z<Config> = z.object({
   json: z.boolean(),
   tui: z.boolean(),
   plain: z.boolean(),
+  interactive: z.boolean(),
+  oneShot: z.boolean(),
 })
 
-/** Outcome of one owned run interval. */
-interface RunOutcome {
-  text: string
-  reason: SessionEvent<'turn/end'>['data']['reason'] | undefined
-}
-
-/** Process-facing effects of one run: output streams plus the launcher's bounded exit request. */
-interface HeadlessIo {
-  stdout: { write(chunk: string): unknown }
-  stderr: { write(chunk: string): unknown }
-  /** Request process exit with `code` after the tree disposes. */
-  exit(code: number): void
-}
-
-/** Aggregate the last assistant text and turn outcome in one owned interval. */
-function summarize(session: Session, firstSeq: SessionLogOffset): RunOutcome {
-  let started = false
-  let text = ''
-  let reason: SessionEvent<'turn/end'>['data']['reason'] | undefined
-  const length = session.seq
-  for (let seq = firstSeq; seq < length; seq++) {
-    // oxlint-disable-next-line typescript/no-deprecated -- Existing Session history read; migration deferred.
-    const event = session.eventAt(SessionSeq(seq))
-    if (event === undefined) {
-      throw new Error(`headless summary cannot read seq ${String(seq)} below captured length ${String(length)}`)
-    }
-    if (event.type === 'turn/start') {
-      started = true
-      continue
-    }
-    if (!started) continue
-    if (event.type === 'assistant/message') {
-      const joined = event.data.message.content
-        .filter(block => block.type === 'text')
-        .map(block => block.text)
-        .join('')
-      if (joined !== '') text = joined
-    }
-    if (event.type === 'turn/end') reason = event.data.reason
-  }
-  return { text, reason }
-}
 
 /**
  * Project provider-reported reasoning from one owned run to stderr as it is
@@ -327,13 +295,6 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
       throw new Error('headless-runner: sessionId must not be blank')
     }
 
-    const task = config.task === undefined || config.task === '-'
-      ? await internals.readStdin()
-      : config.task
-    if (task.trim() === '') {
-      throw new Error('a task is required, for example: dsh --profile headless "run the tests"')
-    }
-
     const selection = defaultModel.currentSelection()
     const agentOptions = { provider: selection.provider, model: selection.model }
     // This bundle composes no preset roster, so the model-facing rows sit in the
@@ -361,6 +322,36 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
       // preset selection between it and the interval this run now owns, so
       // re-read the log the runner holds before submitting the task.
       assertAdoptable(agent.session.header, liveEvents(agent.session), sessionId, cwd)
+    }
+
+    if (config.interactive === true) {
+      const initialTask = config.task === undefined || config.task === '' || config.task === '-'
+        ? undefined
+        : config.task
+      await runInteractiveRepl(ctx, {
+        agent,
+        io,
+        info: {
+          sessionId: agent.id,
+          provider: selection.provider,
+          model: selection.model,
+          cwd,
+        },
+        initialTask,
+        options: {
+          width: internals.stdoutColumns(),
+          color: internals.stdoutIsTty() && !internals.noColor(),
+          animate: internals.stdoutIsTty(),
+        },
+      })
+      return
+    }
+
+    const task = config.task === undefined || config.task === '-'
+      ? await internals.readStdin()
+      : config.task
+    if (task.trim() === '') {
+      throw new Error('a task is required, for example: dsh --profile headless "run the tests"')
     }
     const firstSeq = agent.session.seq
     // Output mode: --json owns stdout first; --plain forces the classic mode;

@@ -28,6 +28,8 @@ export interface TuiProjectionOptions {
   now?: () => number
   /** Create the spinner timer and return its stop function; defaults to an 80 ms interval. */
   ticker?: ((redraw: () => void) => () => void) | undefined
+  /** Skip the header banner on begin; useful for multi-turn interactive sessions. */
+  skipHeader?: boolean | undefined
 }
 
 /** The live handle of one TUI projection. */
@@ -107,7 +109,7 @@ export function projectTuiRun(
   ctx: Context,
   agent: Agent,
   sink: TuiSink,
-  info: { sessionId: string; provider: string; model: string; cwd?: string },
+  info: { sessionId: string; provider: string; model: string; cwd?: string | undefined },
   options: TuiProjectionOptions = {},
 ): TuiProjection {
   const now = options.now ?? (() => Date.now())
@@ -116,6 +118,7 @@ export function projectTuiRun(
     width: options.width,
     color: options.color,
     animate: options.animate,
+    skipHeader: options.skipHeader,
     now,
     ticker: options.ticker,
   })

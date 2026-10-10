@@ -1,5 +1,6 @@
 /**
- * The one-shot app's command-line provider: it parses the task positional,
+ * The command-line provider for headless and interactive CetusPrism CLI:
+ * it parses the task positional, `-i/--interactive`, `--one-shot`,
  * `--session-id`, `--json`, `--tui`, `--plain`, and `--help`, then publishes
  * {@link HEADLESS_STARTUP_SERVICE}. The runner is an ordinary consumer whose
  * lazy config waits for that service.
@@ -18,12 +19,12 @@ export const name = 'headless-startup'
 /** Services required before the task can be resolved. */
 export const inject = ['cmdlineArgs']
 
-/** Service provided by this plugin and injected by the one-shot runner. */
+/** Service provided by this plugin and injected by the runner. */
 export const HEADLESS_STARTUP_SERVICE = 'headlessStartup'
 
 /** What the runner row reads from {@link HEADLESS_STARTUP_SERVICE}. */
 export interface HeadlessStartupValues {
-  /** The task text this invocation asked for; absent when the runner reads stdin. */
+  /** The task text this invocation asked for; absent when the runner reads stdin or runs empty interactive REPL. */
   task: string | undefined
   /** Exact Session identity to adopt; absent for a fresh random identity. */
   sessionId: string | undefined
@@ -33,6 +34,10 @@ export interface HeadlessStartupValues {
   tui: boolean
   /** Whether the classic plain output is forced even on a TTY stdout. */
   plain: boolean
+  /** Whether to run an interactive persistent CLI session. */
+  interactive: boolean
+  /** Whether one-shot mode is forced. */
+  oneShot: boolean
 }
 
 /**
@@ -44,6 +49,8 @@ function headlessCommand(): Command {
     .name('dsh --profile headless')
     .description('Answer one task and exit; on a terminal the run renders as a live UI.')
     .helpOption('-h, --help', 'show this help')
+    .option('-i, --interactive', 'run interactive persistent CLI session')
+    .option('--one-shot', 'run a single task and exit')
     .option('--json', 'write newline-delimited run events to stdout instead of the final message')
     .option('--tui', 'render the live terminal UI even when stdout is not a terminal')
     .option('--plain', 'print the classic plain output (reasoning on stderr, answer on stdout)')
@@ -51,11 +58,13 @@ function headlessCommand(): Command {
     .argument('[task...]', 'the task text; multiple words are joined by spaces, and `-` reads stdin')
     .addHelpText('after', `
 Examples:
-  dsh --profile headless "run the tests"          live terminal UI on a terminal
+  dsh tui                                         launch persistent interactive CLI
+  dsh tui -i "run the tests"                      execute initial task and continue in interactive CLI
+  dsh --profile headless "run the tests"          answer one task and exit
   dsh --profile headless --plain "run the tests"  classic output: reasoning on stderr
-  echo "run the tests" | dsh --profile headless   read the task from stdin
+  echo "run the tests" | dsh --profile headless   read the task from stdin (one-shot)
   dsh --profile headless --json "run the tests"   emit machine-readable run events
-  dsh --profile headless --session-id session-… "continue"   resume an existing Session
+  dsh --profile headless --session-id session-…   resume an existing Session
 `)
 }
 
@@ -77,9 +86,7 @@ function jsonRequested(argv: readonly string[]): boolean {
 }
 
 /**
- * Parse and provide the one-shot task as an ordinary Cordis service. The
- * command's action publishes the task; a missing task on an interactive stdin
- * is a usage error, so on rejection (and on `--help`) nothing is provided.
+ * Parse and provide the task and mode options as an ordinary Cordis service.
  * @param ctx - plugin context carrying the command line.
  */
 export function apply(ctx: Context): void {
@@ -100,6 +107,25 @@ export function apply(ctx: Context): void {
     }
   }
   program.action(() => {
+    const options = program.opts<{
+      json?: boolean
+      tui?: boolean
+      plain?: boolean
+      sessionId?: string
+      interactive?: boolean
+      oneShot?: boolean
+    }>()
+
+    if (options.json === true && options.interactive === true) {
+      program.error('error: --json and --interactive are mutually exclusive')
+    }
+    if (options.oneShot === true && options.interactive === true) {
+      program.error('error: --one-shot and --interactive are mutually exclusive')
+    }
+    if (options.json === true && options.tui === true) {
+      program.error('error: --json and --tui are mutually exclusive; pick one stdout contract')
+    }
+
     if (program.args.length > 1 && program.args.includes('-')) {
       program.error('error: `-` must be the only task argument')
     }
@@ -108,25 +134,30 @@ export function apply(ctx: Context): void {
       program.error('error: a task is required, for example: dsh --profile headless "run the tests"')
     }
     const task = program.args.length === 0 ? undefined : joined
-    if (task === undefined && internals.stdinIsTty()) {
+
+    const oneShot = options.oneShot === true
+    const isTty = internals.stdinIsTty()
+    const interactive = options.interactive === true || (!oneShot && options.json !== true && isTty && task === undefined)
+
+    if (task === undefined && !interactive && isTty) {
       program.error('error: a task is required, for example: dsh --profile headless "run the tests"')
     }
-    const options = program.opts<{ json?: boolean; tui?: boolean; plain?: boolean; sessionId?: string }>()
+
     // A SessionId is opaque, so whitespace is part of the identity: validate
     // emptiness on the trimmed value but hand the runner the exact string.
     const sessionId = options.sessionId
     if (sessionId !== undefined && sessionId.trim() === '') {
       program.error('error: --session-id requires a non-empty session id')
     }
-    if (options.json === true && options.tui === true) {
-      program.error('error: --json and --tui are mutually exclusive; pick one stdout contract')
-    }
+
     ctx.provide(HEADLESS_STARTUP_SERVICE, {
       task,
       sessionId,
       json: options.json === true,
       tui: options.tui === true,
       plain: options.plain === true,
+      interactive,
+      oneShot,
     } satisfies HeadlessStartupValues)
   })
   parseCmdline(ctx, program)

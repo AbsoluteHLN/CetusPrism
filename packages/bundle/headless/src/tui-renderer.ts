@@ -73,6 +73,8 @@ export interface TuiRendererOptions {
    * function. Defaults to an 80 ms `setInterval`.
    */
   ticker?: ((redraw: () => void) => () => void) | undefined
+  /** Skip the header banner on begin; useful for multi-turn interactive sessions. */
+  skipHeader?: boolean | undefined
 }
 
 /** Narrowest terminal the layout supports; wider terminals use their own width. */
@@ -229,6 +231,44 @@ function firstLine(text: string): string {
 }
 
 /**
+ * Print the CetusPrism header banner card to a sink.
+ * @param sink - the text sink the layout writes to.
+ * @param info - header facts: session, provider, model, and cwd.
+ * @param options - layout width and ANSI color options.
+ */
+export function printBanner(
+  sink: TuiSink,
+  info: TuiRunInfo,
+  options: { width?: number | undefined; color?: boolean | undefined } = {},
+): void {
+  const width = Math.max(MIN_WIDTH, Math.floor(options.width ?? 80))
+  const color = options.color === true
+  const inner = width - 3
+  const model = clip(`${info.provider}/${info.model}`, Math.max(0, inner - 14))
+  const title = `◆ CetusPrism  ${model}`
+  const session = clip(info.sessionId, 24)
+  const cwd = info.cwd === undefined
+    ? undefined
+    : clip(info.cwd, Math.max(0, inner - displayWidth(session) - 3))
+  const meta = cwd === undefined ? session : `${session}   ${cwd}`
+  const border = (left: string, right: string): string =>
+    paint(color, '\x1b[2m', `${left}${'─'.repeat(width - 2)}${right}`)
+  const boxLine = (shown: string, painted: string): string => {
+    const pad = Math.max(0, inner - displayWidth(shown))
+    return `${paint(color, '\x1b[2m', '│')} ${painted}${' '.repeat(pad)}${paint(color, '\x1b[2m', '│')}`
+  }
+  sink.write(`${border('╭', '╮')}\n`)
+  sink.write(`${boxLine(clip(title, inner), `${paint(color, '\x1b[1m', '◆ CetusPrism')}  ${paint(color, '\x1b[36m', model)}`)}\n`)
+  sink.write(`${boxLine(
+    clip(meta, inner),
+    cwd === undefined
+      ? session
+      : `${session}   ${paint(color, '\x1b[2m', cwd)}`,
+  )}\n`)
+  sink.write(`${border('╰', '╯')}\n`)
+}
+
+/**
  * Create the live renderer over one sink.
  * @param sink - the text sink the layout writes to.
  * @param options - width, color, animation, clock, and spinner timer.
@@ -266,13 +306,6 @@ export function createTuiRenderer(sink: TuiSink, options: TuiRendererOptions = {
 
   /** The dim full-width rule the footer sits under. */
   const rule = (): string => paint(color, code.dim, '─'.repeat(width))
-
-  /** A header-box line: dim border around `painted`, padded by `shown`'s plain width. */
-  const boxLine = (shown: string, painted: string): string => {
-    const inner = width - 3
-    const pad = Math.max(0, inner - displayWidth(shown))
-    return `${paint(color, code.dim, '│')} ${painted}${' '.repeat(pad)}${paint(color, code.dim, '│')}`
-  }
 
   /** Clear the in-place status line, leaving the cursor at its start. */
   const settleStatus = (): void => {
@@ -357,26 +390,10 @@ export function createTuiRenderer(sink: TuiSink, options: TuiRendererOptions = {
     begin(info: TuiRunInfo): void {
       if (disposed) return
       startedAt = now()
-      const inner = width - 3
-      const model = clip(`${info.provider}/${info.model}`, Math.max(0, inner - 14))
-      const title = `◆ CetusPrism  ${model}`
-      const session = clip(info.sessionId, 24)
-      const cwd = info.cwd === undefined
-        ? undefined
-        : clip(info.cwd, Math.max(0, inner - displayWidth(session) - 3))
-      const meta = cwd === undefined ? session : `${session}   ${cwd}`
-      const border = (left: string, right: string): string =>
-        paint(color, code.dim, `${left}${'─'.repeat(width - 2)}${right}`)
-      emitLine(border('╭', '╮'))
-      emitLine(boxLine(clip(title, inner), `${paint(color, code.bold, '◆ CetusPrism')}  ${paint(color, code.cyan, model)}`))
-      emitLine(boxLine(
-        clip(meta, inner),
-        cwd === undefined
-          ? session
-          : `${session}   ${paint(color, code.dim, cwd)}`,
-      ))
-      emitLine(border('╰', '╯'))
-      emitLine('')
+      if (options.skipHeader !== true) {
+        printBanner(sink, info, { width, color })
+        emitLine('')
+      }
       drawStatus()
       if (animate) startTicker()
     },

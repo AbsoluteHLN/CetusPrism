@@ -1,7 +1,7 @@
 /**
- * The one-shot app's ordinary command-line provider over a real Loader tree:
+ * The one-shot and interactive app's ordinary command-line provider over a real Loader tree:
  * the task, exact Session identity, and output mode become injected runner
- * config, while help and interactive usage errors leave the consumer pending.
+ * config, while help and usage errors leave the consumer pending.
  */
 
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
@@ -77,6 +77,8 @@ export const apply = ctx => globalThis.__headlessStartupApply(ctx)
     '    json: !!js ctx.headlessStartup.json',
     '    tui: !!js ctx.headlessStartup.tui',
     '    plain: !!js ctx.headlessStartup.plain',
+    '    interactive: !!js ctx.headlessStartup.interactive',
+    '    oneShot: !!js ctx.headlessStartup.oneShot',
     '- id: headless-startup',
     `  name: ${pathToFileURL(join(dir, 'startup.mjs')).href}`,
     '',
@@ -118,34 +120,81 @@ export const apply = ctx => globalThis.__headlessStartupApply(ctx)
 describe('headless command-line provider', () => {
   it('joins the task positional into the runner config', async () => {
     const { task, observed } = await bootStartup(['run', 'the', 'tests'])
-    expect(task).toEqual({ task: 'run the tests', sessionId: undefined, json: false, tui: false, plain: false })
+    expect(task).toEqual({ task: 'run the tests', sessionId: undefined, json: false, tui: false, plain: false, interactive: false, oneShot: false })
     expect(observed.runnerConfig).toMatchObject({ task: 'run the tests', json: false })
     expect(observed.exits).toEqual([])
   })
 
   it('publishes the machine-readable output mode and the exact Session identity', async () => {
     const { task, observed } = await bootStartup(['--json', '--session-id', 'session-exact', 'do', 'it'])
-    expect(task).toEqual({ task: 'do it', sessionId: 'session-exact', json: true, tui: false, plain: false })
+    expect(task).toEqual({ task: 'do it', sessionId: 'session-exact', json: true, tui: false, plain: false, interactive: false, oneShot: false })
     expect(observed.runnerConfig).toMatchObject({ task: 'do it', sessionId: 'session-exact', json: true })
   })
 
   it('keeps the stdin marker as the task so the runner reads the pipe', async () => {
     const { task } = await bootStartup(['-'], { stdinIsTty: false })
-    expect(task).toEqual({ task: '-', sessionId: undefined, json: false, tui: false, plain: false })
+    expect(task).toEqual({ task: '-', sessionId: undefined, json: false, tui: false, plain: false, interactive: false, oneShot: false })
   })
 
   it('defers an absent task to stdin when stdin is not a terminal', async () => {
     const { task, observed } = await bootStartup([], { stdinIsTty: false })
-    expect(task).toEqual({ task: undefined, sessionId: undefined, json: false, tui: false, plain: false })
+    expect(task).toEqual({ task: undefined, sessionId: undefined, json: false, tui: false, plain: false, interactive: false, oneShot: false })
     expect(observed.runnerConfig).toMatchObject({ json: false })
   })
 
-  it.each([{ args: [] as string[] }, { args: ['   '] }])('rejects an interactive invocation with no task ($args)', async ({ args }) => {
-    const { task, observed } = await bootStartup(args, { stdinIsTty: true })
+  it('publishes interactive mode on a terminal when no task is provided', async () => {
+    const { task, observed } = await bootStartup([], { stdinIsTty: true })
+    expect(task).toEqual({
+      task: undefined,
+      sessionId: undefined,
+      json: false,
+      tui: false,
+      plain: false,
+      interactive: true,
+      oneShot: false,
+    })
+    expect(observed.runnerConfig).toMatchObject({ interactive: true })
+    expect(observed.exits).toEqual([])
+  })
+
+  it('rejects an interactive invocation with a blank task', async () => {
+    const { task, observed } = await bootStartup(['   '], { stdinIsTty: true })
     expect(observed.out).toContain('a task is required')
     expect(task).toBeUndefined()
     expect(observed.runnerConfig).toBeUndefined()
     expect(observed.exits).toEqual([1])
+  })
+
+  it('rejects an invocation with no task when --one-shot is specified on a terminal', async () => {
+    const { task, observed } = await bootStartup(['--one-shot'], { stdinIsTty: true })
+    expect(observed.out).toContain('a task is required')
+    expect(task).toBeUndefined()
+    expect(observed.runnerConfig).toBeUndefined()
+    expect(observed.exits).toEqual([1])
+  })
+
+  it('publishes interactive mode when -i is passed with a task', async () => {
+    const { task, observed } = await bootStartup(['-i', 'do', 'it'])
+    expect(task).toEqual({
+      task: 'do it',
+      sessionId: undefined,
+      json: false,
+      tui: false,
+      plain: false,
+      interactive: true,
+      oneShot: false,
+    })
+    expect(observed.runnerConfig).toMatchObject({ task: 'do it', interactive: true })
+  })
+
+  it('rejects mutually exclusive combinations with --interactive', async () => {
+    const jsonInt = await bootStartup(['--json', '--interactive'])
+    expect(jsonInt.observed.out).toContain('--json and --interactive are mutually exclusive')
+    expect(jsonInt.observed.exits).toEqual([1])
+
+    const oneShotInt = await bootStartup(['--one-shot', '--interactive'])
+    expect(oneShotInt.observed.out).toContain('--one-shot and --interactive are mutually exclusive')
+    expect(oneShotInt.observed.exits).toEqual([1])
   })
 
   it('rejects an explicitly empty Session identity', async () => {
@@ -157,7 +206,7 @@ describe('headless command-line provider', () => {
 
   it('keeps the caller-provided exact Session identity verbatim', async () => {
     const { task } = await bootStartup(['--session-id', ' session-x ', 'do', 'it'])
-    expect(task).toEqual({ task: 'do it', sessionId: ' session-x ', json: false, tui: false, plain: false })
+    expect(task).toEqual({ task: 'do it', sessionId: ' session-x ', json: false, tui: false, plain: false, interactive: false, oneShot: false })
   })
 
   it('rejects a lone stdin marker mixed with other task words', async () => {
@@ -198,7 +247,7 @@ describe('headless command-line provider', () => {
   })
 
   it('does not install the JSON error override for a --json option value', async () => {
-    const { observed } = await bootStartup(['--session-id', '--json'], { stdinIsTty: true })
+    const { observed } = await bootStartup(['--one-shot', '--session-id', '--json'], { stdinIsTty: true })
     expect(observed.out).toContain('a task is required')
     expect(observed.out).not.toContain('"type":"error"')
     expect(observed.exits).toEqual([1])
@@ -206,7 +255,7 @@ describe('headless command-line provider', () => {
 
   it('does not install the JSON error override for a --json positional after --', async () => {
     const { task, observed } = await bootStartup(['--', '--json'], { stdinIsTty: false })
-    expect(task).toEqual({ task: '--json', sessionId: undefined, json: false, tui: false, plain: false })
+    expect(task).toEqual({ task: '--json', sessionId: undefined, json: false, tui: false, plain: false, interactive: false, oneShot: false })
     expect(observed.out).not.toContain('"type":"error"')
   })
 
@@ -246,11 +295,11 @@ describe('headless command-line provider', () => {
 
   it('publishes the live-UI and classic-output modes from their flags', async () => {
     const tui = await bootStartup(['--tui', 'do', 'it'])
-    expect(tui.task).toEqual({ task: 'do it', sessionId: undefined, json: false, tui: true, plain: false })
+    expect(tui.task).toEqual({ task: 'do it', sessionId: undefined, json: false, tui: true, plain: false, interactive: false, oneShot: false })
     expect(tui.observed.runnerConfig).toMatchObject({ tui: true, plain: false })
 
     const plain = await bootStartup(['--plain', 'do', 'it'])
-    expect(plain.task).toEqual({ task: 'do it', sessionId: undefined, json: false, tui: false, plain: true })
+    expect(plain.task).toEqual({ task: 'do it', sessionId: undefined, json: false, tui: false, plain: true, interactive: false, oneShot: false })
     expect(plain.observed.runnerConfig).toMatchObject({ tui: false, plain: true })
   })
 

@@ -1,6 +1,8 @@
 /** Direct one-shot Agent driving, exact Session adoption, machine-readable projection, and exit mapping. */
 
 import { Readable } from 'node:stream'
+import { EventEmitter } from 'node:events'
+import type * as readline from 'node:readline'
 import { afterEach, describe, expect, it } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
@@ -56,6 +58,10 @@ interface BenchOptions {
   tui?: boolean
   /** Pass the `--plain` config value through to the runner. */
   plain?: boolean
+  /** Pass the `--interactive` config value through to the runner. */
+  interactive?: boolean
+  /** Scripted lines to feed to mock readline interface. */
+  scriptedLines?: string[]
   observe?: () => Promise<ObservationStub>
   /** Leave the query service unmounted to exercise the fail-loud path. */
   omitSessionQuery?: boolean
@@ -228,12 +234,50 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
           meta: { cwd: process.cwd(), ...options.preliveMeta },
         })
       }
+      if (options.scriptedLines !== undefined) {
+        const lines = [...options.scriptedLines]
+        internals.createInterface = () => {
+          const emitter = new EventEmitter() as unknown as readline.Interface
+          const mock = emitter as unknown as {
+            setPrompt: (p: string) => void
+            prompt: () => void
+            pause: () => void
+            resume: () => void
+            close: () => void
+          }
+          let isClosed = false
+          mock.setPrompt = () => {}
+          mock.prompt = () => {
+            const next = lines.shift()
+            if (next !== undefined) {
+              queueMicrotask(() => { emitter.emit('line', next) })
+            } else {
+              mock.close()
+            }
+          }
+          mock.pause = () => {}
+          mock.resume = () => {}
+          mock.close = () => {
+            if (isClosed) return
+            isClosed = true
+            emitter.emit('close')
+          }
+          return emitter as unknown as readline.Interface
+        }
+      }
       apply(ctx, {
-        ...options.useStdin === true ? {} : { task: options.task ?? 'do the thing' },
+        ...options.useStdin === true
+          ? {}
+          : options.task !== undefined
+            ? { task: options.task }
+            : options.interactive === true
+              ? {}
+              : { task: 'do the thing' },
         ...options.sessionId === undefined ? {} : { sessionId: options.sessionId },
         ...options.json === undefined ? {} : { json: options.json },
         ...options.tui === undefined ? {} : { tui: options.tui },
         ...options.plain === undefined ? {} : { plain: options.plain },
+        ...options.interactive === undefined ? {} : { interactive: options.interactive },
       })
       return { code: await exited, out, err, order }
     },
@@ -1185,6 +1229,57 @@ describe('headless runner live terminal UI', () => {
       expect(result.out).toContain('✗')
       expect(result.out).toContain('SERVER: provider unavailable')
       expect(result.err).toBe('dsh: SERVER: provider unavailable\n')
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
+  })
+
+  it('runs an interactive persistent session with banner, slash commands, and multi-turn execution', async () => {
+    let turnCount = 0
+    const test = await bench({
+      afterPrompt(session, message) {
+        turnCount += 1
+        appendTurn(session, turnCount, message, `answer ${turnCount}`, true)
+      },
+    }, {
+      interactive: true,
+      tty: true,
+      scriptedLines: ['/help', '/session', 'first query', '/clear', 'second query', '/exit'],
+    })
+    try {
+      const result = await test.run()
+      expect(result.code).toBe(0)
+      expect(result.out).toContain('◆ CetusPrism')
+      expect(result.out).toContain('Available Commands:')
+      expect(result.out).toContain('Session Information:')
+      expect(result.out).toContain('answer 1')
+      expect(result.out).toContain('answer 2')
+      expect(result.out).toContain('Goodbye!')
+      expect(turnCount).toBe(2)
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
+  })
+
+  it('runs initial task when provided and continues in interactive mode', async () => {
+    let turnCount = 0
+    const test = await bench({
+      afterPrompt(session, message) {
+        turnCount += 1
+        appendTurn(session, turnCount, message, `turn ${turnCount}`, true)
+      },
+    }, {
+      interactive: true,
+      task: 'initial work',
+      tty: true,
+      scriptedLines: ['followup work', '/exit'],
+    })
+    try {
+      const result = await test.run()
+      expect(result.code).toBe(0)
+      expect(result.out).toContain('turn 1')
+      expect(result.out).toContain('turn 2')
+      expect(turnCount).toBe(2)
     } finally {
       await test.ctx.fiber.dispose()
     }

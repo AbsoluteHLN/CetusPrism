@@ -1,11 +1,10 @@
-# The dsh-headless bundle patch: one-shot task mode directly over dsh-base.
+# The dsh-headless bundle patch: one-shot tasks and persistent TUI mode directly over dsh-base.
 # It mounts no Host, HTTP server, Web runtime, or browser plugin. An ordinary
 # provider plugin injects `cmdlineArgs`, parses the task positional
-# (`dsh --profile headless "<task>"`), the `--session-id`, `--json`, `--tui`,
-# and `--plain` options, and this app's --help, then the direct driver creates
-# a fresh Agent, or adopts the exact Session the flag names, through the core
-# registry and prints its durable result — as the live terminal UI on a TTY
-# stdout, or as plain/JSON output when requested.
+# (`dsh --profile headless "<task>"`), the `--session-id`/`--resume`,
+# `--interactive`, `--json`, `--tui`, and `--plain` options, and this app's
+# --help. The direct driver creates a fresh Agent, adopts the exact Session a
+# flag names, or keeps one Agent alive for a persistent TUI prompt loop.
 
 - id: system-prompt
   config:
@@ -29,6 +28,7 @@
       config:
         task: !!js ctx.headlessStartup.task
         sessionId: !!js ctx.headlessStartup.sessionId
+        interactive: !!js ctx.headlessStartup.interactive
         json: !!js ctx.headlessStartup.json
         tui: !!js ctx.headlessStartup.tui
         plain: !!js ctx.headlessStartup.plain

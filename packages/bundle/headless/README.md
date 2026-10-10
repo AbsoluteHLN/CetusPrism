@@ -39,13 +39,16 @@ The agent works through the task, streams each non-empty provider reasoning delt
 { echo "Summarize these changes:"; git diff --stat; } | dsh --profile headless
 ```
 
-The task and run options are supplied through three settings:
+The task and run options are supplied through six settings:
 
 | Field | Default | Meaning |
 |---|---|---|
 | `task` | stdin | The task text; stdin supplies it when omitted or `-` |
 | `sessionId` | `session-<uuid>` | Exact Session identity to adopt; an unknown id fails |
+| `interactive` | `false` | Keep one Agent alive for a persistent prompt loop |
 | `json` | `false` | Project the run as newline-delimited events on stdout |
+| `tui` | `false` | Force the live TUI on a non-TTY stdout for one-shot runs |
+| `plain` | `false` | Force classic reasoning-and-final-text output on a TTY |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-headless) is the exhaustive source for every accepted field and its JSDoc.
 
@@ -92,9 +95,9 @@ A completed final `turn/end` exits 0; any other outcome — aborted, error, or n
 | File | Role |
 |---|---|
 | [`src/index.ts`](src/index.ts) | The `headless-runner` plugin: run flow, session resolution, output contract, exit mapping |
-| [`src/startup.ts`](src/startup.ts) | The `headless-startup` provider: task positional, `--session-id`, `--json`, and `--help` |
+| [`src/startup.ts`](src/startup.ts) | The `headless-startup` provider: task positional, Session selection, TUI modes, and `--help` |
 | [`src/json-stream.ts`](src/json-stream.ts) | The `--json` projection: event vocabulary, commit-point emission, string bounding |
-| [`cordis.patch.yml`](cordis.patch.yml) | The one-shot patch over `dsh-base` |
+| [`cordis.patch.yml`](cordis.patch.yml) | The task and persistent TUI patch over `dsh-base` |
 | [`tests/headless.spec.ts`](tests/headless.spec.ts) | Run flow, aggregation, flush, session adoption, and exit mapping |
 | [`tests/json-stream.spec.ts`](tests/json-stream.spec.ts) | Projection ordering, commit-point emission, bounding, and disposal |
 | [`tests/startup.spec.ts`](tests/startup.spec.ts) | Command-line parsing over a real Loader tree |

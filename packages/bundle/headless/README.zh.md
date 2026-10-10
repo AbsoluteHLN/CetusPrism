@@ -39,13 +39,16 @@ agent 会完成该任务，把提供方的每个非空推理（reasoning）增�
 { echo "Summarize these changes:"; git diff --stat; } | dsh --profile headless
 ```
 
-任务与运行选项通过三个设置提供：
+任务与运行选项通过六个设置提供：
 
 | 字段 | 默认值 | 含义 |
 |---|---|---|
 | `task` | stdin | 任务文本；省略或传 `-` 时由 stdin 提供 |
 | `sessionId` | `session-<uuid>` | 要沿用的精确 Session 标识；未知 id 会失败 |
+| `interactive` | `false` | 保留一个 Agent，开启持久型提示循环 |
 | `json` | `false` | 把本次运行投影为 stdout 上的按行 JSON 事件 |
+| `tui` | `false` | 在非 TTY stdout 上强制启用一次性运行的 TUI |
+| `plain` | `false` | 在 TTY 上强制使用经典的推理与最终文本输出 |
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-headless)是所有受支持字段及其 JSDoc 的完整真源。
 
@@ -92,9 +95,9 @@ patch 叠加在 `dsh-base` 之上：继承投影缓存与共享 PTC 运行时，
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | `headless-runner` 插件：运行流程、Session 解析、输出约定、退出映射 |
-| [`src/startup.ts`](src/startup.ts) | `headless-startup` 提供方：任务位置参数、`--session-id`、`--json` 与 `--help` |
+| [`src/startup.ts`](src/startup.ts) | `headless-startup` 提供方：任务位置参数、Session 选择、TUI 模式与 `--help` |
 | [`src/json-stream.ts`](src/json-stream.ts) | `--json` 投影：事件词汇、提交点发射、字符串限长 |
-| [`cordis.patch.yml`](cordis.patch.yml) | 叠加在 `dsh-base` 之上的一次性 patch |
+| [`cordis.patch.yml`](cordis.patch.yml) | 叠加在 `dsh-base` 之上的任务与持久型 TUI patch |
 | [`tests/headless.spec.ts`](tests/headless.spec.ts) | 运行流程、汇总、flush、Session 沿用与退出映射 |
 | [`tests/json-stream.spec.ts`](tests/json-stream.spec.ts) | 投影顺序、提交点发射、限长与释放 |
 | [`tests/startup.spec.ts`](tests/startup.spec.ts) | 在真实 Loader 树上的命令行解析 |

@@ -26,7 +26,7 @@ Examples:
   dsh rescue --from-default-profile web
                                             create rescue from the shipped web template, then boot it
   dsh headless "run the tests"              answer one task, print the result, and exit
-  dsh tui --patch ./extra.yml               boot a custom profile with one extra overlay
-  dsh tui --resume <session>                arguments after the launcher flags reach the app
+  dsh tui --patch ./extra.yml               boot the persistent terminal profile with an overlay
+  dsh tui --resume <session>                resume a persisted Session in the TUI
   dsh web --help                            the web app's own flags and help
   dsh plugin --profile tui add <package>    install a plugin into the tui profile

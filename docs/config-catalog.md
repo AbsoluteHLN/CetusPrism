@@ -1313,14 +1313,20 @@ export interface Config {
 - `source`: [`packages/bundle/headless/src/index.ts:42`](../packages/bundle/headless/src/index.ts)
 
 ```ts config-catalog
-/** Plugin config: the task and run options resolved from this app's injected provider service. */
+/** Plugin config: task and run options resolved from this app's startup provider. */
 export interface Config {
-  /** The prompt text for the single run; absent when the task arrives on stdin. */
+  /** The initial prompt; absent when interactive mode should open at the prompt. */
   task?: string
   /** Exact Session identity to adopt; absent for a fresh random identity. An id with no stored Session fails. */
   sessionId?: string
+  /** Keep the terminal open for more prompts and expose session commands. */
+  interactive?: boolean
   /** Whether stdout carries the machine-readable event stream instead of final text. */
   json?: boolean
+  /** Render the live terminal UI even when stdout is not a terminal. */
+  tui?: boolean
+  /** Print the classic plain output even when stdout is a terminal. */
+  plain?: boolean
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-headless -->

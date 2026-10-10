@@ -1,13 +1,10 @@
 /**
- * @deepseek-ai/dsh-headless — one-shot direct Agent driver. The bundle patch
- * rides over dsh-base without Host, HTTP, or browser plugins; this runner
- * creates one Agent through the core registry (or adopts the exact Session a
- * `--session-id` names), drives the task to quiescence, flushes its Session,
- * and exits. On a TTY stdout the run renders as a live terminal UI — header,
- * animated status line, tool cards, streaming answer, and summary footer —
- * unless `plain` selects the classic mode, which streams provider reasoning to
- * stderr and prints the final assistant text to stdout. With `json`, stdout
- * carries newline-delimited run events instead of either.
+ * @deepseek-ai/dsh-headless — direct Agent and persistent TUI driver. The
+ * bundle patch rides over dsh-base without Host, HTTP, or browser plugins;
+ * one-shot invocations create or adopt one Agent, while `--interactive` keeps
+ * a single Agent and readline surface alive for multiple durable turns. Each
+ * TUI turn renders a live header, status line, tool cards, streaming answer,
+ * and summary footer, then flushes its Session before the next prompt.
  *
  * @module @deepseek-ai/dsh-headless
  */
@@ -17,7 +14,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { installModelSelection } from '@deepseek-ai/dsh-agent'
-import type { Agent, ModelSelectionRef } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentHandle, ModelSelectionRef } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-fs'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
@@ -31,22 +28,24 @@ import { SessionQueryError } from '@deepseek-ai/dsh-session-query'
 import type {} from '@deepseek-ai/cordis-plugin-loader'
 import type {} from '@deepseek-ai/dsh-cmdline'
 import type {} from '@deepseek-ai/dsh-session-query'
-import { internals } from './runner-internals.ts'
+import { internals, type InteractiveInput } from './runner-internals.ts'
 import { projectJsonRun, boundJsonLine } from './json-stream.ts'
 import { projectTuiRun, type TuiProjection } from './tui.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'headless-runner'
 
-/** Core services required before the one-shot turn can start. */
+/** Core services required before a one-shot turn or persistent loop can start. */
 export const inject = ['agentDefaultModel', 'agents', 'sessions']
 
-/** Plugin config: the task and run options resolved from this app's injected provider service. */
+/** Plugin config: task and run options resolved from this app's startup provider. */
 export interface Config {
-  /** The prompt text for the single run; absent when the task arrives on stdin. */
+  /** The initial prompt; absent when interactive mode should open at the prompt. */
   task?: string
   /** Exact Session identity to adopt; absent for a fresh random identity. An id with no stored Session fails. */
   sessionId?: string
+  /** Keep the terminal open for more prompts and expose session commands. */
+  interactive?: boolean
   /** Whether stdout carries the machine-readable event stream instead of final text. */
   json?: boolean
   /** Render the live terminal UI even when stdout is not a terminal. */
@@ -58,6 +57,7 @@ export interface Config {
 export const Config: z<Config> = z.object({
   task: z.string(),
   sessionId: z.string(),
+  interactive: z.boolean(),
   json: z.boolean(),
   tui: z.boolean(),
   plain: z.boolean(),
@@ -249,7 +249,7 @@ function assertAdoptable(header: AdoptableHeader, events: Iterable<SessionEvent>
  * @param agentOptions - provider/model pair for this run.
  * @param setup - per-Agent scope setup installing the model selection.
  * @param cwd - working directory resolved in the mounted filesystem.
- * @returns the resumed Agent.
+ * @returns the resumed Agent handle owned by this runner.
  */
 async function resolveAgent(
   ctx: Context,
@@ -258,7 +258,7 @@ async function resolveAgent(
   agentOptions: { provider: string; model: string },
   setup: (agentCtx: Context) => void,
   cwd: string,
-): Promise<Agent> {
+): Promise<AgentHandle> {
   // Resuming promises the caller a log a later process can continue. Without a
   // durable log the run would succeed, print the id, and still lose the whole
   // history at exit, so a miscomposed profile fails loud before the resume.
@@ -285,12 +285,12 @@ async function resolveAgent(
   try {
     using observation = await query.observeSession(sessionId)
     assertAdoptable(observation.header, observation.events, sessionId, cwd)
-    const { agent } = await agents.resume({ resumeSessionId: sessionId, agentOptions, setup })
+    const handle = await agents.resume({ resumeSessionId: sessionId, agentOptions, setup })
     // The observation is a snapshot: another writer may have appended a preset
     // selection before this process took the write lease. Re-check the log
     // resume actually attached, now that no other process can append.
-    assertAdoptable(agent.session.header, liveEvents(agent.session), sessionId, cwd)
-    return agent
+    assertAdoptable(handle.agent.session.header, liveEvents(handle.agent.session), sessionId, cwd)
+    return handle
   } catch (error: unknown) {
     if (!(error instanceof SessionQueryError) || error.code !== 'SESSION_QUERY_SESSION_NOT_FOUND') throw error
     // --session-id resumes a conversation that already exists; starting a new
@@ -299,6 +299,247 @@ async function resolveAgent(
     // into a brand-new empty history the caller believes it is continuing.
     throw new Error(`session "${sessionId}" does not exist; omit --session-id to start a new Session`)
   }
+}
+
+/** Commands understood by the persistent terminal prompt. */
+type InteractiveCommand =
+  | { kind: 'prompt'; text: string }
+  | { kind: 'help' }
+  | { kind: 'exit' }
+  | { kind: 'sessions' }
+  | { kind: 'new' }
+  | { kind: 'resume'; sessionId: string }
+
+/** Parse one line without changing ordinary prompts that begin with a slash. */
+function parseInteractiveCommand(line: string): InteractiveCommand {
+  const trimmed = line.trim()
+  if (!trimmed.startsWith('/')) return { kind: 'prompt', text: line }
+  const parts = trimmed.slice(1).split(/\s+/u)
+  const command = parts[0]?.toLowerCase() ?? ''
+  switch (command) {
+    case 'help':
+    case '?':
+      return { kind: 'help' }
+    case 'exit':
+    case 'quit':
+      return { kind: 'exit' }
+    case 'sessions':
+    case 'ls':
+      return { kind: 'sessions' }
+    case 'new':
+      return { kind: 'new' }
+    case 'resume':
+      return parts[1] === undefined || parts[1] === ''
+        ? { kind: 'help' }
+        : { kind: 'resume', sessionId: parts[1] }
+    default:
+      return { kind: 'prompt', text: line }
+  }
+}
+
+/** Print the persistent prompt's command reference. */
+function printInteractiveHelp(io: HeadlessIo): void {
+  io.stdout.write([
+    'Commands:',
+    '  /help             show this help',
+    '  /sessions         list persisted sessions',
+    '  /resume <id>      switch to an existing session',
+    '  /new              start a new session',
+    '  /exit             flush and leave the TUI',
+    '  Ctrl+C            stop the current process safely',
+    '',
+  ].join('\n'))
+}
+
+/** Read a line and treat readline closure (EOF or shutdown) as normal exit. */
+async function readInteractiveLine(
+  input: InteractiveInput,
+  prompt: string,
+): Promise<string | undefined> {
+  try {
+    return await input.question(prompt)
+  } catch (error: unknown) {
+    if (error instanceof Error && error.message.includes('closed')) return undefined
+    if (typeof error === 'object' && error !== null && 'code' in error
+      && error.code === 'ERR_USE_AFTER_CLOSE') return undefined
+    throw error
+  }
+}
+
+/** Print persisted sessions in the same order as the query service. */
+async function printInteractiveSessions(ctx: Context, io: HeadlessIo, currentId: SessionId): Promise<void> {
+  const query = ctx.get('sessionQuery')
+  if (query === undefined) {
+    io.stdout.write('Session listing is unavailable: dsh-base did not mount sessionQuery.\n')
+    return
+  }
+  const records = await query.listSessions()
+  if (records.length === 0) {
+    io.stdout.write('No persisted sessions.\n')
+    return
+  }
+  const titles = await query.readTitleSnapshots(records.map(record => record.header.id))
+  const titleById = new Map<SessionId, string>()
+  for (const result of titles) {
+    if (result.status === 'fulfilled' && result.value.title !== undefined) {
+      titleById.set(result.sessionId, result.value.title.title)
+    }
+  }
+  for (const record of records) {
+    const marker = record.header.id === currentId ? '*' : ' '
+    const title = titleById.get(record.header.id)
+    const label = title === undefined ? '' : ` — ${title}`
+    io.stdout.write(`${marker} ${record.header.id}${label}${record.live ? ' [live]' : ''}\n`)
+  }
+}
+
+/** Build one fresh or resumed Agent under the current runner's owner. */
+async function createAgentHandle(
+  ctx: Context,
+  agents: Context['agents'],
+  requestedId: string | undefined,
+  agentOptions: { provider: string; model: string },
+  setup: (agentCtx: Context) => void,
+  cwd: string,
+): Promise<AgentHandle> {
+  const sessionId = brandString<SessionId>(requestedId ?? `session-${randomUUID()}`)
+  return requestedId === undefined
+    ? agents.create({ sessionId, meta: { cwd }, agentOptions, setup })
+    : resolveAgent(ctx, agents, sessionId, agentOptions, setup, cwd)
+}
+
+/** Execute one prompt and leave the persistent loop ready for the next line. */
+async function runInteractiveTurn(
+  ctx: Context,
+  agent: Agent,
+  sessions: Context['sessions'],
+  selection: { provider: string; model: string },
+  cwd: string,
+  task: string,
+  io: HeadlessIo,
+): Promise<void> {
+  const firstSeq = agent.session.seq
+  const projection = projectTuiRun(ctx, agent, io.stdout, {
+    sessionId: agent.id,
+    provider: selection.provider,
+    model: selection.model,
+    cwd,
+  }, {
+    width: internals.stdoutColumns(),
+    color: internals.stdoutIsTty() && !internals.noColor(),
+    animate: internals.stdoutIsTty(),
+  })
+  try {
+    let failure: string | undefined
+    try {
+      agent.followup(createUserMessage({
+        content: [{ type: 'text', text: task }],
+        source: { kind: 'user' },
+      }))
+      await agent.whenIdle()
+    } catch (error: unknown) {
+      failure = error instanceof Error ? error.message : String(error)
+    }
+    try {
+      await sessions.flush(agent.session)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error)
+      failure = failure === undefined ? `cannot flush Session: ${message}` : `${failure}; cannot flush Session: ${message}`
+    }
+    if (failure !== undefined) {
+      projection.fail(failure)
+      io.stderr.write(`dsh: ${failure}\n`)
+    } else {
+      const outcome = summarize(agent.session, firstSeq)
+      projection.finish(outcome.reason)
+      if (outcome.reason?.kind === 'error') {
+        io.stderr.write(`dsh: ${outcome.reason.error.code}: ${outcome.reason.error.message}\n`)
+      }
+    }
+  } finally {
+    projection.dispose()
+  }
+}
+
+/** Keep one Agent and one readline surface alive until the user exits. */
+async function runInteractive(
+  ctx: Context,
+  config: Config,
+  io: HeadlessIo,
+  agents: Context['agents'],
+  sessions: Context['sessions'],
+  selection: { provider: string; model: string },
+  setup: (agentCtx: Context) => void,
+  cwd: string,
+  input: InteractiveInput,
+): Promise<void> {
+  if (config.json === true) throw new Error('headless interactive mode cannot share stdout with --json')
+  if (config.plain === true) throw new Error('headless interactive mode requires the TUI; remove --plain')
+  const releaseInput = ctx.effect(() => () => { input.close() }, 'headless.interactiveInput()')
+  let handle: AgentHandle | undefined
+  let exitCode = 0
+  try {
+    handle = await createAgentHandle(ctx, agents, config.sessionId, selection, setup, cwd)
+    io.stdout.write(`CetusPrism persistent TUI — session ${handle.agent.id}\n`)
+    printInteractiveHelp(io)
+    let initialTask = config.task === '-' ? await internals.readStdin() : config.task
+    while (true) {
+      const line = initialTask ?? await readInteractiveLine(input, `${handle.agent.id}> `)
+      initialTask = undefined
+      if (line === undefined) break
+      const command = parseInteractiveCommand(line)
+      if (command.kind === 'exit') break
+      if (command.kind === 'help') {
+        printInteractiveHelp(io)
+        continue
+      }
+      if (command.kind === 'sessions') {
+        try {
+          await printInteractiveSessions(ctx, io, handle.agent.id)
+        } catch (error: unknown) {
+          io.stderr.write(`dsh: cannot list sessions: ${error instanceof Error ? error.message : String(error)}\n`)
+        }
+        continue
+      }
+      if (command.kind === 'new' || command.kind === 'resume') {
+        let next: AgentHandle | undefined
+        try {
+          next = await createAgentHandle(
+            ctx,
+            agents,
+            command.kind === 'new' ? undefined : command.sessionId,
+            selection,
+            setup,
+            cwd,
+          )
+          await sessions.flush(handle.agent.session)
+          await handle.dispose()
+          handle = next
+          next = undefined
+          io.stdout.write(`Switched to session ${handle.agent.id}.\n`)
+        } catch (error: unknown) {
+          await next?.dispose().catch(() => {})
+          io.stderr.write(`dsh: cannot switch session: ${error instanceof Error ? error.message : String(error)}\n`)
+        }
+        continue
+      }
+      if (command.text.trim() === '') continue
+      await runInteractiveTurn(ctx, handle.agent, sessions, selection, cwd, command.text, io)
+    }
+    await sessions.flush(handle.agent.session)
+  } catch (error: unknown) {
+    exitCode = 1
+    const message = error instanceof Error ? error.message : String(error)
+    io.stderr.write(`dsh: ${message}\n`)
+  } finally {
+    input.close()
+    releaseInput()
+    await handle?.dispose().catch((error: unknown) => {
+      exitCode = 1
+      io.stderr.write(`dsh: cannot close session: ${error instanceof Error ? error.message : String(error)}\n`)
+    })
+  }
+  io.exit(exitCode)
 }
 
 /**
@@ -311,6 +552,8 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
   const useJson = config.json === true
   let jsonProjection: ReturnType<typeof projectJsonRun> | undefined
   let tuiProjection: TuiProjection | undefined
+  const earlyInput = config.interactive === true ? internals.createInteractiveInput() : undefined
+  let interactiveInputConsumed = false
   try {
     // Loader siblings mount concurrently. Await the complete application before
     // creating an Agent so its scoped tools and adapters are not half-composed.
@@ -327,13 +570,6 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
       throw new Error('headless-runner: sessionId must not be blank')
     }
 
-    const task = config.task === undefined || config.task === '-'
-      ? await internals.readStdin()
-      : config.task
-    if (task.trim() === '') {
-      throw new Error('a task is required, for example: dsh --profile headless "run the tests"')
-    }
-
     const selection = defaultModel.currentSelection()
     const agentOptions = { provider: selection.provider, model: selection.model }
     // This bundle composes no preset roster, so the model-facing rows sit in the
@@ -344,22 +580,30 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
       const selected: ModelSelectionRef = { current: selection, assembled: undefined }
       installModelSelection(agentCtx, selected)
     }
-    const sessionId = brandString<SessionId>(config.sessionId ?? `session-${randomUUID()}`)
     const fs = ctx.get('fs')
     const cwd = fs === undefined ? process.cwd() : fs.processPath(await fs.resolve('.'))
-    const agent = config.sessionId === undefined
-      ? (await agents.create({
-        sessionId,
-        meta: { cwd },
-        agentOptions,
-        setup,
-      })).agent
-      : await resolveAgent(ctx, agents, sessionId, agentOptions, setup, cwd)
+    if (config.interactive === true) {
+      if (earlyInput === undefined) throw new Error('headless-runner: interactive input was not initialized')
+      interactiveInputConsumed = true
+      await runInteractive(ctx, config, io, agents, sessions, selection, setup, cwd, earlyInput)
+      return
+    }
+
+    const task = config.task === undefined || config.task === '-'
+      ? await internals.readStdin()
+      : config.task
+    if (task.trim() === '') {
+      throw new Error('a task is required, for example: dsh --profile headless "run the tests"')
+    }
+
+    const handle = await createAgentHandle(ctx, agents, config.sessionId, agentOptions, setup, cwd)
+    const agent = handle.agent
     await agent.whenIdle()
     if (config.sessionId !== undefined) {
       // The resume-time check read a snapshot; an overlay can still append a
       // preset selection between it and the interval this run now owns, so
       // re-read the log the runner holds before submitting the task.
+      const sessionId = brandString<SessionId>(config.sessionId)
       assertAdoptable(agent.session.header, liveEvents(agent.session), sessionId, cwd)
     }
     const firstSeq = agent.session.seq
@@ -410,6 +654,7 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
   } finally {
     jsonProjection?.dispose()
     tuiProjection?.dispose()
+    if (!interactiveInputConsumed) earlyInput?.close()
   }
 }
 

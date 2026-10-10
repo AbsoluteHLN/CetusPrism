@@ -34,12 +34,14 @@ The shipped apps own these command lines:
 | Profile | Arguments |
 |---|---|
 | `web` | `--host`, `--port`, `--public-url`, repeatable `--trusted-host`, `--no-open` |
-| `headless` | the task text, as the positional argument |
+| `headless` / `tui` | task text as the positional argument; `--session-id`/`--resume`, `--interactive`, `--json`, `--tui`, and `--plain` |
 | `sdk` | no options; stdio carries the JSON-RPC protocol |
 | `sdk-minimal` | no options; stdio carries the same JSON-RPC protocol |
 | `acp` | no options; stdio carries ACP (Agent Client Protocol) |
 
 A one-shot task (`dsh --profile headless "run the tests"`) creates one fresh persisted Agent through the core registry, submits the task, waits for quiescence, and flushes the Session before deriving the last non-empty assistant text and final `turn/end` reason from its durable interval. It streams non-empty provider reasoning deltas to stderr under a `dsh: reasoning:` heading, prints only the final text on stdout, and exits 0 for `completed`, else 1; a successful response with no reasoning leaves stderr empty. An invocation with no task is a usage error from that app. The shipped headless profile mounts no browser Connection, HTTP server, Web runtime, or browser client, and opens no listening port.
+
+The `tui` profile (or `dsh --profile headless --interactive`) keeps one Agent and one readline surface alive for multiple turns. It flushes the Session after each settled turn and accepts `/help`, `/sessions`, `/resume <id>`, `/new`, and `/exit`; `dsh tui --resume <id>` adopts a persisted Session before opening the prompt.
 
 Inspect the composed tree without booting it:
 

@@ -59,6 +59,9 @@ interface BenchOptions {
   observe?: () => Promise<ObservationStub>
   /** Leave the query service unmounted to exercise the fail-loud path. */
   omitSessionQuery?: boolean
+  /** Keep the runner in the prompt loop and feed deterministic input lines. */
+  interactive?: boolean
+  interactiveLines?: string[]
   /** Leave the persistence service unmounted to exercise the fail-loud path. */
   omitPersistence?: boolean
   /** Register a live Agent under `sessionId` before the runner starts. */
@@ -219,6 +222,16 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
       internals.stdoutColumns = () => options.columns
       internals.noColor = () => options.noColor === true
       if (options.readStdin !== undefined) internals.readStdin = options.readStdin
+      if (options.interactive === true) {
+        const lines = [...options.interactiveLines ?? ['/exit']]
+        internals.createInteractiveInput = () => ({
+          question: async (prompt: string): Promise<string> => {
+            out += prompt
+            return lines.shift() ?? '/exit'
+          },
+          close: () => {},
+        })
+      }
       const exited = new Promise<number>((resolve) => {
         ctx.provide('appExit', (code: number) => { order.push('exit'); resolve(code) })
       })
@@ -234,6 +247,7 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
         ...options.json === undefined ? {} : { json: options.json },
         ...options.tui === undefined ? {} : { tui: options.tui },
         ...options.plain === undefined ? {} : { plain: options.plain },
+        ...options.interactive === undefined ? {} : { interactive: options.interactive },
       })
       return { code: await exited, out, err, order }
     },
@@ -241,6 +255,26 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
 }
 
 describe('headless runner', () => {
+  it('keeps one durable Agent alive for multiple TUI prompts', async () => {
+    let turn = 0
+    const test = await bench({
+      afterPrompt(session, message) {
+        turn += 1
+        appendTurn(session, turn, message, `answer ${String(turn)}`, true)
+      },
+    }, { interactive: true, interactiveLines: ['first prompt', 'second prompt', '/exit'] })
+    try {
+      const result = await test.run()
+      expect(result.code).toBe(0)
+      expect(result.out).toContain('CetusPrism persistent TUI')
+      expect(result.out).toContain('answer 1')
+      expect(result.out).toContain('answer 2')
+      expect(result.order.filter(value => value === 'flush').length).toBeGreaterThanOrEqual(3)
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
+  })
+
   it('records a fresh Session in the filesystem provider working directory', async () => {
     const cwd = '/remote/workspace'
     const test = await bench({

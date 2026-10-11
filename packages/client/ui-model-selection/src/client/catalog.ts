@@ -4,6 +4,22 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { ModelCatalog, ModelSelection, ModelProviderGroup } from '@deepseek-ai/dsh-api-remotes/client'
 import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client-store'
 
+/** Upper bound for one Host catalog discovery round-trip. */
+export const MODEL_CATALOG_TIMEOUT_MS = 10_000
+
+/** Stable error code for a catalog request that did not settle in time. */
+export const MODEL_CATALOG_TIMEOUT_CODE = 'session/model-catalog-timeout'
+
+/** Error surfaced to the selector when Host catalog discovery exceeds its budget. */
+export class ModelCatalogTimeoutError extends Error {
+  readonly code = MODEL_CATALOG_TIMEOUT_CODE
+
+  constructor() {
+    super(`model catalog request timed out after ${MODEL_CATALOG_TIMEOUT_MS}ms`)
+    this.name = 'ModelCatalogTimeoutError'
+  }
+}
+
 /** Observable lifecycle of the shared model catalog. */
 export interface ModelCatalogState {
   value: ModelCatalog | null
@@ -53,11 +69,17 @@ export class ModelCatalogDirectory {
       draft.status = 'loading'
       draft.error = null
     })
-    const operation = this.ctx.remote.session.modelCatalog().then((response) => {
+    // The generated remote method currently has no AbortSignal parameter. Keep
+    // a logical cancellation bit next to the generation so a timed-out or
+    // superseded response can never publish after a newer load has started.
+    let timedOut = false
+    let timeoutId: ReturnType<typeof setTimeout> | undefined
+    const remote = Promise.resolve().then(() => this.ctx.remote.session.modelCatalog())
+    const response = remote.then((response) => {
       if (!response.ok) {
         throw new Error(`${response.error.code}: ${response.error.message}`)
       }
-      if (generation === this.generation) {
+      if (!timedOut && generation === this.generation) {
         for (const group of response.value.groups) {
           for (const model of group.models) {
             this.reasoning.set(JSON.stringify([group.id, model.id]), model.reasoning)
@@ -66,7 +88,14 @@ export class ModelCatalogDirectory {
         this.store.set({ value: response.value, status: 'ready', error: null })
       }
       return response.value
-    }).catch((error: unknown) => {
+    })
+    const timeout = new Promise<never>((_resolve, reject) => {
+      timeoutId = setTimeout(() => {
+        timedOut = true
+        reject(new ModelCatalogTimeoutError())
+      }, MODEL_CATALOG_TIMEOUT_MS)
+    })
+    const operation = Promise.race([response, timeout]).catch((error: unknown) => {
       if (generation === this.generation) {
         this.store.update((draft) => {
           draft.status = 'error'
@@ -75,6 +104,7 @@ export class ModelCatalogDirectory {
       }
       throw error
     }).finally(() => {
+      if (timeoutId !== undefined) clearTimeout(timeoutId)
       if (generation === this.generation && this.inflight === operation) this.inflight = undefined
     })
     this.inflight = operation

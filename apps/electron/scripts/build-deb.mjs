@@ -1,13 +1,11 @@
 #!/usr/bin/env node
 /**
- * Build the Linux .deb from Windows via the `cetusprism/linux-build`
- * container: compile the Tauri shell inside the container against the
- * mounted cargo registry cache, then run `pack-linux.mjs` on the Linux Node
- * runtime to stage and assemble the package. The Windows and Linux target
- * trees live side by side in the dependency cache's cargo folder
- * (`cargo/targets/cetusprism` / `cetusprism-linux`).
+ * Build the Linux .deb on a native Linux runtime: compile the Tauri shell
+ * against the shared cargo registry cache, then run `pack-linux.mjs` to stage
+ * and assemble the package. A legacy container path remains available for
+ * non-Linux hosts.
  *
- * Usage: `node scripts/build-deb.mjs` (requires Docker Desktop running and
+ * Usage: `node scripts/build-deb.mjs`. Non-Linux hosts require Docker and
  * the `cetusprism/linux-build` image — build it once with
  * `docker build -f docker/linux-build.Dockerfile -t cetusprism/linux-build .`
  * from `apps/electron`).
@@ -16,13 +14,87 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const appRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const repoRoot = join(appRoot, '..', '..')
 const image = 'cetusprism/linux-build'
+
+/** Return directory entries without making toolchain discovery fatal. */
+function readdirSyncSafe(path) {
+  try { return readdirSync(path) } catch { return [] }
+}
+
+/** Build and package directly with the host Linux toolchain. */
+function buildNativeLinux() {
+  const cargoHome = process.env.CARGO_HOME ?? '/home/kalcirite/dependency-cache/cargo'
+  const rustupHome = process.env.RUSTUP_HOME ?? '/home/kalcirite/dependency-cache/rustup'
+  const sysroot = process.env.LINUX_SYSROOT ?? '/home/kalcirite/dependency-cache/sysroot/ubuntu-22.04.2'
+  const nativeTools = process.env.NATIVE_LINUX_TOOLCHAIN ?? '/home/kalcirite/dependency-cache/tooling/native-linux/bin'
+  const targetDir = process.env.CARGO_TARGET_DIR
+    ?? join(cargoHome, 'targets', 'cetusprism-linux')
+  const outDir = process.env.CETUS_DIST_DIR ?? join(appRoot, 'dist')
+  const workDir = process.env.CETUS_PACK_WORK
+    ?? join(dirname(cargoHome), 'cetusprism', 'linux-work-native')
+  const cargoCandidates = [
+    process.env.CARGO,
+    ...(process.env.PATH ?? '').split(':').filter(Boolean).map(path => join(path, 'cargo')),
+    ...readdirSyncSafe(join(rustupHome, 'toolchains'))
+      .map(name => join(rustupHome, 'toolchains', name, 'bin', 'cargo')),
+  ].filter((candidate) => candidate !== undefined)
+  const cargo = cargoCandidates.find(candidate => existsSync(candidate))
+  if (cargo === undefined) {
+    console.error(`build-deb: native Linux cargo missing under ${join(rustupHome, 'toolchains')}`)
+    process.exit(1)
+  }
+  mkdirSync(targetDir, { recursive: true })
+  mkdirSync(outDir, { recursive: true })
+  mkdirSync(workDir, { recursive: true })
+  const buildEnvironment = {
+    ...process.env,
+    CARGO_HOME: cargoHome,
+    RUSTUP_HOME: rustupHome,
+    CARGO_TARGET_DIR: targetDir,
+    PATH: `${nativeTools}:${dirname(cargo)}:${process.env.PATH ?? ''}`,
+    PKG_CONFIG_PATH: [
+      join(sysroot, 'usr', 'lib', 'x86_64-linux-gnu', 'pkgconfig'),
+      join(sysroot, 'usr', 'share', 'pkgconfig'),
+    ].join(':'),
+    PKG_CONFIG_LIBDIR: [
+      join(sysroot, 'usr', 'lib', 'x86_64-linux-gnu', 'pkgconfig'),
+      join(sysroot, 'usr', 'share', 'pkgconfig'),
+    ].join(':'),
+    PKG_CONFIG_SYSROOT_DIR: sysroot,
+  }
+  console.log(`build-deb: cargo build --release --offline (native Linux, ${cargo}) ...`)
+  execFileSync(cargo, ['build', '--release', '--offline'], {
+    cwd: join(appRoot, 'src-tauri'),
+    env: buildEnvironment,
+    stdio: 'inherit',
+  })
+  console.log('build-deb: staging and assembling the deb (native Linux) ...')
+  execFileSync(process.execPath, [join(appRoot, 'scripts', 'pack-linux.mjs')], {
+    cwd: repoRoot,
+    env: {
+      ...buildEnvironment,
+      CETUS_PACK_REPO: repoRoot,
+      CETUS_PACK_TARGET: targetDir,
+      CETUS_PACK_NODE: process.env.LINUX_NODE ?? process.execPath,
+      CETUS_PACK_OUT: outDir,
+      CETUS_PACK_WORK: workDir,
+      DSH_PACK_STORE: process.env.PNPM_STORE_DIR ?? join(dirname(cargoHome), 'pnpm', 'store'),
+      DSH_PACK_OFFLINE: '1',
+    },
+    stdio: 'inherit',
+  })
+}
+
+if (process.platform === 'linux' && process.env.CETUS_NATIVE_LINUX !== '0') {
+  buildNativeLinux()
+  process.exit(0)
+}
 
 const docker = process.env.DOCKER ?? 'docker'
 try {

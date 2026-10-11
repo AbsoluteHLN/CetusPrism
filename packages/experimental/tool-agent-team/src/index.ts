@@ -184,6 +184,7 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
           enum: ['fresh', 'fork'],
           description: 'fresh starts without Lead history; fork inherits completed Lead turns. Defaults to fresh.',
         },
+        model: { type: 'string', description: 'Optional model id; when configured it must be in the Team allowed-model list.' },
       },
       output: jsonOutput(SPAWN_VALUE_SCHEMA),
       async execute(args, exec) {
@@ -206,6 +207,7 @@ To message another teammate, use send_message({ target: "<teammate name>", messa
           ],
           context,
           provider: context === 'fork' ? config.forkProvider : config.freshProvider,
+          ...args.model === undefined ? {} : { model: args.model },
           signal: exec.signal,
         })
         return { member: modelMember(result.member) }

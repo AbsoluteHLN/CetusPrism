@@ -11,10 +11,11 @@ import { execFileSync } from 'node:child_process'
 import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { homedir } from 'node:os'
 
 const appRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const repoRoot = join(appRoot, '..', '..')
-const dependencyRoot = process.env.CETUS_DEPENDENCY_ROOT ?? '/home/kalcirite/dependency-cache'
+const dependencyRoot = process.env.CETUS_DEPENDENCY_ROOT ?? join(homedir(), 'dependency-cache')
 
 function run(command, args, options = {}) {
   execFileSync(command, args, { stdio: 'inherit', ...options })

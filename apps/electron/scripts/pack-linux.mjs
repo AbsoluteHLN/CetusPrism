@@ -17,17 +17,19 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, cpSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { homedir } from 'node:os'
 
 const repoRoot = resolve(process.env.CETUS_REPO_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..'))
 const appRoot = join(repoRoot, 'apps', 'electron')
-const targetDir = resolve(process.env.CARGO_TARGET_DIR ?? join('/home/kalcirite/dependency-cache', 'cargo', 'targets', 'cetusprism-linux'))
+const dependencyRoot = process.env.CETUS_DEPENDENCY_ROOT ?? join(homedir(), 'dependency-cache')
+const targetDir = resolve(process.env.CARGO_TARGET_DIR ?? join(dependencyRoot, 'cargo', 'targets', 'cetusprism-linux'))
 const nodeBin = resolve(process.env.CETUS_NODE_BIN ?? process.execPath)
 // The final .deb lands in the output directory; all staging runs in the
 // shared-cache work root so pnpm can freely rename its temporary directories.
 const outDir = resolve(process.env.CETUS_DIST_DIR ?? join(appRoot, 'dist'))
-const workRoot = resolve(process.env.CETUS_PACK_WORK_ROOT ?? join('/home/kalcirite/dependency-cache', 'cetusprism', 'linux-work'))
-const pnpmStore = resolve(process.env.CETUS_PNPM_STORE ?? join('/home/kalcirite/dependency-cache', 'pnpm', 'store'))
-const pnpmVstore = resolve(process.env.CETUS_PNPM_VSTORE ?? join('/home/kalcirite/dependency-cache', 'pnpm', 'virtual'))
+const workRoot = resolve(process.env.CETUS_PACK_WORK_ROOT ?? join(dependencyRoot, 'cetusprism', 'linux-work'))
+const pnpmStore = resolve(process.env.CETUS_PNPM_STORE ?? join(dependencyRoot, 'pnpm', 'store'))
+const pnpmVstore = resolve(process.env.CETUS_PNPM_VSTORE ?? join(dependencyRoot, 'pnpm', 'virtual'))
 const unpackedDir = join(workRoot, 'linux-unpacked')
 const appDir = join(unpackedDir, 'resources', 'app')
 const debStaging = join(workRoot, 'deb-root')

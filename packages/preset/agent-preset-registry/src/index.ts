@@ -21,6 +21,21 @@ export { entryListProblem, type PresetDefinition } from './definition.ts'
 export { auditRows, leakedServices, livePresetMounts, type PresetMount, type RowAudit } from './mount.ts'
 export type { AgentPresetInspection } from './composition-inventory.ts'
 export type { AgentPreset, Config } from './preset.ts'
+export {
+  BUILTIN_AGENT_PROTOCOL_VERSION,
+  BUILTIN_AGENT_RELEASE,
+  BuiltinAgentConfigError,
+  BuiltinAgentConfigStore,
+  defaultBuiltinAgentDirectory,
+  defineBuiltinAgent,
+  validateBuiltinAgentConfig,
+  type BuiltinAgentCompatibility,
+  type BuiltinAgentConfig,
+  type BuiltinAgentConfigInput,
+  type BuiltinAgentDeclaration,
+  type BuiltinAgentDriver,
+  type BuiltinAgentId,
+} from './builtin-agent.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {

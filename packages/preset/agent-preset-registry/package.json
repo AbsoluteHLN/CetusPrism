@@ -62,6 +62,7 @@
   },
   "dependencies": {
     "@deepseek-ai/dsh-app-boot": "workspace:*",
+    "@deepseek-ai/dsh-atomic-write": "workspace:*",
     "@deepseek-ai/schemastery": "workspace:~",
     "zod": "^4.4.3",
     "js-yaml": "^4.2.0"

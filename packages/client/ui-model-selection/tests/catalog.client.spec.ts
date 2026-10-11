@@ -1,7 +1,11 @@
 import type { ModelCatalog } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { ModelCatalogDirectory } from '../src/client/catalog.ts'
+import {
+  MODEL_CATALOG_TIMEOUT_CODE,
+  MODEL_CATALOG_TIMEOUT_MS,
+  ModelCatalogDirectory,
+} from '../src/client/catalog.ts'
 
 const catalog = (model: string): ModelCatalog => ({
   default: { provider: 'fixture', model },
@@ -91,5 +95,46 @@ describe('ModelCatalogDirectory', () => {
         value: null, status: 'error', error: 'reset failed',
       })
     })
+  })
+
+  it('converges a hung discovery to a retryable timeout error', async () => {
+    vi.useFakeTimers()
+    try {
+      const first = Promise.withResolvers<unknown>()
+      const models = vi.fn()
+        .mockReturnValueOnce(first.promise)
+        .mockResolvedValueOnce({ ok: true, value: catalog('recovered-after-timeout') })
+      const subject = directory(models)
+
+      const pending = subject.load()
+      const timeout = expect(pending).rejects.toMatchObject({ code: MODEL_CATALOG_TIMEOUT_CODE })
+      await vi.advanceTimersByTimeAsync(MODEL_CATALOG_TIMEOUT_MS)
+      await timeout
+      expect(subject.store.getSnapshot()).toMatchObject({
+        status: 'error',
+        error: `model catalog request timed out after ${MODEL_CATALOG_TIMEOUT_MS}ms`,
+      })
+
+      // The late transport settlement is logically cancelled and cannot
+      // replace the retry's result or re-open the loading state.
+      first.resolve({ ok: true, value: catalog('late-stale') })
+      await expect(subject.load()).resolves.toEqual(catalog('recovered-after-timeout'))
+      expect(subject.store.getSnapshot()).toMatchObject({ value: catalog('recovered-after-timeout'), status: 'ready' })
+      expect(models).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('treats an empty model catalog as a successful ready value', async () => {
+    const empty: ModelCatalog = {
+      default: { provider: 'fixture', model: 'unavailable' },
+      routableProviders: [], groups: [], failures: [],
+    }
+    const models = vi.fn().mockResolvedValue({ ok: true, value: empty })
+    const subject = directory(models)
+
+    await expect(subject.load()).resolves.toEqual(empty)
+    expect(subject.store.getSnapshot()).toEqual({ value: empty, status: 'ready', error: null })
   })
 })

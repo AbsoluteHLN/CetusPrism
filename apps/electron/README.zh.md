@@ -43,11 +43,10 @@ apps/electron/
   scripts/heal-deploy-links.mjs      deploy-layout invariant gate (see below)
   scripts/audit-junctions.mjs        verify every junction stays inside the runtime tree
   scripts/make-installer.mjs         NSIS installer via electron-builder --prepackaged
-  scripts/build-deb.mjs              Linux .deb leg: cargo build + pack inside the
-                           cetusprism/linux-build container (scripts/build-deb.mjs)
-  scripts/pack-linux.mjs             deb staging and dpkg-deb assembly, runs in the container
-  docker/linux-build.Dockerfile      the build image: rust:1-bookworm + WebKitGTK 4.1 +
-                           libayatana-appindicator + librsvg development packages
+  scripts/build-deb.mjs              Linux .deb leg: native cargo build + pack, with
+                           an optional Ubuntu 22.04.2 sysroot adapter
+  scripts/pack-linux.mjs             native deb staging and dpkg-deb assembly
+  docker/linux-build.Dockerfile      legacy Windows-host compatibility image (not used by Linux)
   build/installer.nsh      NSIS custom page + hooks: the CLI PATH opt-in page
                            (user PATH write, marker registry value, WM_SETTINGCHANGE
                            broadcast), the harness-home detection hint, and the
@@ -96,12 +95,23 @@ CetusPrism-<version>-setup.exe  (Windows output: E:/dependency-cache/cetusprism/
 ## 构建与打包（Linux .deb）
 
 ```sh
-docker build -f docker/linux-build.Dockerfile -t cetusprism/linux-build .   # once
+pnpm run build:lib && pnpm run build:web
 node scripts/build-deb.mjs
-CetusPrism-v<version>-amd64.deb  (Windows output: E:/dependency-cache/cetusprism/dist)
+CetusPrism-v<version>-amd64.deb  (apps/electron/dist)
 ```
 
-构建在 `cetusprism/linux-build` 容器内进行（Debian bookworm，即 deb 要求的 glibc）：Tauri 壳对挂载的 cargo registry 缓存离线编译（WebKitGTK 4.1），随后 `pack-linux.mjs`——运行在挂载的 Linux Node v24.18.0 上——staging 出 linux-unpacked 目录，用同一 hoisted pnpm deploy 部署运行时闭包，裁剪非 linux-x64 预编译产物，并用 `dpkg-deb` 组装 deb：`/opt/CetusPrism/`、`cetusprism.desktop` 启动项、hicolor 图标与 `/usr/bin/dsh` shim。与 Windows 链路不同，容器内的 deploy 走宿主代理联网（`HTTP(S)_PROXY`，默认 `host.docker.internal:7897`）——store 在 Windows 侧填充，Linux 变体的可选原生包仍需获取。Windows 与 Linux 的目标树在依赖缓存 `cargo/targets/` 下并列（`cetusprism`、`cetusprism-linux`）。
+Linux 路径使用本机 Rust/Cargo、Node 与 `dpkg-deb`，不依赖 Docker。Rust 工具链、Cargo 注册表、pnpm store、WebKitGTK 开发包和 musl 工具链都可以放在共享依赖缓存；`CARGO_HOME`、`RUSTUP_HOME`、`CARGO_TARGET_DIR`、`CETUS_NATIVE_SYSROOT` 可覆盖默认位置。脚本把 Web 构建临时复制到 Tauri 的 `frontend` 目录，完成编译后恢复源码占位页，不把生成的 Web 文件写回 Git 工作区。首次缺少 crate 时允许联网下载到共享 Cargo 缓存；设置 `CETUS_CARGO_OFFLINE=true` 可强制离线。
+
+产物包含原生 Tauri 壳、Web 前端、Node 后端运行时、Linux glibc/musl 原生扩展、`/usr/bin/dsh` 和桌面启动项。Windows 与 Linux 的 Rust 目标树都位于共享缓存的 `cargo/targets/` 下。
+
+Ubuntu 22.04.2 LTS 适配通过共享 sysroot 完成，不修改系统软件包。将 `CETUS_UBUNTU_TARGET=22.04.2` 与 `CETUS_UBUNTU_SYSROOT=/home/kalcirite/dependency-cache/sysroot/ubuntu-22.04.2` 一起设置后，Rust、GTK/WebKitGTK 和原生 Node 扩展会以 Ubuntu 22.04 的 glibc 2.35 为链接基线；sysroot、GCC 11、开发包和 pnpm 仍只写入共享依赖缓存。
+
+```sh
+CETUS_UBUNTU_TARGET=22.04.2 \
+CETUS_UBUNTU_SYSROOT=/home/kalcirite/dependency-cache/sysroot/ubuntu-22.04.2 \
+CETUS_CARGO_OFFLINE=true \
+node scripts/build-deb.mjs
+```
 
 ## 部署布局：hoisted、自包含
 

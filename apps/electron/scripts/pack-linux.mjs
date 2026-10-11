@@ -1,33 +1,35 @@
 #!/usr/bin/env node
 /**
- * Assemble the Linux desktop payload and build the .deb on a native Linux
- * runtime (or inside the legacy `cetusprism/linux-build` container). Mirrors
- * `pack-tauri.mjs`: stage `dist/linux-unpacked`
+ * Assemble the Linux desktop payload and build the .deb on the native Linux
+ * Node runtime. Mirrors `pack-tauri.mjs`: stage `dist/linux-unpacked`
  * (shell binary + backend runtime closure), deploy the workspace package
  * with pnpm's hoisted linker, prune non-Linux payload, then hand-roll the
  * deb with `dpkg-deb` (control + postinst + desktop entry + hicolor icons +
  * `/usr/bin/dsh` shim).
  *
- * The native path receives its roots through `CETUS_PACK_*` environment
- * variables. The container path keeps the historical `/repo`, `/target`,
- * `/node`, and `/out` defaults for reproducible CI images.
+ * The output and all transient staging paths live in the shared dependency
+ * cache when invoked by `build-deb.mjs`.
  *
  * @module @deepseek-ai/dsh-electron/pack-linux
  */
 
 import { execFileSync } from 'node:child_process'
 import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, cpSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { homedir } from 'node:os'
 
-const repoRoot = process.env.CETUS_PACK_REPO ?? '/repo'
+const repoRoot = resolve(process.env.CETUS_REPO_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..'))
 const appRoot = join(repoRoot, 'apps', 'electron')
-const targetDir = process.env.CETUS_PACK_TARGET ?? '/target'
-const nodeBin = process.env.CETUS_PACK_NODE ?? '/node/bin/node'
-// The final .deb lands on the /out bind mount; all staging runs in the
-// container-local /work — bind-mount rename semantics (EACCES on pnpm's
-// tmp-dir swaps) and cross-mount I/O make /out unusable for the tree.
-const outDir = process.env.CETUS_PACK_OUT ?? '/out'
-const workRoot = process.env.CETUS_PACK_WORK ?? '/work'
+const dependencyRoot = process.env.CETUS_DEPENDENCY_ROOT ?? join(homedir(), 'dependency-cache')
+const targetDir = resolve(process.env.CARGO_TARGET_DIR ?? join(dependencyRoot, 'cargo', 'targets', 'cetusprism-linux'))
+const nodeBin = resolve(process.env.CETUS_NODE_BIN ?? process.execPath)
+// The final .deb lands in the output directory; all staging runs in the
+// shared-cache work root so pnpm can freely rename its temporary directories.
+const outDir = resolve(process.env.CETUS_DIST_DIR ?? join(appRoot, 'dist'))
+const workRoot = resolve(process.env.CETUS_PACK_WORK_ROOT ?? join(dependencyRoot, 'cetusprism', 'linux-work'))
+const pnpmStore = resolve(process.env.CETUS_PNPM_STORE ?? join(dependencyRoot, 'pnpm', 'store'))
+const pnpmVstore = resolve(process.env.CETUS_PNPM_VSTORE ?? join(dependencyRoot, 'pnpm', 'virtual'))
 const unpackedDir = join(workRoot, 'linux-unpacked')
 const appDir = join(unpackedDir, 'resources', 'app')
 const debStaging = join(workRoot, 'deb-root')
@@ -68,14 +70,14 @@ execFileSync(nodeBin, [join(repoRoot, 'native', 'system', 'scripts', 'build.ts')
 
 // Deploy the backend closure straight into the output with the workspace's
 // own pnpm. The hoisted linker produces one flat, self-contained
-// `node_modules`. Native Linux builds use the shared cache in offline mode;
-// the legacy container path may opt into its historical online deploy by
-// leaving DSH_PACK_OFFLINE unset.
-// pnpm itself comes from the mounted virtual store (DSH_PNPM_VSTORE, set by
+// `node_modules`; unlike the Windows pack this deploy runs ONLINE (proxy
+// env), because the store was populated on Windows and the Linux-variant
+// optional native packages (bindings, prebuilds) still need fetching.
+// pnpm itself comes from the shared virtual store (DSH_PNPM_VSTORE, set by
 // build-deb.mjs); the project node_modules is a junction shell with no
-// package content to traverse inside the container.
+// package content to traverse.
 const pnpmCandidates = [
-  ...[process.env.DSH_PNPM_VSTORE ?? '/vstore'].flatMap(vstore => {
+  ...[pnpmVstore].flatMap(vstore => {
     try { return readdirSync(vstore).filter(name => /^pnpm@\d+\./.test(name)).map(name => join(vstore, name, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs')) } catch { return [] }
   }),
   join(repoRoot, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs'),
@@ -89,13 +91,13 @@ execFileSync(nodeBin, [
   pnpmCjs,
   '--filter', '@deepseek-ai/dsh', 'deploy', '--prod',
   '--node-linker=hoisted', '--config.inject-workspace-packages=true',
-  // The container store holds no build side-effects for the injected
+// The shared store holds no build side-effects for the injected
   // workspace packages, so the default build policy refuses their postinstall
   // (dsh-subprocess-local's spawn-helper chmod) and fails the deploy; the
   // closure is pinned by the shared lockfile, so allow all builds here.
   '--config.dangerouslyAllowAllBuilds=true',
-  ...process.env.DSH_PACK_OFFLINE === '1' ? ['--offline'] : [],
-  `--config.store-dir=${process.env.DSH_PACK_STORE ?? '/store'}`,
+  `--config.store-dir=${pnpmStore}`,
+  `--config.virtual-store-dir=${pnpmVstore}`,
   join(appDir, 'backend', 'runtime'),
 ], { cwd: repoRoot, stdio: 'inherit' })
 execFileSync(nodeBin, [join(appRoot, 'scripts', 'heal-deploy-links.mjs'), join(appDir, 'backend', 'runtime')], { stdio: 'inherit' })

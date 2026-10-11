@@ -43,12 +43,20 @@ export function TeamMessageId(id: string): TeamMessageId {
 /** Durable teammate lifecycle. */
 export type TeamMemberPhase = 'provisioning' | 'active' | 'failed'
 
+/** Provider/model pair allowed for a Team member runtime. */
+export interface TeamModelSelection {
+  readonly provider: string
+  readonly model: string
+}
+
 /** Whole durable value written on every teammate lifecycle change. */
 export interface TeamMemberSnapshot {
   readonly id: SessionId
   readonly name: string
   readonly description: string
   readonly provider: string
+  /** Model selected for this member, when the Team policy specifies one. */
+  readonly model?: string
   readonly context: 'fresh' | 'fork'
   readonly phase: TeamMemberPhase
   readonly error?: string
@@ -160,6 +168,10 @@ export interface Config {
   readonly maxMessageBytes?: number
   /** Maximum milliseconds allowed for Team-owned runtime disposal. */
   readonly disposalTimeoutMs?: number
+  /** Independent allowlist for models usable by this Team. Empty means unrestricted. */
+  readonly allowedModels?: TeamModelSelection[]
+  /** Optional same-provider fallback used when a spawn request omits its model. */
+  readonly defaultModel?: TeamModelSelection
 }
 
 /** Input for creating one durable teammate. */
@@ -169,6 +181,8 @@ export interface SpawnTeammateRequest {
   readonly prompt: ContentBlock[]
   readonly context: 'fresh' | 'fork'
   readonly provider: string
+  /** Optional model id. When configured, it must be in the Team allowlist. */
+  readonly model?: string
   readonly signal: AbortSignal
 }
 

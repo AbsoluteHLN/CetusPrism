@@ -25,6 +25,7 @@ import type {
   TeamTaskView,
   TeamWaitResult,
   UpdateTeamTaskRequest,
+  TeamModelSelection,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -52,6 +53,18 @@ function positiveLimit(name: string, value: number): number {
   return value
 }
 
+function normalizeModels(value: readonly TeamModelSelection[] | undefined): TeamModelSelection[] {
+  return (value ?? []).map((entry) => ({ provider: entry.provider.trim(), model: entry.model.trim() }))
+    .filter((entry) => entry.provider.length > 0 && entry.model.length > 0)
+}
+
+function normalizeModel(value: TeamModelSelection | undefined): TeamModelSelection | undefined {
+  if (value === undefined || (typeof value.provider !== 'string' && typeof value.model !== 'string')) return undefined
+  const provider = value.provider.trim()
+  const model = value.model.trim()
+  return provider && model ? { provider, model } : undefined
+}
+
 /** Agent Teams service backed by the exact live Lead Session log. */
 export class TeamService extends Service {
   static inject = ['agents', 'sessions', 'sessionPersistence', 'sessionProjections', 'subagents']
@@ -62,10 +75,15 @@ export class TeamService extends Service {
     maxPendingMessagesPerMember: z.number().step(1).min(1).default(DEFAULT_MAX_PENDING_MESSAGES),
     maxMessageBytes: z.number().step(1).min(1).default(DEFAULT_MAX_MESSAGE_BYTES),
     disposalTimeoutMs: z.number().step(1).min(1).default(DEFAULT_DISPOSAL_TIMEOUT_MS),
+    allowedModels: z.array(z.object({ provider: z.string(), model: z.string() })).default([]),
+    defaultModel: z.object({ provider: z.string(), model: z.string() }),
   })
 
   /** Validated deployment limits used by every Team operation. */
-  private readonly config: Required<Config>
+  private readonly config: Required<Omit<Config, 'defaultModel' | 'allowedModels'>> & {
+    allowedModels: TeamModelSelection[]
+    defaultModel: TeamModelSelection | undefined
+  }
 
   private readonly activity: TeamActivity
   private readonly lifecycle: TeamRuntimeLifecycle
@@ -88,12 +106,14 @@ export class TeamService extends Service {
         'disposalTimeoutMs',
         config.disposalTimeoutMs ?? DEFAULT_DISPOSAL_TIMEOUT_MS,
       ),
+      allowedModels: normalizeModels(config.allowedModels),
+      defaultModel: normalizeModel(config.defaultModel),
     }
 
     this.activity = new TeamActivity()
     this.lifecycle = new TeamRuntimeLifecycle(this.config.disposalTimeoutMs)
     this.journal = new TeamJournal(ctx, (root) => { this.activity.notify(TeamId(root.id)) })
-    this.roster = new TeamRoster(ctx, this.journal, this.lifecycle, this.config.maxMembers)
+    this.roster = new TeamRoster(ctx, this.journal, this.lifecycle, this.config.maxMembers, this.config.allowedModels, this.config.defaultModel)
     this.mailbox = new TeamMailbox(
       ctx,
       this.journal,

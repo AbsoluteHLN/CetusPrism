@@ -20,6 +20,7 @@ import type {
   SpawnTeammateResult,
   TeamMemberSnapshot,
   TeamMemberView,
+  TeamModelSelection,
 } from './types.ts'
 import { requiredText } from './validation.ts'
 
@@ -69,6 +70,8 @@ export class TeamRoster {
     private readonly journal: TeamJournal,
     private readonly lifecycle: TeamRuntimeLifecycle,
     private readonly maxMembers: number,
+    private readonly allowedModels: readonly TeamModelSelection[] = [],
+    private readonly defaultModel: TeamModelSelection | undefined = undefined,
   ) {}
 
   /**
@@ -256,12 +259,20 @@ export class TeamRoster {
     const root = membership.root
     const name = this.memberName(request.name)
     const description = requiredText(request.description, 'description', 200)
+    const model = request.model?.trim() || (this.defaultModel?.provider === request.provider ? this.defaultModel.model : undefined)
+    if (this.allowedModels.length > 0) {
+      if (model === undefined) throw new TeamError('a model from the Team allowed-model list is required', 'TEAM_MODEL_REQUIRED')
+      if (!this.allowedModels.some(candidate => candidate.provider === request.provider && candidate.model === model)) {
+        throw new TeamError(`model "${request.provider}/${model}" is not allowed for this Team`, 'TEAM_MODEL_NOT_ALLOWED')
+      }
+    }
     const childId = brandString<SessionId>(randomUUID())
     const member: TeamMemberSnapshot = {
       id: childId,
       name,
       description,
       provider: requiredText(request.provider, 'provider', 200),
+      ...model === undefined ? {} : { model },
       context: request.context,
       phase: 'provisioning',
     }
@@ -283,10 +294,11 @@ export class TeamRoster {
         childId,
         provider: request.provider,
         label: description,
-        request: {
-          prompt: request.prompt,
-          parent: root,
-        },
+          request: {
+            prompt: request.prompt,
+            parent: root,
+          },
+          ...model === undefined ? {} : { agentOptions: { provider: request.provider, model } },
         signal,
       })
       await this.checkpointInitialPrompt(childId, started.messageId, signal)

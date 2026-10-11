@@ -243,7 +243,10 @@ const control = [
   'Section: utils',
   'Priority: optional',
   'Architecture: amd64',
-  'Depends: libwebkit2gtk-4.1-0, libgtk-3-0, libayatana-appindicator3-1, librsvg2-2, xdg-utils',
+  // Ubuntu 24.04+/26.04 and Debian testing renamed GTK's ABI packages to
+  // their t64 variants. Keep the legacy names as alternatives so the same
+  // package remains installable on Ubuntu 22.04.2 and newer hosts.
+  'Depends: libwebkit2gtk-4.1-0t64 | libwebkit2gtk-4.1-0, libgtk-3-0t64 | libgtk-3-0, libayatana-appindicator3-1, librsvg2-2, xdg-utils',
   `Installed-Size: ${dirSizeKiB(dataRoot)}`,
   'Maintainer: CetusPrism <cetusprism@localhost>',
   'Description: CetusPrism desktop (DeepSeek Harness distribution)',

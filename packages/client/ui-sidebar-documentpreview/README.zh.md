@@ -88,7 +88,7 @@ CSV 和 TSV 默认使用表格查看器，也可选择纯文本；CSV 还提供�
 
 只读公式栏以单行按字面显示公式和单元格文本，长内容可横向滚动。复制时保留 HTML 表格，并转义单元格内容，包括已保存的公式结果。[FortuneSheet 补丁决策](../../../.agents/notes/implemented/feature/2026-09-16-browser-excel-preview.md)说明升级依赖时保留这些行为与工作表选区的要求。
 
-固定版本的 [ExcelJS 补丁](../../../patches/exceljs@4.4.0.patch)通过包内关系解析工作簿、样式、共享字符串、工作表、批注、Table 和 VML，支持绝对及相对目标，以及 ASCII 大小写等价的部件名，并按命名空间 URI 识别 SpreadsheetML 和 VML 名称。Strict OOXML 的 SpreadsheetML 和关系 URI 映射到相同的已支持预览功能；这不代表完整支持 Strict 标准。XML 部件支持 UTF-8 及两种字节序的 UTF-16；CDATA 按字面文本读取。绘图和条件格式提示按关系查找内容，不依赖部件目录。未被引用的 `xl/drawings/*.xml` 部件及其关系文件也会被移除，但不会产生提示；批注 VML 保持不变。缺失引用部件或存在大小写等价的歧义 ZIP 条目会使预览失败。解析保留批注和 Table 元数据，但预览器没有专门展示它们的控件。补丁同时覆盖 Node 源码和 `dist/exceljs.js`，浏览器入口选择已修补的 bundle。升级依赖时必须保留两个入口的行为，并通过[独立写入器回归测试和 fuzz 诊断](tests/fuzz/README.zh.md)。
+固定版本的 [ExcelJS 补丁](../../../scripts/patches/exceljs@4.4.0.patch)通过包内关系解析工作簿、样式、共享字符串、工作表、批注、Table 和 VML，支持绝对及相对目标，以及 ASCII 大小写等价的部件名，并按命名空间 URI 识别 SpreadsheetML 和 VML 名称。Strict OOXML 的 SpreadsheetML 和关系 URI 映射到相同的已支持预览功能；这不代表完整支持 Strict 标准。XML 部件支持 UTF-8 及两种字节序的 UTF-16；CDATA 按字面文本读取。绘图和条件格式提示按关系查找内容，不依赖部件目录。未被引用的 `xl/drawings/*.xml` 部件及其关系文件也会被移除，但不会产生提示；批注 VML 保持不变。缺失引用部件或存在大小写等价的歧义 ZIP 条目会使预览失败。解析保留批注和 Table 元数据，但预览器没有专门展示它们的控件。补丁同时覆盖 Node 源码和 `dist/exceljs.js`，浏览器入口选择已修补的 bundle。升级依赖时必须保留两个入口的行为，并通过[独立写入器回归测试和 fuzz 诊断](tests/fuzz/README.zh.md)。
 
 <a id="office-preview"></a>
 ## Office 预览

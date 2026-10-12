@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Built-in agent protocol
 
-The built-in agent protocol is introduced in v1.7.0-beta.1 through the exported `BuiltinAgentConfigStore` and validation helpers. It persists enabled declarations and a configurable install directory with atomic replacement and one-step rollback. Declarations carry only public driver metadata; credentials, runtime paths, and driver-private configuration are rejected. The design and compatibility record lives in [`dev-docs/builtin-agent-protocol-v1.7.0-beta.1.zh.md`](../../../dev-docs/builtin-agent-protocol-v1.7.0-beta.1.zh.md).
+The built-in agent protocol is introduced in v1.7.0-beta.1 through the exported `BuiltinAgentConfigStore` and validation helpers. It persists enabled declarations and a configurable install directory with atomic replacement and one-step rollback. Declarations carry only public driver metadata; credentials, runtime paths, and driver-private configuration are rejected. The design and compatibility record lives in [`dev-docs/archive/2026-10-11-builtin-agent-protocol-v1.7.0-beta.1.zh.md`](../../../dev-docs/archive/2026-10-11-builtin-agent-protocol-v1.7.0-beta.1.zh.md).
 
 ## Summary
 

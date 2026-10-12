@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 内置智能体协议
 
-v1.7.0-beta.1 通过导出的 `BuiltinAgentConfigStore` 与校验函数引入内置智能体协议。它以原子替换和单步回滚持久化启用声明及可配置安装目录。声明只包含公开驱动元数据；凭据、运行时路径和驱动私有配置会被拒绝。设计与兼容性记录见 [`dev-docs/builtin-agent-protocol-v1.7.0-beta.1.zh.md`](../../../dev-docs/builtin-agent-protocol-v1.7.0-beta.1.zh.md)。
+v1.7.0-beta.1 通过导出的 `BuiltinAgentConfigStore` 与校验函数引入内置智能体协议。它以原子替换和单步回滚持久化启用声明及可配置安装目录。声明只包含公开驱动元数据；凭据、运行时路径和驱动私有配置会被拒绝。设计与兼容性记录见 [`dev-docs/archive/2026-10-11-builtin-agent-protocol-v1.7.0-beta.1.zh.md`](../../../dev-docs/archive/2026-10-11-builtin-agent-protocol-v1.7.0-beta.1.zh.md)。
 
 ## 概述
 

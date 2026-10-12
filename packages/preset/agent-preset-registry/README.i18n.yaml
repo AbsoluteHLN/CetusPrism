@@ -8,6 +8,9 @@
 /deepseek-ai-dsh-agent-preset-registry:
   en: 6b6e424e5365953e
   zh: f0bd3469bd33e690
+/deepseek-ai-dsh-agent-preset-registry/built-in-agent-protocol:
+  en: 15ddc1ae9600836d
+  zh: 1fd377b608258cd3
 /deepseek-ai-dsh-agent-preset-registry/summary:
   en: a451ec1d5b54b334
   zh: 777d5043e9c2e9eb

@@ -468,6 +468,94 @@ describe('Team identity and provisioning', () => {
     expect(durable(lead).members).toEqual([])
   })
 
+  it('resolves LLM routes independently from the continuable backend', async () => {
+    const explicit = await setup([], {
+      allowedModels: [{ provider: 'mock', model: 'selected-model' }],
+    })
+    const selected = await explicit.ctx.agentTeams.spawnTeammate(explicit.lead, {
+      name: 'selected-route',
+      description: 'explicit LLM route',
+      prompt: content('selected'),
+      context: 'fresh',
+      provider: 'spawn',
+      agentOptions: { provider: 'mock', model: 'selected-model' },
+      signal: SIGNAL,
+    })
+    expect(selected.member.provider).toBe('spawn')
+    expect(selected.member.model).toBe('selected-model')
+    expect(durable(explicit.lead).members.find(member => member.id === selected.member.id)?.model).toBe('selected-model')
+
+    const legacy = await setup([], {
+      allowedModels: [{ provider: 'mock', model: 'legacy-model' }],
+    })
+    const legacySelected = await legacy.ctx.agentTeams.spawnTeammate(legacy.lead, {
+      name: 'legacy-route',
+      description: 'legacy model field',
+      prompt: content('legacy'),
+      context: 'fresh',
+      provider: 'spawn',
+      model: 'legacy-model',
+      signal: SIGNAL,
+    })
+    expect(legacySelected.member.model).toBe('legacy-model')
+    expect(durable(legacy.lead).members.find(member => member.id === legacySelected.member.id)?.model).toBe('legacy-model')
+  })
+
+  it('uses the configured default route and then the Lead route', async () => {
+    const configured = await setup([], {
+      allowedModels: [{ provider: 'mock', model: 'default-model' }],
+      defaultModel: { provider: 'mock', model: 'default-model' },
+    })
+    const selected = await configured.ctx.agentTeams.spawnTeammate(configured.lead, {
+      name: 'default-route',
+      description: 'configured default route',
+      prompt: content('default'),
+      context: 'fresh',
+      provider: 'spawn',
+      signal: SIGNAL,
+    })
+    expect(selected.member.model).toBe('default-model')
+    expect(durable(configured.lead).members.find(member => member.id === selected.member.id)?.model).toBe('default-model')
+
+    const leadRoute = await setup([], {
+      allowedModels: [{ provider: 'mock', model: 'mock' }],
+    })
+    const leadSelected = await leadRoute.ctx.agentTeams.spawnTeammate(leadRoute.lead, {
+      name: 'lead-route',
+      description: 'Lead route fallback',
+      prompt: content('lead'),
+      context: 'fresh',
+      provider: 'spawn',
+      signal: SIGNAL,
+    })
+    expect(leadSelected.member.model).toBe('mock')
+    expect(durable(leadRoute.lead).members.find(member => member.id === leadSelected.member.id)?.model).toBe('mock')
+  })
+
+  it('rejects incomplete or disallowed explicit LLM routes', async () => {
+    const { ctx, lead } = await setup([], {
+      allowedModels: [{ provider: 'mock', model: 'allowed-model' }],
+    })
+    const request = {
+      name: 'invalid-route',
+      description: 'invalid route',
+      prompt: content('invalid'),
+      context: 'fresh' as const,
+      provider: 'spawn',
+      signal: SIGNAL,
+    }
+    await expect(ctx.agentTeams.spawnTeammate(lead, {
+      ...request,
+      agentOptions: { provider: 'mock' },
+    })).rejects.toMatchObject({ code: 'TEAM_MODEL_INVALID' })
+    await expect(ctx.agentTeams.spawnTeammate(lead, {
+      ...request,
+      name: 'disallowed-route',
+      agentOptions: { provider: 'mock', model: 'other-model' },
+    })).rejects.toMatchObject({ code: 'TEAM_MODEL_NOT_ALLOWED' })
+    expect(durable(lead).members).toEqual([])
+  })
+
   it('treats an ordinary fork as a new Root Team and filters inherited Team state', async () => {
     const { ctx, lead } = await setup([])
     await ctx.agentTeams.createTask(lead, { subject: 'parent task', description: 'belongs to parent' })

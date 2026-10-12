@@ -54,6 +54,18 @@ kind: "package-reference"
 | `maxMessageBytes` | `65,536` | 单条发送消息的最大尺寸 |
 | `disposalTimeoutMs` | `5,000` | 关闭清理允许的时间 |
 
+Team 可以在子智能体后端选择之外，额外限制 LLM 提供方和模型。可在 Team 服务中配置允许列表及可选的默认路由：
+
+```yaml
+agentTeams:
+  allowedModels:
+    - { provider: native, model: deepseek-chat }
+    - { provider: native, model: deepseek-reasoner }
+  defaultModel: { provider: native, model: deepseek-chat }
+```
+
+当 `allowedModels` 非空时，`spawn_teammate` 必须使用列表中的 LLM 提供方/模型路由，其他组合会被拒绝。工具显式传入的 `agentOptions` 优先；兼容旧接口的 `model` 字段使用 Lead 的 LLM 提供方，随后依次回退到 `defaultModel` 和 Lead 当前路由。选择 `spawn` 或 `fork` 的 `provider` 参数不会参与 LLM 允许列表比较。选中的模型会记录在 roster 成员中，完整路由通过 `agentOptions` 传入子运行时。
+
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-experimental-agent-team)是每个受支持字段及其 JSDoc 的穷尽式真源。
 
 ### Teammate

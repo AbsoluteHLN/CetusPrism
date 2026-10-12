@@ -18,6 +18,7 @@ import { TeamId } from './types.ts'
 import type {
   SpawnTeammateRequest,
   SpawnTeammateResult,
+  TeamAgentRoute,
   TeamMemberSnapshot,
   TeamMemberView,
   TeamModelSelection,
@@ -142,7 +143,7 @@ export class TeamRoster {
     }]
     for (const member of state.members) {
       const live = this.ctx.agents.get(member.id)
-      const model = live?.options.model ?? root.options.model
+      const model = live?.options.model ?? member.model ?? root.options.model
       result.push({
         id: member.id,
         name: member.name,
@@ -259,11 +260,12 @@ export class TeamRoster {
     const root = membership.root
     const name = this.memberName(request.name)
     const description = requiredText(request.description, 'description', 200)
-    const model = request.model?.trim() || (this.defaultModel?.provider === request.provider ? this.defaultModel.model : undefined)
+    const backend = requiredText(request.provider, 'provider', 200)
+    const route = this.resolveModelRoute(root, request)
     if (this.allowedModels.length > 0) {
-      if (model === undefined) throw new TeamError('a model from the Team allowed-model list is required', 'TEAM_MODEL_REQUIRED')
-      if (!this.allowedModels.some(candidate => candidate.provider === request.provider && candidate.model === model)) {
-        throw new TeamError(`model "${request.provider}/${model}" is not allowed for this Team`, 'TEAM_MODEL_NOT_ALLOWED')
+      if (route === undefined) throw new TeamError('a provider/model route from the Team allowed-model list is required', 'TEAM_MODEL_REQUIRED')
+      if (!this.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
+        throw new TeamError(`model "${route.provider}/${route.model}" is not allowed for this Team`, 'TEAM_MODEL_NOT_ALLOWED')
       }
     }
     const childId = brandString<SessionId>(randomUUID())
@@ -271,8 +273,8 @@ export class TeamRoster {
       id: childId,
       name,
       description,
-      provider: requiredText(request.provider, 'provider', 200),
-      ...model === undefined ? {} : { model },
+      provider: backend,
+      ...route === undefined ? {} : { model: route.model },
       context: request.context,
       phase: 'provisioning',
     }
@@ -297,11 +299,7 @@ export class TeamRoster {
         request: {
           prompt: request.prompt,
           parent: root,
-          ...request.agentOptions !== undefined
-            ? { agentOptions: request.agentOptions }
-            : model !== undefined
-              ? { agentOptions: { provider: request.provider, model } }
-              : {},
+          ...route === undefined ? {} : { agentOptions: route },
         },
         signal,
       })
@@ -350,6 +348,33 @@ export class TeamRoster {
       throw conflict
     }
     return { member: this.memberView(active) }
+  }
+
+  /** Resolve the child LLM route without confusing it with the subagent backend. */
+  private resolveModelRoute(root: Agent, request: SpawnTeammateRequest): TeamAgentRoute | undefined {
+    if (request.agentOptions !== undefined) {
+      const provider = request.agentOptions.provider?.trim()
+      const model = request.agentOptions.model?.trim()
+      if (provider === undefined || model === undefined || provider.length === 0 || model.length === 0) {
+        throw new TeamError('Team model selection requires provider and model together', 'TEAM_MODEL_INVALID')
+      }
+      return { provider, model }
+    }
+
+    const requestedModel = request.model?.trim()
+    if (requestedModel !== undefined && requestedModel.length > 0) {
+      const provider = root.options.provider?.trim()
+      if (provider !== undefined && provider.length > 0) return { provider, model: requestedModel }
+      throw new TeamError('the legacy model field requires the Lead LLM provider', 'TEAM_MODEL_INVALID')
+    }
+
+    if (this.defaultModel !== undefined) return this.defaultModel
+    if (this.allowedModels.length === 0) return undefined
+    const provider = root.options.provider?.trim()
+    const model = root.options.model?.trim()
+    return provider !== undefined && provider.length > 0 && model !== undefined && model.length > 0
+      ? { provider, model }
+      : undefined
   }
 
   /** Flush the accepted initial inbox item before the Lead can commit `active`. */
@@ -452,6 +477,7 @@ export class TeamRoster {
   /** Build one runtime member row after successful creation. */
   private memberView(member: TeamMemberSnapshot & { readonly phase: 'active' }): TeamMemberView {
     const live = this.ctx.agents.get(member.id)
+    const model = live?.options.model ?? member.model
     return {
       id: member.id,
       name: member.name,
@@ -460,7 +486,7 @@ export class TeamRoster {
       description: member.description,
       provider: member.provider,
       context: member.context,
-      ...live?.options.model === undefined ? {} : { model: live.options.model },
+      ...model === undefined ? {} : { model },
       diagnostics: [],
     }
   }

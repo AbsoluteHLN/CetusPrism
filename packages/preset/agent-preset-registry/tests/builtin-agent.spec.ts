@@ -40,6 +40,9 @@ describe('built-in agent protocol', () => {
     expect(() => validateBuiltinAgentConfig({
       schemaVersion: 1, release: BUILTIN_AGENT_RELEASE, installDirectory: 'agents', agents: [{ ...agent(), credentials: 'secret' }],
     })).toThrow(BuiltinAgentConfigError)
+    expect(() => validateBuiltinAgentConfig({
+      schemaVersion: 1, release: BUILTIN_AGENT_RELEASE, installDirectory: 'agents', agents: [], privateConfig: { token: 'secret' },
+    })).toThrow(BuiltinAgentConfigError)
   })
 
   it('saves atomically, keeps a previous version, and rolls back', async () => {

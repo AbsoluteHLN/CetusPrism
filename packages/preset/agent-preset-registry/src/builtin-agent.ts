@@ -51,6 +51,8 @@ export class BuiltinAgentConfigError extends Error {
   }
 }
 
+const forbiddenPrivateFields = ['credential', 'credentials', 'runtime', 'privateConfig'] as const
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -78,8 +80,7 @@ function parseCompatibility(value: unknown): BuiltinAgentCompatibility {
 
 function parseDeclaration(value: unknown): BuiltinAgentDeclaration {
   if (!isRecord(value) || typeof value.enabled !== 'boolean') throw new BuiltinAgentConfigError('each agent must declare a boolean enabled field')
-  const forbidden = ['credential', 'credentials', 'runtime', 'privateConfig']
-  if (forbidden.some(key => key in value)) throw new BuiltinAgentConfigError('agent declarations cannot contain credentials, runtime, or private configuration')
+  if (forbiddenPrivateFields.some(key => key in value)) throw new BuiltinAgentConfigError('agent declarations cannot contain credentials, runtime, or private configuration')
   return {
     id: agentId(value.id),
     enabled: value.enabled,
@@ -95,6 +96,7 @@ export function validateBuiltinAgentConfig(value: unknown): BuiltinAgentConfig {
   if (!isRecord(value) || value.schemaVersion !== 1 || value.release !== BUILTIN_AGENT_RELEASE) {
     throw new BuiltinAgentConfigError(`expected schemaVersion 1 and release ${BUILTIN_AGENT_RELEASE}`)
   }
+  if (forbiddenPrivateFields.some(key => key in value)) throw new BuiltinAgentConfigError('built-in agent configuration cannot contain credentials, runtime, or private configuration')
   if (!Array.isArray(value.agents)) throw new BuiltinAgentConfigError('agents must be an array')
   const agents = value.agents.map(parseDeclaration)
   const ids = new Set<string>()

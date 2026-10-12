@@ -59,7 +59,7 @@ function normalizeModels(value: readonly TeamModelSelection[] | undefined): Team
 }
 
 function normalizeModel(value: TeamModelSelection | undefined): TeamModelSelection | undefined {
-  if (value === undefined || (typeof value.provider !== 'string' && typeof value.model !== 'string')) return undefined
+  if (value === undefined || (typeof value.provider !== 'string' || typeof value.model !== 'string')) return undefined
   const provider = value.provider.trim()
   const model = value.model.trim()
   return provider && model ? { provider, model } : undefined

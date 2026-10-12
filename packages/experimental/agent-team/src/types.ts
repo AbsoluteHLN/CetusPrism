@@ -51,7 +51,9 @@ export type TeamMemberPhase = 'provisioning' | 'active' | 'failed'
 
 /** Provider/model pair allowed for a Team member runtime. */
 export interface TeamModelSelection {
+  /** LLM provider name used by the child Agent. */
   readonly provider: string
+  /** Model id interpreted by that provider. */
   readonly model: string
 }
 
@@ -176,7 +178,7 @@ export interface Config {
   readonly disposalTimeoutMs?: number
   /** Independent allowlist for models usable by this Team. Empty means unrestricted. */
   readonly allowedModels?: TeamModelSelection[]
-  /** Optional same-provider fallback used when a spawn request omits its model. */
+  /** Optional LLM provider/model fallback used when a spawn request omits its route. */
   readonly defaultModel?: TeamModelSelection
 }
 
@@ -186,10 +188,11 @@ export interface SpawnTeammateRequest {
   readonly description: string
   readonly prompt: ContentBlock[]
   readonly context: 'fresh' | 'fork'
+  /** Continuable subagent backend, such as `spawn` or `fork`. */
   readonly provider: string
-  /** Optional model id. When configured, it must be in the Team allowlist. */
+  /** Legacy model id resolved with the Lead's LLM provider. */
   readonly model?: string
-  /** Optional exact LLM route selected from the host-authorized model list. */
+  /** Optional complete LLM route selected from the host-authorized model list. */
   readonly agentOptions?: TeamAgentRoute
   readonly signal: AbortSignal
 }

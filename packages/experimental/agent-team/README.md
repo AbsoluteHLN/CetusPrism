@@ -54,7 +54,7 @@ With the tools installed, the model does the rest on request — for example, "c
 | `maxMessageBytes` | `65,536` | Maximum size of one sent message |
 | `disposalTimeoutMs` | `5,000` | Time allowed for shutdown cleanup |
 
-Teams can enforce an independent model policy in addition to the provider catalog. Configure the allowlist and optional same-provider default in the Team service:
+Teams can enforce an independent LLM provider/model policy in addition to the subagent backend selection. Configure the allowlist and optional default route in the Team service:
 
 ```yaml
 agentTeams:
@@ -64,7 +64,7 @@ agentTeams:
   defaultModel: { provider: native, model: deepseek-chat }
 ```
 
-When `allowedModels` is non-empty, `spawn_teammate` requires a listed model and rejects other provider/model pairs. The selected model is persisted with the roster member and passed to the child runtime through `agentOptions`.
+When `allowedModels` is non-empty, `spawn_teammate` requires a listed LLM provider/model route and rejects other pairs. The tool's explicit `agentOptions` route has priority; the legacy `model` field uses the Lead's LLM provider, then `defaultModel`, then the Lead's current route are used as fallbacks. The `provider` argument that selects `spawn` or `fork` is never compared with the LLM allowlist. The selected model is persisted with the roster member and the complete route is passed to the child runtime through `agentOptions`.
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-experimental-agent-team) is the exhaustive source for every accepted field and its JSDoc.
 

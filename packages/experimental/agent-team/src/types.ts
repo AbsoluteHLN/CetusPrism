@@ -4,6 +4,12 @@ import type { Branded } from '@deepseek-ai/dsh-brand'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
+/** Optional model route selected for a spawned teammate. */
+export interface TeamAgentRoute {
+  readonly provider?: string
+  readonly model?: string
+}
+
 /** Identifies the implicit team rooted at one top-level Session. */
 export type TeamId = Branded<'TeamId'>
 
@@ -169,6 +175,8 @@ export interface SpawnTeammateRequest {
   readonly prompt: ContentBlock[]
   readonly context: 'fresh' | 'fork'
   readonly provider: string
+  /** Optional exact LLM route selected from the host-authorized model list. */
+  readonly agentOptions?: TeamAgentRoute
   readonly signal: AbortSignal
 }
 

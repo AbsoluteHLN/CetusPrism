@@ -7321,7 +7321,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SpawnTeammateRequest',
-    declaration: 'export interface SpawnTeammateRequest {\n    readonly name: string;\n    readonly description: string;\n    readonly prompt: ContentBlock[];\n    readonly context: \'fresh\' | \'fork\';\n    readonly provider: string;\n    readonly signal: AbortSignal;\n}',
+    declaration: 'export interface SpawnTeammateRequest {\n    readonly name: string;\n    readonly description: string;\n    readonly prompt: ContentBlock[];\n    readonly context: \'fresh\' | \'fork\';\n    readonly provider: string;\n    readonly agentOptions?: TeamAgentRoute;\n    readonly signal: AbortSignal;\n}',
   },
   {
     name: 'SpawnTeammateResult',
@@ -7634,6 +7634,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TableValueOf',
     declaration: 'export type TableValueOf<S extends DomainSpec, N extends keyof S[\'tables\']> = S[\'tables\'][N] extends DomainTableSpec<string, infer V> ? V : never;',
+  },
+  {
+    name: 'TeamAgentRoute',
+    declaration: 'export interface TeamAgentRoute {\n    readonly provider?: string;\n    readonly model?: string;\n}',
   },
   {
     name: 'TeamId',

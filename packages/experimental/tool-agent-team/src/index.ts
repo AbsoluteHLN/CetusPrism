@@ -19,13 +19,50 @@ export interface Config {
   readonly freshProvider?: string
   /** Continuable-subagent provider used for completed-prefix fork teammates. */
   readonly forkProvider?: string
+  /** Expose and enforce the shared Host model allowlist for Team members. */
+  readonly modelSelectionSettings?: boolean
 }
 
 /** Loader schema for the opt-in Team tool plugin. */
 export const Config: z<Config> = z.object({
   freshProvider: z.string().default('spawn'),
   forkProvider: z.string().default('fork'),
+  modelSelectionSettings: z.boolean().default(false),
 })
+
+/** Public route fields shared with the Subagent model-selection setting. */
+interface AllowedModelRoute {
+  readonly provider: string
+  readonly model: string
+}
+
+/** Minimal service view used when the optional shared setting is installed. */
+interface TeamModelSelectionSettings {
+  current(): { enabled: boolean; allowedModels: readonly AllowedModelRoute[] }
+}
+
+/** Resolve an explicit Team member route against the Host-owned allowlist. */
+function resolveTeamAgentOptions(
+  ctx: Context,
+  provider: string | undefined,
+  model: string | undefined,
+): { provider: string; model: string } | undefined {
+  if (provider === undefined && model === undefined) return undefined
+  if (provider === undefined || model === undefined || provider.trim() === '' || model.trim() === '') {
+    throw new Error('Team model selection requires provider and model together')
+  }
+  const settings: TeamModelSelectionSettings | undefined = ctx.get('subagentModelSelection')
+  if (settings === undefined) {
+    throw new Error('Team model selection is unavailable because its settings service is not loaded')
+  }
+  const current = settings.current()
+  if (!current.enabled) throw new Error('Team model selection is disabled in settings')
+  const route: AllowedModelRoute = { provider, model }
+  if (!current.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
+    throw new Error(`Team model route "${provider}/${model}" is not authorized in settings`)
+  }
+  return route
+}
 
 /** Model-facing collaboration guidance shared by Lead and teammates. */
 const POLICY = `Agent Teams is available in this session, but create teammates only when the user explicitly asks to use Agent Teams or teammates.
@@ -174,7 +211,10 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
 
     register(scoped.tools.register(defineTool({
       name: 'spawn_teammate',
-      description: 'Create one named, durable teammate. Only the Team Lead may call this tool.',
+      description: 'Create one named, durable teammate. Only the Team Lead may call this tool.'
+        + (config.modelSelectionSettings
+          ? ' `provider` and `model` may select one exact route from the authorized Team model list; omit both to inherit the Lead route.'
+          : ''),
       parameters: {
         name: { type: 'string', required: true, description: 'Unique lower-kebab-case teammate name.' },
         description: { type: 'string', required: true, description: 'Short description of the delegated responsibility.' },
@@ -184,11 +224,24 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
           enum: ['fresh', 'fork'],
           description: 'fresh starts without Lead history; fork inherits completed Lead turns. Defaults to fresh.',
         },
+        ...config.modelSelectionSettings ? {
+          provider: {
+            type: 'string' as const,
+            description: 'Authorized LLM provider id for this teammate. Supply together with model.',
+          },
+          model: {
+            type: 'string' as const,
+            description: 'Authorized exact model id for this teammate. Supply together with provider.',
+          },
+        } : {},
       },
       output: jsonOutput(SPAWN_VALUE_SCHEMA),
       async execute(args, exec) {
         const agent = callingAgent(exec.agent, 'spawn_teammate')
         const context = args.context ?? 'fresh'
+        const agentOptions = config.modelSelectionSettings
+          ? resolveTeamAgentOptions(ctx, args.provider, args.model)
+          : undefined
         const result = await ctx.agentTeams.spawnTeammate(agent, {
           name: args.name,
           description: args.description,
@@ -206,6 +259,7 @@ To message another teammate, use send_message({ target: "<teammate name>", messa
           ],
           context,
           provider: context === 'fork' ? config.forkProvider : config.freshProvider,
+          ...agentOptions === undefined ? {} : { agentOptions },
           signal: exec.signal,
         })
         return { member: modelMember(result.member) }
@@ -403,6 +457,7 @@ export function apply(ctx: Context, config: Config = {}): void {
   const resolved: Required<Config> = {
     freshProvider: config.freshProvider ?? 'spawn',
     forkProvider: config.forkProvider ?? 'fork',
+    modelSelectionSettings: config.modelSelectionSettings ?? false,
   }
   const installed = new Map<Agent, () => void>()
   const maybeInstall = (agent: Agent): void => {

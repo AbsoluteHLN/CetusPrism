@@ -16,6 +16,7 @@ import * as SubagentFork from '@deepseek-ai/dsh-subagent-fork-in-process'
 import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import { renderPrompt, renderContextSnapshot } from '@deepseek-ai/dsh-system-prompt'
 import * as ToolSubagentControl from '@deepseek-ai/dsh-tool-subagent-control'
+import SubagentModelSelectionConfig from '@deepseek-ai/dsh-tool-subagent/model-selection-settings'
 import { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 import { resolveAdapterOptions } from '@deepseek-ai/dsh-llm-deepseek'
 import { serialize } from '@deepseek-ai/dsh-llm-deepseek/src/serialize.ts'
@@ -63,7 +64,11 @@ afterEach(async () => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true })
 })
 
-async function setup(script: ConstructorParameters<typeof MockAdapter>[0], legacyControl = false) {
+async function setup(
+  script: ConstructorParameters<typeof MockAdapter>[0],
+  legacyControl = false,
+  teamModelSelection = false,
+) {
   const ctx = new Context()
   contexts.add(ctx)
   await mountAgentLoopTestDependencies(ctx)
@@ -76,8 +81,14 @@ async function setup(script: ConstructorParameters<typeof MockAdapter>[0], legac
   if (legacyControl) await ctx.plugin(ToolSubagentControl)
   await ctx.plugin(SubagentSpawn, { providerName: 'spawn' })
   await ctx.plugin(SubagentFork, { providerName: 'fork' })
+  if (teamModelSelection) {
+    await ctx.plugin(SubagentModelSelectionConfig, {
+      enabled: true,
+      allowedModels: [{ provider: 'selected-provider', model: 'selected-model' }],
+    })
+  }
   await ctx.plugin(TeamService)
-  const fiber = await ctx.plugin(toolTeam)
+  const fiber = await ctx.plugin(toolTeam, { modelSelectionSettings: teamModelSelection })
   const adapter = new MockAdapter(script)
   ctx.llm.registerAdapter(['mock'], adapter)
   const lead = await ctx.agentLoop.create(SessionId('tool-team-lead'), { provider: 'mock', model: 'mock' })
@@ -135,6 +146,32 @@ async function waitNoAgent(ctx: Context, id: SessionId): Promise<void> {
 }
 
 describe('dsh-tool-team', () => {
+  it('passes an authorized model route to a new teammate and rejects an unauthorized route', async () => {
+    const { ctx, lead } = await setup([], false, true)
+    const member = {
+      id: SessionId('selected-member'), name: 'selected', role: 'teammate' as const,
+      status: 'provisioning' as const, description: 'selected model', diagnostics: [],
+    }
+    const spawn = vi.spyOn(ctx.agentTeams, 'spawnTeammate').mockResolvedValue({ member })
+
+    const selected = await execute(ctx, lead, 'spawn_teammate', {
+      name: 'selected', description: 'selected model', prompt: 'work',
+      provider: 'selected-provider', model: 'selected-model',
+    })
+    expect(selected.isError, text(selected)).toBe(false)
+    expect(spawn.mock.calls[0]?.length).toBe(2)
+    expect(spawn.mock.calls[0]?.[1].agentOptions).toEqual({
+      provider: 'selected-provider', model: 'selected-model',
+    })
+
+    const denied = await execute(ctx, lead, 'spawn_teammate', {
+      name: 'denied', description: 'denied model', prompt: 'work',
+      provider: 'selected-provider', model: 'other-model',
+    })
+    expect(denied.isError).toBe(true)
+    expect(text(denied)).toContain('is not authorized')
+  })
+
   it.each(['running', 'inactive', 'provisioning', 'failed'] as const)(
     'projects %s members consistently in creation, listing, and schemas', async (status) => {
       const { ctx, lead } = await setup([])

@@ -69,6 +69,7 @@ const teamMemberSnapshotSchema = z.object({
   name: z.string(),
   description: z.string(),
   provider: z.string(),
+  model: z.string().min(1).optional(),
   context: z.enum(['fresh', 'fork']),
   phase: z.enum(['provisioning', 'active', 'failed']),
   error: z.string().optional(),

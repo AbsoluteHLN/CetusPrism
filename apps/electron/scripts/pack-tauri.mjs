@@ -24,7 +24,7 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -72,17 +72,17 @@ mkdirSync(join(appDir, 'backend'), { recursive: true })
 
 // The shell executable is final at build time: tauri-build embeds the icon
 // and version resources, so no rcedit pass runs after packing.
-execFileSync('cp', [shellExe, join(outDir, 'CetusPrism.exe')])
+copyFileSync(shellExe, join(outDir, 'CetusPrism.exe'))
 // The shipped tree carries the license terms it distributes under.
 for (const legal of ['LICENSE', 'THIRD_PARTY_NOTICES.md']) {
-  execFileSync('cp', [join(repoRoot, legal), join(appDir, legal)])
+  copyFileSync(join(repoRoot, legal), join(appDir, legal))
 }
 for (const entry of ['entry.mjs', 'credentials-home.patch.yml', 'desktop-slim.patch.yml', 'desktop-computer-use.patch.yml', 'desktop-experimental.patch.yml']) {
-  execFileSync('cp', [join(appRoot, 'backend', entry), join(appDir, 'backend', entry)])
+  copyFileSync(join(appRoot, 'backend', entry), join(appDir, 'backend', entry))
 }
 // The backend node.exe keeps its cache filename; the packaged name is what
 // the shell resolves beside entry.mjs.
-execFileSync('cp', [backendNodeExe, join(appDir, 'backend', 'node.exe')])
+copyFileSync(backendNodeExe, join(appDir, 'backend', 'node.exe'))
 
 // Deploy the backend closure straight into the output. The hoisted node
 // linker produces one flat, self-contained `node_modules` instead of pnpm's

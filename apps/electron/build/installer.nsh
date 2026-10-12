@@ -1,4 +1,4 @@
-﻿; electron-builder auto-includes this file from the build resources
+; electron-builder auto-includes this file from the build resources
 ; directory (nsis.include defaults to build/installer.nsh). The customInstall
 ; macro runs inside the install section, after the file copy completes.
 ;
@@ -337,8 +337,12 @@ FunctionEnd
 ; force-kills the process tree so an orphaned backend node.exe cannot hold
 ; runtime file locks, and only then falls back to the manual-close dialog for
 ; an instance this installer cannot terminate (elevated process).
+!ifndef nsProcess::FindProcess
+  !include "nsProcess.nsh"
+!endif
+
 !macro customCheckAppRunning
-  !insertmacro FIND_PROCESS "${APP_EXECUTABLE_FILENAME}" $R0
+  ${nsProcess::FindProcess} "${APP_EXECUTABLE_FILENAME}" $R0
   StrCmp $R0 "0" 0 cetus_check_done
   DetailPrint `Closing running "${PRODUCT_NAME}"...`
   ; A second launch forwards the flag to the tray instance and exits
@@ -348,18 +352,14 @@ FunctionEnd
 cetus_graceful_wait:
   IntOp $R1 $R1 + 1
   Sleep 500
-  !insertmacro FIND_PROCESS "${APP_EXECUTABLE_FILENAME}" $R0
+  ${nsProcess::FindProcess} "${APP_EXECUTABLE_FILENAME}" $R0
   StrCmp $R0 "0" 0 cetus_closed
   IntCmp $R1 16 cetus_graceful_wait 0 0
   ; The graceful window expired. Force-kill the whole tree: /T reaps the
   ; backend node.exe child whose open handles would block the file copy.
-  !ifdef INSTALL_MODE_PER_ALL_USERS
-    nsExec::Exec `taskkill /f /t /im "${APP_EXECUTABLE_FILENAME}"`
-  !else
-    nsExec::Exec `"$SYSDIR\cmd.exe" /c taskkill /f /t /im "${APP_EXECUTABLE_FILENAME}" /fi "USERNAME eq %USERNAME%"`
-  !endif
+  nsExec::Exec `taskkill /f /t /im "${APP_EXECUTABLE_FILENAME}"`
   Sleep 1000
-  !insertmacro FIND_PROCESS "${APP_EXECUTABLE_FILENAME}" $R0
+  ${nsProcess::FindProcess} "${APP_EXECUTABLE_FILENAME}" $R0
   StrCmp $R0 "0" 0 cetus_closed
   MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$(appCannotBeClosed)" /SD IDCANCEL IDRETRY cetus_graceful_wait
   Quit

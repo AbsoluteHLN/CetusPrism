@@ -224,17 +224,13 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
           enum: ['fresh', 'fork'],
           description: 'fresh starts without Lead history; fork inherits completed Lead turns. Defaults to fresh.',
         },
-        ...config.modelSelectionSettings ? {
-          provider: {
-            type: 'string' as const,
-            description: 'Authorized LLM provider id for this teammate. Supply together with model.',
-          },
-          model: {
-            type: 'string' as const,
-            description: 'Authorized exact model id for this teammate. Supply together with provider.',
-          },
-        } : {
-          model: { type: 'string' as const, description: 'Optional model id; when configured it must be in the Team allowed-model list.' },
+        model: {
+          type: 'string',
+          description: 'Optional model id; when configured it must be in the Team allowed-model list.',
+        },
+        provider: {
+          type: 'string',
+          description: 'Authorized LLM provider id for this teammate. Supply together with model.',
         },
       },
       output: jsonOutput(SPAWN_VALUE_SCHEMA),

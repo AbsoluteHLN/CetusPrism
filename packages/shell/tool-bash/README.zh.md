@@ -117,7 +117,7 @@ kind: "package-reference"
 - [Bash 执行器子系统](../../../docs/subsystems/shell.zh.md)——请求／spec 词汇、结果与后台进程。
 - [shell-env](../shell-env/README.zh.md)——每次调用都会收到的受管 `DSH_*` 环境。
 - [tool-jobs](../../jobs/tool-jobs/README.zh.md)——后台运行的 `job_output`、`job_list` 与 `job_kill` 控制。
-- [历史沙箱 Agent Note](../../../.agents/notes/archived/feature/2026-07-06-sandbox.md)——升权与模式切换的理由。
+- [历史沙箱 Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-06-sandbox.md)——升权与模式切换的理由。
 - [生成的工具目录](../../../docs/tool-catalog.zh.md#deepseek-aidsh-tool-bash)——`bash` 参数 schema 的确切内容。
 - [生成的配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-tool-bash)——每个受支持配置字段及其源声明。
 

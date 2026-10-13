@@ -3,8 +3,8 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/user/develop/basic/index.md
 /your-first-plugin:
-  en: 5ae0ea3a5391b8c9
-  zh: 4ac0da92faee102c
+  en: 9264285c8ad3eb52
+  zh: abe0e585e12756f1
 /your-first-plugin/create-a-local-project:
   en: 2a9ff85da3a6ea8b
   zh: 9ac5daf1dd3e3b95

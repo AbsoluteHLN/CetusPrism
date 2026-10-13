@@ -38,7 +38,7 @@ The workflow group lets an agent run orchestration scripts that delegate work to
 - [Generated tool catalog](../../docs/tool-catalog.md#deepseek-aidsh-tool-workflow) — the `workflow` tool schema the model receives.
 - [Generated tool catalog](../../docs/tool-catalog.md#deepseek-aidsh-tool-ralph) — the `ralph` tool schema the model receives.
 - [Generated configuration catalog](../../docs/config-catalog.md#deepseek-aidsh-workflow-ptc) — every accepted engine config field.
-- [historical Dynamic workflows Agent Note](../../.agents/notes/archived/feature/2026-07-05-dynamic-workflows.md) — the seam design and its decisions.
+- [historical Dynamic workflows Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-05-dynamic-workflows.md) — the seam design and its decisions.
 - [Harness-level goal-based execution reference](tool-ralph/README.md) — the fixed fresh-agent loop design and deferred work.
 
 -----

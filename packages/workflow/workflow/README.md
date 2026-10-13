@@ -103,7 +103,7 @@ Read these pages when the package-level contract is not enough. They move from t
 - [Group map](../README.md) — the workflow capability family and its packages.
 - [workflow tool](../tool-workflow/README.md) — the model-facing consumer that owns the call schema and result envelope.
 - [PTC workflow engine](../workflow-ptc/README.md) — the current execution engine and its isolation boundary.
-- [historical Dynamic workflows Agent Note](../../../.agents/notes/archived/feature/2026-07-05-dynamic-workflows.md) — the seam design and its decisions.
+- [historical Dynamic workflows Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-05-dynamic-workflows.md) — the seam design and its decisions.
 
 -----
 

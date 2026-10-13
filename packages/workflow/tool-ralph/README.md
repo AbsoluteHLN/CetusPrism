@@ -96,7 +96,7 @@ Read these pages when the tool-level contract is not enough. They move from the 
 - [PTC workflow engine](../workflow-ptc/README.md) — the engine that executes the fixed script.
 - [subagent seam](../../subagent/subagent/README.md) — the fresh-child provider contract.
 - [Goal group](../../goal/goal/README.md) — same-session goal tools for ordinary long-running objectives.
-- [historical Harness-level goal-based execution Agent Note](../../../.agents/notes/archived/feature/2026-07-16-harness-level-loop.md) — the policy, provider requirements, and deferred work.
+- [historical Harness-level goal-based execution Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-16-harness-level-loop.md) — the policy, provider requirements, and deferred work.
 
 -----
 

@@ -146,7 +146,7 @@ SDK 通过旧版通知或现代协议订阅接收工具列表变化。监督器�
 当包级约定不够用时阅读以下页面。它们从共享工具注册表逐步进入桥接的设计证据与可运行的示例配置。
 
 - [工具子系统参考](../../../docs/subsystems/tools.zh.md)——接收已桥接工具的 `ToolRuntime` 与 `ctx.tools.register()` 约定。
-- [历史MCP 客户端插件 Agent Note](../../../.agents/notes/archived/feature/2026-07-07-mcp-client-plugin.md)——命名不变式、发现与执行设计、备选方案与后果。
+- [历史MCP 客户端插件 Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-07-mcp-client-plugin.md)——命名不变式、发现与执行设计、备选方案与后果。
 - [规范工具输出约定 reference](../../core/tools/README.zh.md)——MCP 结果如何映射进规范工具输出约定。
 - [第三方记忆 MCP 指南](../../../docs/user/guide/mcp-memory.zh.md)——使用本包的三份记忆服务器 overlay。
 - [生成配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-mcp-client)——每个受支持配置字段及其源声明。

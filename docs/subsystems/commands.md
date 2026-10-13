@@ -2,7 +2,7 @@
 
 English | [中文](commands.zh.md)
 
-The human-command registry service from [`dsh-commands`](../../packages/interaction/commands). Interactive adapters use it to discover and directly execute plugin-owned commands for an exact agent without creating a model message. The [historical command Agent Note](../../.agents/notes/archived/feature/2026-07-19-plugin-command-registration.md) records dispatch and lifecycle rationale; the [package README](../../packages/interaction/commands/README.md) owns composition and limitations.
+The human-command registry service from [`dsh-commands`](../../packages/interaction/commands). Interactive adapters use it to discover and directly execute plugin-owned commands for an exact agent without creating a model message. The [historical command Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-19-plugin-command-registration.md) records dispatch and lifecycle rationale; the [package README](../../packages/interaction/commands/README.md) owns composition and limitations.
 
 Source: [`packages/interaction/commands/src/index.ts`](../../packages/interaction/commands/src/index.ts)
 

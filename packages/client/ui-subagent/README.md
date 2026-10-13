@@ -83,7 +83,7 @@ These pages cover the conversation surface, the host seam, and the design notes.
 - [ui-conversation](../ui-conversation/README.md) — the chat surface hosting the header action and composer chain.
 - [ui-input-trigger](../ui-input-trigger/README.md) — the suggestion machinery hosting the `@` source.
 - [subagent](../../subagent/subagent/README.md) — the host-side capability seam behind continuable children.
-- [historical Web subagent conversations](../../../.agents/notes/archived/feature/2026-07-27-web-subagent-conversations.md) — the catalog and composer specification.
+- [historical Web subagent conversations](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-27-web-subagent-conversations.md) — the catalog and composer specification.
 - [Current-turn interrupt](../../subagent/subagent/README.md) — the independent Stop semantics.
 
 -----

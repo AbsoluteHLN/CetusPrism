@@ -11,6 +11,7 @@ One page per subsystem of the DeepSeek Harness: what it is, the data structures 
 | [llm-streaming.md](llm-streaming.md) | the `packages/llm` conversation types — `Message`/`ContentBlock`, the assembled model request, the `StreamChunk` wire protocol and adapter contract, `BlockAssembler`, and the `LlmAdapter` provider contract |
 | [token-meter.md](token-meter.md) | immutable scalar and positional replay measurements with consumed-log revisions |
 | [scope.md](scope.md) | scoped registration identity, dispatch carriers, and the owned `Scope` context |
+| [invariants.md](invariants.md) | package-owned runtime invariant checks: the `ctx.invariants` registry service, regex package selection, name reservation, child-fiber installer lifecycle, and package-attributed failure |
 | [typert.md](typert.md) | Remote invocation descriptors, lookup/Context declarations, Typert registries, and the Host Gateway/Client API boundaries |
 | [goal.md](goal.md) | persisted goal identity, lifecycle snapshots, activation, change records, and round attribution |
 | [schedule.md](schedule.md) | Host-owned reminder records, durable transitions, active and ended views, and ordinary-conversation delivery |

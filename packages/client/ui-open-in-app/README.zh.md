@@ -90,6 +90,6 @@ Host 在打开或定位前通过当前文件系统验证路径。没有对应 Ho
 <details>
 <summary>维护者工作语境——点击展开</summary>
 
-功能层面的各项决定，包括拆分为主机包与本表面包，记录在[历史转正 Agent Note](../../../.agents/notes/archived/feature/2026-08-25-promote-open-anywhere-plugin.md)；文档预览的文件控件记录在[历史默认应用 Agent Note](../../../.agents/notes/archived/feature/2026-09-16-open-in-default-app-for-sidebar-files.md)。
+功能层面的各项决定，包括拆分为主机包与本表面包，记录在[历史转正 Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-08-25-promote-open-anywhere-plugin.md)；文档预览的文件控件记录在[历史默认应用 Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-09-16-open-in-default-app-for-sidebar-files.md)。
 
 </details>

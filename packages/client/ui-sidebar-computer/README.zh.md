@@ -21,7 +21,7 @@ kind: "package-reference"
 
 -----
 
-<a id="注册内容"></a>
+<a id="what-it-registers"></a>
 ## 注册内容
 
 - **页签类型** — `ctx.sidebarRightTabs.register(...)`，kind `computer`，id `@deepseek-ai/dsh-client-ui-sidebar-computer`，band `builtin`，以及一个引导入口（order 35，个性化图标，文案来自 `sidebarComputer` 命名空间）。
@@ -29,7 +29,7 @@ kind: "package-reference"
 
 `src/client/` 下的源文件划分：`definition.tsx`（页签类型）、`model.ts`（从原始聊天节点纯派生操作记录）、`view/ComputerBody.tsx` 及其 CSS 模块（绘制）、`locales.ts`（文案）、`index.ts`（装配）。
 
-<a id="操作记录"></a>
+<a id="the-feed"></a>
 ## 操作记录
 
 页面订阅会话标准的 Chat 钩子——与会话正文相同的转录数据源——并保留名称带 [原生 Cua Driver provider](../../experimental/computer-use-cua-driver-native/README.zh.md) 的 `cua_driver_native__` 线上协议前缀的根工具调用。运行中的调用显示为运行中；已完成的调用显示本地化操作行与耗时；结果为错误的调用显示失败状态。调用头已滑出已加载窗口的已完结调用无法归属到计算机使用，会被跳过。
@@ -40,7 +40,7 @@ kind: "package-reference"
 
 操作记录的最新画面取自所有已完结计算机操作结果中最新的一张图片引用，经会话图片缓存解析为授权 URL；面板从不回收 URL，其生命周期由会话绑定持有。记录按最新优先排序并封顶 50 条，更早的条目以计数提示。
 
-<a id="模型体验"></a>
+<a id="model-experience"></a>
 ## 模型体验
 
 无；本包只在浏览器中绘制控制面板，不注册任何模型可见内容。模型可见面——Cua Driver 工具本身及其指引——属于 provider 包。
@@ -49,12 +49,14 @@ kind: "package-reference"
 
 无；页面读取的会话事件已在日志中，不组装模型请求。
 
+<a id="known-limitations-and-deferred-work"></a>
 ## 已知限制与后续工作
 
 - 记录只覆盖名称带原生 provider 线上前缀的根调用；基于 MCP 的 Cua Driver provider 使用不同的工具命名空间，不产生记录行。
 - 记录只覆盖根调用；在其他工具内部派发的计算机操作只会出现在转录正文中。
 - 停止按钮中断的是当前整个运行，而不是单个进行中的计算机操作；取消不会撤回已送达应用的输入（provider 自身的约定）。
 
+<a id="dev-note"></a>
 ### 开发备注
 
 面板只订阅两个框架通道（Chat 标准钩子、会话运行状态），本地只持有一个事实（最新画面的已解析 URL）；没有 store，也没有不变式：记录不跨重挂载存续，每一条展示内容都可以从会话日志重建。

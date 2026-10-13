@@ -108,7 +108,7 @@ Read these pages when the package-level contract is not enough. They move from t
 - [Bash executor subsystem](../../../docs/subsystems/shell.md) — request/spec vocabulary, results, and background processes.
 - [shell-env](../shell-env/README.md) — the managed `DSH_*` environment every call receives.
 - [tool-jobs](../../jobs/tool-jobs/README.md) — `job_output`, `job_list`, and `job_kill` controls for background runs.
-- [historical pwsh tool bash parity Agent Note](../../../.agents/notes/archived/feature/2026-08-02-pwsh-tool-bash-parity.md) — why the tool mirrors the bash tool.
+- [historical pwsh tool bash parity Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-08-02-pwsh-tool-bash-parity.md) — why the tool mirrors the bash tool.
 - [Windows ACL restricted-token sandbox Agent Note](../../../.agents/notes/implemented/feature/2026-08-08-windows-acl-restricted-token-sandbox.md) — the language-mode and named-pipe contracts.
 - [Generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tool-pwsh) — the exact `pwsh` argument schema.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-tool-pwsh) — every accepted config field and its source declaration.

@@ -112,7 +112,7 @@ kind: "package-reference"
 先从子系统参考文档了解穷尽式约定，再看实现它的后端、消费方与策略来源。
 
 - [进程沙箱子系统](../../../docs/subsystems/sandbox.zh.md)——完整词汇、逐调用策略与分类方言。
-- [历史子进程沙箱决策](../../../.agents/notes/archived/feature/2026-07-06-sandbox.md)——能力边界、升权设计与延期阶段。
+- [历史子进程沙箱决策](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-06-sandbox.md)——能力边界、升权设计与延期阶段。
 - [本地沙箱后端](../sandbox-local/README.zh.md)——`ctx.sandbox` 背后的各平台 runner。
 - [Bash 沙箱执行器](../../shell/bash-sandbox/README.zh.md)——受限的 bash 消费方。
 - [沙箱策略包](../sandbox-policy/README.zh.md)——逐调用模式与工作区根目录的来源。

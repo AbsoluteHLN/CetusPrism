@@ -108,7 +108,7 @@ The service requires `ctx.sessionProjections` and registers a `permissions` proj
 Read these pages when the package-level contract is not enough. They move from the preset vocabulary to the enforcement knobs and the design rationale.
 
 - [Permission presets subsystem reference](../../../docs/subsystems/permission-presets.md) — the preset table, process catalog, current selection, and `ctx.permissionPresets` Cordis API.
-- [historical Sandbox switching design Agent Note](../../../.agents/notes/archived/feature/2026-07-06-sandbox.md) — how sandbox mode and approval policy compose and switch.
+- [historical Sandbox switching design Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-06-sandbox.md) — how sandbox mode and approval policy compose and switch.
 - [Approval subsystem reference](../../../docs/subsystems/approval.md) — the approval policy knob this service bundles.
 - [Interaction group map](../README.md) — adjacent command, approval, and question packages.
 

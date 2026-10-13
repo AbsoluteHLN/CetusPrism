@@ -21,7 +21,7 @@ kind: "package-reference"
 
 -----
 
-<a id="使用本包"></a>
+<a id="use-this-package"></a>
 ## 使用本包
 
 与计算机使用提供方一同装配。遵循本策略的提供方在每次工具调用时读取一次 `modeOf(session)`；原生 Cua Driver 提供方在其驱动边界上执行。
@@ -53,13 +53,13 @@ kind: "package-reference"
 `/foreground` 命令在不认识的模式上直接拒绝、不写日志；命令子插件只在命令注册表存在时激活，没有它投影照常工作。后台路由不被支持时由提供方拒绝（驱动自身契约：不自动改走前台重试），受限会话退化为一次上报的失败，而不是被抢走的前台。
 
 -----
-<a id="理解实现"></a>
+<a id="understand-the-implementation"></a>
 ## 理解实现
 
 服务注册 `computerDelivery` 会话投影单元——状态是最近一条 `computer-use/delivery` 载荷或 null，客户端视图把 null 折叠到装配默认值上。`modeOf(session)` 是执行侧读取：投影状态，否则默认值。事件是 log-only（`sandbox/mode` 先例）：持久、可重放、不进入模型转录。`src/types.ts` 是纯类型出口：模式联合、客户端视图与两个投影映射声明；`src/client.ts` 为浏览器端聚合原样转发同一内容。
 
 -----
-<a id="延伸阅读"></a>
+<a id="further-exploration"></a>
 ## 延伸阅读
 
 - 提交 `/foreground` 的输入区开关在 Web 客户端：[@deepseek-ai/dsh-client-ui-computer-foreground](../../client/ui-computer-foreground/README.zh.md)。
@@ -67,7 +67,7 @@ kind: "package-reference"
 
 -----
 
-<a id="模型体验"></a>
+<a id="model-experience"></a>
 ## 模型体验
 
 无，投递策略是用户自持的会话状态：提供方在自己的边界翻译策略，执行拒绝以提供方普通的工具错误到达模型。
@@ -76,6 +76,7 @@ kind: "package-reference"
 
 无；本策略不向模型请求贡献任何内容。
 
+<a id="known-limitations-and-deferred-work"></a>
 ## 已知限制与延期工作
 
 - 执行按提供方逐个生效：忽略 `modeOf` 的计算机使用提供方不受限制；原生 Cua Driver 提供方目前是唯一的执行方。

@@ -108,7 +108,7 @@ kind: "package-reference"
 当包级约定不够用时阅读以下页面。它们从预设词汇逐步进入执行旋钮与设计依据。
 
 - [权限预设子系统参考](../../../docs/subsystems/permission-presets.zh.md)——预设表、进程级目录、当前选择与 `ctx.permissionPresets` Cordis API。
-- [历史沙箱切换设计 Agent Note](../../../.agents/notes/archived/feature/2026-07-06-sandbox.md)——沙箱模式与审批策略如何组合与切换。
+- [历史沙箱切换设计 Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-06-sandbox.md)——沙箱模式与审批策略如何组合与切换。
 - [审批子系统参考](../../../docs/subsystems/approval.zh.md)——此服务捆绑的审批策略旋钮。
 - [交互组映射](../README.zh.md)——相邻的命令、审批与问答包。
 

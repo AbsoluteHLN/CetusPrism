@@ -1,6 +1,6 @@
 # AGENTS.md — The documentation standard
 
-This file defines document structure, Markdown tiers, writing rules, and `verify-doc-budgets` ceilings. Use [dsh-doc](../.agents/skills/dsh-doc/SKILL.md) for placement and validation, and [dsh-prose-standard](../.agents/skills/dsh-prose-standard/SKILL.md) for required coverage and editorial judgment; the [archived doc-tiers Agent Note](../.agents/notes/archived/process/2026-07-04-doc-tiers-and-budgets.md) records the historical rationale.
+This file defines document structure, Markdown tiers, writing rules, and `verify-doc-budgets` ceilings. Use [dsh-doc](../.agents/skills/dsh-doc/SKILL.md) for placement and validation, and [dsh-prose-standard](../.agents/skills/dsh-prose-standard/SKILL.md) for required coverage and editorial judgment; the [archived doc-tiers Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/process/2026-07-04-doc-tiers-and-budgets.md) records the historical rationale.
 
 ## Document structure
 

@@ -102,7 +102,7 @@ kind: "package-reference"
 - [ui-sidebar](../ui-sidebar/README.zh.md)——滚动条重新绑定约定的消费方。
 - [ui-conversation](../ui-conversation/README.zh.md)——为 composer 席位消费 `--dsh-scrollbar-width` 的消费方。
 - [Web 样式](../../../docs/web-styling.zh.md)——Web 客户端组件的权威样式规则。
-- [历史Host 支撑的偏好](../../../.agents/notes/archived/bug-fix/2026-08-06-host-backed-web-preferences.md)——持久化边界决策。
+- [历史Host 支撑的偏好](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/bug-fix/2026-08-06-host-backed-web-preferences.md)——持久化边界决策。
 
 -----
 

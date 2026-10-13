@@ -40,7 +40,7 @@ Each package below provides one piece of the feature; open a package page for ho
 Start with the subsystem reference for the shared vocabulary, then read the two Agent Notes for the design rationale.
 
 - [Compaction subsystem reference](../../docs/subsystems/compaction.md) — the condensation vocabulary, results, and service behavior.
-- [historical Compaction capability-seam Agent Note](../../.agents/notes/archived/feature/2026-06-18-compaction-capability-seam.md) — how the family is split and why it depends on session and LLM vocabulary.
+- [historical Compaction capability-seam Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-06-18-compaction-capability-seam.md) — how the family is split and why it depends on session and LLM vocabulary.
 - [Queued manual compaction reference](compaction/README.md) — how on-demand `/compact` serializes against running turns.
 - [Capability seams](../../.agents/notes/implemented/architecture/2026-06-13-capability-seams.md) — the Service Definition / Service Provider / Consumer split this family follows.
 

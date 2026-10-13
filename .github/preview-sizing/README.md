@@ -32,4 +32,4 @@ Runner selection does not alter pull-request events, per-PR cancellation, immuta
 
 ## Dev Note
 
-The [archived runner decision](../../.agents/notes/archived/process/2026-09-06-preview-hosted-runner-sizing.md) records measurements, cost estimates, and image/CPU variation. The build-only experiment does not verify production deployment.
+The [archived runner decision](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/process/2026-09-06-preview-hosted-runner-sizing.md) records measurements, cost estimates, and image/CPU variation. The build-only experiment does not verify production deployment.

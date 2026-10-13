@@ -68,7 +68,7 @@ Git runs through the `subprocess` capability with a scrubbed environment, `GIT_C
 
 - [Web deliverables](../../client/ui-deliverables/README.md) — the changed-files card that reads the served summary and opens its files.
 - [Subprocess capability](../../subprocess/README.md) — the seam git runs through.
-- [historical Turn changed-files card decision](../../../.agents/notes/archived/feature/2026-09-11-turn-changed-files-card.md) — snapshot design, coverage rules, the deferred shadow repository, and rejected alternatives.
+- [historical Turn changed-files card decision](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-09-11-turn-changed-files-card.md) — snapshot design, coverage rules, the deferred shadow repository, and rejected alternatives.
 
 <a id="model-experience"></a>
 ## Model Experience

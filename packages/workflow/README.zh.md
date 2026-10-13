@@ -38,7 +38,7 @@ workflow 组让 agent（智能体）可以运行编排脚本，将工作委派�
 - [生成的工具目录](../../docs/tool-catalog.zh.md#deepseek-aidsh-tool-workflow)——模型接收的 `workflow` 工具 schema。
 - [生成的工具目录](../../docs/tool-catalog.zh.md#deepseek-aidsh-tool-ralph)——模型接收的 `ralph` 工具 schema。
 - [生成的配置目录](../../docs/config-catalog.zh.md#deepseek-aidsh-workflow-ptc)——每个受支持的引擎配置字段。
-- [历史动态工作流 Agent Note](../../.agents/notes/archived/feature/2026-07-05-dynamic-workflows.md)——seam 设计及其决策。
+- [历史动态工作流 Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-05-dynamic-workflows.md)——seam 设计及其决策。
 - [Harness 层目标式执行 参考](tool-ralph/README.zh.md)——固定全新 agent 循环的设计与暂缓事项。
 
 -----

@@ -32,4 +32,4 @@
 
 ## 开发备注
 
-[已归档的运行器决策](../../.agents/notes/archived/process/2026-09-06-preview-hosted-runner-sizing.md) 记录测量、成本估算及镜像/CPU 差异。仅构建实验不验证生产部署。
+[已归档的运行器决策](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/process/2026-09-06-preview-hosted-runner-sizing.md) 记录测量、成本估算及镜像/CPU 差异。仅构建实验不验证生产部署。

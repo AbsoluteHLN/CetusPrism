@@ -112,7 +112,7 @@ The ladder is a closed table — `read-only` may escalate to `workspace-write` o
 Start with the subsystem reference for the exhaustive contract, then the backends, consumers, and policy source that realize it.
 
 - [Process sandbox subsystem](../../../docs/subsystems/sandbox.md) — the complete vocabulary, per-call policy, and classification dialects.
-- [The historical subprocess sandbox decision](../../../.agents/notes/archived/feature/2026-07-06-sandbox.md) — capability boundary, escalation design, and deferred phases.
+- [The historical subprocess sandbox decision](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-06-sandbox.md) — capability boundary, escalation design, and deferred phases.
 - [Local sandbox backends](../sandbox-local/README.md) — the per-platform runners behind `ctx.sandbox`.
 - [Bash sandbox executor](../../shell/bash-sandbox/README.md) — the confined bash consumer.
 - [Sandbox policy package](../sandbox-policy/README.md) — where the per-call mode and workspace root come from.

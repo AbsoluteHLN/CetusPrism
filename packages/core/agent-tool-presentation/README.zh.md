@@ -85,7 +85,7 @@ kind: "package-reference"
 - [tools 包](../tools/README.zh.md)——工具呈现模式与 `presentAs` API。
 - [agent-presets 包](../../preset/agent-preset-registry/README.zh.md)——preset 如何组合 agent 及其常驻挂载。
 - [Node ptc-runtime 包](../../ptc-runtime/ptc-runtime-node/README.zh.md)——PTC 模式所需的 TypeScript 运行时。
-- [历史PTC mode 执行器塌缩 note](../../../.agents/notes/archived/bug-fix/2026-08-07-ptc-executor-collapse.md)——通告面与可调用面为何保持一致。
+- [历史PTC mode 执行器塌缩 note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/bug-fix/2026-08-07-ptc-executor-collapse.md)——通告面与可调用面为何保持一致。
 - [core 分组地图](../README.zh.md)——core 各包如何组合。
 
 -----

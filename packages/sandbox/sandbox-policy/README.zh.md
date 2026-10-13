@@ -97,7 +97,7 @@ kind: "package-reference"
 
 - [进程沙箱子系统](../../../docs/subsystems/sandbox.zh.md)——模式、逐调用策略与强制执行语义。
 - [沙箱 seam 包](../sandbox/README.zh.md)——每个强制执行能力实现的隔离约定。
-- [历史跨家族文件沙箱决策](../../../.agents/notes/archived/feature/2026-07-14-cross-family-fs-sandbox.md)——为何存在统一的共享策略归属位置。
+- [历史跨家族文件沙箱决策](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-14-cross-family-fs-sandbox.md)——为何存在统一的共享策略归属位置。
 
 -----
 
@@ -147,7 +147,7 @@ Current DSH file policy: danger-full-access. The DSH file sandbox does not restr
 - **仅限文件操作模式**——`SandboxMode` 管控文件操作；网络和进程策略不在其词汇中，因此这里没有限制它们的旋钮。
 - **有意概述临时区域**——强制执行后端会授予不同的平台临时区域，这些区域在策略解析后才会选定，因此无法在当前上下文中如实枚举。
 
-替换策略上下文时，必须使用先遭拒绝、再可申请升权的任务做反向验证，确认模型仍会尝试初次工具调用。[历史上十二轮中五轮没有工具调用的测量](../../../.agents/notes/archived/feature/2026-07-06-sandbox.md)记录了这项检查要防止的失败。
+替换策略上下文时，必须使用先遭拒绝、再可申请升权的任务做反向验证，确认模型仍会尝试初次工具调用。[历史上十二轮中五轮没有工具调用的测量](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-06-sandbox.md)记录了这项检查要防止的失败。
 
 <a id="dev-note"></a>
 ### 开发备注

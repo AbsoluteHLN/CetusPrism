@@ -4,5 +4,5 @@
 
 | 原路径 | 归档日期 | 后继 |
 |---|---|---|
-| `交接总结-2026-09-24.md` | 2026-09-25 | Tauri 壳替换待办已全部消化；现行事实见 `dev-docs/cetusprism-build-layout.md`、`DEPENDENCIES.md`、`verify-evidence/` |
-| `builtin-agent-protocol-v1.7.0-beta.1.zh.md` | 2026-10-12 | 已由 `e18f97b1`、`711816ef` 实现落入 `packages/preset/agent-preset-registry`（`builtin-agent.ts`）；现行事实见该包代码与单测 |
+| `交接总结-2026-09-24.md` | 2026-09-25 | 现行构建说明见 [开发指南](../../docs/development.md)；本地验证记录集中于 `dev-docs/evidence/` |
+| `builtin-agent-protocol-v1.7.0-beta.1.zh.md` | 2026-10-12 | v1 协议实现位于 [agent-preset-registry](../../packages/preset/agent-preset-registry/README.md)；现行事实见该包代码与单测 |

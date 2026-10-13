@@ -36,4 +36,4 @@ The [DSH unified corner-radius standard](ui-radius.md) defines the radius scale,
 
 ## Changing the system
 
-Add or change a shared token in the owning `ui-theme` sheet, then consume its semantic alias from feature packages. Update the owning package reference when a public styling contract changes. Visual behavior follows the [testing policy](testing.md); the [archived styling-system Agent Note](../.agents/notes/archived/process/2026-07-19-web-styling-system.md) records framework rationale.
+Add or change a shared token in the owning `ui-theme` sheet, then consume its semantic alias from feature packages. Update the owning package reference when a public styling contract changes. Visual behavior follows the [testing policy](testing.md); the [archived styling-system Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/process/2026-07-19-web-styling-system.md) records framework rationale.

@@ -102,7 +102,7 @@ These pages cover the layout presenter, the token consumers, and the styling rul
 - [ui-sidebar](../ui-sidebar/README.md) — a consumer of the scrollbar rebinding contract.
 - [ui-conversation](../ui-conversation/README.md) — a consumer of `--dsh-scrollbar-width` for the composer seat.
 - [Web styling](../../../docs/web-styling.md) — the authoritative styling rules for web client components.
-- [historical Host-backed preferences](../../../.agents/notes/archived/bug-fix/2026-08-06-host-backed-web-preferences.md) — the persistence boundary decision.
+- [historical Host-backed preferences](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/bug-fix/2026-08-06-host-backed-web-preferences.md) — the persistence boundary decision.
 
 -----
 

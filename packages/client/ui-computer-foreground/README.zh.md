@@ -20,7 +20,7 @@ kind: "package-reference"
 
 -----
 
-<a id="注册内容"></a>
+<a id="what-it-registers"></a>
 ## 注册内容
 
 - **座位** — 输入区工具行中会话级单座槽位 `conversation.input.computerDelivery`，由 [DeliveryToggle](src/client/DeliveryToggle.tsx) 组件占用，文案命名空间为 `computerForeground`。
@@ -28,14 +28,14 @@ kind: "package-reference"
 
 `src/client/` 下的源文件：`DeliveryToggle.tsx` 及其 CSS module（画什么）、`locales.ts`（说什么）、`index.ts`（接线）。
 
-<a id="开关行为"></a>
+<a id="the-toggle"></a>
 ## 开关行为
 
 芯片读取会话的 `computerDelivery` 投影视图，由[前台策略服务](../../computer-use/computer-use-policy/README.zh.md)产出；键缺失说明宿主未装配策略服务，芯片不渲染。可见标签描述当前状态（`允许抢前台` / `禁止抢前台`），`aria-pressed` 标记受限状态。点击经 `/foreground` 命令提交另一模式——与斜杠命令共用同一条写路径，推送的投影帧即唯一确认。提交失败会解除等待锁并保留当前显示状态，投影帧本就会纠正它。
 
 输入区锁定（回合进行中或会话不可用）时芯片禁用，与权限控件一致。
 
-<a id="模型体验"></a>
+<a id="model-experience"></a>
 ## 模型体验
 
 无：本包在浏览器中绘制控件，不注册任何面向模型的内容。执行侧——每次工具调用读取策略——属于提供方包。
@@ -44,6 +44,7 @@ kind: "package-reference"
 
 无；开关只读会话投影、提交会话命令。
 
+<a id="known-limitations-and-deferred-work"></a>
 ## 已知限制与延期工作
 
 - 芯片只覆盖当前会话；新会话从策略服务的装配默认值出发。

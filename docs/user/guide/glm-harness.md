@@ -6,7 +6,7 @@ This opt-in headless composition combines an explicitly configured GLM gateway w
 
 ## Configure and run
 
-Use a third-party gateway that accepts OpenAI chat completions, `reasoning_effort` values `low`, `high`, and `max`, and assistant `reasoning_content` in tool history. Set `CETUS_GLM_BASE_URL`, `CETUS_GLM_MODEL`, `CETUS_GLM_CONTEXT_WINDOW`, and `CETUS_GLM_MAX_TOKENS` to the exact endpoint, model id, and documented capacities. The configuration does not infer capabilities from a model name. Adapt its explicit compatibility fields when the gateway implements a different dialect.
+Use a third-party gateway that accepts OpenAI chat completions, `reasoning_effort` values `low`, `high`, and `max`, and assistant `reasoning_content` in tool history. Replace `baseURL` in the overlay with the gateway's documented endpoint; the shipped `.invalid` address is a placeholder. Set `CETUS_GLM_MODEL`, `CETUS_GLM_CONTEXT_WINDOW`, and `CETUS_GLM_MAX_TOKENS` to the exact model id and documented capacities. The configuration does not infer capabilities from a model name. Adapt its explicit compatibility fields when the gateway implements a different dialect.
 
 Supply `CETUS_GLM_API_KEY` through the existing credential service or the launch environment. The overlay stores the reference name only. It does not read or synchronize ZCode credentials, configuration, accounts, or runtime files.
 

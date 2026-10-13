@@ -117,7 +117,7 @@ Read these pages when the package-level contract is not enough. They move from t
 - [Bash executor subsystem](../../../docs/subsystems/shell.md) — request/spec vocabulary, results, and background processes.
 - [shell-env](../shell-env/README.md) — the managed `DSH_*` environment every call receives.
 - [tool-jobs](../../jobs/tool-jobs/README.md) — `job_output`, `job_list`, and `job_kill` controls for background runs.
-- [historical sandbox Agent Note](../../../.agents/notes/archived/feature/2026-07-06-sandbox.md) — escalation and mode-switching rationale.
+- [historical sandbox Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-06-sandbox.md) — escalation and mode-switching rationale.
 - [Generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tool-bash) — the exact `bash` argument schema.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-tool-bash) — every accepted config field and its source declaration.
 

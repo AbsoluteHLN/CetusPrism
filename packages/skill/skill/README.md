@@ -114,7 +114,7 @@ Read these pages when the package-level contract is not enough. They move from t
 - [skill-filesystem package](../skill-filesystem/README.md) — the shipped local provider that discovers skills from disk.
 - [tool-skill package](../tool-skill/README.md) — the consumer that renders the session catalog and the `skill` tool.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-skill) — every config field and its source declaration.
-- [historical Skill invocation policy Agent Note](../../../.agents/notes/archived/feature/2026-07-28-skill-invocation-policy.md) — the rationale for the model and user invocation controls.
+- [historical Skill invocation policy Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-28-skill-invocation-policy.md) — the rationale for the model and user invocation controls.
 
 -----
 

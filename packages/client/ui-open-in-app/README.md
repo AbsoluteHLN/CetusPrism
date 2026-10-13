@@ -90,6 +90,6 @@ The Host verifies the path through the composed filesystem before opening or rev
 <details>
 <summary>Working context for maintainers — click to expand</summary>
 
-The feature-level decisions, including the split into the host package and this surface, are recorded in the [historical promotion Agent Note](../../../.agents/notes/archived/feature/2026-08-25-promote-open-anywhere-plugin.md); the document preview's file controls are recorded in the [historical default-application Agent Note](../../../.agents/notes/archived/feature/2026-09-16-open-in-default-app-for-sidebar-files.md).
+The feature-level decisions, including the split into the host package and this surface, are recorded in the [historical promotion Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-08-25-promote-open-anywhere-plugin.md); the document preview's file controls are recorded in the [historical default-application Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-09-16-open-in-default-app-for-sidebar-files.md).
 
 </details>

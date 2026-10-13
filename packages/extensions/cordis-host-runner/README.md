@@ -105,7 +105,7 @@ Read these pages when the package-level contract is not enough. They move from t
 - [UI package](../ui-cordis/README.md) — the panel users approve and operate runs with.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-cordis-host-runner) — every accepted config field.
 - [Extensions subsystem](../../../docs/subsystems/extensions.md) — the generated `ctx.cordisInspect` and `ctx.dynamicCordisRunner` API and `cordis/*` events.
-- [historical Self-referential Cordis toolset Agent Note](../../../.agents/notes/archived/feature/2026-07-08-self-referential-cordis-toolset.md) — sandbox semantics, lifecycle, and composition rationale.
+- [historical Self-referential Cordis toolset Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-08-self-referential-cordis-toolset.md) — sandbox semantics, lifecycle, and composition rationale.
 
 -----
 

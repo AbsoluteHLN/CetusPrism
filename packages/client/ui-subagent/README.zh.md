@@ -83,7 +83,7 @@ one-shot child 始终选用只读编辑器。可继续 child 仅在其确切 par
 - [ui-conversation](../ui-conversation/README.zh.md)——承载页头操作与编辑器链的聊天界面。
 - [ui-input-trigger](../ui-input-trigger/README.zh.md)——承载 `@` source 的建议机制。
 - [subagent](../../subagent/subagent/README.zh.md)——可继续 child 背后的宿主能力 seam。
-- [历史Web subagent 对话](../../../.agents/notes/archived/feature/2026-07-27-web-subagent-conversations.md)——目录与编辑器规范。
+- [历史Web subagent 对话](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-27-web-subagent-conversations.md)——目录与编辑器规范。
 - [当前轮次中断](../../subagent/subagent/README.zh.md)——独立 Stop 的语义。
 
 -----

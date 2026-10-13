@@ -114,7 +114,7 @@ Skill 摘要保留胜出提供方可选的指令文件 `path`，供提供文件�
 - [skill-filesystem 包](../skill-filesystem/README.zh.md)——从磁盘发现 skill 的随附本地提供方。
 - [tool-skill 包](../tool-skill/README.zh.md)——渲染会话目录与 `skill` 工具的消费方。
 - [生成配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-skill)——每个配置字段及其源声明。
-- [历史skill 调用策略 Agent Note](../../../.agents/notes/archived/feature/2026-07-28-skill-invocation-policy.md)——模型与用户调用控制的依据。
+- [历史skill 调用策略 Agent Note](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-07-28-skill-invocation-policy.md)——模型与用户调用控制的依据。
 
 -----
 

@@ -6,7 +6,7 @@
 
 ## 配置与运行
 
-使用支持 OpenAI chat completions、`low`、`high`、`max` 三档 `reasoning_effort` 和工具历史中助手 `reasoning_content` 的第三方网关。将 `CETUS_GLM_BASE_URL`、`CETUS_GLM_MODEL`、`CETUS_GLM_CONTEXT_WINDOW`、`CETUS_GLM_MAX_TOKENS` 设为准确的端点、模型标识和端点文档给出的容量。配置不会根据模型名称推测能力。网关采用其他参数格式时，应调整显式兼容字段。
+使用支持 OpenAI chat completions、`low`、`high`、`max` 三档 `reasoning_effort` 和工具历史中助手 `reasoning_content` 的第三方网关。将覆盖配置中的 `baseURL` 改为网关文档给出的端点；示例中的 `.invalid` 地址是占位地址。将 `CETUS_GLM_MODEL`、`CETUS_GLM_CONTEXT_WINDOW`、`CETUS_GLM_MAX_TOKENS` 设为准确的模型标识和端点文档给出的容量。配置不会根据模型名称推测能力。网关采用其他参数格式时，应调整显式兼容字段。
 
 通过现有凭据服务或启动环境提供 `CETUS_GLM_API_KEY`。覆盖配置只保存引用名称，不读取或同步 ZCode 的凭据、配置、账号或运行时文件。
 

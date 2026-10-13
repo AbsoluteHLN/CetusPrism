@@ -118,7 +118,7 @@ Read these pages when the package-level contract is not enough; they move from t
 - [Generated tool catalog](../../../docs/tool-catalog.md#deepseek-aidsh-tool-subagent) — the default schema and per-mode wording.
 - [Generated configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-tool-subagent) — every accepted config field.
 - [Background-first continuable delegation](../../../.agents/notes/archived/feature/2026-08-11-background-first-continuable-delegation.md) — why continuable work defaults to background.
-- [historical Model-selected subagent routes](../../../.agents/notes/archived/feature/2026-08-18-model-selected-subagent-routes.md) — selection policy, inheritance, discovery, and the fork restriction.
+- [historical Model-selected subagent routes](https://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/.agents/notes/archived/feature/2026-08-18-model-selected-subagent-routes.md) — selection policy, inheritance, discovery, and the fork restriction.
 
 -----
 

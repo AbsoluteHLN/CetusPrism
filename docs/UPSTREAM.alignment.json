@@ -1,17 +1,20 @@
 {
   "repository": "https://github.com/deepseek-ai/deepseek-harness",
   "license": "MIT",
-  "upstreamVersion": "0.1.7-rc.2",
-  "productVersion": "1.5.8",
-  "alignmentPolicy": "Record upstream separately; do not replace product version with upstream version.",
-  "lastVerifiedCommit": "477b4f420553e8a52c2fbccc464d7561b239c443",
+  "upstreamVersion": "0.2.1-alpha.2",
+  "upstreamTag": "dsh-v0.2.1-alpha.2",
+  "productVersion": "1.7.0-beta.3",
+  "workspacePackageVersion": "0.2.1-alpha.1",
+  "verifiedOn": "2026-10-13",
+  "integrationStatus": "reviewed-not-merged",
+  "alignmentPolicy": "Record upstream separately; do not replace product or workspace versions with the reviewed upstream version.",
   "notes": {
-    "baseline": "This distribution was built from the dsh-v0.1.7-rc.1 sources (commit ca58174).",
-    "verified": "On 2026-09-28 the dsh-v0.1.7-rc.2 sources (commit 477b4f420553e8a52c2fbccc464d7561b239c443) were downloaded and reviewed against this tree.",
-    "mergeDecision": "rc.2 is not merged in this release. The upstream delta is large (scheduled tasks/reminders, desktop onboarding, keyboard shortcuts, dynamic tool additions, and roughly 2,850 changed files), while this distribution carries extensive local modifications across the same client packages. Merging requires a deliberate rebase of those customizations onto rc.2, tracked as follow-up work; this file records the verified upstream state, not a merged state.",
+    "baseline": "The prior alignment record identified dsh-v0.1.7-rc.1 as the initial distribution baseline; the current shallow checkout does not establish a merge base with the reviewed upstream.",
+    "verified": "The official repository and peeled release tag were fetched and checked independently of the CetusPrism main branch on 2026-10-13.",
+    "mergeDecision": "No upstream merge is recorded. Selected native composition and integration changes preserve the existing Agent, Session and LLM APIs; reviewing the latest upstream does not imply all upstream changes are incorporated.",
+    "historyPolicy": "Keep current local API and persistence contracts. Missing historical Agent Note citations use verified files at the fixed upstream release tag; frozen archives are not rewritten or restored wholesale.",
     "referenceSources": {
-      "upstreamV0_1_7_rc1": "temp/upstream/dsh-v0.1.7-rc.1.tar.gz",
-      "upstreamV0_1_7_rc2": "temp/upstream/dsh-v0.1.7-rc.2.tar.gz"
+      "reviewedRelease": "https://github.com/deepseek-ai/deepseek-harness/tree/dsh-v0.2.1-alpha.2"
     }
   }
 }

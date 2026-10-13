@@ -1,12 +1,87 @@
-import { mkdtempSync, rmSync, symlinkSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { findConcreteTermViolations, readTrackedSource } from './verify-concrete-terms.ts'
+import { findConcreteTermViolations, readTrackedSource, scanRepository } from './verify-concrete-terms.ts'
 
 const blockedTerm = 'prove' + 'nance'
 
 describe('concrete terminology policy', () => {
+  function createTrackedRepository(files: Record<string, string>): string {
+    const repoRoot = mkdtempSync(join(tmpdir(), 'dsh-concrete-terms-repository-'))
+    for (const [file, source] of Object.entries(files)) {
+      const path = join(repoRoot, file)
+      mkdirSync(dirname(path), { recursive: true })
+      writeFileSync(path, source)
+    }
+    execFileSync('git', ['init'], { cwd: repoRoot, stdio: 'ignore' })
+    execFileSync('git', ['add', '--all'], { cwd: repoRoot, stdio: 'ignore' })
+    return repoRoot
+  }
+
+  const requiredFiles = {
+    'AGENTS.md': 'repository instructions',
+    'packages/example/src/source.ts': 'export const origin = "source-event";',
+    'docs/source.md': 'source-event references.',
+    'vendor/source.ts': 'source-event references.',
+  } as const
+
+  it('accepts a valid fork without a frozen-note area', () => {
+    const repoRoot = createTrackedRepository(requiredFiles)
+    try {
+      expect(scanRepository(repoRoot)).toEqual([])
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('scans an optional frozen historical area without adding a required area', () => {
+    const repoRoot = createTrackedRepository({
+      ...requiredFiles,
+      [`.agents/notes/archived/process/${blockedTerm}.md`]: blockedTerm,
+    })
+    try {
+      expect(scanRepository(repoRoot)).toEqual([])
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects a maintained violation in a fork without a frozen historical area', () => {
+    const repositoryFiles = {
+      ...requiredFiles,
+      '.agents/notes/implemented/process/current.md': blockedTerm,
+    }
+    const repoRoot = createTrackedRepository(repositoryFiles)
+    try {
+      expect(scanRepository(repoRoot)).toEqual([{
+        file: '.agents/notes/implemented/process/current.md',
+        line: 1,
+      }])
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true })
+    }
+  })
+
+  it.each([
+    'AGENTS.md',
+    'packages/example/src/source.ts',
+    'docs/source.md',
+    'vendor/source.ts',
+  ])('rejects discovery when %s is absent', (requiredFile) => {
+    const repoRoot = createTrackedRepository(requiredFiles)
+    try {
+      rmSync(join(repoRoot, requiredFile))
+      execFileSync('git', ['add', '--all'], { cwd: repoRoot, stdio: 'ignore' })
+      expect(() => scanRepository(repoRoot)).toThrow(
+        'verify-concrete-terms: tracked-file discovery omitted a required repository area',
+      )
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true })
+    }
+  })
+
   it('rejects case variants in paths, prose, and identifiers', () => {
     expect(findConcreteTermViolations(`docs/${blockedTerm}-notes.md`, [
       'origin metadata',

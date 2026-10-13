@@ -1,6 +1,6 @@
 /** Exercises the opt-in GLM composition through the supported CLI and a local wire endpoint. */
 import { createServer } from 'node:http'
-import { readFile, readdir } from 'node:fs/promises'
+import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { LOADER_SMOKE_TEST_TIMEOUT_MS, resolveExampleMode, runLoaderSmoke } from '@deepseek-ai/dsh-loader-smoke'
@@ -49,12 +49,18 @@ it('keeps explicit GLM reasoning, tool history, and coding guidance in a real he
       mode: resolveExampleMode(),
       sourceImport: 'tsx/esm',
       configPath: overlay,
-      binArgs: ['--profile', 'headless', '--patch', overlay, '--plain', 'Record a completed inspection task and report.'],
+      binArgs: ['--profile', 'headless', '--patch', 'glm.cordis.yml', '--plain', 'Record a completed inspection task and report.'],
       tempDirPrefix: 'cetus-glm-smoke-',
+      prepare: async (cwd) => {
+        const source = await readFile(overlay, 'utf8')
+        expect(source).toContain('https://your-glm-gateway.invalid/v1')
+        await writeFile(join(cwd, 'glm.cordis.yml'), source.replace(
+          'https://your-glm-gateway.invalid/v1', `http://127.0.0.1:${address.port}/v1`,
+        ))
+      },
       env: {
         DSH_TELEMETRY_DISABLED: '1',
         DSH_PERMISSION_MODE: 'danger-full-access',
-        CETUS_GLM_BASE_URL: `http://127.0.0.1:${address.port}/v1`,
         CETUS_GLM_API_KEY: 'local-fixture-key',
         CETUS_GLM_MODEL: 'gateway-glm',
         CETUS_GLM_CONTEXT_WINDOW: '200000',
@@ -108,7 +114,6 @@ it('rejects an invalid gateway token capacity while loading the composition', as
     expectedExitCode: 1,
     env: {
       DSH_TELEMETRY_DISABLED: '1',
-      CETUS_GLM_BASE_URL: 'http://127.0.0.1:1/v1',
       CETUS_GLM_API_KEY: 'local-fixture-key',
       CETUS_GLM_MODEL: 'gateway-glm',
       CETUS_GLM_CONTEXT_WINDOW: '200000',

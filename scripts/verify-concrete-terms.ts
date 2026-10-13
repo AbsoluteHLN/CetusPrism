@@ -55,8 +55,7 @@ function trackedFiles(repoRoot: string): string[] {
   if (!files.includes('AGENTS.md')
     || !files.some(file => file.startsWith('packages/'))
     || !files.some(file => file.startsWith('docs/'))
-    || !files.some(file => file.startsWith('vendor/'))
-    || !files.some(file => file.startsWith('.agents/notes/archived/'))) {
+    || !files.some(file => file.startsWith('vendor/'))) {
     throw new Error('verify-concrete-terms: tracked-file discovery omitted a required repository area')
   }
   return files
@@ -76,7 +75,12 @@ export function readTrackedSource(repoRoot: string, file: string): string | unde
   return stat.isFile() ? readFileSync(path, 'utf8') : undefined
 }
 
-function scanRepository(repoRoot: string): ConcreteTermViolation[] {
+/**
+ * Scan all tracked files in one repository for blocked term violations.
+ * @param repoRoot - Repository root containing the tracked paths.
+ * @returns Violations, with repository-relative paths and one-based source lines.
+ */
+export function scanRepository(repoRoot: string): ConcreteTermViolation[] {
   const violations: ConcreteTermViolation[] = []
   for (const file of trackedFiles(repoRoot)) {
     const source = readTrackedSource(repoRoot, file)

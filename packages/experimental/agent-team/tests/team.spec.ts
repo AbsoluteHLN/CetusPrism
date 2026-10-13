@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Context } from '@deepseek-ai/cordis'
+import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
@@ -141,8 +142,8 @@ describe('Team identity and provisioning', () => {
   it('keeps an omitted default absent and rejects incomplete routes at configuration parsing', () => {
     expect(TeamService.Config({}).defaultModel).toBeUndefined()
     for (const route of [{ provider: 'mock' }, { model: 'mock' }, {}]) {
-      expect(() => TeamService.Config({ allowedModels: [route] })).toThrow()
-      expect(() => TeamService.Config({ defaultModel: route })).toThrow()
+      expect(() => z.resolve({ allowedModels: [route] }, TeamService.Config, {})).toThrow()
+      expect(() => z.resolve({ defaultModel: route }, TeamService.Config, {})).toThrow()
     }
   })
 

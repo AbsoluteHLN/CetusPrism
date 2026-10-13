@@ -6,7 +6,6 @@
     "strict": true,
     "composite": true,
     "noEmit": true,
-    "baseUrl": ".",
     "allowImportingTsExtensions": true,
     "ignoreDeprecations": "6.0",
     "types": ["node"],

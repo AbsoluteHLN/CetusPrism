@@ -91,7 +91,11 @@ function parseDeclaration(value: unknown): BuiltinAgentDeclaration {
   }
 }
 
-/** Validate and normalize a protocol document from a file or caller. */
+/**
+ * Validate and normalize a protocol document from a file or caller.
+ * @param value - untrusted public configuration document.
+ * @returns the validated public fields.
+ */
 export function validateBuiltinAgentConfig(value: unknown): BuiltinAgentConfig {
   if (!isRecord(value) || value.schemaVersion !== 1 || value.release !== BUILTIN_AGENT_RELEASE) {
     throw new BuiltinAgentConfigError(`expected schemaVersion 1 and release ${BUILTIN_AGENT_RELEASE}`)
@@ -118,18 +122,25 @@ function encode(config: BuiltinAgentConfig): string {
 
 /** File-backed configuration with validation, atomic commits, and one-step rollback. */
 export class BuiltinAgentConfigStore {
+  /** Location of the previous valid configuration generation. */
   readonly backupPath: string
 
   constructor(readonly configPath: string) {
     this.backupPath = `${configPath}.bak`
   }
 
-  /** Return the first-install default, beside the configuration file. */
+  /**
+   * Return the first-install default, beside the configuration file.
+   * @returns an empty configuration without creating files.
+   */
   defaultConfig(): BuiltinAgentConfig {
     return { schemaVersion: 1, release: BUILTIN_AGENT_RELEASE, installDirectory: dirname(this.configPath), agents: [] }
   }
 
-  /** Read the current valid configuration, falling back to the last committed copy. */
+  /**
+   * Read the current valid configuration, falling back to the last committed copy.
+   * @returns the current or recoverable previous configuration.
+   */
   async load(): Promise<BuiltinAgentConfig> {
     try {
       return validateBuiltinAgentConfig(JSON.parse(await readFile(this.configPath, 'utf8')))
@@ -145,7 +156,11 @@ export class BuiltinAgentConfigStore {
     }
   }
 
-  /** Atomically save a validated configuration and retain the previous copy for rollback. */
+  /**
+   * Atomically save a validated configuration and retain the previous copy for rollback.
+   * @param input - public directory and agent declarations to save.
+   * @returns the committed configuration.
+   */
   async save(input: BuiltinAgentConfigInput): Promise<BuiltinAgentConfig> {
     const next = validateBuiltinAgentConfig({ ...input, schemaVersion: 1, release: BUILTIN_AGENT_RELEASE })
     await mkdir(dirname(this.configPath), { recursive: true, mode: 0o700 })
@@ -161,7 +176,10 @@ export class BuiltinAgentConfigStore {
     return next
   }
 
-  /** Restore the previous valid configuration and keep the current one as the next rollback point. */
+  /**
+   * Restore the previous valid configuration and keep the current one as the next rollback point.
+   * @returns the restored configuration.
+   */
   async rollback(): Promise<BuiltinAgentConfig> {
     return await withFileLock(this.configPath, async () => {
       const previous = validateBuiltinAgentConfig(JSON.parse(await readFile(this.backupPath, 'utf8')))
@@ -177,12 +195,20 @@ export class BuiltinAgentConfigStore {
   }
 }
 
-/** Build a declaration without accepting driver-private configuration. */
+/**
+ * Build a declaration without accepting driver-private configuration.
+ * @param input - public driver metadata and enabled state.
+ * @returns the validated declaration.
+ */
 export function defineBuiltinAgent(input: Omit<BuiltinAgentDeclaration, 'id'> & { id: string }): BuiltinAgentDeclaration {
   return parseDeclaration(input)
 }
 
-/** Default location for a first-install agent directory. */
+/**
+ * Default location for a first-install agent directory.
+ * @param configPath - location of the public configuration file.
+ * @returns its containing directory.
+ */
 export function defaultBuiltinAgentDirectory(configPath: string): string {
   return dirname(configPath)
 }

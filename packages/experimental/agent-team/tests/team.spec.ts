@@ -138,6 +138,14 @@ async function waitRunning(ctx: Context, id: SessionId): Promise<Agent> {
 }
 
 describe('Team identity and provisioning', () => {
+  it('keeps an omitted default absent and rejects incomplete routes at configuration parsing', () => {
+    expect(TeamService.Config({}).defaultModel).toBeUndefined()
+    for (const route of [{ provider: 'mock' }, { model: 'mock' }, {}]) {
+      expect(() => TeamService.Config({ allowedModels: [route] })).toThrow()
+      expect(() => TeamService.Config({ defaultModel: route })).toThrow()
+    }
+  })
+
   it('rejects missing and failed authoritative Team projections', async () => {
     const first = await setup([])
     const journal = teamInternals(first.ctx).journal
@@ -166,6 +174,47 @@ describe('Team identity and provisioning', () => {
         await expect(setup([], { [field]: value })).rejects.toThrow()
       }
     }
+  })
+
+  it('rejects invalid model routes and defaults outside a non-empty allowlist', async () => {
+    const invalidConfigs: ConstructorParameters<typeof TeamService>[1][] = [
+      { allowedModels: [{ provider: ' ', model: 'mock' }] },
+      { allowedModels: [{ provider: 'mock', model: ' ' }] },
+      { defaultModel: { provider: ' ', model: 'mock' } },
+      { defaultModel: { provider: 'mock', model: ' ' } },
+      {
+        allowedModels: [
+          { provider: 'mock', model: 'allowed-model' },
+          { provider: 'mock', model: ' ' },
+        ],
+      },
+      {
+        allowedModels: [{ provider: 'mock', model: 'allowed-model' }],
+        defaultModel: { provider: 'mock', model: 'other-model' },
+      },
+    ]
+    for (const config of invalidConfigs) {
+      await expect(setup([], config)).rejects.toMatchObject({ code: 'TEAM_INVALID_CONFIG' })
+    }
+  })
+
+  it('preserves valid configured route normalization', async () => {
+    const { ctx, lead } = await setup([], {
+      allowedModels: [],
+      defaultModel: { provider: ' mock ', model: ' selected-model ' },
+    })
+    const selected = await ctx.agentTeams.spawnTeammate(lead, {
+      name: 'normalized-route',
+      description: 'configured route normalization',
+      prompt: content('normalized route'),
+      context: 'fresh',
+      provider: 'spawn',
+      signal: SIGNAL,
+    })
+
+    expect(selected.member.model).toBe('selected-model')
+    expect(durable(lead).members.find(member => member.id === selected.member.id)?.model)
+      .toBe('selected-model')
   })
 
   it('supports direct-constructor defaults and recovers roots that already exist', async () => {

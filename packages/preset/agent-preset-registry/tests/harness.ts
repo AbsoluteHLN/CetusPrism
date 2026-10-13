@@ -16,7 +16,7 @@ export const liveRegistries = new WeakMap<Context, Awaited<ReturnType<typeof liv
 
 export const plugin = (name: string): string => new URL(`./fixtures/plugins/${name}.js`, import.meta.url).href
 export const contribution = (tool: string): PresetDefinition => ({ id: tool, plugins: [{ name: plugin('contribute'), config: { tool } }] })
-export async function harness(options: { live?: boolean } = {}): Promise<Context> {
+export async function harness(options: { live?: boolean, presets?: boolean } = {}): Promise<Context> {
   const ctx = new Context()
   ctx.baseUrl = new URL('./fixtures/', import.meta.url).href
   await ctx.plugin(Loader)
@@ -29,7 +29,7 @@ export async function harness(options: { live?: boolean } = {}): Promise<Context
   await ctx.plugin(AgentRegistry)
   await ctx.plugin(AgentLoop, { agents: [] })
   if (options.live) liveRegistries.set(ctx, await liveConfig(ctx, AgentPresets, { default: 'standard' }))
-  else await ctx.plugin(AgentPresets, { default: 'standard' })
+  else if (options.presets !== false) await ctx.plugin(AgentPresets, { default: 'standard' })
   return ctx
 }
 export async function declare(ctx: Context, config: PresetDefinition) {

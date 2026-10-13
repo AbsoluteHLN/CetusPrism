@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 The built-in agent protocol is introduced in v1.7.0-beta.1 through the exported `BuiltinAgentConfigStore` and validation helpers. It persists enabled declarations and a configurable install directory with atomic replacement and one-step rollback. Declarations carry only public driver metadata; credentials, runtime paths, and driver-private configuration are rejected. The design and compatibility record lives in [`dev-docs/archive/2026-10-11-builtin-agent-protocol-v1.7.0-beta.1.zh.md`](../../../dev-docs/archive/2026-10-11-builtin-agent-protocol-v1.7.0-beta.1.zh.md).
 
+`resolveBuiltinAgent` and `prepareBuiltinAgent` provide a native, single-use lifecycle over `ctx.agents`. The caller supplies the provider/model route and may request a preset; a requested preset requires a mounted registry. Execution returns the Session events and turn endings observed until the whole Agent is idle, including errors and cancellation. It does not attribute those events to one message or equate idleness with success. Always dispose the prepared handle. Disabled declarations, external drivers, protocol mismatches, and application-version ranges that cannot be evaluated are rejected before creation. The [GLM composition guide](../../../docs/user/guide/glm-harness.md) describes a separate opt-in native strategy; no settings UI automatically invokes this helper.
+
 ## Summary
 
 Choose an Agent’s tools, prompt sections and skills through declarative presets. One process can run several compositions. Failed definitions remain visible, while existing Agents retain the composition they already use.

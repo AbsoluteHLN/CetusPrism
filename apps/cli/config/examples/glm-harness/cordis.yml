@@ -1,0 +1,45 @@
+# Opt-in headless composition. See docs/user/guide/glm-harness.md before selecting a gateway.
+# ZCode-inspired behavior, implemented with native Harness plugins; no ZCode runtime.
+- id: llm-pi-ai
+  config:
+    providers:
+      glm-harness:
+        displayName: GLM Harness
+        api: openai-completions
+        baseURL: !!js process.env.CETUS_GLM_BASE_URL
+        apiKeyEnv: CETUS_GLM_API_KEY
+        reasoning: high
+        compat:
+          thinkingFormat: openai
+          supportsReasoningEffort: true
+          supportsDeveloperRole: false
+          requiresReasoningContentOnAssistantMessages: true
+          maxTokensField: max_tokens
+        models:
+          - id: !!js process.env.CETUS_GLM_MODEL
+            input: [text]
+            contextWindow: !!js Number(process.env.CETUS_GLM_CONTEXT_WINDOW)
+            maxTokens: !!js Number(process.env.CETUS_GLM_MAX_TOKENS)
+            reasoningEfforts:
+              low: low
+              high: high
+              max: max
+        retryPolicy:
+          mode: normal
+          maxRetries: 2
+
+- id: agent-default-model
+  config:
+    provider: glm-harness
+    model: !!js process.env.CETUS_GLM_MODEL
+    reasoningEffort: high
+
+- id: system-prompt
+  config:
+    personaPrefix: |-
+      You are a coding agent. Inspect the relevant files and repository instructions before changing code.
+      Keep edits focused on the requested outcome and follow the surrounding project's conventions.
+      For multi-step work, track tasks with the available planning tools. Resume from recorded progress after context compaction.
+      Use tool results, file contents, and test outcomes as completion evidence. A successful command does not by itself establish that the requested behavior works.
+      Report completed work, failed checks, unverified requirements, and blockers separately. Do not claim tests ran when they did not.
+    personaSuffix: Your working directory is {{cwd}}.

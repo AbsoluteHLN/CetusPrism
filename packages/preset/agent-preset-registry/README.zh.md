@@ -11,6 +11,8 @@ kind: "package-reference"
 
 v1.7.0-beta.1 通过导出的 `BuiltinAgentConfigStore` 与校验函数引入内置智能体协议。它以原子替换和单步回滚持久化启用声明及可配置安装目录。声明只包含公开驱动元数据；凭据、运行时路径和驱动私有配置会被拒绝。设计与兼容性记录见 [`dev-docs/archive/2026-10-11-builtin-agent-protocol-v1.7.0-beta.1.zh.md`](../../../dev-docs/archive/2026-10-11-builtin-agent-protocol-v1.7.0-beta.1.zh.md)。
 
+`resolveBuiltinAgent` 和 `prepareBuiltinAgent` 通过 `ctx.agents` 提供原生、单次使用的生命周期。调用方提供 provider/model 路由，可选用预设；显式指定预设时必须挂载注册表。执行结果返回整个 Agent 空闲前观察到的 Session 事件和轮次结束记录，包括错误与取消，不把这些事件归因于单条消息，也不把空闲视为成功。调用方必须释放句柄。禁用声明、外部驱动、协议不匹配和无法判定的应用版本范围会在创建前被拒绝。[GLM 组合指南](../../../docs/user/guide/glm-harness.zh.md)介绍独立启用的原生策略；设置界面不会自动调用此辅助函数。
+
 ## 概述
 
 通过声明式 preset 选择 Agent 的工具、提示词和技能。同一进程可以运行多种组合。配置失败会显示在列表中；现有 Agent 保留已经使用的组合。

@@ -36,6 +36,14 @@ export {
   type BuiltinAgentDriver,
   type BuiltinAgentId,
 } from './builtin-agent.ts'
+export {
+  prepareBuiltinAgent,
+  resolveBuiltinAgent,
+  type BuiltinAgentCapabilities,
+  type BuiltinAgentExecutionResult,
+  type BuiltinAgentRequest,
+  type PreparedBuiltinAgent,
+} from './builtin-agent-adapter.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {

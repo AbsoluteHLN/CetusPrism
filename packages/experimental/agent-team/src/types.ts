@@ -179,7 +179,7 @@ export interface Config {
   /** Independent allowlist for models usable by this Team. Empty means unrestricted. */
   readonly allowedModels?: TeamModelSelection[]
   /** Optional LLM provider/model fallback used when a spawn request omits its route. */
-  readonly defaultModel?: TeamModelSelection
+  readonly defaultModel?: TeamModelSelection | undefined
 }
 
 /** Input for creating one durable teammate. */

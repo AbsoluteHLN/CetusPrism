@@ -64,6 +64,8 @@ agentTeams:
   defaultModel: { provider: native, model: deepseek-chat }
 ```
 
+Configured model routes must provide non-empty `provider` and `model` values after trimming surrounding whitespace; otherwise the Team service fails to load. When `allowedModels` is non-empty, the configured `defaultModel` must also appear in that list.
+
 When `allowedModels` is non-empty, `spawn_teammate` requires a listed LLM provider/model route and rejects other pairs. The tool's explicit `agentOptions` route has priority; the legacy `model` field uses the Lead's LLM provider, then `defaultModel`, then the Lead's current route are used as fallbacks. The `provider` argument that selects `spawn` or `fork` is never compared with the LLM allowlist. The selected model is persisted with the roster member and the complete route is passed to the child runtime through `agentOptions`.
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-experimental-agent-team) is the exhaustive source for every accepted field and its JSDoc.

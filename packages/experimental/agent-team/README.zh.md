@@ -64,6 +64,8 @@ agentTeams:
   defaultModel: { provider: native, model: deepseek-chat }
 ```
 
+配置的模型路由必须在去除首尾空白后保留非空 `provider` 与 `model`，否则 Team 服务启动失败。当 `allowedModels` 非空时，配置的 `defaultModel` 也必须出现在该列表中。
+
 当 `allowedModels` 非空时，`spawn_teammate` 必须使用列表中的 LLM 提供方/模型路由，其他组合会被拒绝。工具显式传入的 `agentOptions` 优先；兼容旧接口的 `model` 字段使用 Lead 的 LLM 提供方，随后依次回退到 `defaultModel` 和 Lead 当前路由。选择 `spawn` 或 `fork` 的 `provider` 参数不会参与 LLM 允许列表比较。选中的模型会记录在 roster 成员中，完整路由通过 `agentOptions` 传入子运行时。
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-experimental-agent-team)是每个受支持字段及其 JSDoc 的穷尽式真源。

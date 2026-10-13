@@ -45,6 +45,11 @@ const DEFAULT_MAX_PENDING_MESSAGES = 64
 const DEFAULT_MAX_MESSAGE_BYTES = 65_536
 const DEFAULT_DISPOSAL_TIMEOUT_MS = 5_000
 
+const modelRouteSchema = z.object({
+  provider: z.string().required(),
+  model: z.string().required(),
+})
+
 /** Validate one positive safe-integer deployment limit. */
 function positiveLimit(name: string, value: number): number {
   if (!Number.isSafeInteger(value) || value < 1) {
@@ -54,15 +59,33 @@ function positiveLimit(name: string, value: number): number {
 }
 
 function normalizeModels(value: readonly TeamModelSelection[] | undefined): TeamModelSelection[] {
-  return (value ?? []).map((entry) => ({ provider: entry.provider.trim(), model: entry.model.trim() }))
-    .filter((entry) => entry.provider.length > 0 && entry.model.length > 0)
+  return (value ?? []).map((entry, index) => normalizeModel(entry, `allowedModels[${index}]`))
 }
 
-function normalizeModel(value: TeamModelSelection | undefined): TeamModelSelection | undefined {
-  if (value === undefined || (typeof value.provider !== 'string' || typeof value.model !== 'string')) return undefined
+function normalizeModel(value: TeamModelSelection, label: string): TeamModelSelection {
   const provider = value.provider.trim()
   const model = value.model.trim()
-  return provider && model ? { provider, model } : undefined
+  if (provider.length === 0 || model.length === 0) {
+    throw new TeamError(`${label} must contain non-empty provider and model`, 'TEAM_INVALID_CONFIG')
+  }
+  return { provider, model }
+}
+
+/** Validate configured model routes and their default before any Team runtime is created. */
+function validateModelConfig(config: Pick<Config, 'allowedModels' | 'defaultModel'>): {
+  allowedModels: TeamModelSelection[]
+  defaultModel: TeamModelSelection | undefined
+} {
+  const allowedModels = normalizeModels(config.allowedModels)
+  const defaultModel = config.defaultModel === undefined
+    ? undefined
+    : normalizeModel(config.defaultModel, 'defaultModel')
+  if (allowedModels.length > 0 && defaultModel !== undefined
+    && !allowedModels.some(candidate => candidate.provider === defaultModel.provider
+      && candidate.model === defaultModel.model)) {
+    throw new TeamError('defaultModel must be included in a non-empty allowedModels list', 'TEAM_INVALID_CONFIG')
+  }
+  return { allowedModels, defaultModel }
 }
 
 /** Agent Teams service backed by the exact live Lead Session log. */
@@ -75,8 +98,8 @@ export class TeamService extends Service {
     maxPendingMessagesPerMember: z.number().step(1).min(1).default(DEFAULT_MAX_PENDING_MESSAGES),
     maxMessageBytes: z.number().step(1).min(1).default(DEFAULT_MAX_MESSAGE_BYTES),
     disposalTimeoutMs: z.number().step(1).min(1).default(DEFAULT_DISPOSAL_TIMEOUT_MS),
-    allowedModels: z.array(z.object({ provider: z.string(), model: z.string() })).default([]),
-    defaultModel: z.object({ provider: z.string(), model: z.string() }),
+    allowedModels: z.array(modelRouteSchema).default([]),
+    defaultModel: z.union([z.const(undefined), modelRouteSchema]),
   })
 
   /** Validated deployment limits used by every Team operation. */
@@ -106,8 +129,7 @@ export class TeamService extends Service {
         'disposalTimeoutMs',
         config.disposalTimeoutMs ?? DEFAULT_DISPOSAL_TIMEOUT_MS,
       ),
-      allowedModels: normalizeModels(config.allowedModels),
-      defaultModel: normalizeModel(config.defaultModel),
+      ...validateModelConfig(config),
     }
 
     this.activity = new TeamActivity()

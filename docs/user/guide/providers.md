@@ -2,7 +2,7 @@
 
 English | [中文](providers.zh.md)
 
-This guide assumes you started the Web UI through the [root README](../../../README.md#run). Model changes take effect on the next request without restarting the server.
+This guide assumes you started the Web UI through the [development guide](../../development.md). Model changes take effect on the next request without restarting the server.
 
 ## Configure DeepSeek
 
@@ -190,6 +190,8 @@ Each switch belongs to the protocols that declare it, so a switch valid on one `
 Every switch, its accepted values, and the protocols that take it are listed under `PiAiCompatProfile` in the [generated `dsh-llm-pi-ai` configuration reference](../../config-catalog.md#deepseek-aidsh-llm-pi-ai) — which is derived from the source, so it cannot fall behind what the adapter accepts.
 
 ## Troubleshooting
+
+For an opt-in headless GLM setup with explicit reasoning capabilities and coding guidance, see [GLM harness composition](glm-harness.md).
 
 - **`MISSING_CREDENTIAL`** — Store the provider key through the Models page or supply the referenced environment variable.
 - **`UNKNOWN_MODEL`** — Select a configured model or add the missing model to the custom provider.

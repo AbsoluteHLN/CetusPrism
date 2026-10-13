@@ -2,7 +2,7 @@
 
 [English](providers.md) | 中文
 
-本指南假定你已按照[根 README](../../../README.md#run)启动 Web UI。模型变更会在下一次请求时生效，不需要重启服务器。
+本指南假定你已按照[开发指南](../../development.zh.md)启动 Web UI。模型变更会在下一次请求时生效，不需要重启服务器。
 
 ## 配置 DeepSeek
 
@@ -190,6 +190,8 @@ DeepSeek 将省略的 `inputModalities` 视为纯文本，并拒绝空列表。�
 全部开关、各自接受的取值，以及接受它们的协议，都列在[生成的 `dsh-llm-pi-ai` 配置参考](../../config-catalog.zh.md#deepseek-aidsh-llm-pi-ai)的 `PiAiCompatProfile` 之下——该参考派生自源码，因此不会落后于适配器实际接受的内容。
 
 ## 排错
+
+如需在 headless 模式中选用显式推理能力和编码指导，请参阅 [GLM harness 组合](glm-harness.zh.md)。
 
 - **`MISSING_CREDENTIAL`**：通过模型页存储提供商密钥，或提供被引用的环境变量。
 - **`UNKNOWN_MODEL`**：选择已配置的模型，或向自定义提供商添加缺失的模型。

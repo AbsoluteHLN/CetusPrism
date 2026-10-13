@@ -1,0 +1,16 @@
+# Bilingual-pair consistency record for glm-harness.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write docs/user/guide/glm-harness.md
+/glm-harness-composition:
+  en: faf1a8382718ad56
+  zh: d07a18a1a805d42e
+/glm-harness-composition/configure-and-run:
+  en: 87bde929bf7eb63e
+  zh: 97f2c6d976b21a50
+/glm-harness-composition/compatibility-and-rollback:
+  en: f630d240071cf6fc
+  zh: 600e63b031a08f5e
+/glm-harness-composition/limits-and-sources:
+  en: fdfdf9e01fd24ea8
+  zh: f6f0a9f8537de4ae

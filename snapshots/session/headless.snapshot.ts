@@ -1100,8 +1100,11 @@ describe('headless recorded-session snapshots', () => {
       const compositionPatch = join(composition.dir, replaying ? 'cordis.snapshot.yml' : 'cordis.yml')
       const patchSources = [
         join(baseComposition.dir, 'cordis.yml'),
+        // Exercise the shipped opt-in guidance without copying it into the fixture.
+        ...scenario.name === 'glm-harness'
+          ? [join(repoRoot, 'apps/cli/config/examples/glm-harness/cordis.yml')] : [],
         ...composition === baseComposition && !replaying ? [] : [compositionPatch],
-        join(baseComposition.dir, 'model.cordis.yml'),
+        ...scenario.name === 'glm-harness' ? [] : [join(baseComposition.dir, 'model.cordis.yml')],
       ]
       const patchRoot = '.snapshot-patches'
       const patches = patchSources.map((source, index) => source.endsWith('.snapshot.yml')

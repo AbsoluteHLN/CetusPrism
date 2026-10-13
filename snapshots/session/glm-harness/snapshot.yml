@@ -1,0 +1,13 @@
+version: 1
+scenario: glm-harness
+profile: headless
+composition: glm-harness
+recording: authored
+header:
+  class: glm-harness
+  pin: true
+environment:
+  CETUS_GLM_BASE_URL: https://glm-harness.invalid/v1
+  CETUS_GLM_MODEL: glm-snapshot
+  CETUS_GLM_CONTEXT_WINDOW: '131072'
+  CETUS_GLM_MAX_TOKENS: '4096'

@@ -1,5 +1,5 @@
 ---
-description: "One-shot task mode for dsh: run a single task from the command line and get the final answer printed, for users scripting or automating dsh."
+description: "Run one-shot tasks or persistent terminal conversations through dsh, with catalog-validated model selection and durable sessions."
 kind: "package-bundle"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-headless` runs one dsh task from the command line and prints the final answer, then exits — no GUI, no server, no browser. Type `dsh --profile headless "run the tests"` and the agent handles it with the same model, tools, and safety defaults as every other surface. It suits scripts, CI, and one-off jobs: it opens no ports and leaves nothing running behind. It also offers a JSON event stream (`--json`) and `--session-id` to resume a conversation. Exit code 0 means the task completed; 1 means it aborted or errored. The boundary: one task per invocation, no interactive follow-up.
+`dsh-headless` runs tasks from the command line with the shared model, tools and safety defaults. `dsh --profile headless "run the tests"` answers once and exits; `dsh tui` retains a persistent conversation. It opens no server or browser. One-shot output supports `--json`, and `--session-id` resumes persisted history. A one-shot run exits 0 when completed and 1 when aborted or errored.
 
 ## Table of Contents
 
@@ -25,7 +25,14 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
-Run one task, get the final answer, and exit. The task is the command-line argument, or stdin when you omit it; the whole invocation is the smallest working example.
+Run one task and exit, or use `dsh tui` for a persistent conversation. One-shot tasks come from the command-line argument or stdin.
+
+<a id="persistent-terminal-workspace"></a>
+### Persistent terminal workspace
+
+`dsh tui` (or `dsh --profile headless --interactive`) retains one Agent and flushes its Session after each turn. A real terminal presents a fixed model/session header, scrolling transcript and separate input/status rows; redirected streams keep inline output. Tab completes command names. `/help`, `/sessions`, `/resume <id>`, `/new`, `/status` and `/exit` manage the conversation; `//` escapes a literal slash prompt. Unknown commands and excess arguments report usage errors without sending a model request.
+
+Use `/models [provider]` to inspect the mounted provider's catalog and `/model <provider> <model>` to select an advertised model for subsequent turns. Discovery failure or an unknown model preserves the current selection. The selection becomes durable in the next request header; a change made without submitting a turn remains process-local. Resume restores the last admitted request's provider, model and reasoning effort. `/team` displays members and tasks when the optional Agent Teams service is composed; it does not change teammate routing. Interactive mode rejects `--json` and `--plain`.
 
 ### Running a one-shot task
 
@@ -62,7 +69,7 @@ Every invocation defaults to a fresh `session-<uuid>` identity, which `--json` r
 
 ### When to use it
 
-Use headless for scripted or automated dsh runs — CI steps, batch jobs, quick answers from a terminal. Avoid it when you need a multi-turn interactive session or a GUI; the browser surface ([dsh-web-app](../web-app/README.md)) serves that. The process stays alive only for the run, opens no listening port, and exits on its own, so it fits pipelines that wait on the process. When a supervisor needs progress rather than just the answer, `--json` gives it the event stream and `--session-id` lets a later invocation continue the same conversation.
+Use one-shot headless for scripts and CI, and `dsh tui` for multi-turn terminal work. Use [dsh-web-app](../web-app/README.md) for a browser GUI. Neither terminal mode opens a listening port. For scripted progress, `--json` provides events and `--session-id` continues a stored conversation.
 
 ### Help and task errors
 
@@ -135,7 +142,7 @@ The runner adds nothing to the request prefix; it only drives one user message t
 
 These limits tell you when headless does not fit and what it needs from the `dsh` launcher. They are current package constraints, not a general CLI comparison or a task backlog.
 
-- **One task per run** — after the task is answered the process exits; there is no interactive follow-up, so split multi-step work into separate runs.
+- **One-shot and persistent modes** — positional tasks exit after one answer; `dsh tui` retains a conversation until exit or EOF. There is no mouse-driven model picker or transcript search.
 - **Runs through the `dsh` launcher** — starting the headless profile another way fails at startup, because only the launcher can request the process exit.
 - **No pre-token heartbeat** — in default mode stderr stays silent until the provider emits a non-empty reasoning delta; a delayed first token exposes no earlier progress signal.
 - **Reasoning enters stderr logs** — in default mode, redirection and supervisors may retain substantially more and potentially sensitive model output; route stderr to a controlled sink when needed.

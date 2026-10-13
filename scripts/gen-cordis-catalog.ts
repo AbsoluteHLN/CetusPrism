@@ -127,6 +127,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   jobController: 'jobs.md',
   sessionTelemetry: 'session-telemetry.md',
   agentTeams: 'agent-team.md',
+  terminalTeamStatus: 'agent-team.md',
   claudeCodeMods: 'claude-code-mods.md',
   tokenMeter: 'token-meter.md',
   toolResultPruner: 'compaction.md',

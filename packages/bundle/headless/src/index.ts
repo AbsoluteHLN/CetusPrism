@@ -14,7 +14,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import { installModelSelection } from '@deepseek-ai/dsh-agent'
-import type { Agent, AgentHandle, ModelSelectionRef } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentHandle, ModelSelection, ModelSelectionRef } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
 import type {} from '@deepseek-ai/dsh-fs'
 import { createUserMessage } from '@deepseek-ai/dsh-llm'
@@ -31,6 +31,23 @@ import type {} from '@deepseek-ai/dsh-session-query'
 import { internals, type InteractiveInput } from './runner-internals.ts'
 import { projectJsonRun, boundJsonLine } from './json-stream.ts'
 import { projectTuiRun, type TuiProjection } from './tui.ts'
+import { parseTuiCommand } from './tui-commands.ts'
+
+/** Read-only terminal team presentation supplied by an optional collaboration plugin. */
+export interface TerminalTeamStatus {
+  /**
+   * Describe the roster and tasks visible to the exact live Agent without changing team state.
+   * @param agent - live Agent whose team authority determines visible rows.
+   * @returns terminal display rows; no credentials or mutable team records.
+   */
+  describe(agent: Agent): readonly string[]
+}
+
+declare module '@deepseek-ai/cordis' {
+  interface Context {
+    terminalTeamStatus: TerminalTeamStatus
+  }
+}
 
 /** Stable Cordis plugin name. */
 export const name = 'headless-runner'
@@ -301,42 +318,6 @@ async function resolveAgent(
   }
 }
 
-/** Commands understood by the persistent terminal prompt. */
-type InteractiveCommand =
-  | { kind: 'prompt'; text: string }
-  | { kind: 'help' }
-  | { kind: 'exit' }
-  | { kind: 'sessions' }
-  | { kind: 'new' }
-  | { kind: 'resume'; sessionId: string }
-
-/** Parse one line without changing ordinary prompts that begin with a slash. */
-function parseInteractiveCommand(line: string): InteractiveCommand {
-  const trimmed = line.trim()
-  if (!trimmed.startsWith('/')) return { kind: 'prompt', text: line }
-  const parts = trimmed.slice(1).split(/\s+/u)
-  const command = parts[0]?.toLowerCase() ?? ''
-  switch (command) {
-    case 'help':
-    case '?':
-      return { kind: 'help' }
-    case 'exit':
-    case 'quit':
-      return { kind: 'exit' }
-    case 'sessions':
-    case 'ls':
-      return { kind: 'sessions' }
-    case 'new':
-      return { kind: 'new' }
-    case 'resume':
-      return parts[1] === undefined || parts[1] === ''
-        ? { kind: 'help' }
-        : { kind: 'resume', sessionId: parts[1] }
-    default:
-      return { kind: 'prompt', text: line }
-  }
-}
-
 /** Print the persistent prompt's command reference. */
 function printInteractiveHelp(io: HeadlessIo): void {
   io.stdout.write([
@@ -345,8 +326,14 @@ function printInteractiveHelp(io: HeadlessIo): void {
     '  /sessions         list persisted sessions',
     '  /resume <id>      switch to an existing session',
     '  /new              start a new session',
+    '  /models [provider] list available models',
+    '  /model [provider model] show or change the model',
+    '  /status           show session and model status',
+    '  /team             show the roster and task board',
     '  /exit             flush and leave the TUI',
-    '  Ctrl+C            stop the current process safely',
+    '  Tab               complete command names',
+    '  //text            send a prompt beginning with /',
+    '  Ctrl+C            cancel the current turn; exit when idle',
     '',
   ].join('\n'))
 }
@@ -468,8 +455,9 @@ async function runInteractive(
   io: HeadlessIo,
   agents: Context['agents'],
   sessions: Context['sessions'],
-  selection: { provider: string; model: string },
+  initialSelection: ModelSelection,
   setup: (agentCtx: Context) => void,
+  select: (agent: Agent, selection: ModelSelection) => void,
   cwd: string,
   input: InteractiveInput,
 ): Promise<void> {
@@ -478,26 +466,102 @@ async function runInteractive(
   const releaseInput = ctx.effect(() => () => { input.close() }, 'headless.interactiveInput()')
   let handle: AgentHandle | undefined
   let exitCode = 0
+  let selection = initialSelection
+  input.onInterrupt?.(() => {
+    if (handle?.agent.status === 'running') handle.agent.cancel({ kind: 'user' })
+    else input.close()
+  })
+  const transcript: HeadlessIo = { ...io, stdout: input.output ?? io.stdout, stderr: input.output ?? io.stderr }
+  const refresh = (): void => {
+    if (handle === undefined) return
+    input.update?.({
+      sessionId: handle.agent.id, provider: selection.provider, model: selection.model,
+      cwd, busy: handle.agent.status === 'running',
+    })
+  }
+  const restoreSelection = (agent: Agent): void => {
+    const recorded = agent.session.requestHeader()?.config
+    if (recorded !== undefined) {
+      selection = {
+        provider: recorded.provider, model: recorded.model,
+        ...recorded.reasoningEffort === undefined ? {} : { reasoningEffort: recorded.reasoningEffort },
+      }
+    }
+    select(agent, selection)
+  }
   try {
     handle = await createAgentHandle(ctx, agents, config.sessionId, selection, setup, cwd)
-    io.stdout.write(`CetusPrism persistent TUI — session ${handle.agent.id}\n`)
-    printInteractiveHelp(io)
+    restoreSelection(handle.agent)
+    refresh()
+    transcript.stdout.write(`CetusPrism persistent TUI — session ${handle.agent.id}\n`)
+    transcript.stdout.write('Type /help for commands; Tab completes command names.\n')
     let initialTask = config.task === '-' ? await internals.readStdin() : config.task
     while (true) {
       const line = initialTask ?? await readInteractiveLine(input, `${handle.agent.id}> `)
       initialTask = undefined
       if (line === undefined) break
-      const command = parseInteractiveCommand(line)
+      const command = parseTuiCommand(line)
       if (command.kind === 'exit') break
       if (command.kind === 'help') {
-        printInteractiveHelp(io)
+        printInteractiveHelp(transcript)
+        continue
+      }
+      if (command.kind === 'invalid') {
+        transcript.stdout.write(`${command.message}\n`)
+        continue
+      }
+      if (command.kind === 'status') {
+        transcript.stdout.write(`Session: ${handle.agent.id}\nModel: ${selection.provider}/${selection.model}\nStatus: ${handle.agent.status}\nDirectory: ${cwd}\n`)
+        continue
+      }
+      if (command.kind === 'models' || command.kind === 'model') {
+        try {
+          if (command.kind === 'model' && command.provider === undefined && command.model === undefined) {
+            transcript.stdout.write(`Current model: ${selection.provider}/${selection.model}\n`)
+            continue
+          }
+          const llm = ctx.get('llm')
+          if (llm === undefined) throw new Error('model discovery is unavailable in this composition')
+          const provider = command.provider ?? selection.provider
+          const models = await llm.listModels(provider)
+          if (command.kind === 'models') {
+            transcript.stdout.write(`Models for ${provider}:\n`)
+            for (const model of models) transcript.stdout.write(`  ${model.id === selection.model && provider === selection.provider ? '*' : ' '} ${model.id}  ${model.name}\n`)
+            if (models.length === 0) transcript.stdout.write('  No models advertised by this provider.\n')
+          } else {
+            const model = command.model
+            if (model === undefined || !models.some(candidate => candidate.id === model)) {
+              throw new Error(`model is not advertised by ${provider}; use /models ${provider}`)
+            }
+            const next = { provider, model }
+            select(handle.agent, next)
+            selection = next
+            refresh()
+            transcript.stdout.write(`Selected ${provider}/${model} for the next request.\n`)
+          }
+        } catch (error: unknown) {
+          transcript.stdout.write(`Model selection failed: ${error instanceof Error ? error.message : String(error)}\n`)
+        }
+        continue
+      }
+      if (command.kind === 'team') {
+        const team = ctx.get('terminalTeamStatus')
+        if (team === undefined) {
+          transcript.stdout.write('Agent Teams is not enabled in this profile.\n')
+        } else {
+          try {
+            for (const row of team.describe(handle.agent)) transcript.stdout.write(`${row}\n`)
+          } catch (error: unknown) {
+            transcript.stdout.write(`Team status unavailable: ${error instanceof Error ? error.message : String(error)}\n`)
+          }
+        }
         continue
       }
       if (command.kind === 'sessions') {
         try {
-          await printInteractiveSessions(ctx, io, handle.agent.id)
+          await printInteractiveSessions(ctx, transcript, handle.agent.id)
         } catch (error: unknown) {
-          io.stderr.write(`dsh: cannot list sessions: ${error instanceof Error ? error.message : String(error)}\n`)
+          transcript.stderr.write(`dsh: cannot list sessions: ${error instanceof Error ? error.message : String(error)}\n`)
         }
         continue
       }
@@ -516,15 +580,21 @@ async function runInteractive(
           await handle.dispose()
           handle = next
           next = undefined
-          io.stdout.write(`Switched to session ${handle.agent.id}.\n`)
+          restoreSelection(handle.agent)
+          refresh()
+          transcript.stdout.write(`Switched to session ${handle.agent.id}.\n`)
         } catch (error: unknown) {
-          await next?.dispose().catch(() => {})
-          io.stderr.write(`dsh: cannot switch session: ${error instanceof Error ? error.message : String(error)}\n`)
+          await next?.dispose().catch((error: unknown) => {
+            transcript.stderr.write(`dsh: cannot close candidate session: ${error instanceof Error ? error.message : String(error)}\n`)
+          })
+          transcript.stderr.write(`dsh: cannot switch session: ${error instanceof Error ? error.message : String(error)}\n`)
         }
         continue
       }
       if (command.text.trim() === '') continue
-      await runInteractiveTurn(ctx, handle.agent, sessions, selection, cwd, command.text, io)
+      input.update?.({ sessionId: handle.agent.id, provider: selection.provider, model: selection.model, cwd, busy: true })
+      await runInteractiveTurn(ctx, handle.agent, sessions, selection, cwd, command.text, transcript)
+      refresh()
     }
     await sessions.flush(handle.agent.session)
   } catch (error: unknown) {
@@ -572,12 +642,14 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
 
     const selection = defaultModel.currentSelection()
     const agentOptions = { provider: selection.provider, model: selection.model }
+    const selections = new WeakMap<Context, ModelSelectionRef>()
     // This bundle composes no preset roster, so the model-facing rows sit in the
     // host plane and the agent reads them from the global layer. A deployment
     // that DOES configure one has to join it here first
     // (@deepseek-ai/dsh-agent-preset-registry README, "Composing a child agent").
     const setup = (agentCtx: Context): void => {
       const selected: ModelSelectionRef = { current: selection, assembled: undefined }
+      selections.set(agentCtx, selected)
       installModelSelection(agentCtx, selected)
     }
     const fs = ctx.get('fs')
@@ -585,7 +657,11 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
     if (config.interactive === true) {
       if (earlyInput === undefined) throw new Error('headless-runner: interactive input was not initialized')
       interactiveInputConsumed = true
-      await runInteractive(ctx, config, io, agents, sessions, selection, setup, cwd, earlyInput)
+      await runInteractive(ctx, config, io, agents, sessions, selection, setup, (agent, next) => {
+        const ref = selections.get(agent.ctx)
+        if (ref === undefined) throw new Error('interactive Agent has no model-selection owner')
+        ref.current = next
+      }, cwd, earlyInput)
       return
     }
 

@@ -3,6 +3,7 @@
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import type {} from '@deepseek-ai/dsh-headless'
 import type {} from '@deepseek-ai/dsh-session-persistence'
 import { TeamActivity } from './activity.ts'
 import { errorMessage, TeamError } from './error.ts'
@@ -145,6 +146,14 @@ export class TeamService extends Service {
       this.config.maxMessageBytes,
     )
     this.tasks = new TeamTaskBoard(this.journal, this.config.maxTasks)
+    ctx.provide('terminalTeamStatus', {
+      describe: (agent: Agent): readonly string[] => [
+        'Team members:',
+        ...this.listMembers(agent).map(member => `  ${member.name}  ${member.role}  ${member.status}${member.model === undefined ? '' : `  ${member.model}`}`),
+        'Team tasks:',
+        ...this.listTasks(agent).map(task => `  ${task.id}  ${task.status}  ${task.subject}`),
+      ],
+    })
 
     ctx.on('session/event', (session, event) => { this.mailbox.observeSessionEvent(session, event) })
     ctx.on('agent/created', ({ agent }) => { this.scheduleRecovery(agent) })

@@ -3,20 +3,23 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/bundle/headless/README.md
 /:
-  en: 68ff17b596cbc6aa
-  zh: 8c6f3d309403ba81
+  en: 79e12ae3f93d5e84
+  zh: add6ab30dea559b0
 /deepseek-ai-dsh-headless:
   en: 605b67ee9f21d085
   zh: df2687a69f362493
 /deepseek-ai-dsh-headless/summary:
-  en: 2c31f2cf129ed020
-  zh: 2b34e3640b011475
+  en: 8c455ebec8da65c3
+  zh: 2ded26a5c1494cbb
 /deepseek-ai-dsh-headless/table-of-contents:
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
 /deepseek-ai-dsh-headless/use-this-package:
-  en: 4447012f4c84100d
-  zh: faf579ae9f04c096
+  en: d8dcaa8627bf663d
+  zh: fd15bc1157be9a67
+/deepseek-ai-dsh-headless/use-this-package/persistent-terminal-workspace:
+  en: 6c564adda5cd2605
+  zh: e478ea13655fd00a
 /deepseek-ai-dsh-headless/use-this-package/running-a-one-shot-task:
   en: 8dd1c6fc8a77e3be
   zh: 75a802403fb2be08
@@ -27,8 +30,8 @@
   en: 2804a96e88857b16
   zh: fe20dc0fb9962785
 /deepseek-ai-dsh-headless/use-this-package/when-to-use-it:
-  en: 5262b93dcef0d489
-  zh: 1638965b2aabcd38
+  en: 82e233d35800f56e
+  zh: 9ba389e8e1e3059d
 /deepseek-ai-dsh-headless/use-this-package/help-and-task-errors:
   en: ecd381558cf7b0e7
   zh: a351efbf4a1a2ac5
@@ -57,8 +60,8 @@
   en: 0b0f74b412c7c6d8
   zh: 6e8f918d0c4bf342
 /deepseek-ai-dsh-headless/known-limitations-and-deferred-work:
-  en: b2df65836d53ba03
-  zh: 82a56dc1255a0c3b
+  en: 16e3347887a95c9c
+  zh: b4937c1582d623a9
 /deepseek-ai-dsh-headless/known-limitations-and-deferred-work/dev-note:
   en: e67f633dc6fe7773
   zh: 3bb0c20c93f16f98

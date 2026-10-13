@@ -11,6 +11,8 @@ English | [中文](README.zh.md)
 
 `dsh-experimental-agent-team` turns one coding session into a small working team: the session's agent becomes the Lead, creates named teammates for delegated work, exchanges durable messages with them, and tracks shared tasks on a common board. Messages and task state survive crashes, reloads, and interruptions, so a teammate that was offline receives its queued messages when it resumes. It provides no tools of its own — mount the sibling `dsh-experimental-tool-agent-team` so the model can create teammates, message them, and use the task board. It is published under its experimental name, carries no stability promise, and needs durable session storage to activate.
 
+When composed with the persistent terminal profile, this plugin supplies the optional `terminalTeamStatus` read-only presenter for `/team`. The terminal owns the service definition; this provider formats only the roster and tasks visible to the caller. It does not change team model selection or Session formats.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

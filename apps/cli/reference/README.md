@@ -2,6 +2,8 @@
 
 English | [中文](README.zh.md)
 
+`dsh --version` reports the CLI application's package version. Provider/plugin compatibility continues to use the separately versioned upstream runtime.
+
 This reference defines the profile, plugin-management, and config-dump command modes. Argv is parsed once through [`src/args.ts`](../src/args.ts), and [`src/bin.ts`](../src/bin.ts) dynamically imports only the selected runner.
 
 ## Profile boot
@@ -41,7 +43,7 @@ The shipped apps own these command lines:
 
 A one-shot task (`dsh --profile headless "run the tests"`) creates one fresh persisted Agent through the core registry, submits the task, waits for quiescence, and flushes the Session before deriving the last non-empty assistant text and final `turn/end` reason from its durable interval. It streams non-empty provider reasoning deltas to stderr under a `dsh: reasoning:` heading, prints only the final text on stdout, and exits 0 for `completed`, else 1; a successful response with no reasoning leaves stderr empty. An invocation with no task is a usage error from that app. The shipped headless profile mounts no browser Connection, HTTP server, Web runtime, or browser client, and opens no listening port.
 
-The `tui` profile (or `dsh --profile headless --interactive`) keeps one Agent and one readline surface alive for multiple turns. It flushes the Session after each settled turn and accepts `/help`, `/sessions`, `/resume <id>`, `/new`, and `/exit`; `dsh tui --resume <id>` adopts a persisted Session before opening the prompt.
+The `tui` profile (or `dsh --profile headless --interactive`) keeps one Agent and readline alive across turns, with a fixed header, scrolling transcript and separate input rows on real terminals. It flushes each settled turn and offers session commands, `/models`, `/model`, `/status`, `/team` and Tab completion; see the [terminal workspace guide](../../../packages/bundle/headless/README.md#persistent-terminal-workspace) for validation and durability. `dsh tui --resume <id>` restores a persisted Session and its last request's model selection.
 
 Inspect the composed tree without booting it:
 

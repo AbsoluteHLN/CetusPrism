@@ -84,6 +84,17 @@ function content(text: string) {
   return [{ type: 'text' as const, text }]
 }
 
+it('provides terminal team rows without appending session events and removes them on disposal', async () => {
+  const { ctx, lead, teamFiber } = await setup([textResponse('unused')])
+  const before = lead.session.seq
+  expect(ctx.terminalTeamStatus.describe(lead)).toEqual([
+    'Team members:', '  lead  lead  inactive  mock', 'Team tasks:',
+  ])
+  expect(lead.session.seq).toBe(before)
+  await teamFiber.dispose()
+  expect(ctx.get('terminalTeamStatus')).toBeUndefined()
+})
+
 interface TeamServiceInternals {
   readonly roster: {
     readonly inFlightCreations: Set<Promise<unknown>>

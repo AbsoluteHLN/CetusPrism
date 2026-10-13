@@ -6,6 +6,8 @@
  */
 
 import { createInterface } from 'node:readline/promises'
+import { createTuiWorkspace, type TuiWorkspaceStatus } from './tui-workspace.ts'
+import { tuiCommandCompletions } from './tui-commands.ts'
 
 /** Input contract used by the persistent terminal loop. */
 export interface InteractiveInput {
@@ -13,6 +15,12 @@ export interface InteractiveInput {
   question(prompt: string): Promise<string>
   /** Stop reading and restore the terminal prompt owner. */
   close(): void
+  /** Transcript sink when a real terminal has a separate input region. */
+  output?: { write(chunk: string): unknown }
+  /** Refresh the fixed status rows without replacing the input line. */
+  update?: (status: TuiWorkspaceStatus) => void
+  /** Register Ctrl+C handling; the runner cancels an active turn or closes idle input. */
+  onInterrupt?: (handler: () => void) => void
 }
 
 /** The process streams and terminal facts the runner reads; tests substitute them. */
@@ -40,15 +48,41 @@ export const internals: {
   stdoutColumns: () => process.stdout.columns,
   noColor: () => process.env.NO_COLOR !== undefined,
   createInteractiveInput: () => {
+    const terminal = process.stdin.isTTY === true && process.stdout.isTTY === true
+    const workspace = terminal
+      ? createTuiWorkspace(process.stdout, {
+        columns: process.stdout.columns,
+        rows: process.stdout.rows,
+        color: process.env.NO_COLOR === undefined,
+      })
+      : undefined
     const line = createInterface({
       input: process.stdin,
       output: process.stdout,
-      terminal: process.stdin.isTTY === true && process.stdout.isTTY === true,
+      terminal,
       crlfDelay: Infinity,
+      completer: tuiCommandCompletions,
     })
+    const resize = (): void => {
+      workspace?.resize(process.stdout.columns, process.stdout.rows)
+      if (!closed && waiters.length > 0) {
+        line.setPrompt(workspace?.inputPrompt() ?? line.getPrompt())
+        line.prompt(true)
+      }
+    }
     const pending: string[] = []
     const waiters: Array<{ resolve: (value: string) => void; reject: (error: Error) => void }> = []
     let closed = false
+    let interrupt: (() => void) | undefined
+    line.on('SIGINT', () => {
+      if (interrupt === undefined) line.close()
+      else interrupt()
+    })
+    if (workspace !== undefined) process.stdout.on('resize', resize)
+    const disposeWorkspace = (): void => {
+      process.stdout.off('resize', resize)
+      workspace?.dispose()
+    }
     line.on('line', (value: string) => {
       const waiter = waiters.shift()
       if (waiter === undefined) pending.push(value)
@@ -56,13 +90,17 @@ export const internals: {
     })
     line.once('close', () => {
       closed = true
+      disposeWorkspace()
       const error = Object.assign(new Error('readline closed'), { code: 'ERR_USE_AFTER_CLOSE' })
       waiters.splice(0).forEach(waiter => waiter.reject(error))
     })
     return {
+      ...workspace === undefined ? {} : { output: workspace, update: workspace.update },
+      onInterrupt: (handler: () => void): void => { interrupt = handler },
       question: (prompt: string): Promise<string> => {
+        const inputPrompt = workspace?.inputPrompt() ?? prompt
         if (pending.length > 0) {
-          process.stdout.write(prompt)
+          process.stdout.write(inputPrompt)
           const value = pending.shift()
           if (value === undefined) throw new Error('interactive input queue changed unexpectedly')
           return Promise.resolve(value)
@@ -70,11 +108,11 @@ export const internals: {
         if (closed) {
           return Promise.reject(Object.assign(new Error('readline closed'), { code: 'ERR_USE_AFTER_CLOSE' }))
         }
-        line.setPrompt(prompt)
+        line.setPrompt(inputPrompt)
         line.prompt()
         return new Promise((resolve, reject) => { waiters.push({ resolve, reject }) })
       },
-      close: (): void => { line.close() },
+      close: (): void => { line.close(); disposeWorkspace() },
     }
   },
 }

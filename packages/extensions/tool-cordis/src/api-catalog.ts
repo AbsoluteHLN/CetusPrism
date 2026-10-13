@@ -3225,6 +3225,19 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'terminalTeamStatus',
+    summary: 'Read-only terminal team presentation supplied by an optional collaboration plugin.',
+    description: 'Read-only terminal team presentation supplied by an optional collaboration plugin.',
+    methods: [
+      {
+        signature: 'describe(agent: Agent): readonly string[]',
+        description: 'Describe the roster and tasks visible to the exact live Agent without changing team state.',
+        parameters: [{ name: 'agent', description: 'live Agent whose team authority determines visible rows.' }],
+        returns: 'terminal display rows; no credentials or mutable team records.',
+      },
+    ],
+  },
+  {
     key: 'timer',
     summary: 'Disposable timer helpers mixed into Cordis contexts.',
     description: 'Disposable timer helpers mixed into Cordis contexts.',
@@ -7321,7 +7334,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SpawnTeammateRequest',
-    declaration: 'export interface SpawnTeammateRequest {\n    readonly name: string;\n    readonly description: string;\n    readonly prompt: ContentBlock[];\n    readonly context: \'fresh\' | \'fork\';\n    readonly provider: string;\n    readonly agentOptions?: TeamAgentRoute;\n    readonly signal: AbortSignal;\n}',
+    declaration: 'export interface SpawnTeammateRequest {\n    readonly name: string;\n    readonly description: string;\n    readonly prompt: ContentBlock[];\n    readonly context: \'fresh\' | \'fork\';\n    readonly provider: string;\n    readonly model?: string;\n    readonly agentOptions?: TeamAgentRoute;\n    readonly signal: AbortSignal;\n}',
   },
   {
     name: 'SpawnTeammateResult',

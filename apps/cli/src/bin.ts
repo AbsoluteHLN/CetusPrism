@@ -6,7 +6,9 @@
 
 /* v8 ignore file -- built-bin acceptance exercises this self-executing dispatch. */
 
-import { getDshRuntimeVersion, loadLayeredEnv, StartupError } from '@deepseek-ai/dsh-app-boot'
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { loadLayeredEnv, StartupError } from '@deepseek-ai/dsh-app-boot'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { parseDshArgs } from './args.ts'
 import { reportStartupFailure } from './startup-diagnostics.ts'
@@ -24,7 +26,12 @@ export type RunCliOptions = Pick<RunProfileOptions, 'packageManager'> & {
  * @returns a promise that settles when the selected command mode finishes.
  */
 export async function runCli(options: RunCliOptions = {}): Promise<void> {
-  const version = getDshRuntimeVersion()
+  const manifest: unknown = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8'))
+  if (typeof manifest !== 'object' || manifest === null || !('version' in manifest)
+    || typeof manifest.version !== 'string' || manifest.version === '') {
+    throw new Error('dsh: CLI package.json must declare a version')
+  }
+  const version = manifest.version
   const { manageDesktopProfile, ...profileOptions } = options
   const invocation = parseDshArgs(process.argv.slice(2), version, manageDesktopProfile)
 

@@ -751,6 +751,15 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Owns the implicit-root roster, durable peer mailbox, shared task DAG, and continuable-child lifecycle; tool-agent-team contributes model controls.',
   },
   {
+    key: 'terminalTeamStatus',
+    pkg: 'headless',
+    title: 'Read-only terminal team status',
+    mode: 'seam',
+    implementations: ['experimental-agent-team'],
+    consumers: ['headless'],
+    note: 'Optional providers describe the caller-visible roster and tasks for the persistent terminal without changing team state.',
+  },
+  {
     key: 'claudeCodeMods',
     pkg: 'experimental-claude-code-mods',
     title: 'Claude Code mods bridge',

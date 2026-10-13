@@ -2,6 +2,8 @@
 
 [English](README.md) | 中文
 
+`dsh --version` 报告 CLI 应用的包版本。提供方和插件兼容性仍使用单独版本的上游运行时。
+
 本参考定义 profile 启动、插件管理和配置 dump 等命令模式。argv 由 [`src/args.ts`](../src/args.ts) 统一解析一次，[`src/bin.ts`](../src/bin.ts) 只会动态导入选中的运行器。
 
 <a id="profile-boot"></a>
@@ -43,7 +45,7 @@ dsh rescue
 
 一次性任务（`dsh --profile headless "run the tests"`）通过核心注册表创建一个全新的持久化 Agent（智能体），提交任务、等待完全停稳并对会话执行 flush，再从其持久化事件区间中推导最后一个非空 assistant 文本与最终 `turn/end` 原因。它在 `dsh: reasoning:` 标题下将非空的提供方推理（reasoning）增量流式写入 stderr，只在 stdout 打印最终文本，并在原因为 `completed` 时以 0 退出，否则以 1 退出；没有推理内容的成功响应会保持 stderr 为空。没有任务的调用是该应用的用法错误。随附 headless profile 不挂载浏览器 Connection、HTTP 服务器、Web 运行时或浏览器客户端，也不会打开监听端口。
 
-`tui` profile（或 `dsh --profile headless --interactive`）会保留一个 Agent 与一个 readline 界面，接受多个轮次。每个轮次停稳后都会 flush Session，并支持 `/help`、`/sessions`、`/resume <id>`、`/new` 与 `/exit`；`dsh tui --resume <id>` 会在打开提示前沿用持久化 Session。
+`tui` profile（或 `dsh --profile headless --interactive`）跨轮次保留一个 Agent 和 readline，真实终端显示固定标题、滚动输出区和独立输入行。每轮停稳后 flush Session，并提供会话命令、`/models`、`/model`、`/status`、`/team` 和 Tab 补全；校验与持久化行为见[终端工作区指南](../../../packages/bundle/headless/README.zh.md#persistent-terminal-workspace)。`dsh tui --resume <id>` 恢复持久化 Session 及最后一次请求的模型选择。
 
 可在不启动的情况下检查组合出的配置树：
 

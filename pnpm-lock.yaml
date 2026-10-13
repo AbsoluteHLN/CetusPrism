@@ -7667,6 +7667,9 @@ importers:
       '@deepseek-ai/dsh-agent-loop-testkit':
         specifier: workspace:*
         version: link:../../test-support/agent-loop-testkit
+      '@deepseek-ai/dsh-headless':
+        specifier: workspace:*
+        version: link:../../bundle/headless
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm

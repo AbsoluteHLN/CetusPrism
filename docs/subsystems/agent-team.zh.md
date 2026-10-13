@@ -228,4 +228,23 @@ tryMembership(agent: Agent): TeamMembership | undefined
 Types: [Agent](core.zh.md)
 
 Source: [`packages/experimental/agent-team/src/index.ts`](../../packages/experimental/agent-team/src/index.ts)
+
+<a id="ctxterminalteamstatus--terminalteamstatus"></a>
+
+### `ctx.terminalTeamStatus` — `TerminalTeamStatus`
+
+Read-only terminal team presentation supplied by an optional collaboration plugin.
+
+```ts cordis-catalog
+/**
+ * Describe the roster and tasks visible to the exact live Agent without changing team state.
+ * @param agent - live Agent whose team authority determines visible rows.
+ * @returns terminal display rows; no credentials or mutable team records.
+ */
+describe(agent: Agent): readonly string[]
+```
+
+Types: [Agent](core.zh.md)
+
+Source: [`packages/bundle/headless/src/index.ts`](../../packages/bundle/headless/src/index.ts)
 <!-- END GENERATED cordis-surface -->

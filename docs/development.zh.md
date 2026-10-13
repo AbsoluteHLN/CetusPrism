@@ -111,6 +111,8 @@ pnpm run build
 
 在 Windows 上，临时 NodeNext 消费方通过目录 junction 链接包目录，因此检查不需要符号链接权限。
 
+文档编译器相对于 `configs/` 中所属配置文件解析项目引用，创建临时项目时也遵循这一规则。
+
 ### 环境变量
 
 真实的 DeepSeek 适配器和需要密钥的 agent 演示从环境变量或仓库根目录一个被 gitignore 的 `.env` 文件读取凭证：

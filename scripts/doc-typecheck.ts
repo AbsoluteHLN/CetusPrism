@@ -7,7 +7,7 @@
 
 import { execFileSync } from 'node:child_process'
 import { globSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
 import ts from 'typescript'
 import { builtDeclarationPath } from './doc-typecheck-paths.ts'
 import { markdownFences } from './markdown.ts'
@@ -151,7 +151,7 @@ function workspaceReferences(): { path: string }[] {
   // `config` is typed `any` by the TS API; narrow it to the one field read here.
   const { references } = result.config as { references: { path: string }[] }
   return references.map(({ path }) => ({
-    path: path.startsWith('./') ? `../${path.slice(2)}` : `../${path}`,
+    path: resolve(dirname(file), path),
   }))
 }
 

@@ -107,6 +107,8 @@ pnpm run build
 
 On Windows, the temporary NodeNext consumer links package directories with junctions, so the check does not require symbolic-link privileges.
 
+The documentation compiler resolves project references relative to the owning configuration file in `configs/`, including when it creates a temporary project.
+
 ### Environment variables
 
 The real DeepSeek adapter and key-backed agent demos read credentials from the environment or from a gitignored `.env` at the repo root:

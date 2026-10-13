@@ -60,6 +60,8 @@ pnpm run typecheck
 
 ### TypeScript 项目布局
 
+仓库编译配置集中在 `configs/`；`configs/tsconfig.base.json` 定义工作区源码路径。配置检查从该目录解析相对路径。
+
 仓库使用相互隔离的 Host 与 Client aggregate。普通包只登记进其中一个 aggregate；Host 包进入 `tsconfig.host.json`，Client 包进入 `tsconfig.client.json`；`host/webserver`、`compaction/compaction` 与 `typert/registry` 三个包被两个 aggregate 同时引用，作为共享 leaf，让两侧对同一份源码做类型检查。
 
 | 文件 | 角色 | 是否构成 program？ |

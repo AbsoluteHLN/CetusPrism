@@ -413,13 +413,14 @@ export function bundlePluginDependencyErrors(
 function validateSourcePlaneResolution(): string[] {
   const violations: string[] = []
   const localPackages = localPackageDirectories()
-  const config = ts.readConfigFile(resolve(root, 'tsconfig.base.json'), path => ts.sys.readFile(path))
+  const configRoot = resolve(root, 'configs')
+  const config = ts.readConfigFile(resolve(configRoot, 'tsconfig.base.json'), path => ts.sys.readFile(path))
   if (config.error !== undefined) {
     throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, '\n'))
   }
   const { options, errors: optionErrors } = ts.convertCompilerOptionsFromJson(
     (config.config as { compilerOptions?: unknown }).compilerOptions,
-    root,
+    configRoot,
     'tsconfig.base.json',
   )
   if (optionErrors.length > 0) {
@@ -427,12 +428,12 @@ function validateSourcePlaneResolution(): string[] {
   }
   // convertCompilerOptionsFromJson leaves `pathsBasePath` unset, so relative
   // `paths` targets resolve against the host's current directory; anchor it to
-  // the repository root to keep the gate cwd-independent.
+  // the configuration directory to keep the gate cwd-independent.
   const host: ts.ModuleResolutionHost = {
     fileExists: path => ts.sys.fileExists(path),
     readFile: path => ts.sys.readFile(path),
     directoryExists: path => ts.sys.directoryExists(path),
-    getCurrentDirectory: () => root,
+    getCurrentDirectory: () => configRoot,
   }
   const sourceExtensions = new Set<string>([ts.Extension.Ts, ts.Extension.Tsx])
   const containingFile = resolve(root, 'scripts/verify-cordis-config.ts')
@@ -447,7 +448,7 @@ function validateSourcePlaneResolution(): string[] {
   for (const [specifier, locations] of locationsBySpecifier) {
     const resolved = ts.resolveModuleName(specifier, containingFile, options, host).resolvedModule
     if (resolved !== undefined && sourceExtensions.has(resolved.extension)) continue
-    violations.push(`${[...locations].join(', ')}: ${specifier} does not resolve to workspace source through tsconfig.base.json paths (add a mapping so the tsx source launch does not depend on built lib/)`)
+    violations.push(`${[...locations].join(', ')}: ${specifier} does not resolve to workspace source through configs/tsconfig.base.json paths (add a mapping so the tsx source launch does not depend on built lib/)`)
   }
   return violations
 }

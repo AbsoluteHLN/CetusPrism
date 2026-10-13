@@ -56,6 +56,8 @@ Setup is complete when `pnpm run typecheck` exits successfully.
 
 ### TypeScript project layout
 
+Repository compiler configurations live under `configs/`; `configs/tsconfig.base.json` owns the workspace source paths. Configuration checks resolve those relative paths from that directory.
+
 The repository uses isolated Host and Client aggregates. An ordinary package is registered in exactly one aggregate: Host packages in `tsconfig.host.json` and Client packages in `tsconfig.client.json`; three packages (`host/webserver`, `compaction/compaction`, `typert/registry`) are referenced by both aggregates as shared leaves so each side type-checks the same source.
 
 | File | Role | Forms a program? |

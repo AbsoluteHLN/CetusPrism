@@ -134,6 +134,7 @@ function selectPreset(session: Session, agentPreset: string): void {
 /** Mount the real registries around a small scripted Agent factory. */
 async function bench(script: Script, options: BenchOptions = {}): Promise<{
   ctx: Context
+  disposedSessionIds: SessionId[]
   output(): { out: string; err: string; order: string[] }
   run(): Promise<{ code: number; out: string; err: string; order: string[] }>
 }> {
@@ -148,6 +149,7 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
   let out = ''
   let err = ''
   const order: string[] = []
+  const disposedSessionIds: SessionId[] = []
 
   const mount = async (
     ownerCtx: Context,
@@ -193,13 +195,13 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
       })
       script.before?.(session)
       const agent = await mount(ownerCtx, session, createOptions)
-      return { agent, dispose: () => Promise.resolve() }
+      return { agent, dispose: async () => { disposedSessionIds.push(session.id) } }
     },
     async resume(ownerCtx: Context, resumeOptions: ResumeAgentOptions): Promise<AgentHandle> {
       const session = ctx.sessions.get(resumeOptions.resumeSessionId)
       if (session === undefined) throw new Error(`no attached Session ${resumeOptions.resumeSessionId}`)
       const agent = await mount(ownerCtx, session, resumeOptions)
-      return { agent, dispose: () => Promise.resolve() }
+      return { agent, dispose: async () => { disposedSessionIds.push(session.id) } }
     },
   })
   if (options.omitSessionQuery !== true && (options.sessionId !== undefined || options.observe !== undefined)) {
@@ -211,6 +213,7 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
   }
   return {
     ctx,
+    disposedSessionIds,
     output: () => ({ out, err, order: [...order] }),
     run: async () => {
       ctx.on('session/flush', () => { order.push('flush') })
@@ -255,6 +258,41 @@ async function bench(script: Script, options: BenchOptions = {}): Promise<{
 }
 
 describe('headless runner', () => {
+  it('disposes a resumed Agent rejected by the final adoption check and keeps the current Agent', async () => {
+    const resumedSessionId = brandString<SessionId>('session-raced-resume')
+    let currentSessionId: SessionId | undefined
+    let promptedAgentId: SessionId | undefined
+    const test = await bench({
+      before(session) { currentSessionId = session.id },
+      afterPrompt(session, message, agent) {
+        promptedAgentId = agent.id
+        appendTurn(session, 1, message, 'continued current session', true)
+      },
+    }, {
+      interactive: true,
+      interactiveLines: [`/resume ${resumedSessionId}`, 'continue current session', '/exit'],
+      observe: async () => ({
+        header: { cwd: process.cwd(), origin: 'user' },
+        events: [],
+        [Symbol.dispose]() {},
+      }),
+    })
+    const resumedSession = test.ctx.sessions.create(resumedSessionId, { meta: { cwd: process.cwd() } })
+    selectPreset(resumedSession, 'minimal')
+    try {
+      const result = await test.run()
+      expect(result.code).toBe(0)
+      expect(result.err).toContain('cannot switch session')
+      expect(result.err).toContain('agent preset "minimal"')
+      expect(result.out).toContain('continued current session')
+      expect(promptedAgentId).toBe(currentSessionId)
+      expect(promptedAgentId).not.toBe(resumedSessionId)
+      expect(test.disposedSessionIds).toEqual([resumedSessionId, currentSessionId])
+    } finally {
+      await test.ctx.fiber.dispose()
+    }
+  })
+
   it('keeps one durable Agent alive for multiple TUI prompts', async () => {
     let turn = 0
     const test = await bench({

@@ -23,6 +23,7 @@ describe('Agent Teams profile bundle', () => {
       '@deepseek-ai/dsh-experimental-agent-team': 'workspace:*',
       '@deepseek-ai/dsh-experimental-client-ui-agent-team': 'workspace:*',
       '@deepseek-ai/dsh-experimental-tool-agent-team': 'workspace:*',
+      '@deepseek-ai/dsh-tool-subagent': 'workspace:*',
     })
 
     const parsed = yaml.load(
@@ -45,9 +46,12 @@ describe('Agent Teams profile bundle', () => {
       name: '@deepseek-ai/dsh-experimental-agent-team',
       config: { maxMembers: 8 },
     })
+    expect(inserted.find(entry => entry.id === 'subagent-model-selection-settings')).toMatchObject({
+      name: '@deepseek-ai/dsh-tool-subagent/model-selection-settings',
+    })
     expect(inserted.find(entry => entry.id === 'tool-agent-team')).toMatchObject({
       name: '@deepseek-ai/dsh-experimental-tool-agent-team',
-      config: { freshProvider: 'spawn', forkProvider: 'fork' },
+      config: { freshProvider: 'spawn', forkProvider: 'fork', modelSelectionSettings: true },
     })
     expect(inserted.find(entry => entry.id === 'ui-agent-team')).toMatchObject({
       name: '@deepseek-ai/dsh-experimental-client-ui-agent-team',

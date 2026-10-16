@@ -3,8 +3,10 @@
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import { parentAgentOptionsForDelegation } from '@deepseek-ai/dsh-subagent'
 import { TeamTaskId } from '@deepseek-ai/dsh-experimental-agent-team'
 import type { TeamMemberView } from '@deepseek-ai/dsh-experimental-agent-team'
+import { registerListSubagentModels } from '@deepseek-ai/dsh-tool-subagent/list-models'
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { InferValue, ValueSchemaSpec } from '@deepseek-ai/dsh-tools'
 
@@ -36,6 +38,24 @@ interface AllowedModelRoute {
   readonly model: string
 }
 
+interface TeamModelPolicy {
+  readonly allowedModels: readonly AllowedModelRoute[]
+  readonly defaultModel?: AllowedModelRoute
+}
+
+interface TeamModelPolicyService {
+  modelPolicy(): TeamModelPolicy
+}
+
+/** Read the current source contract while workspace package declarations rebuild. */
+function currentTeamModelPolicy(ctx: Context): TeamModelPolicy {
+  return (ctx.agentTeams as Context['agentTeams'] & TeamModelPolicyService).modelPolicy()
+}
+
+interface TeamAgentSelection extends AllowedModelRoute {
+  readonly reasoningEffort?: string
+}
+
 /** Minimal service view used when the optional shared setting is installed. */
 interface TeamModelSelectionSettings {
   current(): { enabled: boolean; allowedModels: readonly AllowedModelRoute[] }
@@ -46,9 +66,15 @@ function resolveTeamAgentOptions(
   ctx: Context,
   provider: string | undefined,
   model: string | undefined,
-): { provider: string; model: string } | undefined {
-  if (provider === undefined && model === undefined) return undefined
-  if (provider === undefined || model === undefined || provider.trim() === '' || model.trim() === '') {
+  reasoningEffort: string | undefined,
+  parent: Agent,
+): TeamAgentSelection | undefined {
+  const teamPolicy = currentTeamModelPolicy(ctx)
+  const hasExplicitSelection = provider !== undefined || model !== undefined || reasoningEffort !== undefined
+  const hasTeamSelection = teamPolicy.defaultModel !== undefined || teamPolicy.allowedModels.length > 0
+  if (!hasExplicitSelection && !hasTeamSelection) return undefined
+  if ((provider === undefined) !== (model === undefined)
+      || provider?.trim() === '' || model?.trim() === '' || reasoningEffort?.trim() === '') {
     throw new Error('Team model selection requires provider and model together')
   }
   const settings: TeamModelSelectionSettings | undefined = ctx.get('subagentModelSelection')
@@ -57,11 +83,21 @@ function resolveTeamAgentOptions(
   }
   const current = settings.current()
   if (!current.enabled) throw new Error('Team model selection is disabled in settings')
-  const route: AllowedModelRoute = { provider, model }
-  if (!current.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
-    throw new Error(`Team model route "${provider}/${model}" is not authorized in settings`)
+  const leadOptions = parentAgentOptionsForDelegation(parent)
+  const leadRoute = { provider: leadOptions.provider ?? '', model: leadOptions.model ?? '' }
+  const route: AllowedModelRoute = {
+    provider: provider ?? (reasoningEffort !== undefined ? leadRoute.provider : teamPolicy.defaultModel?.provider ?? leadRoute.provider),
+    model: model ?? (reasoningEffort !== undefined ? leadRoute.model : teamPolicy.defaultModel?.model ?? leadRoute.model),
   }
-  return route
+  if (!route.provider || !route.model) throw new Error('Team model selection needs an effective provider and model')
+  if (!current.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
+    throw new Error(`Team model route "${route.provider}/${route.model}" is not authorized in settings`)
+  }
+  if (teamPolicy.allowedModels.length > 0
+      && !teamPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
+    throw new Error(`Team model route "${route.provider}/${route.model}" is outside this Team's additional restriction list`)
+  }
+  return { ...route, ...reasoningEffort === undefined ? {} : { reasoningEffort: reasoningEffort.trim() } }
 }
 
 /** Model-facing collaboration guidance shared by Lead and teammates. */
@@ -92,6 +128,8 @@ const MEMBER_VIEW_SCHEMA = {
     provider: { type: 'string' },
     context: { type: 'string', enum: ['fresh', 'fork'] },
     model: { type: 'string' },
+    modelProvider: { type: 'string' },
+    reasoningEffort: { type: 'string' },
     diagnostics: { type: 'array', required: true, items: { type: 'string' } },
   },
 } as const
@@ -203,6 +241,21 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
   const disposers: Array<() => unknown> = []
   const register = (disposer: () => unknown): void => { disposers.push(disposer) }
   try {
+    if (config.modelSelectionSettings) {
+      register(registerListSubagentModels(scoped, () => {
+        const settings: TeamModelSelectionSettings | undefined = ctx.get('subagentModelSelection')
+        if (settings === undefined) {
+          throw new Error('Team model selection is unavailable because its settings service is not loaded')
+        }
+        const current = settings.current()
+        if (!current.enabled) throw new Error('Team model selection is disabled in settings')
+        const teamPolicy = currentTeamModelPolicy(ctx)
+        return {
+          routes: current.allowedModels.filter(route => teamPolicy.allowedModels.length === 0
+            || teamPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)),
+        }
+      }))
+    }
     register(scoped.systemPrompt.section({
       name: 'team:policy',
       order: scoped.systemPrompt.getSectionOrder('TEAM_POLICY'),
@@ -213,7 +266,7 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
       name: 'spawn_teammate',
       description: 'Create one named, durable teammate. Only the Team Lead may call this tool.'
         + (config.modelSelectionSettings
-          ? ' `provider` and `model` may select one exact route from the authorized Team model list; omit both to inherit the Lead route.'
+          ? ' provider and model may select one exact route from the Host-authorized list and the Team restriction list. Use list_subagent_models to inspect each model’s advertised reasoning efforts; omit reasoning_effort to use that model’s default. Omit all three to use the Team default when configured, otherwise inherit the Lead route.'
           : ''),
       parameters: {
         name: { type: 'string', required: true, description: 'Unique lower-kebab-case teammate name.' },
@@ -232,13 +285,26 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
           type: 'string',
           description: 'Authorized LLM provider id for this teammate. Supply together with model.',
         },
+        reasoning_effort: {
+          type: 'string',
+          description: 'Optional exact effort id advertised by the selected model; without a provider/model pair it applies to the Lead route.',
+        },
       },
       output: jsonOutput(SPAWN_VALUE_SCHEMA),
       async execute(args, exec) {
         const agent = callingAgent(exec.agent, 'spawn_teammate')
         const context = args.context ?? 'fresh'
+        if (!config.modelSelectionSettings
+            && (args.provider !== undefined || args.model !== undefined || args.reasoning_effort !== undefined)) {
+          throw new Error('Team model selection is disabled in settings')
+        }
+        const teamModelPolicy = currentTeamModelPolicy(ctx)
+        if (!config.modelSelectionSettings
+            && (teamModelPolicy.allowedModels.length > 0 || teamModelPolicy.defaultModel !== undefined)) {
+          throw new Error('Team-specific model restrictions require model selection to be enabled in settings')
+        }
         const agentOptions = config.modelSelectionSettings
-          ? resolveTeamAgentOptions(ctx, args.provider, args.model)
+          ? resolveTeamAgentOptions(ctx, args.provider, args.model, args.reasoning_effort, agent)
           : undefined
         const result = await ctx.agentTeams.spawnTeammate(agent, {
           name: args.name,
@@ -464,7 +530,10 @@ export function apply(ctx: Context, config: Config = {}): void {
     installed.set(agent, install(agent, ctx, resolved))
   }
   for (const agent of ctx.agents.list()) maybeInstall(agent)
-  ctx.on('agent/created', ({ agent }) => { maybeInstall(agent) })
+  ctx.on('agent/created', ({ agent }) => {
+    maybeInstall(agent)
+    return undefined
+  })
   ctx.on('agent/disposed', ({ agent }) => {
     installed.get(agent)?.()
     installed.delete(agent)

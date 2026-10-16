@@ -6,7 +6,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { ToolCallId, createUserMessage } from '@deepseek-ai/dsh-llm'
+import { ToolCallId, createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { scopeOf } from '@deepseek-ai/dsh-scope'
 import { SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
@@ -68,6 +68,7 @@ async function setup(
   script: ConstructorParameters<typeof MockAdapter>[0],
   legacyControl = false,
   teamModelSelection = false,
+  teamAllowedModels: { provider: string; model: string }[] = [],
 ) {
   const ctx = new Context()
   contexts.add(ctx)
@@ -87,7 +88,7 @@ async function setup(
       allowedModels: [{ provider: 'selected-provider', model: 'selected-model' }],
     })
   }
-  await ctx.plugin(TeamService)
+  await ctx.plugin(TeamService, { allowedModels: teamAllowedModels })
   const fiber = await ctx.plugin(toolTeam, { modelSelectionSettings: teamModelSelection })
   const adapter = new MockAdapter(script)
   ctx.llm.registerAdapter(['mock'], adapter)
@@ -146,8 +147,32 @@ async function waitNoAgent(ctx: Context, id: SessionId): Promise<void> {
 }
 
 describe('dsh-tool-team', () => {
+  it('exposes the shared model discovery tool with exact reasoning metadata', async () => {
+    const route = { provider: 'selected-provider', model: 'selected-model' }
+    const { ctx, lead } = await setup([], false, true, [route])
+    const adapter = new MockAdapter([])
+    vi.spyOn(adapter, 'listModels').mockResolvedValue([
+      { provider: route.provider, id: route.model, name: 'Selected model' },
+    ])
+    const effort = ReasoningEffortId('high')
+    vi.spyOn(adapter, 'resolveModel').mockResolvedValue({
+      provider: route.provider,
+      id: route.model,
+      name: 'Selected model',
+      reasoning: { efforts: [{ id: effort, name: 'High' }], defaultEffort: effort },
+    })
+    ctx.llm.registerAdapter([route.provider], adapter)
+
+    const providers = await execute(ctx, lead, 'list_subagent_models', {})
+    expect(text(providers)).toContain(route.provider)
+    const models = await execute(ctx, lead, 'list_subagent_models', { provider: route.provider })
+    expect(text(models)).toContain(`${route.provider}/${route.model}`)
+    const details = await execute(ctx, lead, 'list_subagent_models', { provider: route.provider, model: route.model })
+    expect(text(details)).toContain('high (default) — High')
+  })
+
   it('passes an authorized model route to a new teammate and rejects an unauthorized route', async () => {
-    const { ctx, lead } = await setup([], false, true)
+    const { ctx, lead } = await setup([], false, true, [{ provider: 'selected-provider', model: 'selected-model' }])
     const member = {
       id: SessionId('selected-member'), name: 'selected', role: 'teammate' as const,
       status: 'provisioning' as const, description: 'selected model', diagnostics: [],
@@ -170,6 +195,39 @@ describe('dsh-tool-team', () => {
     })
     expect(denied.isError).toBe(true)
     expect(text(denied)).toContain('is not authorized')
+  })
+
+  it('resolves reasoning-only teammate selection from the latest Lead route', async () => {
+    const { ctx, lead } = await setup([], false, true, [{ provider: 'selected-provider', model: 'selected-model' }])
+    lead.session.append('request/header', {
+      header: { config: { provider: 'selected-provider', model: 'selected-model' } },
+      reason: 'change',
+    })
+    const member = {
+      id: SessionId('route-b-member'), name: 'route-b', role: 'teammate' as const,
+      status: 'provisioning' as const, description: 'inherit selected route', diagnostics: [],
+    }
+    const spawn = vi.spyOn(ctx.agentTeams, 'spawnTeammate').mockResolvedValue({ member })
+
+    const selected = await execute(ctx, lead, 'spawn_teammate', {
+      name: 'route-b', description: 'inherit selected route', prompt: 'work', reasoning_effort: 'high',
+    })
+
+    expect(selected.isError, text(selected)).toBe(false)
+    expect(spawn.mock.calls[0]?.[1].agentOptions).toEqual({
+      provider: 'selected-provider', model: 'selected-model', reasoningEffort: 'high',
+    })
+  })
+
+  it('applies the Team-specific restriction after the shared Host allowlist', async () => {
+    const { ctx, lead } = await setup([], false, true, [{ provider: 'selected-provider', model: 'team-only-model' }])
+    const denied = await execute(ctx, lead, 'spawn_teammate', {
+      name: 'outside-team-policy', description: 'outside the Team model restriction', prompt: 'work',
+      provider: 'selected-provider', model: 'selected-model',
+    })
+    expect(denied.isError).toBe(true)
+    expect(text(denied)).toContain("outside this Team's additional restriction list")
+    expect(ctx.agentTeams.listMembers(lead)).toHaveLength(1)
   })
 
   it.each(['running', 'inactive', 'provisioning', 'failed'] as const)(

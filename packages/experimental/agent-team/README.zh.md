@@ -64,7 +64,7 @@ agentTeams:
   defaultModel: { provider: native, model: deepseek-chat }
 ```
 
-当 `allowedModels` 非空时，`spawn_teammate` 必须使用列表中的 LLM 提供方/模型路由，其他组合会被拒绝。工具显式传入的 `agentOptions` 优先；兼容旧接口的 `model` 字段使用 Lead 的 LLM 提供方，随后依次回退到 `defaultModel` 和 Lead 当前路由。选择 `spawn` 或 `fork` 的 `provider` 参数不会参与 LLM 允许列表比较。选中的模型会记录在 roster 成员中，完整路由通过 `agentOptions` 传入子运行时。
+任何显式的成员模型选择都要求 Host 模型选择服务已启用，并命中 Host 允许列表；Team 专属 `allowedModels` 再作为额外限制，默认路由和继承路由也在服务层校验。公开的 `spawnTeammate()` 服务入口与模型工具执行相同的规则，因此绕过工具直接调用服务也不能扩大模型权限。可选的 `defaultModel` 必须包含在 Team 列表中；否则只有 Lead 当前路由同时属于两个列表时才会继承。显式 `agentOptions` 优先，旧 `model` 字段使用 Lead 的 LLM 提供方。选择 `spawn` 或 `fork` 的 `provider` 参数不会参与 LLM 允许列表比较。选中的模型与推理档位会持久化到成员记录，并通过 `agentOptions` 传入子运行时。
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-experimental-agent-team)是每个受支持字段及其 JSDoc 的穷尽式真源。
 

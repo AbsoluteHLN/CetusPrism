@@ -14,6 +14,9 @@
   disabled: true
 
 - insert:
+    - id: subagent-model-selection-settings
+      name: '@deepseek-ai/dsh-tool-subagent/model-selection-settings'
+
     - id: agent-team
       name: '@deepseek-ai/dsh-experimental-agent-team'
       config:

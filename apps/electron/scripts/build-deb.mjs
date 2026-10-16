@@ -13,6 +13,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { homedir } from 'node:os'
 import { resolveCetusBuildRoot } from './build-paths.mjs'
+import { invokeDockerContainer } from './docker-compat.mjs'
 
 const appRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const repoRoot = join(appRoot, '..', '..')
@@ -204,14 +205,19 @@ if (!existsSync(join(linuxNode, 'bin', 'node'))) {
 const proxy = process.env.HTTPS_PROXY ?? process.env.HTTP_PROXY ?? 'http://127.0.0.1:7897'
 const containerProxy = proxy.replace('127.0.0.1', 'host.docker.internal')
 function runInContainer(command) {
-  run(docker, [
-    'run', '--rm', '-v', `${repoRoot}:/repo`, '-v', `${linuxTarget}:/target`,
-    '-v', `${cargoHome}/registry:/usr/local/cargo/registry`, '-v', `${linuxNode}:/node`,
-    '-v', `${containerStore}:/store`, '-v', `${containerVstore}:/vstore`, '-v', `${outDir}:/out`,
-    '-e', 'CARGO_TARGET_DIR=/target', '-e', `HTTP_PROXY=${containerProxy}`,
-    '-e', `HTTPS_PROXY=${containerProxy}`, '-e', 'NO_PROXY=localhost,127.0.0.1,host.docker.internal',
-    '-w', '/repo', image, 'bash', '-c', `export PATH=/node/bin:$PATH; ${command}`,
-  ])
+  invokeDockerContainer(command, {
+    run,
+    docker,
+    image,
+    repoRoot,
+    linuxTarget,
+    cargoRegistry: join(cargoHome, 'registry'),
+    linuxNode,
+    containerStore,
+    containerVstore,
+    outDir,
+    containerProxy,
+  })
 }
 console.log('build-deb: cargo build --release --offline (container, linux) ...')
 runInContainer('cd /repo/apps/electron/src-tauri && cargo build --release --offline')

@@ -14,7 +14,14 @@ interface TeamMemberSnapshot {
   readonly id: SessionId
   readonly name: string
   readonly description: string
+  /** Spawn/fork provider used to create the member runtime. */
   readonly provider: string
+  /** Selected model id, when an explicit Team route is configured. */
+  readonly model?: string
+  /** LLM provider for `model`; distinct from the spawn/fork `provider`. */
+  readonly modelProvider?: string
+  /** Exact model-advertised reasoning tier selected for the member. */
+  readonly reasoningEffort?: string
   readonly context: 'fresh' | 'fork'
   readonly phase: TeamMemberPhase
   readonly error?: string
@@ -22,6 +29,8 @@ interface TeamMemberSnapshot {
 ```
 
 Every member starts in `provisioning` and reaches exactly one terminal roster phase, `active` or `failed`. Roster `running`/`inactive` status is derived separately and never rewrites this record.
+
+`team/member` payload v2 remains readable for existing records, including its optional `model` field. New member lifecycle writes use payload v3, which adds `modelProvider` and `reasoningEffort`; strict v2 records cannot carry those fields. Other Agent Teams event payloads remain v2. The `agentTeam` projection cache is at state version 5, so a v4 cache is rebuilt from the Session log.
 
 ## Durable mailbox
 

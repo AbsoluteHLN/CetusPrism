@@ -132,6 +132,70 @@ describe('Agent Teams projection events', () => {
       .toEqual(projected)
   })
 
+  it('replays strict v2 members and applies v3 model-route metadata', () => {
+    const legacy = event('team/member', {
+      version: 2,
+      teamId: TEAM,
+      member: member({ model: 'legacy-model' }),
+    }, SessionSeq(0))
+    const routed = event('team/member', {
+      version: 3,
+      teamId: TEAM,
+      member: member({
+        model: 'selected-model',
+        modelProvider: 'mock',
+        reasoningEffort: 'high',
+        phase: 'active',
+      }),
+    }, SessionSeq(1))
+    expect(projectTeam(ROOT, [legacy, routed]).members[0]).toMatchObject({
+      model: 'selected-model',
+      modelProvider: 'mock',
+      reasoningEffort: 'high',
+      phase: 'active',
+    })
+
+    const unversionedRouteMetadata = {
+      version: 2 as const,
+      teamId: TEAM,
+      member: { ...member(), modelProvider: 'mock' },
+    }
+    const rejected = project(ROOT, [event('team/member', unversionedRouteMetadata, SessionSeq(0))])
+    expect(rejected.failure).toMatch(/team\/member payload is invalid/)
+  })
+
+  it('rebuilds a v4 checkpoint from mixed v2 and v3 member history', async () => {
+    const ctx = new Context()
+    onTestFinished(() => ctx.fiber.dispose())
+    await ctx.plugin(SessionStore)
+    await ctx.plugin(SessionProjectionRegistry)
+    ctx.effect(() => ctx.sessionProjections.register(teamProjectionDefinition))
+    const session = ctx.sessions.create(ROOT)
+    const legacy = event('team/member', {
+      version: 2,
+      teamId: TEAM,
+      member: member({ model: 'legacy-model' }),
+    }, SessionSeq(0))
+    const routed = event('team/member', {
+      version: 3,
+      teamId: TEAM,
+      member: member({ model: 'selected-model', modelProvider: 'mock', reasoningEffort: 'high', phase: 'active' }),
+    }, SessionSeq(1))
+    const oldState = project(ROOT, [legacy])
+    const oldCheckpoint = { agentTeam: { ver: 4, seq: SessionSeq(0), val: oldState } }
+    expect(ctx.sessionProjections.restoreFloor(oldCheckpoint)).toBe(0)
+    const restored = ctx.sessionProjections.restore(
+      oldCheckpoint,
+      [legacy, routed],
+      SessionLogOffset(0),
+      session.header,
+      SessionLogOffset(0),
+    )
+    expect(restored.checkpoint['agentTeam']?.ver).toBe(5)
+    expect(teamProjectionDefinition.stateSchema.parse(restored.checkpoint['agentTeam']?.val).members[0])
+      .toMatchObject({ modelProvider: 'mock', reasoningEffort: 'high' })
+  })
+
   it('enforces teammate identity and lifecycle', () => {
     const base = event('team/member', { version: 2, teamId: TEAM, member: member() }, SessionSeq(0))
     expect(() => projectTeam(ROOT, [event('team/member', {
@@ -477,7 +541,11 @@ describe('Agent Teams projection events', () => {
     })
 
     it('views durable roster and non-deleted derived tasks and reuses the view across mailbox-only changes', () => {
-      const activeMember = event('team/member', { version: 2, teamId: TEAM, member: member({ phase: 'active' }) }, SessionSeq(1))
+      const activeMember = event('team/member', {
+        version: 3,
+        teamId: TEAM,
+        member: member({ phase: 'active', model: 'model-a', modelProvider: 'mock', reasoningEffort: 'high' }),
+      }, SessionSeq(1))
       const claimed = event('team/task', {
         version: 2, teamId: TEAM, task: task({ revision: 2, status: 'in_progress', ownerId: CHILD, writeScopes: ['src'] }),
       }, SessionSeq(2))
@@ -496,7 +564,10 @@ describe('Agent Teams projection events', () => {
       expect(view).toEqual({
         members: [
           { id: ROOT, name: 'lead', role: 'lead', phase: 'active' },
-          { id: CHILD, name: 'worker-a', role: 'teammate', phase: 'active' },
+          {
+            id: CHILD, name: 'worker-a', role: 'teammate', phase: 'active',
+            model: 'model-a', modelProvider: 'mock', reasoningEffort: 'high',
+          },
         ],
         tasks: [
           {

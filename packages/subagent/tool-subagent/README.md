@@ -104,6 +104,8 @@ The tool's description derives from `provider.inheritsParentContext`: a fresh ch
 | [`src/model-selection-state.ts`](src/model-selection-state.ts) | Session event that records and inherits the sampled decision |
 | [`src/list-models.ts`](src/list-models.ts) | `list_subagent_models` runtime discovery tool |
 
+Profile packages that compose the catalog tool should import `registerListSubagentModels` from the published `@deepseek-ai/dsh-tool-subagent/list-models` entry. Importing under `src/` bypasses the package's publication boundary.
+
 </details>
 
 -----

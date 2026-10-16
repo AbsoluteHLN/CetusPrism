@@ -32,7 +32,13 @@ const host = `${process.platform}-${process.arch}`
 const libc = process.platform === 'linux'
   ? ((process.report.getReport() as { header: { glibcVersionRuntime?: string } }).header.glibcVersionRuntime ? 'glibc' : 'musl')
   : undefined
-const headers = resolve(dirname(process.execPath), '../include/node')
+// Linux packaging can opt the glibc addon into the Ubuntu 22.04 sysroot while
+// keeping the static musl launcher on the native musl toolchain. This is
+// deliberately separate from CC so the two libc artifacts cannot share a
+// compiler accidentally.
+const glibcCompiler = process.env.CETUS_GLIBC_CC ?? process.env.CC ?? 'cc'
+const muslCompiler = process.env.CETUS_MUSL_CC ?? 'musl-gcc'
+const headers = resolve(process.env.CETUS_NODE_HEADERS ?? join(dirname(process.execPath), '../include/node'))
 let built = 0
 
 for (const name of readdirSync(join(root, 'packages')).sort()) {
@@ -52,13 +58,13 @@ for (const name of readdirSync(join(root, 'packages')).sort()) {
     let flags: string[]
 
     if (binary.kind === 'static-musl' && process.platform === 'linux' && binary.tool === 'landlock-run') {
-      compiler = 'musl-gcc'
+      compiler = muslCompiler
       flags = ['-std=c11', '-Os', '-Wall', '-Wextra', '-Werror', '-static', '-s']
     } else if (binary.kind === 'node-api' && binary.tool === 'flock' && binary.napi === 8) {
       if (!existsSync(join(headers, 'node_api.h'))) {
-        throw new Error(`build: Node-API headers missing at ${headers}; use a Node installation with development headers`)
+        throw new Error(`build: Node-API headers missing at ${headers}; set CETUS_NODE_HEADERS to a directory containing node_api.h or use a Node installation with development headers`)
       }
-      compiler = process.platform === 'linux' && binary.libc === 'musl' ? 'musl-gcc' : 'cc'
+      compiler = process.platform === 'linux' && binary.libc === 'musl' ? muslCompiler : glibcCompiler
       flags = ['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-fPIC', '-fvisibility=hidden', '-DNAPI_VERSION=8', '-I', headers]
       if (process.platform === 'darwin') {
         if (binary.libc !== undefined) throw new Error('build: macOS flock does not select a Linux libc')

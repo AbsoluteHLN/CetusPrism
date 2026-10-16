@@ -12,10 +12,12 @@ import { chmodSync, cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rm
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { homedir } from 'node:os'
+import { resolveCetusBuildRoot } from './build-paths.mjs'
 
 const appRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const repoRoot = join(appRoot, '..', '..')
 const dependencyRoot = process.env.CETUS_DEPENDENCY_ROOT ?? join(homedir(), 'dependency-cache')
+const cetusBuildRoot = resolveCetusBuildRoot(repoRoot)
 
 function run(command, args, options = {}) {
   execFileSync(command, args, { stdio: 'inherit', ...options })
@@ -23,11 +25,20 @@ function run(command, args, options = {}) {
 
 const cargoHome = process.env.CARGO_HOME ?? join(dependencyRoot, 'cargo')
 const rustupHome = process.env.RUSTUP_HOME ?? join(dependencyRoot, 'rustup')
-const targetDir = process.env.CARGO_TARGET_DIR ?? join(cargoHome, 'targets', 'cetusprism-linux')
-const outDir = process.env.CETUS_DIST_DIR ?? join(appRoot, 'dist')
+const targetDir = process.env.CARGO_TARGET_DIR ?? join(cetusBuildRoot, 'cargo-target')
+const outDir = process.env.CETUS_DIST_DIR ?? join(cetusBuildRoot, 'deb-dist')
 const nativeSysroot = process.env.CETUS_NATIVE_SYSROOT ?? join(dependencyRoot, 'sysroot', 'native-linux')
 const ubuntuTarget = process.env.CETUS_UBUNTU_TARGET ?? ''
 const ubuntuSysroot = resolve(process.env.CETUS_UBUNTU_SYSROOT ?? join(dependencyRoot, 'sysroot', 'ubuntu-22.04.2'))
+
+if (ubuntuTarget !== '' && ubuntuTarget !== '22.04.2') {
+  console.error(`build-deb: unsupported CETUS_UBUNTU_TARGET=${ubuntuTarget}; expected 22.04.2 or unset for host-native`)
+  process.exit(1)
+}
+if (ubuntuTarget !== '' && process.platform !== 'linux') {
+  console.error('build-deb: CETUS_UBUNTU_TARGET is supported only by the native Linux build path')
+  process.exit(1)
+}
 
 function prepareUbuntuTargetTools() {
   if (ubuntuTarget !== '22.04.2') return { path: process.env.PATH ?? '', env: {} }
@@ -78,6 +89,12 @@ mkdirSync(targetDir, { recursive: true })
 mkdirSync(outDir, { recursive: true })
 
 if (process.platform === 'linux') {
+  const hostGlibc = process.report.getReport().header.glibcVersionRuntime ?? 'unknown (musl)'
+  if (ubuntuTarget === '22.04.2') {
+    console.log(`build-deb: Ubuntu ${ubuntuTarget} target requested; requiring the Ubuntu sysroot and a GLIBC_2.35 maximum symbol version`)
+  } else {
+    console.log(`build-deb: host-native Linux build (builder GLIBC ${hostGlibc}); this does not guarantee Ubuntu 22.04 compatibility`)
+  }
   const ubuntuTools = prepareUbuntuTargetTools()
   const nativeToolsPath = prepareNativeTools()
   const toolchainRoots = []
@@ -110,10 +127,10 @@ if (process.platform === 'linux') {
     process.exit(1)
   }
   const frontendDist = join(appRoot, 'src-tauri', 'frontend')
-  const frontendBackup = join(dependencyRoot, 'cetusprism', 'frontend-placeholder')
+  const frontendBackup = join(cetusBuildRoot, 'frontend-placeholder')
   rmSync(frontendBackup, { recursive: true, force: true })
   cpSync(frontendDist, frontendBackup, { recursive: true })
-  cpSync(webDist, frontendDist, { recursive: true, force: true })
+  cpSync(webDist, frontendDist, { recursive: true, force: true, dereference: true })
 
   const cargoFlags = process.env.CETUS_CARGO_OFFLINE === 'true' ? ['--offline'] : []
   console.log(`build-deb: cargo build --release${cargoFlags.length > 0 ? ' --offline' : ''} (native Linux, target ${targetDir}) ...`)
@@ -149,11 +166,13 @@ if (process.platform === 'linux') {
       ...ubuntuTools.env,
       CARGO_TARGET_DIR: targetDir,
       CETUS_DIST_DIR: outDir,
+      CETUS_BUILD_ROOT: cetusBuildRoot,
       CETUS_REPO_ROOT: repoRoot,
       CETUS_NODE_BIN: process.env.CETUS_NODE_BIN ?? process.execPath,
+      CETUS_GLIBC_CC: process.env.CETUS_GLIBC_CC ?? ubuntuTools.env.CC ?? process.env.CC ?? 'cc',
       CETUS_PNPM_STORE: process.env.CETUS_PNPM_STORE ?? join(dependencyRoot, 'pnpm', 'store'),
       CETUS_PNPM_VSTORE: process.env.CETUS_PNPM_VSTORE ?? join(dependencyRoot, 'pnpm', 'virtual'),
-      CETUS_PACK_WORK_ROOT: process.env.CETUS_PACK_WORK_ROOT ?? join(dependencyRoot, 'cetusprism', 'linux-work'),
+      CETUS_PACK_WORK_ROOT: process.env.CETUS_PACK_WORK_ROOT ?? join(cetusBuildRoot, 'pack-work'),
       PATH: buildPath,
     },
   })

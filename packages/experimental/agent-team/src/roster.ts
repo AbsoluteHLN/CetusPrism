@@ -5,8 +5,9 @@ import type { Context } from '@deepseek-ai/cordis'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { MessageId } from '@deepseek-ai/dsh-llm'
+import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { SessionId } from '@deepseek-ai/dsh-session'
-import { foldSubagentDescriptor } from '@deepseek-ai/dsh-subagent'
+import { foldSubagentDescriptor, parentAgentOptionsForDelegation } from '@deepseek-ai/dsh-subagent'
 import type { ContinuableStart } from '@deepseek-ai/dsh-subagent'
 import { errorMessage, TeamError } from './error.ts'
 import type { TeamJournal } from './journal.ts'
@@ -25,6 +26,9 @@ import type {
 } from './types.ts'
 import { requiredText } from './validation.ts'
 
+type ResolvedTeamAgentRoute = Required<Pick<TeamAgentRoute, 'provider' | 'model'>>
+  & Pick<TeamAgentRoute, 'reasoningEffort'>
+
 const MEMBER_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u
 
 /** Caller identity inside one implicit Team. */
@@ -33,6 +37,16 @@ export interface TeamMembership {
   readonly id: TeamId
   readonly role: 'lead' | 'teammate'
   readonly name: string
+}
+
+interface TeamModelPolicy {
+  readonly allowedModels: readonly TeamModelSelection[]
+  readonly defaultModel?: TeamModelSelection
+}
+
+interface HostModelPolicy {
+  readonly enabled: boolean
+  readonly allowedModels: readonly TeamModelSelection[]
 }
 
 /**
@@ -71,8 +85,8 @@ export class TeamRoster {
     private readonly journal: TeamJournal,
     private readonly lifecycle: TeamRuntimeLifecycle,
     private readonly maxMembers: number,
-    private readonly allowedModels: readonly TeamModelSelection[] = [],
-    private readonly defaultModel: TeamModelSelection | undefined = undefined,
+    private readonly modelPolicy: () => TeamModelPolicy = () => ({ allowedModels: [] }),
+    private readonly hostModelPolicy: () => HostModelPolicy | undefined = () => undefined,
   ) {}
 
   /**
@@ -133,17 +147,22 @@ export class TeamRoster {
   list(membership: TeamMembership): TeamMemberView[] {
     const { root } = membership
     const state = this.journal.state(root)
+    const leadOptions = parentAgentOptionsForDelegation(root)
     const result: TeamMemberView[] = [{
       id: root.id,
       name: 'lead',
       role: 'lead',
       status: availability(root),
-      ...root.options.model === undefined ? {} : { model: root.options.model },
+      ...leadOptions.model === undefined ? {} : { model: leadOptions.model },
+      ...leadOptions.provider === undefined ? {} : { modelProvider: leadOptions.provider },
+      ...leadOptions.reasoningEffort === undefined ? {} : { reasoningEffort: leadOptions.reasoningEffort },
       diagnostics: [],
     }]
     for (const member of state.members) {
       const live = this.ctx.agents.get(member.id)
-      const model = live?.options.model ?? member.model ?? root.options.model
+      const model = live?.options.model ?? member.model ?? leadOptions.model
+      const modelProvider = live?.options.provider ?? member.modelProvider ?? leadOptions.provider
+      const reasoningEffort = live?.options.reasoningEffort ?? member.reasoningEffort
       result.push({
         id: member.id,
         name: member.name,
@@ -157,6 +176,8 @@ export class TeamRoster {
         provider: member.provider,
         context: member.context,
         ...model === undefined ? {} : { model },
+        ...modelProvider === undefined ? {} : { modelProvider },
+        ...reasoningEffort === undefined ? {} : { reasoningEffort },
         diagnostics: member.error === undefined ? [] : [member.error],
       })
     }
@@ -261,11 +282,39 @@ export class TeamRoster {
     const name = this.memberName(request.name)
     const description = requiredText(request.description, 'description', 200)
     const backend = requiredText(request.provider, 'provider', 200)
-    const route = this.resolveModelRoute(root, request)
-    if (this.allowedModels.length > 0) {
+    const teamPolicy = this.modelPolicy()
+    const route = this.resolveModelRoute(root, request, teamPolicy)
+    if (teamPolicy.allowedModels.length > 0) {
       if (route === undefined) throw new TeamError('a provider/model route from the Team allowed-model list is required', 'TEAM_MODEL_REQUIRED')
-      if (!this.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
+      if (!teamPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
         throw new TeamError(`model "${route.provider}/${route.model}" is not allowed for this Team`, 'TEAM_MODEL_NOT_ALLOWED')
+      }
+    }
+    const hostPolicy = this.hostModelPolicy()
+    const requestedModelSelection = request.model !== undefined
+      || request.agentOptions?.provider !== undefined
+      || request.agentOptions?.model !== undefined
+      || request.agentOptions?.reasoningEffort !== undefined
+      || teamPolicy.defaultModel !== undefined
+      || teamPolicy.allowedModels.length > 0
+    if (requestedModelSelection) {
+      if (hostPolicy === undefined) {
+        throw new TeamError('model selection requires the Host-owned model-selection policy service', 'TEAM_HOST_MODEL_SELECTION_UNAVAILABLE')
+      }
+      if (!hostPolicy.enabled) {
+        throw new TeamError('model selection is disabled by the Host', 'TEAM_HOST_MODEL_SELECTION_DISABLED')
+      }
+      if (route === undefined || !hostPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
+        throw new TeamError('the selected model route is outside the Host-authorized list', 'TEAM_HOST_MODEL_NOT_ALLOWED')
+      }
+    }
+    if (route?.reasoningEffort !== undefined) {
+      const info = await this.ctx.llm.resolveModelInfo(route.provider, route.model, signal)
+      if (!info.reasoning?.efforts.some(effort => effort.id === route.reasoningEffort)) {
+        throw new TeamError(
+          `reasoning effort "${route.reasoningEffort}" is not advertised for "${route.provider}/${route.model}"`,
+          'TEAM_REASONING_EFFORT_NOT_ALLOWED',
+        )
       }
     }
     const childId = brandString<SessionId>(randomUUID())
@@ -274,7 +323,11 @@ export class TeamRoster {
       name,
       description,
       provider: backend,
-      ...route === undefined ? {} : { model: route.model },
+      ...route === undefined ? {} : {
+        model: route.model,
+        modelProvider: route.provider,
+        ...route.reasoningEffort === undefined ? {} : { reasoningEffort: route.reasoningEffort },
+      },
       context: request.context,
       phase: 'provisioning',
     }
@@ -287,7 +340,7 @@ export class TeamRoster {
       if (state.members.length >= this.maxMembers) {
         throw new TeamError(`Team member limit ${this.maxMembers} reached`, 'TEAM_MEMBER_LIMIT')
       }
-      await this.journal.appendAndFlush(root, 'team/member', { version: 2, teamId: TeamId(root.id), member })
+      await this.journal.appendAndFlush(root, 'team/member', { version: 3, teamId: TeamId(root.id), member })
     })
 
     let started: ContinuableStart
@@ -299,7 +352,11 @@ export class TeamRoster {
         request: {
           prompt: request.prompt,
           parent: root,
-          ...route === undefined ? {} : { agentOptions: route },
+          ...route === undefined ? {} : { agentOptions: {
+            provider: route.provider,
+            model: route.model,
+            ...route.reasoningEffort === undefined ? {} : { reasoningEffort: ReasoningEffortId(route.reasoningEffort) },
+          } },
         },
         signal,
       })
@@ -351,27 +408,35 @@ export class TeamRoster {
   }
 
   /** Resolve the child LLM route without confusing it with the subagent backend. */
-  private resolveModelRoute(root: Agent, request: SpawnTeammateRequest): TeamAgentRoute | undefined {
+  private resolveModelRoute(root: Agent, request: SpawnTeammateRequest, teamPolicy: TeamModelPolicy): ResolvedTeamAgentRoute | undefined {
+    const leadOptions = parentAgentOptionsForDelegation(root)
     if (request.agentOptions !== undefined) {
-      const provider = request.agentOptions.provider?.trim()
-      const model = request.agentOptions.model?.trim()
-      if (provider === undefined || model === undefined || provider.length === 0 || model.length === 0) {
+      const requestedProvider = request.agentOptions.provider?.trim()
+      const requestedModel = request.agentOptions.model?.trim()
+      const effort = request.agentOptions.reasoningEffort?.trim()
+      if ((requestedProvider === undefined) !== (requestedModel === undefined)
+          || requestedProvider === '' || requestedModel === '' || effort === '') {
         throw new TeamError('Team model selection requires provider and model together', 'TEAM_MODEL_INVALID')
       }
-      return { provider, model }
+      const provider = requestedProvider ?? (effort === undefined ? undefined : leadOptions.provider?.trim())
+      const model = requestedModel ?? (effort === undefined ? undefined : leadOptions.model?.trim())
+      if (provider === undefined || model === undefined || provider.length === 0 || model.length === 0) {
+        throw new TeamError('Team reasoning selection requires an effective provider and model', 'TEAM_MODEL_INVALID')
+      }
+      return { provider, model, ...effort === undefined ? {} : { reasoningEffort: effort } }
     }
 
     const requestedModel = request.model?.trim()
     if (requestedModel !== undefined && requestedModel.length > 0) {
-      const provider = root.options.provider?.trim()
+      const provider = leadOptions.provider?.trim()
       if (provider !== undefined && provider.length > 0) return { provider, model: requestedModel }
       throw new TeamError('the legacy model field requires the Lead LLM provider', 'TEAM_MODEL_INVALID')
     }
 
-    if (this.defaultModel !== undefined) return this.defaultModel
-    if (this.allowedModels.length === 0) return undefined
-    const provider = root.options.provider?.trim()
-    const model = root.options.model?.trim()
+    if (teamPolicy.defaultModel !== undefined) return teamPolicy.defaultModel
+    if (teamPolicy.allowedModels.length === 0) return undefined
+    const provider = leadOptions.provider?.trim()
+    const model = leadOptions.model?.trim()
     return provider !== undefined && provider.length > 0 && model !== undefined && model.length > 0
       ? { provider, model }
       : undefined
@@ -466,7 +531,7 @@ export class TeamRoster {
           ...phase === 'failed' ? { error: failure } : {},
         }
         await this.journal.appendAndFlush(root, 'team/member', {
-          version: 2,
+          version: 3,
           teamId: TeamId(root.id),
           member: settled,
         })
@@ -478,6 +543,8 @@ export class TeamRoster {
   private memberView(member: TeamMemberSnapshot & { readonly phase: 'active' }): TeamMemberView {
     const live = this.ctx.agents.get(member.id)
     const model = live?.options.model ?? member.model
+    const modelProvider = live?.options.provider ?? member.modelProvider
+    const reasoningEffort = live?.options.reasoningEffort ?? member.reasoningEffort
     return {
       id: member.id,
       name: member.name,
@@ -487,6 +554,8 @@ export class TeamRoster {
       provider: member.provider,
       context: member.context,
       ...model === undefined ? {} : { model },
+      ...modelProvider === undefined ? {} : { modelProvider },
+      ...reasoningEffort === undefined ? {} : { reasoningEffort },
       diagnostics: [],
     }
   }
@@ -515,7 +584,7 @@ export class TeamRoster {
       }
       if (current.phase !== 'provisioning') return current.phase
       await this.journal.appendAndFlush(root, 'team/member', {
-        version: 2,
+        version: 3,
         teamId: TeamId(root.id),
         member: terminal,
       })

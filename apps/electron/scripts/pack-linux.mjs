@@ -14,20 +14,22 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, cpSync } from 'node:fs'
+import { closeSync, existsSync, lstatSync, mkdirSync, openSync, readSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync, cpSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { homedir } from 'node:os'
+import { resolveCetusBuildRoot } from './build-paths.mjs'
 
 const repoRoot = resolve(process.env.CETUS_REPO_ROOT ?? join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..'))
 const appRoot = join(repoRoot, 'apps', 'electron')
+const cetusBuildRoot = resolveCetusBuildRoot(repoRoot)
 const dependencyRoot = process.env.CETUS_DEPENDENCY_ROOT ?? join(homedir(), 'dependency-cache')
-const targetDir = resolve(process.env.CARGO_TARGET_DIR ?? join(dependencyRoot, 'cargo', 'targets', 'cetusprism-linux'))
+const targetDir = resolve(process.env.CARGO_TARGET_DIR ?? join(cetusBuildRoot, 'cargo-target'))
 const nodeBin = resolve(process.env.CETUS_NODE_BIN ?? process.execPath)
-// The final .deb lands in the output directory; all staging runs in the
-// shared-cache work root so pnpm can freely rename its temporary directories.
-const outDir = resolve(process.env.CETUS_DIST_DIR ?? join(appRoot, 'dist'))
-const workRoot = resolve(process.env.CETUS_PACK_WORK_ROOT ?? join(dependencyRoot, 'cetusprism', 'linux-work'))
+// The final .deb and transient staging paths live under aggregate cxbuild;
+// the shared dependency store remains read-only during packaging.
+const outDir = resolve(process.env.CETUS_DIST_DIR ?? join(cetusBuildRoot, 'deb-dist'))
+const workRoot = resolve(process.env.CETUS_PACK_WORK_ROOT ?? join(cetusBuildRoot, 'pack-work'))
 const pnpmStore = resolve(process.env.CETUS_PNPM_STORE ?? join(dependencyRoot, 'pnpm', 'store'))
 const pnpmVstore = resolve(process.env.CETUS_PNPM_VSTORE ?? join(dependencyRoot, 'pnpm', 'virtual'))
 const unpackedDir = join(workRoot, 'linux-unpacked')
@@ -35,7 +37,23 @@ const appDir = join(unpackedDir, 'resources', 'app')
 const debStaging = join(workRoot, 'deb-root')
 const packageJson = JSON.parse(readFileSync(join(appRoot, 'package.json'), 'utf8'))
 const version = packageJson.version
+const ubuntuTarget = process.env.CETUS_UBUNTU_TARGET ?? ''
+const ubuntuGlibcCompiler = process.env.CETUS_GLIBC_CC ?? (ubuntuTarget === '22.04.2' ? process.env.CC : undefined)
+const hostGlibc = process.report.getReport().header.glibcVersionRuntime ?? 'unknown (musl)'
+const abiTarget = ubuntuTarget === '22.04.2'
+  ? 'Ubuntu 22.04.2, maximum required GLIBC symbol version 2.35'
+  : `host-native Linux, builder GLIBC ${hostGlibc}; no Ubuntu 22.04 compatibility guarantee`
 const debFile = join(outDir, `CetusPrism-v${version}-amd64.deb`)
+
+if (ubuntuTarget !== '' && ubuntuTarget !== '22.04.2') {
+  console.error(`pack-linux: unsupported CETUS_UBUNTU_TARGET=${ubuntuTarget}; expected 22.04.2 or unset for host-native`)
+  process.exit(1)
+}
+if (ubuntuTarget === '22.04.2' && !ubuntuGlibcCompiler) {
+  console.error('pack-linux: Ubuntu 22.04 target requires CETUS_GLIBC_CC or the sysroot CC wrapper from build-deb.mjs')
+  process.exit(1)
+}
+console.log(`pack-linux: ABI target is ${abiTarget}`)
 
 for (const [label, path] of [['shell binary', join(targetDir, 'release', 'CetusPrism')], ['Linux node', nodeBin]]) {
   if (!existsSync(path)) {
@@ -66,13 +84,19 @@ execFileSync('chmod', ['0755', join(appDir, 'backend', 'node')])
 // `node-addon-system-linux-x64/bin/glibc/system.node` and flock would fail
 // at first launch. Build them here, where the musl/glibc toolchains live.
 console.log('pack-linux: building Linux native prebuilds ...')
-execFileSync(nodeBin, [join(repoRoot, 'native', 'system', 'scripts', 'build.ts')], { cwd: repoRoot, stdio: 'inherit' })
+const nativeBuildEnv = { ...process.env }
+if (ubuntuGlibcCompiler) nativeBuildEnv.CETUS_GLIBC_CC = ubuntuGlibcCompiler
+execFileSync(nodeBin, [join(repoRoot, 'native', 'system', 'scripts', 'build.ts')], {
+  cwd: repoRoot,
+  env: nativeBuildEnv,
+  stdio: 'inherit',
+})
 
 // Deploy the backend closure straight into the output with the workspace's
 // own pnpm. The hoisted linker produces one flat, self-contained
-// `node_modules`; unlike the Windows pack this deploy runs ONLINE (proxy
-// env), because the store was populated on Windows and the Linux-variant
-// optional native packages (bindings, prebuilds) still need fetching.
+// `node_modules`; the pinned Linux closure must already exist in the shared
+// package store. Offline mode prevents package downloads; pnpm 11 may still
+// verify lockfile policy against its cached registry metadata.
 // pnpm itself comes from the shared virtual store (DSH_PNPM_VSTORE, set by
 // build-deb.mjs); the project node_modules is a junction shell with no
 // package content to traverse.
@@ -89,18 +113,165 @@ if (pnpmCjs === undefined) {
 }
 execFileSync(nodeBin, [
   pnpmCjs,
+  '--offline',
   '--filter', '@deepseek-ai/dsh', 'deploy', '--prod',
+  '--ignore-scripts',
   '--node-linker=hoisted', '--config.inject-workspace-packages=true',
-// The shared store holds no build side-effects for the injected
-  // workspace packages, so the default build policy refuses their postinstall
-  // (dsh-subprocess-local's spawn-helper chmod) and fails the deploy; the
-  // closure is pinned by the shared lockfile, so allow all builds here.
-  '--config.dangerouslyAllowAllBuilds=true',
+  // Runtime JS outputs and native Linux binaries are staged explicitly below.
+  // No dependency lifecycle script is needed for the Linux payload; in
+  // particular, dsh-subprocess-local's helper chmod only targets macOS.
   `--config.store-dir=${pnpmStore}`,
   `--config.virtual-store-dir=${pnpmVstore}`,
   join(appDir, 'backend', 'runtime'),
 ], { cwd: repoRoot, stdio: 'inherit' })
 execFileSync(nodeBin, [join(appRoot, 'scripts', 'heal-deploy-links.mjs'), join(appDir, 'backend', 'runtime')], { stdio: 'inherit' })
+
+const runtimeRoot = join(appDir, 'backend', 'runtime')
+const runtimeNodeModules = join(runtimeRoot, 'node_modules')
+
+// pnpm deploy copies injected workspace packages from the dependency store.
+// Generated files are kept in cxbuild/ by the shared build layout and reached
+// from the source tree through symlinks, which deploy omits. Materialize those
+// build outputs into the runtime tree before pruning and assembly.
+const dshManifest = JSON.parse(readFileSync(join(repoRoot, 'apps', 'cli', 'package.json'), 'utf8'))
+function collectWorkspaceManifests(base, found = []) {
+  let entries
+  try { entries = readdirSync(base, { withFileTypes: true }) } catch { return found }
+  for (const entry of entries) {
+    if (!entry.isDirectory() || entry.name === 'node_modules' || entry.name === '.git') continue
+    const dir = join(base, entry.name)
+    const manifest = join(dir, 'package.json')
+    if (existsSync(manifest)) found.push(manifest)
+    collectWorkspaceManifests(dir, found)
+  }
+  return found
+}
+function exportedRuntimeFiles(value, found = []) {
+  if (typeof value === 'string') {
+    if ((value.startsWith('./lib/') || value.startsWith('./dist/'))
+      && !value.endsWith('.d.ts') && !value.includes('*')) found.push(value)
+  } else if (Array.isArray(value)) {
+    for (const item of value) exportedRuntimeFiles(item, found)
+  } else if (value && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      if (key !== 'types' && key !== 'typesVersions') exportedRuntimeFiles(item, found)
+    }
+  }
+  return found
+}
+let materializedOutputs = 0
+for (const base of [
+  join(repoRoot, 'apps'),
+  join(repoRoot, 'packages'),
+  join(repoRoot, 'vendor'),
+  join(repoRoot, 'native', 'system', 'packages'),
+  join(repoRoot, 'python'),
+  join(repoRoot, 'benchmarks'),
+  join(repoRoot, 'website'),
+]) {
+  for (const manifestPath of collectWorkspaceManifests(base)) {
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    const name = manifest.name
+    if (!name || !name.startsWith('@deepseek-ai/')) continue
+    const destination = name === dshManifest.name ? runtimeRoot : join(runtimeNodeModules, name)
+    if (!existsSync(join(destination, 'package.json'))) continue
+    const sourceRoot = dirname(manifestPath)
+    const requiredFiles = exportedRuntimeFiles([manifest.main, manifest.module, manifest.bin, manifest.exports])
+    for (const outputDir of ['lib', 'dist']) {
+      const sourceOutput = join(sourceRoot, outputDir)
+      if (!existsSync(sourceOutput)) continue
+      const destinationOutput = join(destination, outputDir)
+      rmSync(destinationOutput, { recursive: true, force: true })
+      cpSync(sourceOutput, destinationOutput, { recursive: true, dereference: true })
+      materializedOutputs++
+    }
+    for (const file of requiredFiles) {
+      if (!existsSync(join(destination, file.slice(2)))) {
+        console.error(`pack-linux: compiled runtime export missing for ${name}: ${file}`)
+        process.exit(1)
+      }
+    }
+  }
+}
+
+// The native package is built on the Linux host, but deploy can still select
+// its cached injected copy from before the build. Replace the staged payload
+// with the binaries just compiled for this package.
+const linuxNativePackage = join(runtimeNodeModules, '@deepseek-ai', 'node-addon-system-linux-x64')
+const linuxNativeBin = join(repoRoot, 'native', 'system', 'packages', 'linux-x64', 'bin')
+for (const required of ['landlock-run', 'glibc/system.node', 'musl/system.node']) {
+  if (!existsSync(join(linuxNativeBin, required))) {
+    console.error(`pack-linux: required Linux prebuild missing at ${join(linuxNativeBin, required)}`)
+    process.exit(1)
+  }
+}
+if (!existsSync(join(linuxNativePackage, 'package.json'))) {
+  console.error(`pack-linux: deployed Linux native package missing at ${linuxNativePackage}`)
+  process.exit(1)
+}
+const deployedNativeBin = join(linuxNativePackage, 'bin')
+rmSync(deployedNativeBin, { recursive: true, force: true })
+cpSync(linuxNativeBin, deployedNativeBin, { recursive: true, dereference: true })
+
+// A cross-target package must not silently pick up a host-built ELF dependency
+// with a newer glibc requirement. Inspect the final app shell, bundled Node
+// runtime, and every native addon after platform-specific payloads are pruned.
+function auditUbuntuGlibcTarget() {
+  if (ubuntuTarget !== '22.04.2') return
+  const elfCandidates = []
+  function isElf(path) {
+    let descriptor
+    try {
+      descriptor = openSync(path, 'r')
+      const magic = Buffer.alloc(4)
+      return readSync(descriptor, magic, 0, magic.length, 0) === magic.length
+        && magic[0] === 0x7f && magic[1] === 0x45 && magic[2] === 0x4c && magic[3] === 0x46
+    } finally {
+      if (descriptor !== undefined) closeSync(descriptor)
+    }
+  }
+  function collectElfPayloads(dir) {
+    let entries
+    try { entries = readdirSync(dir, { withFileTypes: true }) } catch { return }
+    for (const entry of entries) {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) collectElfPayloads(path)
+      else if (entry.isFile() && isElf(path)) elfCandidates.push(path)
+    }
+  }
+  collectElfPayloads(unpackedDir)
+  const tooNew = []
+  for (const path of [...new Set(elfCandidates)]) {
+    let versions
+    try {
+      const report = execFileSync(process.env.CETUS_READELF ?? 'readelf', ['--version-info', path], { encoding: 'utf8' })
+      versions = [...report.matchAll(/Name: GLIBC_(\d+(?:\.\d+)+)/g)].map(match => match[1].split('.').map(Number))
+    } catch (error) {
+      console.error(`pack-linux: cannot inspect GLIBC requirements for ${path}: ${error.message}`)
+      process.exit(1)
+    }
+    if (versions.some(parts => parts[0] > 2 || (parts[0] === 2 && parts[1] > 35))) {
+      const required = versions.map(parts => parts.join('.')).sort((left, right) => {
+        const a = left.split('.').map(Number)
+        const b = right.split('.').map(Number)
+        return a[0] - b[0] || a[1] - b[1]
+      }).at(-1)
+      tooNew.push(`${path} requires GLIBC_${required}`)
+    }
+  }
+  if (tooNew.length > 0) {
+    console.error(`pack-linux: Ubuntu 22.04 target exceeds its GLIBC_2.35 ceiling:\n${tooNew.join('\n')}`)
+    process.exit(1)
+  }
+  console.log(`pack-linux: checked ${elfCandidates.length} ELF payloads against the GLIBC_2.35 ceiling`)
+}
+
+const webFrontend = join(runtimeNodeModules, '@deepseek-ai', 'dsh-web-frontend', 'dist', 'index.html')
+if (!existsSync(webFrontend)) {
+  console.error(`pack-linux: web frontend dist/index.html missing at ${webFrontend}`)
+  process.exit(1)
+}
+console.log(`pack-linux: materialized ${materializedOutputs} workspace lib/dist directories and Linux native binaries`)
 
 // Prune native prebuilds for platforms this deb cannot run on.
 const KEEP_PREBUILDS = new Set(['linux-x64'])
@@ -129,7 +300,6 @@ if (prunedPrebuilds > 0) console.log(`pack-linux: pruned ${prunedPrebuilds} non-
 
 // Drop the LibreOffice kit: desktop-slim.patch.yml disables the office-to-pdf
 // host row, the host service is the kit's only importer.
-const runtimeNodeModules = join(appDir, 'backend', 'runtime', 'node_modules')
 let prunedKits = 0
 for (const kit of ['@deepseek-ai/libreoffice-kit', '@deepseek-ai/libreoffice-kit-win32-x64']) {
   if (existsSync(join(runtimeNodeModules, kit))) {
@@ -152,6 +322,8 @@ try {
   // no .bin directory — nothing to clean
 }
 if (prunedKits > 0) console.log(`pack-linux: pruned ${prunedKits} libreoffice-kit package(s)`)
+
+auditUbuntuGlibcTarget()
 
 // Strip declaration files and source maps from the runtime closure —
 // build-time artifacts the shipped plain-Node host never reads. LICENSE and
@@ -194,6 +366,10 @@ mkdirSync(debianDir, { recursive: true })
 
 execFileSync('cp', ['-a', join(unpackedDir, 'CetusPrism'), join(installDir, 'CetusPrism')])
 execFileSync('cp', ['-a', join(unpackedDir, 'resources'), installDir])
+
+const packageDocDir = join(dataRoot, 'usr', 'share', 'doc', 'cetusprism')
+mkdirSync(packageDocDir, { recursive: true })
+writeFileSync(join(packageDocDir, 'build-target'), `${abiTarget}\n`)
 
 // Desktop integration: launcher entry, hicolor icons (generated from the
 // product icon at repo development time), and the `dsh` CLI shim.

@@ -249,7 +249,7 @@ function assertAdoptable(header: AdoptableHeader, events: Iterable<SessionEvent>
  * @param agentOptions - provider/model pair for this run.
  * @param setup - per-Agent scope setup installing the model selection.
  * @param cwd - working directory resolved in the mounted filesystem.
- * @returns the resumed Agent handle owned by this runner.
+ * @returns the resumed Agent handle; a handle rejected by the post-resume log check is disposed before the error is rethrown.
  */
 async function resolveAgent(
   ctx: Context,
@@ -289,7 +289,16 @@ async function resolveAgent(
     // The observation is a snapshot: another writer may have appended a preset
     // selection before this process took the write lease. Re-check the log
     // resume actually attached, now that no other process can append.
-    assertAdoptable(handle.agent.session.header, liveEvents(handle.agent.session), sessionId, cwd)
+    try {
+      assertAdoptable(handle.agent.session.header, liveEvents(handle.agent.session), sessionId, cwd)
+    } catch (error: unknown) {
+      try {
+        await handle.dispose()
+      } catch (disposeError: unknown) {
+        throw new AggregateError([error, disposeError], `session "${sessionId}" failed its post-resume check and its Agent could not be disposed`)
+      }
+      throw error
+    }
     return handle
   } catch (error: unknown) {
     if (!(error instanceof SessionQueryError) || error.code !== 'SESSION_QUERY_SESSION_NOT_FOUND') throw error

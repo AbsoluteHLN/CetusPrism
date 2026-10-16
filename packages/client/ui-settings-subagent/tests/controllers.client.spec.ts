@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it, vi } from 'vitest'
 import type { SettingsPathOpView } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError, stubConfigForm, type StubConfigForm } from '@deepseek-ai/dsh-client-test-runtime'
@@ -8,6 +9,10 @@ import {
   subagentModelCandidates,
   type SubagentModelSelectionSettings,
 } from '../src/client/subagent-model-selection-card-controller.ts'
+import {
+  TeamModelRestrictionCardController,
+  type TeamModelRestrictionSettings,
+} from '../src/client/team-model-restriction-card-controller.ts'
 
 /** Make the stub behave like a Host that accepts every write. */
 function acceptWrites<T>(host: StubConfigForm<T>): void {
@@ -518,6 +523,49 @@ describe('SubagentLimitsCardController', () => {
     face.save()
     await vi.waitFor(() => { expect(state().saving).toBe(false) })
     expect(host.scope.getSnapshot().value).toEqual({ maxDepth: 3, maxActiveSubagents: 8 })
+  })
+})
+
+describe('TeamModelRestrictionCardController', () => {
+  it('saves an independent Team ceiling limited by the Host-authorized model list', async () => {
+    const team = stubConfigForm<TeamModelRestrictionSettings>()
+    const hostPolicy = stubConfigForm<SubagentModelSelectionSettings>()
+    acceptWrites(team)
+    team.publish({
+      status: 'ready', writable: true, revision: 7,
+      value: { allowedModels: [] }, base: { allowedModels: [] }, user: {},
+    })
+    hostPolicy.publish({
+      status: 'ready', writable: true, revision: 3,
+      value: { enabled: true, allowedModels: [{ provider: 'alpha', model: 'fast' }] }, user: {},
+    })
+    const catalog = modelsApi({
+      groups: [{ id: 'alpha', name: 'Alpha API', models: [
+        { id: 'fast', name: 'Fast' }, { id: 'blocked', name: 'Blocked' },
+      ] }],
+    })
+    const controller = new TeamModelRestrictionCardController(team.scope, hostPolicy.scope, catalog.ctx)
+    const face = controller.inject()
+    const state = () => face.hooks.teamModelRestrictionCard.getSnapshot()
+
+    await vi.waitFor(() => { expect(state().candidates).toHaveLength(2) })
+    expect(state().candidates.find(row => row.model === 'blocked')?.hostAllowed).toBe(false)
+    face.toggleModel('alpha\0blocked')
+    expect(state().dirty).toBe(false)
+    face.toggleModel('alpha\0fast')
+    face.setDefault('alpha:fast')
+    face.save()
+
+    await vi.waitFor(() => { expect(state().saving).toBe(false) })
+    expect(team.mutate).toHaveBeenCalledWith([
+      { op: 'set', path: ['allowedModels'], value: [{ provider: 'alpha', model: 'fast' }] },
+      { op: 'set', path: ['defaultModel'], value: { provider: 'alpha', model: 'fast' } },
+    ], 7)
+    expect(team.scope.getSnapshot().value).toMatchObject({
+      allowedModels: [{ provider: 'alpha', model: 'fast' }],
+      defaultModel: { provider: 'alpha', model: 'fast' },
+    })
+    controller.dispose()
   })
 })
 

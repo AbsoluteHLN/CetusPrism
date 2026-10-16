@@ -6,7 +6,7 @@ import { Context } from '@deepseek-ai/cordis'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { mountAgentLoopTestDependencies } from '@deepseek-ai/dsh-agent-loop-testkit'
-import { createUserMessage } from '@deepseek-ai/dsh-llm'
+import { createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import { SessionLogOffset, SessionId, type Session, type SessionEvent } from '@deepseek-ai/dsh-session'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SubagentService from '@deepseek-ai/dsh-subagent'
@@ -60,6 +60,7 @@ async function storedEvents(ctx: Context, id: SessionId): Promise<readonly Sessi
 async function setup(
   script: ConstructorParameters<typeof MockAdapter>[0],
   config: ConstructorParameters<typeof TeamService>[1] = {},
+  hostPolicy?: { enabled: boolean; allowedModels: { provider: string; model: string }[] },
 ) {
   const ctx = new Context()
   contexts.push(ctx)
@@ -72,7 +73,15 @@ async function setup(
   await ctx.plugin(SubagentService)
   await ctx.plugin(SubagentSpawn, { providerName: 'spawn' })
   await ctx.plugin(SubagentFork, { providerName: 'fork' })
-  const teamFiber = await ctx.plugin(TeamService, config)
+  const configuredTeamModels = Array.isArray(config.allowedModels) ? config.allowedModels : []
+  const effectiveHostPolicy = hostPolicy ?? (configuredTeamModels.length
+    ? { enabled: true, allowedModels: configuredTeamModels }
+    : undefined)
+  if (effectiveHostPolicy !== undefined) {
+    ctx.provide('subagentModelSelection', { current: () => effectiveHostPolicy } as never)
+  }
+  // Constructor config includes Cordis volatile wrappers; the loader schema accepts plain fixture values.
+  const teamFiber = await ctx.plugin(TeamService, config as never)
   const adapter = new MockAdapter(script)
   ctx.llm.registerAdapter(['mock'], adapter)
   const lead = await ctx.agentLoop.create(SessionId('lead'), { provider: 'mock', model: 'mock' })
@@ -533,7 +542,7 @@ describe('Team identity and provisioning', () => {
   })
 
   it('rejects incomplete or disallowed explicit LLM routes', async () => {
-    const { ctx, lead } = await setup([], {
+    const { ctx, lead } = await setup(['hang'], {
       allowedModels: [{ provider: 'mock', model: 'allowed-model' }],
     })
     const request = {
@@ -554,6 +563,101 @@ describe('Team identity and provisioning', () => {
       agentOptions: { provider: 'mock', model: 'other-model' },
     })).rejects.toMatchObject({ code: 'TEAM_MODEL_NOT_ALLOWED' })
     expect(durable(lead).members).toEqual([])
+  })
+
+  it('enforces Host route authority in the public Team service path', async () => {
+    const allowed = { provider: 'mock', model: 'host-approved' }
+    const { ctx, lead } = await setup([], {}, { enabled: true, allowedModels: [allowed] })
+    const request = {
+      name: 'host-denied',
+      description: 'Host policy check',
+      prompt: content('must be rejected'),
+      context: 'fresh' as const,
+      provider: 'spawn',
+      signal: SIGNAL,
+    }
+    await expect(ctx.agentTeams.spawnTeammate(lead, {
+      ...request,
+      agentOptions: { provider: 'mock', model: 'not-authorized' },
+    })).rejects.toMatchObject({ code: 'TEAM_HOST_MODEL_NOT_ALLOWED' })
+    expect(durable(lead).members).toEqual([])
+
+    const disabled = await setup([], {}, { enabled: false, allowedModels: [allowed] })
+    await expect(disabled.ctx.agentTeams.spawnTeammate(disabled.lead, {
+      ...request,
+      name: 'host-disabled',
+      agentOptions: allowed,
+    })).rejects.toMatchObject({ code: 'TEAM_HOST_MODEL_SELECTION_DISABLED' })
+    expect(durable(disabled.lead).members).toEqual([])
+  })
+
+  it('validates, persists, and returns the exact advertised model reasoning effort', async () => {
+    const { ctx, lead, adapter } = await setup([textResponse('child answer')], {
+      allowedModels: [{ provider: 'mock', model: 'selected-model' }],
+    })
+    vi.spyOn(adapter, 'resolveModel').mockResolvedValue({
+      provider: 'mock',
+      id: 'selected-model',
+      name: 'Selected model',
+      reasoning: { efforts: [{ id: ReasoningEffortId('high'), name: 'High' }] },
+    })
+    const selected = await ctx.agentTeams.spawnTeammate(lead, {
+      name: 'effort-route',
+      description: 'exact reasoning effort',
+      prompt: content('effort'),
+      context: 'fresh',
+      provider: 'spawn',
+      agentOptions: { provider: 'mock', model: 'selected-model', reasoningEffort: 'high' },
+      signal: SIGNAL,
+    })
+    expect(selected.member).toMatchObject({ model: 'selected-model', modelProvider: 'mock', reasoningEffort: 'high' })
+    expect(durable(lead).members.find(member => member.id === selected.member.id))
+      .toMatchObject({ model: 'selected-model', modelProvider: 'mock', reasoningEffort: 'high' })
+    const writtenMemberEdge = (await storedEvents(ctx, lead.id))
+      .filter(candidate => candidate.type === 'team/member' && candidate.data.member.id === selected.member.id)
+      .at(-1)
+    expect(writtenMemberEdge?.data).toMatchObject({
+      version: 3,
+      member: { modelProvider: 'mock', reasoningEffort: 'high' },
+    })
+    await expect(ctx.agentTeams.spawnTeammate(lead, {
+      name: 'unsupported-effort',
+      description: 'unsupported reasoning effort',
+      prompt: content('invalid effort'),
+      context: 'fresh',
+      provider: 'spawn',
+      agentOptions: { provider: 'mock', model: 'selected-model', reasoningEffort: 'max' },
+      signal: SIGNAL,
+    })).rejects.toMatchObject({ code: 'TEAM_REASONING_EFFORT_NOT_ALLOWED' })
+  })
+
+  it('uses the latest Lead route when a teammate request supplies reasoning effort only', async () => {
+    const { ctx, lead, adapter } = await setup([], {
+      allowedModels: [{ provider: 'mock', model: 'model-b' }],
+    })
+    lead.session.append('request/header', {
+      header: { config: { provider: 'mock', model: 'model-b' } },
+      reason: 'change',
+    })
+    vi.spyOn(adapter, 'resolveModel').mockResolvedValue({
+      provider: 'mock',
+      id: 'model-b',
+      name: 'Model B',
+      reasoning: { efforts: [{ id: ReasoningEffortId('high'), name: 'High' }] },
+    })
+
+    const selected = await ctx.agentTeams.spawnTeammate(lead, {
+      name: 'route-b-worker',
+      description: 'inherit the current Lead route',
+      prompt: content('route B'),
+      context: 'fresh',
+      provider: 'spawn',
+      agentOptions: { reasoningEffort: 'high' },
+      signal: SIGNAL,
+    })
+
+    expect(selected.member).toMatchObject({ model: 'model-b', modelProvider: 'mock', reasoningEffort: 'high' })
+    expect(ctx.agentTeams.listMembers(lead)[0]).toMatchObject({ model: 'model-b', modelProvider: 'mock' })
   })
 
   it('treats an ordinary fork as a new Root Team and filters inherited Team state', async () => {

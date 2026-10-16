@@ -78,7 +78,10 @@ type TeamMemberRowProps = Pick<TeamActionProps,
 function TeamMemberRow({
   member, memberCount, sessionId, useSessions, useSessionStatus, openTeammate, onError, t,
 }: TeamMemberRowProps) {
-  const model = useSessions(state => state.projectionsBySession[member.id]?.values.modelSelection?.next?.model)
+  const selection = useSessions(state => state.projectionsBySession[member.id]?.values.modelSelection?.next)
+  const model = selection?.model ?? member.model
+  const modelProvider = selection?.provider ?? member.modelProvider
+  const reasoningEffort = selection?.reasoningEffort ?? member.reasoningEffort
   const running = useSessionStatus(state => state.get(member.id)?.running)
   const summaryRunning = useSessions(state => state.byId[member.id]?.running)
   const status: MemberStatus = member.phase === 'active'
@@ -115,7 +118,7 @@ function TeamMemberRow({
           <small>
             {t(memberStatusKey(status))}
             {model !== undefined && (
-              <span className={css.memberModel}>{` · ${t('model')}: ${model}`}</span>
+              <span className={css.memberModel}>{` · ${t('model')}: ${modelProvider ? `${modelProvider}/` : ''}${model}${reasoningEffort ? ` · ${reasoningEffort}` : ''}`}</span>
             )}
           </small>
           {member.error !== undefined && <small className={css.diagnostic}>{member.error}</small>}

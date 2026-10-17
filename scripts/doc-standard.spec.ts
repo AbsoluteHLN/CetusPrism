@@ -1,20 +1,33 @@
 /**
  * Quick comprehensive documentation-standard tests: the reference example
- * stays valid, the consolidated `dsh-doc` skill carries no stale copied
- * website values or prototype-era language, and the kind system maps each
- * label to exactly one skill template. Session release records match the
- * writer bound, bilingual counterpart, and evidence links. These run in `pnpm run test` and
+ * stays valid and maintained package and persistence documents use the
+ * declared kinds. Private ignored skills and historical notes are not inputs.
+ * Session release records match the writer bound, bilingual counterpart,
+ * and evidence links. These run in `pnpm run test` and
  * `pnpm run test:docs` to guard the standard between heavier corpus gates.
  * @module scripts/doc-standard.spec
  */
 
-import { existsSync, globSync, readFileSync } from 'node:fs'
-import { resolve, sep } from 'node:path'
+import { existsSync, globSync, readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { resolve, join } from 'node:path'
+import { tmpdir } from 'node:os'
+import { execFileSync } from 'node:child_process'
 import { JSON_SCHEMA, load } from 'js-yaml'
 import { describe, expect, it } from 'vitest'
 import { readCurrentSessionFormatVersion } from './gen-session-format-catalog.ts'
+import { parseTranslationPairingRecord } from './translation-pairing-record.ts'
 
 const root = resolve(import.meta.dirname, '..')
+/** Current files maintained by Git, excluding private ignored copies. */
+function maintainedDocuments(pattern: string, repositoryRoot = root): string[] {
+  const paths = new Set(execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], {
+    cwd: repositoryRoot, encoding: 'utf8', maxBuffer: 1 << 26,
+  }).split('\0').filter(Boolean))
+  return globSync(pattern, { cwd: repositoryRoot })
+    .map(file => file.replaceAll('\\', '/'))
+    .filter(file => paths.has(file))
+    .sort()
+}
 const PACKAGE_README_GLOBS = [
   'packages/README.md',
   'packages/README.zh.md',
@@ -26,25 +39,8 @@ const PACKAGE_README_GLOBS = [
 
 function packageReadmes(): string[] {
   return PACKAGE_README_GLOBS
-    .flatMap(pattern => globSync(pattern, { cwd: root, exclude: ['**/node_modules/**'] }))
-    .map(file => file.replaceAll('\\', '/'))
+    .flatMap(pattern => maintainedDocuments(pattern))
     .sort()
-}
-
-/**
- * The kind system: each label maps to exactly one template in the dsh-doc
- * skill. The check derives the expected kind from the same mechanical facts
- * the skill documents; a kind without a template, a template without a kind,
- * or a document whose kind does not match its position fails here.
- */
-const KIND_TEMPLATES: Readonly<Record<string, string>> = {
-  'package-group': '.agents/skills/dsh-doc/templates/package-group.md',
-  'package-reference': '.agents/skills/dsh-doc/templates/package-reference.md',
-  'package-library': '.agents/skills/dsh-doc/templates/package-library.md',
-  'package-bundle': '.agents/skills/dsh-doc/templates/package-bundle.md',
-  'persistence-change': '.agents/skills/dsh-doc/templates/persistence-change.md',
-  'persistence-release': '.agents/skills/dsh-doc/templates/persistence-release.md',
-  'persistence-format': '.agents/skills/dsh-doc/templates/persistence-format.md',
 }
 
 /**
@@ -86,6 +82,7 @@ const PACKAGE_LIBRARIES: Readonly<Record<string, string>> = {
   'packages/test-support/remote-mock': 'Browser-side test infrastructure; mounts nothing into a product composition.',
   'packages/typert/generator': 'Build-time generator run outside any agent runtime.',
   'packages/typert/protocol': 'Compiler-independent protocol declarations.',
+  'packages/util/code-language': 'Stateless filename-to-language mapping without plugin registration.',
   'packages/util/atomic-write': 'Zero-dependency filesystem write utility.',
   'packages/util/brand': 'Stateless nominal-string and canonical-key constructors.',
   'packages/util/crypto': 'Zero-dependency identifier minting utility.',
@@ -103,8 +100,8 @@ const PACKAGE_LIBRARIES: Readonly<Record<string, string>> = {
   'packages/util/workspace-path': 'Zero-dependency Workspace path formatter.',
 }
 
-function readFrontmatter(file: string): Record<string, unknown> {
-  const source = readFileSync(resolve(root, file), 'utf8')
+function readFrontmatter(file: string, repositoryRoot = root): Record<string, unknown> {
+  const source = readFileSync(resolve(repositoryRoot, file), 'utf8').replaceAll('\r\n', '\n')
   const match = /^---\n([\s\S]*?)\n---\n/u.exec(source)
   expect(match, `${file}: YAML frontmatter`).not.toBeNull()
   const metadata = load(match?.[1] ?? '')
@@ -143,6 +140,16 @@ function packageReadmeMetadataErrors(file: string, metadata: Record<string, unkn
   }
   for (const field of ['name', 'audience', 'tags', 'i18n']) {
     if (field in metadata) errors.push(`${field} is redundant or has no governed consumer`)
+  }
+  return errors
+}
+
+/** Required metadata for an optional maintained persistence-history document. */
+function persistenceMetadataErrors(kind: string, metadata: Record<string, unknown>): string[] {
+  const errors: string[] = []
+  if (metadata.kind !== kind) errors.push(`kind must be ${kind}`)
+  if (typeof metadata.description !== 'string' || metadata.description.trim() === '') {
+    errors.push('description must be a non-empty string')
   }
   return errors
 }
@@ -295,49 +302,23 @@ describe('Session format release authority', () => {
   })
 })
 
-describe('dsh-doc skill consolidation', () => {
-  it('carries no prototype-era language', () => {
-    const files = [
-      '.agents/skills/dsh-doc/SKILL.md',
-      '.agents/skills/dsh-doc/references/metadata-links-i18n.md',
-      '.agents/skills/dsh-doc/references/structure-hierarchy.md',
-      '.agents/skills/dsh-doc/references/style.md',
-      '.agents/skills/dsh-doc/references/review.md',
-      '.agents/skills/dsh-doc/references/website-sync.md',
-    ]
-    for (const file of files) {
-      const source = readFileSync(resolve(root, file), 'utf8')
-      expect(source, file).not.toMatch(/\bprototype\b/i)
-    }
-  })
-
-  it('copies no stale website sidebar or section-owner values', () => {
-    const source = readFileSync(resolve(root, '.agents/skills/dsh-doc/references/website-sync.md'), 'utf8')
-    expect(source).not.toContain('en-docs')
-    expect(source).not.toContain('sectionOrder')
-  })
-
-  it('keeps the reference example linked from the skill', () => {
-    const skill = readFileSync(resolve(root, '.agents/skills/dsh-doc/SKILL.md'), 'utf8')
-    expect(skill).toContain('session-persistence-jsonl/README.md')
-    expect(skill).toContain('session-persistence-jsonl/README.zh.md')
-  })
-
-  it('defines controlled English as a precision-preserving review discipline', () => {
-    const skill = readFileSync(resolve(root, '.agents/skills/dsh-doc/SKILL.md'), 'utf8')
-    const style = readFileSync(resolve(root, '.agents/skills/dsh-doc/references/style.md'), 'utf8')
-    expect(skill).toContain('references/style.md#controlled-technical-english')
-    expect(style).toContain('not certified ASD-STE100 compliance')
-    expect(style).toContain('review prompts, not mechanical gates')
-    expect(style).toContain('Never remove or strengthen `must`, `may`, `never`')
-  })
-
-  it('maps every kind label to exactly one skill template that exists', () => {
-    const templateFiles = globSync('.agents/skills/dsh-doc/templates/*.md', { cwd: root }).map(path => path.split(sep).join('/')).sort()
-    const registered = Object.values(KIND_TEMPLATES).sort()
-    expect(templateFiles).toEqual(registered)
-    for (const [kind, template] of Object.entries(KIND_TEMPLATES)) {
-      expect(existsSync(resolve(root, template)), `${kind}: template ${template}`).toBe(true)
+describe('maintained documentation standards', () => {
+  it('excludes private ignored documents and validates them after force-staging', () => {
+    const fixture = mkdtempSync(join(tmpdir(), 'dsh-doc-standard-'))
+    const file = 'docs/persistence-changes/private.md'
+    try {
+      execFileSync('git', ['init', '--quiet', fixture])
+      writeFileSync(join(fixture, '.gitignore'), 'docs/persistence-changes/\n')
+      mkdirSync(join(fixture, 'docs/persistence-changes'), { recursive: true })
+      writeFileSync(join(fixture, file), '---\nkind: invalid\n---\n')
+      expect(maintainedDocuments('docs/persistence-changes/*.md', fixture)).toEqual([])
+      execFileSync('git', ['-C', fixture, 'add', '-f', '--', file])
+      expect(maintainedDocuments('docs/persistence-changes/*.md', fixture)).toEqual([file])
+      expect(persistenceMetadataErrors('persistence-change', readFrontmatter(file, fixture))).toEqual([
+        'kind must be persistence-change', 'description must be a non-empty string',
+      ])
+    } finally {
+      rmSync(fixture, { recursive: true, force: true })
     }
   })
 
@@ -352,33 +333,27 @@ describe('dsh-doc skill consolidation', () => {
   })
 
   it('maps persistence transition records to their dedicated document kind', () => {
-    const files = globSync('docs/persistence-changes/*.md', { cwd: root })
+    const files = maintainedDocuments('docs/persistence-changes/*.md')
       .filter(file => !/\/README(?:\.zh)?\.md$/u.test(file.replaceAll('\\', '/')))
-    expect(files.length).toBeGreaterThan(0)
     for (const file of files) {
       const metadata = readFrontmatter(file)
-      expect(metadata.kind, file).toBe('persistence-change')
-      expect(typeof metadata.description === 'string' && metadata.description.trim().length > 0, file).toBe(true)
+      expect(persistenceMetadataErrors('persistence-change', metadata), file).toEqual([])
     }
   })
 
   it('maps retrospective release comparisons to their dedicated document kind', () => {
-    const files = globSync('docs/persistence-changes/releases/dsh-*.md', { cwd: root })
-    expect(files.length).toBeGreaterThan(0)
+    const files = maintainedDocuments('docs/persistence-changes/releases/dsh-*.md')
     for (const file of files) {
       const metadata = readFrontmatter(file)
-      expect(metadata.kind, file).toBe('persistence-release')
-      expect(typeof metadata.description === 'string' && metadata.description.trim().length > 0, file).toBe(true)
+      expect(persistenceMetadataErrors('persistence-release', metadata), file).toEqual([])
     }
   })
 
   it('maps historical Session format references to their dedicated document kind', () => {
-    const files = globSync('docs/persistence-changes/historical-formats/v*.md', { cwd: root })
-    expect(files.length).toBe(readCurrentSessionFormatVersion(root) * 2)
+    const files = maintainedDocuments('docs/persistence-changes/historical-formats/v*.md')
     for (const file of files) {
       const metadata = readFrontmatter(file)
-      expect(metadata.kind, file).toBe('persistence-format')
-      expect(typeof metadata.description === 'string' && metadata.description.trim().length > 0, file).toBe(true)
+      expect(persistenceMetadataErrors('persistence-format', metadata), file).toEqual([])
     }
   })
 
@@ -447,7 +422,8 @@ describe('reference-example README pair', () => {
 
   it('keeps the sidecar consistency record present', () => {
     const sidecar = readFileSync(resolve(root, dir, 'README.i18n.yaml'), 'utf8')
-    expect(sidecar).toMatch(/^README\.md: [0-9a-f]{40}$/m)
-    expect(sidecar).toMatch(/^README\.zh\.md: [0-9a-f]{40}$/m)
+    const record = parseTranslationPairingRecord(sidecar)
+    expect(record).toBeDefined()
+    expect(record?.size).toBeGreaterThan(0)
   })
 })

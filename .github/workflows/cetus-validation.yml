@@ -1,0 +1,84 @@
+name: CetusPrism validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cetus-validation-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PRIMARY_NODE_VERSION: '24'
+  DSH_TELEMETRY_DISABLED: '1'
+
+jobs:
+  cetus-main:
+    name: CetusPrism / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    env:
+      pnpm_config_verify_deps_before_run: 'false'
+      DSH_SNAPSHOT: replay
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          dest: ${{ runner.temp }}/cetus-pnpm
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.PRIMARY_NODE_VERSION }}
+      - name: Install immutable workspace dependencies
+        run: pnpm install --frozen-lockfile --config.virtual-store-dir=node_modules/.pnpm --store-dir=${{ runner.temp }}/cetus-store
+      - name: Build shipped runtime and Web client
+        run: pnpm run build
+      - name: Test native capability composition
+        run: >-
+          pnpm exec vitest run --config configs/vitest.config.ts
+          scripts/doc-standard.spec.ts
+          scripts/agent-note-tree.spec.ts
+          packages/bundle/web-app/tests/zcode-preset.spec.ts
+          packages/experimental/computer-use-cua-driver-native/tests/provider.spec.ts
+          packages/experimental/computer-use-cua-driver-native/tests/loader-composition.spec.ts
+          packages/experimental/agent-team/tests/projection-events.spec.ts
+          packages/experimental/agent-team/tests/team.spec.ts
+      - name: Install Chromium and Linux host libraries
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/cetus-playwright
+        if: runner.os == 'Linux'
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Chromium on Windows
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/cetus-playwright
+        if: runner.os == 'Windows'
+        run: pnpm exec playwright install chromium
+      - name: Test shipped Web interactions
+        env:
+          PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/cetus-playwright
+        run: >-
+          pnpm exec vitest run --config configs/vitest.web.config.ts
+          apps/web/tests/zcode-preset.snapshot.ts
+          apps/web/tests/cetus-motion.e2e.ts
+          apps/web/tests/cetus-settings-navigation.e2e.ts
+          apps/web/tests/agent-preset-selection.e2e.ts
+      - name: Check immutable dependency lock
+        run: git diff --exit-code -- pnpm-lock.yaml
+      - name: Retain failed Web evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cetus-web-${{ matrix.os }}
+          path: dev-docs/evidence/
+          if-no-files-found: ignore

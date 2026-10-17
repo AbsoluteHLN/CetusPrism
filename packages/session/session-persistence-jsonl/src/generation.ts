@@ -110,6 +110,7 @@ export interface JsonlExpectedPrefix {
 
 /** A historical source changed after its single decode and migration pass. */
 export class JsonlGenerationSourceChangedError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'JsonlGenerationSourceChangedError'
 
   /** @param path - historical generation whose revision changed. */
@@ -128,6 +129,7 @@ export interface PreparedJsonlMigration {
 
 /** A historical artifact is intact, but the format edge refuses its contents. */
 export class JsonlGenerationUnsupportedMigrationError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'JsonlGenerationUnsupportedMigrationError'
 
   /**
@@ -144,6 +146,7 @@ export class JsonlGenerationUnsupportedMigrationError extends Error {
 
 /** A current-generation filename already names different or invalid bytes. */
 export class JsonlGenerationTargetConflictError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'JsonlGenerationTargetConflictError'
 
   /**

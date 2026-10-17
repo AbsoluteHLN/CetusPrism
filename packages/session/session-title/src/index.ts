@@ -85,6 +85,7 @@ declare module '@deepseek-ai/dsh-session/types' {
  * this class; liveness and disposal failures stay plain `Error`s.
  */
 export class SessionTitleInvalidError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'SessionTitleInvalidError'
 }
 

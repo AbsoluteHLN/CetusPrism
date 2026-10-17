@@ -11,24 +11,13 @@ Enqueue is synchronous and does not acknowledge delivery. The SDK owns batching 
 ## Record types
 
 ```ts type-equiv
-/** Scalar values accepted by the collector's Arrow attributes map. */
-type ProductTelemetryScalar = string | number | boolean
+/** Scalar values accepted in product attributes. */
+type ProductTelemetryScalar = OTelEventScalar
 ```
 
 ```ts type-equiv
-/** Explicitly selected analytics fields; object values may contain scalars only. */
-interface ProductTelemetryRecord {
-  /** Product/DA-owned event name. */
-  eventName: string
-  /** Human-readable summary; never a prompt, response, credential, or file contents. */
-  body: string
-  /** Event occurrence time in Unix milliseconds. Observation time is assigned on enqueue. */
-  timestamp: number
-  /** OTel severity; omitted values use INFO. */
-  severityNumber?: SeverityNumber
-  /** Business fields selected by the caller; no automatic device or account identity. */
-  attributes?: Record<string, ProductTelemetryScalar | Record<string, ProductTelemetryScalar>>
-}
+/** Caller-selected ordinary analytics record. */
+type ProductTelemetryRecord = OTelEventRecord
 ```
 
 Source: [`packages/host/product-telemetry-otel/src/index.ts`](../../packages/host/product-telemetry-otel/src/index.ts)

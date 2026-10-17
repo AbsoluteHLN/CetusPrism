@@ -9,9 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-experimental-agent-team` turns one coding session into a small working team: the session's agent becomes the Lead, creates named teammates for delegated work, exchanges durable messages with them, and tracks shared tasks on a common board. Messages and task state survive crashes, reloads, and interruptions, so a teammate that was offline receives its queued messages when it resumes. It provides no tools of its own — mount the sibling `dsh-experimental-tool-agent-team` so the model can create teammates, message them, and use the task board. It is published under its experimental name, carries no stability promise, and needs durable session storage to activate.
-
-When composed with the persistent terminal profile, this plugin supplies the optional `terminalTeamStatus` read-only presenter for `/team`. The terminal owns the service definition; this provider formats only the roster and tasks visible to the caller. It does not change team model selection or Session formats.
+Run named teammates, exchange durable messages, and track shared tasks within one coding session. Messages and tasks survive crashes and reloads; resumed teammates receive queued messages. Mount `dsh-experimental-tool-agent-team` for model-facing tools and durable session storage for activation. The published experimental API carries no stability promise. Persistent-terminal compositions can show the caller's roster and tasks through `/team`.
 
 ## Table of Contents
 
@@ -28,6 +26,8 @@ When composed with the persistent terminal profile, this plugin supplies the opt
 ## Use this package
 
 Add this package to a composition when one agent should run a small team of named helpers in its own working directory, with messages and task state that survive crashes and restarts. It ships no tools of its own: mount it together with `@deepseek-ai/dsh-experimental-tool-agent-team` so the model can create teammates, message them, and use the task board.
+
+With the persistent terminal profile, this plugin supplies the optional read-only `terminalTeamStatus` presenter for `/team`. The terminal owns the service definition; the presenter formats only the caller-visible roster and tasks without changing model selection or Session formats.
 
 ### When to choose it
 

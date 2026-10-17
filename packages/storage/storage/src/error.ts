@@ -18,6 +18,7 @@ export type StorageErrorCode =
  * stable contract consumers may switch on; `message` is diagnostic prose.
  */
 export class StorageError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'StorageError'
 
   /**

@@ -26,6 +26,7 @@ import { childTypeNodeIds } from './model.ts'
 
 /** Failure to project a modeled construct into an emitted artifact. */
 export class TypertEmitError extends Error {
+  /** Error category reported in diagnostic output. */
   override name = 'TypertEmitError'
 }
 

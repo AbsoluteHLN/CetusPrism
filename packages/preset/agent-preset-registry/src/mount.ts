@@ -55,17 +55,7 @@ function withinFiber(fiber: Fiber, root: Fiber): boolean {
   }
 }
 
-/**
- * Service names the mounted subtree published into the root realm.
- *
- * A provider without an `isolate` realm stores its implementation under the
- * root's symbol for that name, which is exactly the comparison below; a
- * provider inside an `isolate` realm stores under a realm-private symbol and
- * is correctly absent here.
- * @param ctx - any context of the runtime whose service store is inspected.
- * @param mount - the mounted subtree's fiber.
- * @returns the leaked service names in lexical order.
- */
+/** Preset compositions retained until their owning fibers are disposed. */
 const mounts = new Set<PresetMount>()
 
 /**
@@ -82,8 +72,13 @@ export function livePresetMounts(within?: Fiber): PresetMount[] {
   const all = [...mounts]
   return within === undefined ? all : all.filter(mount => withinFiber(mount.fiber, within))
 }
-
-
+/**
+ * List services the mounted subtree published into the root realm.
+ * Providers in an `isolate` realm use private symbols and are excluded.
+ * @param ctx - a context in the runtime whose service store is inspected.
+ * @param mount - the mounted subtree's fiber.
+ * @returns service names in lexical order.
+ */
 export function leakedServices(ctx: Context, mount: Fiber): string[] {
   const store = ctx.reflect.store
   const rootIsolate = ctx.root[Context.isolate]

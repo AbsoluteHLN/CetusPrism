@@ -3,8 +3,9 @@
  * sets are closed under `.agents/notes/README.md`; importing this module is pure.
  */
 
-import { globSync, readdirSync } from 'node:fs'
-import { resolve, sep } from 'node:path'
+import { execFileSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { resolve } from 'node:path'
 
 export const agentNoteRoot = resolve(import.meta.dirname, '../.agents/notes')
 
@@ -20,6 +21,7 @@ export const AGENT_NOTE_CLASSES = ['feature', 'bug-fix', 'simplification', 'arch
 
 /** Historical implemented notes live outside the active lifecycle tree. */
 const AGENT_NOTE_ARCHIVE = 'archived'
+const AGENT_NOTE_PATH = '.agents/notes/'
 
 /** Non-Agent Note Markdown allowed to sit directly at a lifecycle root. */
 const ROOT_ALLOWLIST = new Set(['AGENTS.md', 'CLAUDE.md'])
@@ -34,28 +36,40 @@ export interface AgentNote {
 }
 
 /**
- * Walk the Agent Note tree, enforcing the structure rules. Returns every valid Agent Note
- * plus one error string per violation (unknown lifecycle or class folder, bad
- * depth, or bad filename). Callers treat a non-empty error list as fatal.
+ * Walk Git-maintained Agent Note paths, enforcing the structure rules. Returns every
+ * valid Agent Note plus one error string per violation (unknown lifecycle or class
+ * folder, bad depth, or bad filename). Callers treat a non-empty error list as fatal.
+ * @param repoRoot Absolute Git repository root used to enumerate maintained paths.
+ * @returns Discovered Agent Notes and structural violations.
  */
-export function walkAgentNoteTree(): { notes: AgentNote[]; errors: string[] } {
+export function walkAgentNoteTree(repoRoot = resolve(import.meta.dirname, '..')): { notes: AgentNote[]; errors: string[] } {
   const notes: AgentNote[] = []
   const errors: string[] = []
+  const maintainedPaths = execFileSync('git', [
+    'ls-files', '--cached', '--others', '--exclude-standard', '--full-name', '-z', '--', '.agents/notes',
+  ], { cwd: repoRoot, encoding: 'utf8' })
+    .split('\0')
+    .filter(Boolean)
+    .filter(path => existsSync(resolve(repoRoot, path)))
+  const notePaths = maintainedPaths
+    .filter(path => path.startsWith(AGENT_NOTE_PATH))
+    .map(path => path.slice(AGENT_NOTE_PATH.length))
+
   // The lifecycle set is closed too: any directory under .agents/notes/ that is not
   // a known lifecycle would otherwise hold Agent Notes invisible to the walk below.
-  for (const entry of readdirSync(agentNoteRoot, { withFileTypes: true })) {
-    if (entry.name === 'INDEX.md') {
-      errors.push('structure: INDEX.md — centralized Agent Note indexes are forbidden; browse the lifecycle/class tree or search the repository')
-      continue
-    }
-    if (entry.isDirectory()
-      && entry.name !== AGENT_NOTE_ARCHIVE
-      && !(AGENT_NOTE_LIFECYCLES as readonly string[]).includes(entry.name)) {
-      errors.push(`structure: ${entry.name}/ — unknown lifecycle folder (allowed: ${AGENT_NOTE_LIFECYCLES.join(', ')}, plus ${AGENT_NOTE_ARCHIVE}/)`)
+  const directories = new Set(notePaths.filter(path => path.includes('/')).map(path => path.split('/')[0] ?? ''))
+  if (notePaths.some(path => path === 'INDEX.md') || directories.has('INDEX.md')) {
+    errors.push('structure: INDEX.md — centralized Agent Note indexes are forbidden; browse the lifecycle/class tree or search the repository')
+  }
+  for (const directory of directories) {
+    if (directory !== AGENT_NOTE_ARCHIVE
+      && directory !== 'INDEX.md'
+      && !(AGENT_NOTE_LIFECYCLES as readonly string[]).includes(directory)) {
+      errors.push(`structure: ${directory}/ — unknown lifecycle folder (allowed: ${AGENT_NOTE_LIFECYCLES.join(', ')}, plus ${AGENT_NOTE_ARCHIVE}/)`)
     }
   }
   for (const lifecycle of AGENT_NOTE_LIFECYCLES) {
-    for (const match of globSync(`${lifecycle}/**/*.md`, { cwd: agentNoteRoot }).map(path => path.split(sep).join('/')).sort()) {
+    for (const match of notePaths.filter(path => path.startsWith(`${lifecycle}/`) && path.endsWith('.md')).sort()) {
       const segs = match.split('/')
       // Allowlisted file directly at the lifecycle root (e.g. implemented/AGENTS.md).
       if (segs.length === 2 && ROOT_ALLOWLIST.has(segs[1] ?? '')) continue

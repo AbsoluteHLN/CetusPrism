@@ -4,6 +4,7 @@ import type { IncomingMessage } from 'node:http'
 
 /** HTTP refusal whose message is safe to return without request data. */
 export class WebhookHttpError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'WebhookHttpError'
 
   constructor(

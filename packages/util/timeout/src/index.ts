@@ -10,6 +10,7 @@
  * Providers translate it through {@link timeoutOf} before returning to callers.
  */
 export class TimeoutReason extends Error {
+  /** Error category reported in diagnostic output. */
   override name = 'TimeoutReason'
 
   /**

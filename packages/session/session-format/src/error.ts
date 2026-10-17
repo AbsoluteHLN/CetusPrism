@@ -1,5 +1,6 @@
 /** Error raised when a durable Session artifact cannot be restored or migrated losslessly. */
 export class SessionFormatError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name: string = 'SessionFormatError'
 }
 

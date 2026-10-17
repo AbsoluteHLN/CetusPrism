@@ -29,6 +29,8 @@ type SessionTelemetrySeverity = 'info' | 'warn' | 'error'
  * identity so they can never be mistaken for ledger rows.
  */
 interface SessionTelemetryRecord {
+  /** Canonical envelope without data; body carries the separately redacted payload. Absent for operational records. */
+  sourceEvent?: { sessionId: SessionId; envelope: Omit<SessionEvent, 'data'> }
   /** Ledger (session-log mirror) or ops (operational signal) channel; backends keep the two under separate instrumentation scopes. */
   channel: 'ledger' | 'ops'
   /** Unix epoch milliseconds — the source event's append time for ledger records, the emission time for ops records. */

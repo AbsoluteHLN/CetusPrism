@@ -64,6 +64,7 @@ export interface SessionListState {
 
 /** Structured session-create failure. */
 export class SessionCreateError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'SessionCreateError'
 
   /**
@@ -80,6 +81,7 @@ export class SessionCreateError extends Error {
 
 /** Structured session-fork failure. */
 export class SessionForkError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'SessionForkError'
 
   /**

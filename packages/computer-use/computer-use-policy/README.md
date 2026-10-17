@@ -74,7 +74,7 @@ The service registers the `computerDelivery` session-projection unit — state i
 
 #### What the model sees
 
-The policy is user-owned Session state. Enforcing providers report denied operations through their ordinary tool errors; the policy event itself is not model-visible.
+The `computer-use/delivery` event is user-owned Session state and never enters model input. Under `background-only`, enforcing providers rewrite foreground delivery requests to background before execution; unsupported operations appear as ordinary tool errors.
 
 #### Token effect
 

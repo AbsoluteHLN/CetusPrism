@@ -70,7 +70,8 @@ native/system/test/bin/
 # agent notes/skills, recorded-session test fixtures, and schema release history.
 .agents/
 docs/persistence-changes/
-.github/workflows/
+.github/workflows/*
+!.github/workflows/cetus-validation.yml
 .github/workflows.disabled/
 .github/dependabot.yml
 .gitlab-ci.yml

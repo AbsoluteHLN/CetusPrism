@@ -53,6 +53,7 @@ const PUBLIC_REMOTE_TYPE_ROOTS = new Set([
 
 /** Analysis failure with a source-oriented diagnostic. */
 export class TypertAnalysisError extends Error {
+  /** Error category reported in diagnostic output. */
   override name = 'TypertAnalysisError'
 }
 

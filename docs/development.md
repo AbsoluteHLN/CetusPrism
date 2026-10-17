@@ -146,6 +146,8 @@ The credential-free dsh dependency-layout and dsh/vendor pack rehearsals use the
 
 The root [contributor instructions](../AGENTS.md#commands) summarize common commands, while [`package.json`](../package.json) and [scripts/run-gates.ts](../scripts/run-gates.ts) own the current script and gate inventories. Select the smallest checks that cover the changed surface. Documentation changes use `pnpm run doc-sync`; package-public behavior changes also update the owning README or JSDoc, and built-artifact checks require `pnpm run build` first.
 
+README and Agent Note documentation checks inspect Git-maintained files, including staged files and nonignored additions. Private ignored Agent Notes, skills and persistence history are not corpus inputs; these checks support their absence in a fresh clone. Package README kinds, section records and the public Session release authority remain required. Historical formats and acknowledgements use the official version links when no local maintained copy exists.
+
 ### Profile runs
 
 Run the repository build separately before using these source-checkout demos:

@@ -46,6 +46,7 @@ export type ManualCompactionErrorCode =
  * automatic compaction paths.
  */
 export class ManualCompactionError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'ManualCompactionError'
 
   /**

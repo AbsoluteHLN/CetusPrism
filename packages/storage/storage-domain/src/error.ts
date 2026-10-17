@@ -32,6 +32,7 @@ export interface DomainErrorOptions extends ErrorOptions {
  * `StorageError` — the domain layer does not rewrap them.
  */
 export class DomainError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'DomainError'
 
   /** Present exactly when `code` is `invalid-record`. */

@@ -9,9 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-`dsh-experimental-agent-team` 把一个编码会话变成一个小型工作团队：会话中的 agent 成为 Lead，创建具名 teammate 处理委派的工作，与它们交换持久消息，并在公共任务板上跟踪共享任务。消息与任务状态能挺过崩溃、reload 与中断，因此离线的 teammate 会在恢复后收到排队的消息。它本身不提供任何工具——请挂载兄弟包 `dsh-experimental-tool-agent-team`，让模型能够创建 teammate、给它们发消息并使用任务板。它以实验性名称公开发布、不承诺稳定性，并且需要持久会话存储才能激活。
-
-与持续终端 profile 组合时，本插件提供可选的 `terminalTeamStatus` 只读展示服务供 `/team` 使用。终端定义该服务；本提供方仅格式化调用者可见的成员和任务，不修改团队模型选择或 Session 格式。
+在一个编码会话中运行具名 teammate（队友）、交换持久消息并跟踪共享任务。消息与任务可在崩溃和重新加载后保留，恢复的队友会收到排队消息。挂载 `dsh-experimental-tool-agent-team` 提供面向模型的工具，并组合持久会话存储以激活功能。公开的实验性 API 不承诺稳定性。持续终端组合可通过 `/team` 展示调用者可见的成员和任务。
 
 ## 目录
 
@@ -28,6 +26,8 @@ kind: "package-reference"
 ## 使用本包
 
 当一个 agent 应该在自己的工作目录中运行一支小型具名助手团队、且消息与任务状态需要挺过崩溃与重启时，把本包加入组合。它本身不带工具：请与 `@deepseek-ai/dsh-experimental-tool-agent-team` 一起挂载，让模型能够创建 teammate、给它们发消息并使用任务板。
+
+与持续终端 profile 组合时，本插件提供可选的 `terminalTeamStatus` 只读展示服务供 `/team` 使用。终端定义该服务；展示服务仅格式化调用者可见的成员和任务，不修改模型选择或 Session 格式。
 
 ### 何时选择
 

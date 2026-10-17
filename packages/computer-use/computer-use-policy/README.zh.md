@@ -74,7 +74,7 @@ kind: "package-reference"
 
 #### 模型看到的内容
 
-策略是用户持有的 Session 状态。执行方通过普通工具错误报告被拒操作；策略事件本身不进入模型上下文。
+`computer-use/delivery` 事件是用户持有的 Session 状态，不进入模型输入。在 `background-only` 下，执行方先把前台投递请求改写为后台再执行；不支持的操作以普通工具错误呈现。
 
 #### Token 影响
 

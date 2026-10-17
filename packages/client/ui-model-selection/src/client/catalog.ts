@@ -12,6 +12,7 @@ export const MODEL_CATALOG_TIMEOUT_CODE = 'session/model-catalog-timeout'
 
 /** Error surfaced to the selector when Host catalog discovery exceeds its budget. */
 export class ModelCatalogTimeoutError extends Error {
+  /** Stable timeout classification for catalog consumers. */
   readonly code = MODEL_CATALOG_TIMEOUT_CODE
 
   constructor() {

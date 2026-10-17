@@ -9,6 +9,7 @@ import type { ClientWorkspaceModel, WorkspaceSnapshot } from './model.ts'
 
 /** Structured create failure for callers that distinguish Host business errors. */
 export class WorkspaceCreateError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'WorkspaceCreateError'
 
   /** @param rpcError - Host business or folded carrier failure. */
@@ -23,6 +24,7 @@ export class WorkspaceCreateError extends Error {
  * from a missing session or a carrier fault.
  */
 export class WorkspaceArchiveError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'WorkspaceArchiveError'
 
   /** @param rpcError - Host business or folded carrier failure. */

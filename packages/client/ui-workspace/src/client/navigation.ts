@@ -121,6 +121,7 @@ declare module '@deepseek-ai/cordis' {
 
 /** Structured directory failure exposed to directory UI consumers. */
 export class DirectoryBrowseError extends Error {
+  /** Error category reported in diagnostic output. */
   override readonly name = 'DirectoryBrowseError'
 
   /** @param rpcError - Host directory business failure. */

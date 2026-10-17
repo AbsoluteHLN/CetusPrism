@@ -150,6 +150,8 @@ keyless [CI 工作流](../.github/workflows/ci.yml) 将独立门禁分组到若�
 
 根目录的[贡献者说明](../AGENTS.md#commands)概述常用命令，[`package.json`](../package.json) 与 [scripts/run-gates.ts](../scripts/run-gates.ts) 则负责当前脚本和门禁清单。请选择覆盖变更表面的最小检查集。文档变更使用 `pnpm run doc-sync`；包公开行为变更还需更新所属 README 或 JSDoc，而基于构建产物的检查需要先运行 `pnpm run build`。
 
+README 与 Agent Note 文档检查读取 Git 维护的文件，包括已暂存文件和未被忽略的新增文件。本机私有且被忽略的 Agent Note、技能与持久化历史不属于检查语料；这些检查支持新克隆中缺少此类资料。包 README 分类、分节翻译记录与公开 Session 发布依据仍为必检项。没有本地受维护副本时，历史格式与确认记录通过官方版本链接查阅。
+
 ### Profile 运行
 
 从源码 checkout 运行这些演示前，请单独执行仓库构建：

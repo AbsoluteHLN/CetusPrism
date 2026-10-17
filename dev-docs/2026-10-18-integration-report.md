@@ -41,15 +41,28 @@
 - revision ledger 规则回归：10 项通过，1 项平台条件跳过；其他文件的非法 commit 引用和 ledger 中的非法组织 URL 仍拒绝。
 - lint 通过，仅既有 unused-disable warnings；234 份配置、79 个包的依赖策略、Client i18n 检查通过。相关双语 pair 检查通过。
 
-完整 `doc-sync` 汇总为 31 项通过、11 项失败。随后修复其中四类并分别验证：全库双语 558 对通过、插件清单 freshness 通过、8 份有预算文档通过、Session v0–v4 格式引用通过。没有重新运行整个聚合检查，不能将这些定向补救称为完整 `doc-sync` 全绿。
+初次集成的完整 `doc-sync` 汇总为 31 项通过、11 项失败（后续维护结果见下节）。随后修复其中四类并分别验证：全库双语 558 对通过、插件清单 freshness 通过、8 份有预算文档通过、Session v0–v4 格式引用通过。没有重新运行整个聚合检查，不能将这些定向补救称为完整 `doc-sync` 全绿。
 
-余下七类问题已按原主线与本地 ignored 输入分类，未关闭或绕过检查：Markdown 链接仍依赖本机历史 Agent Note 的缺失 anchor；type-equivalence 存在 schedule 注册遗漏和 LLM/telemetry 等旧漂移；20 处既有 export JSDoc 缺失；Team README 原 Summary 超长；四份未改 README 的 Model Experience 缺项；本地 ignored Agent Note 缺规定章节；文档标准测试仍使用旧 sidecar 格式、遗漏 code-language library 并扫描 ignored 本地模板。具体原始日志和基线比较保留在本机 evidence。
+当时余下七类问题按原主线与本地 ignored 输入分类，未关闭或绕过检查：Markdown 链接仍依赖本机历史 Agent Note 的缺失 anchor；type-equivalence 存在 schedule 注册遗漏和 LLM/telemetry 等旧漂移；20 处既有 export JSDoc 缺失；Team README 原 Summary 超长；四份未改 README 的 Model Experience 缺项；本地 ignored Agent Note 缺规定章节；文档标准测试仍使用旧 sidecar 格式、遗漏 code-language library 并扫描 ignored 本地模板。具体原始日志和基线比较保留在本机 evidence。
 
 独立监督接受本轮 Windows 产品行为、持久化、原生工具保留与权限策略证据，并发现了已修复的跨平台快照缺陷。Linux 实跑结果仍待可用主机或 CI：已配置 SSH 主机连接超时，本机 Docker Linux engine 不可用。本次代码与记录通过正常 Git hooks 提交、推送到 `main`；准确提交和远端验证结果见 Git 历史与交付回复，不发布 release。
+
+## 后续维护与自动验证
+
+本次维护保持产品 `1.7.1-beta.1`、原生 dsh 能力、ZCode 可选模式、Session 格式与依赖版本不变。再次抓取 origin/main 后没有新增提交或 PR；旧 PR #5 仍保留未合并。来源为当前已集成主线源码与官方类型定义，本次仅同步文档、检查程序与自动验证配置。
+
+- 修复 type-equiv 的 17 个 schedule 注册遗漏及六组子系统类型/JSDoc 漂移；466 个类型块全部匹配源码。补全 19 个错误分类字段的 JSDoc，并将 preset 服务泄漏检查的说明放回所属函数。
+- Team README 概述压缩至预算内，终端服务说明移至使用章节；四份模型无关 README 获得逐包审计分类；Windows sandbox 恢复链接指向随包维护的诊断说明，并补全 computer-use-policy 的具体模型输入说明。双语配套更新，没有执行 ACL 修复或更改用户数据。
+- README 和 Agent Note 检查使用 Git 维护的文件，排除未跟踪且 ignored 的私有资料；强制暂存的违规文档仍拒绝。修正旧翻译 sidecar 断言并补充 code-language library 分类，移除对未发货私有技能文本的测试依赖。临时 Git fixture 覆盖空树、私有坏文件、非法暂存文件与合法暂存文件；这些检查不等于完整 fresh-clone 文档及持久化历史检查已通过。
+- 新增 `.github/workflows/cetus-validation.yml`，通过精确的 ignore 例外纳入版本控制，针对 main push/PR 提供 Ubuntu 和 Windows 冻结安装、标准构建、关键单元与真实 Web 回归。保留现有手动 macOS 工作流；不增加 release、发布凭据或外部服务调用。取消重复 native build，并按平台安装 Chromium。
+
+Windows 标准构建通过，生成 398 个 client artifacts；5 个产品单元文件 106 项、4 个 Web 文件 16 项及 gate graph 定向 93 项通过。完整 lint 通过，仅有既有 unused-disable 警告。依赖工具的一次隐式安装产生了无关锁文件改写，已恢复原锁；没有把该改写作为产品更新提交。
+
+最终集中 `doc-sync` 为 42 项通过、0 失败、0 跳过，包含文档标准和 Agent Note 的 25 项脚本回归；七类原遗留失败已关闭。独立监督审查放行，工作流环境变量位置问题已按 GitHub 官方 context 可用范围修正。Git hooks 将随正常提交和推送执行；远端 CI 需由本次 push 触发，其实际结果在交付回复单独报告。本轮不重新打包安装程序，不发布 release；回滚通过撤销本次维护提交完成。
 
 ## 未验证、阻塞与下一步
 
 - 未验证：真实 GLM/其他 provider 的质量增益、Linux/macOS 执行及第三方桌面应用、重新打包后的完整 Windows 安装升级流程。原生实测不代表所有应用自动化都已验收；本轮模式是原生 ZCode 原则指导，不是外部 ZCode runtime 集成。
-- 兼容性后续：单独设计官方 rc.2 大范围 API/权限/profile 迁移；清理已确认的 origin 文档漂移与本地 ignored 历史扫描策略冲突。
+- 兼容性后续：单独设计官方 rc.2 大范围 API/权限/profile 迁移；继续保留独立的真实 provider 质量和安装升级验收。
 - 额度目标：既有 goal 处于 paused 且未完成，新目标创建被工具拒绝；当前工具不提供恢复或替换未完成目标的接口。本轮没有伪造完成旧目标，因此不能提供准确的本轮 goal token 统计。
 - 回滚：通过回退本轮集成提交恢复此前组合；不删除或覆盖已提交 Session fixture 代际，不修改用户凭据与会话文件。

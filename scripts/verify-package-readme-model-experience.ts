@@ -45,6 +45,10 @@ const NO_MODEL_EXPERIENCE_SECTION: Readonly<Record<string, string>> = {
  * blocks. A package moves on or off this list with its context behavior.
  */
 const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
+  'packages/client/ui-desktop-notify': { kind: 'none', reason: 'Desktop toasts present an already-logged turn event without contributing model context.' },
+  'packages/client/ui-settings-about': { kind: 'none', reason: 'The settings section renders build metadata and static copy without changing requests or Session events.' },
+  'packages/client/ui-settings-usage': { kind: 'none', reason: 'The settings section reads Session-list projections and renders usage without changing model input.' },
+  'packages/runtime-diagnostics/invariants': { kind: 'none', reason: 'Invariant observers check assembled requests and durable state without rewriting model context.' },
   'packages/client/product-analytics': { kind: 'none', reason: 'Desktop analytics observes selected interactions without contributing model context or Session events.' },
   'packages/experimental/speech-to-text': { kind: 'none', reason: 'Routes transient recognition without adding model requests or Session events.' },
   'packages/experimental/api-speech-to-text': { kind: 'none', reason: 'Transports audio and preparation state; ordinary user submission owns model-visible text.' },

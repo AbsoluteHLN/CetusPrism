@@ -19,6 +19,7 @@ import type {
 
 /** Failure to render or traverse an internally inconsistent TypeGraph. */
 export class TypeGraphRenderError extends Error {
+  /** Error category reported in diagnostic output. */
   override name = 'TypeGraphRenderError'
 }
 

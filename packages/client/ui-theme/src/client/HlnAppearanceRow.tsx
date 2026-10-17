@@ -8,6 +8,7 @@
  * same shim on boot.
  */
 import clsx from 'clsx'
+import type { ReactNode } from 'react'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import {
@@ -70,6 +71,21 @@ const MOTION_LABEL: Record<HlnBgMotionId, HlnKey> = {
   quiet: 'motion.quiet',
 }
 
+/** Numbered catalog panel using the shell's KalciriteUI v3.5 primitives. */
+function CatalogPanel({ title, index, children }: { title: string; index: string; children: ReactNode }) {
+  return (
+    <section className={clsx('hln-v35-panel', css.panel)} data-hln-ui-surface>
+      <div className="hln-v35-panel__head">
+        <div className="hln-v35-panel__title">
+          <span className="hln-v35-panel__index" aria-hidden="true">{index}</span>
+          <h3>{title}</h3>
+        </div>
+      </div>
+      <div className={css.cardGrid} role="group" aria-label={title}>{children}</div>
+    </section>
+  )
+}
+
 /**
  * Render the HLN selection row.
  * @param props - composed slot props.
@@ -80,16 +96,17 @@ export function HlnAppearanceRow(
 ) {
   const selection = useStore(s => s)
   return (
-    <div className={css.group}>
+    <div className={css.group} data-hln-appearance>
       <div className={css.title}>{t('hln.title')}</div>
 
-      <div className={css.groupLabel}>{t('hln.theme')}</div>
-      <div className={css.cardGrid} role="group" aria-label={t('hln.theme')}>
+      <CatalogPanel title={t('hln.theme')} index="01">
         {HLN_THEMES.map(theme => (
           <button
             key={theme.id}
             type="button"
             className={css.card}
+            data-hln-ui-control
+            data-active={selection.theme === theme.id}
             aria-pressed={selection.theme === theme.id}
             onClick={() => { setHlnTheme(theme.id) }}
           >
@@ -100,15 +117,16 @@ export function HlnAppearanceRow(
             <span className={css.cardLabel}>{t(THEME_LABEL[theme.id])}</span>
           </button>
         ))}
-      </div>
+      </CatalogPanel>
 
-      <div className={css.groupLabel}>{t('hln.font')}</div>
-      <div className={css.cardGrid}>
+      <CatalogPanel title={t('hln.font')} index="02">
         {HLN_FONTS.map(font => (
           <button
             key={font}
             type="button"
             className={clsx(css.card, css.fontCard)}
+            data-hln-ui-control
+            data-active={selection.font === font}
             style={{ fontFamily: `var(${HLN_FONT_VARIABLES[font]}, inherit)` }}
             aria-pressed={selection.font === font}
             onClick={() => { setHlnFont(font) }}
@@ -117,37 +135,39 @@ export function HlnAppearanceRow(
             <span className={css.fontSample} aria-hidden="true">字A</span>
           </button>
         ))}
-      </div>
+      </CatalogPanel>
 
-      <div className={css.groupLabel}>{t('hln.cjk')}</div>
-      <div className={css.cardGrid} role="group" aria-label={t('hln.cjk')}>
+      <CatalogPanel title={t('hln.cjk')} index="03">
         {HLN_CJK_FONTS.map(cjk => (
           <button
             key={cjk}
             type="button"
             className={css.card}
+            data-hln-ui-control
+            data-active={selection.cjk === cjk}
             aria-pressed={selection.cjk === cjk}
             onClick={() => { setHlnCjk(cjk) }}
           >
             <span className={css.cardLabel}>{t(CJK_LABEL[cjk])}</span>
           </button>
         ))}
-      </div>
+      </CatalogPanel>
 
-      <div className={css.groupLabel}>{t('hln.bg')}</div>
-      <div className={css.cardGrid} role="group" aria-label={t('hln.bg')}>
+      <CatalogPanel title={t('hln.bg')} index="04">
         {HLN_BG_MOTIONS.map(motion => (
           <button
             key={motion}
             type="button"
             className={css.card}
+            data-hln-ui-control
+            data-active={selection.bgMotion === motion}
             aria-pressed={selection.bgMotion === motion}
             onClick={() => { setHlnBgMotion(motion) }}
           >
             <span className={css.cardLabel}>{t(MOTION_LABEL[motion])}</span>
           </button>
         ))}
-      </div>
+      </CatalogPanel>
     </div>
   )
 }

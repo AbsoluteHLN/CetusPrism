@@ -2169,7 +2169,6 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     occupants: [
       'client-ui-settings-agent-loop AgentLoopCard id \'agent-loop\'',
       'client-ui-settings-shell ShellCard id \'shell\'',
-      'client-ui-settings-subagent SubagentCard id \'subagent\'',
       'client-ui-settings-web-search WebSearchCard id \'web-search\'',
     ],
     replaceRisk: 'none',
@@ -2837,6 +2836,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
       'client-ui-settings-general GeneralSection id \'general\'',
       'client-ui-settings-models ModelsSection id \'models\'',
       'client-ui-settings-plugins PluginsSettingsSection id \'plugins\'',
+      'client-ui-settings-subagent SubagentSection id \'subagent\'',
       'client-ui-settings-usage UsageSection id \'usage\'',
       'client-ui-theme AppearanceSection id \'appearance\'',
     ],

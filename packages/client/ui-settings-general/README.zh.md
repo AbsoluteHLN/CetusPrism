@@ -39,6 +39,8 @@ kind: "package-reference"
 
 ### 「通用」分区
 
+外壳处理功能入口使用的类型化 `settings/open-section` 事件。打开前会确认分区已注册；侧栏设置外壳卸载时同步移除监听器。
+
 Web 与桌面端的通用设置底部显示当前发布版本，使用构建注入的 `DSH_CLIENT_VERSION` 元数据和当前语言。缺少版本元数据的局部构建不显示该行。
 
 代码工作工具开关控制 [ui-settings](../ui-settings/README.zh.md#use-this-package) 定义的共享偏好 `ui-settings.enabled`。Web 和桌面端均提供此开关，立即跟随已接受的变更，并在写入完成前禁用重复输入。写入失败时显示本地化的重试提示。

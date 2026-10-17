@@ -108,26 +108,38 @@ toasts through it while the window is unfocused.
 
 ## CLI shims and the installer's PATH page
 
-`pack-tauri.mjs` writes two CLI shims into `<install>/bin`: `dsh.cmd`
-(cmd/PowerShell) and `dsh` (POSIX sh, for Git Bash). Both resolve the
-bundled `node.exe` and the CLI entry through script-relative paths, so `dsh
---version`, `dsh --profile headless "task"`, and the rest of the CLI work
-from any working directory without the shell running. The same CLI closure
-also powers the desktop backend itself, so a CLI-launched session and a
-desktop session share the harness home.
+`pack-tauri.mjs` calls `scripts/cli-shims.mjs` to write two CLI shims into
+`<install>/bin`: `dsh.cmd` (cmd/PowerShell) and `dsh` (POSIX sh, for Git
+Bash). Both resolve the bundled `node.exe` and the CLI entry through
+script-relative paths, so after installing you can open a new terminal in
+any working directory and run `dsh tui`, `dsh --version`, `dsh --profile
+headless "task"`, and the rest of the CLI without a separate Node install
+or a path into the repository. The same CLI closure also powers the desktop
+backend itself.
 
 The installer shows a page between the directory page and the install step
 asking whether to add `<install>\bin` to the user PATH (checkbox checked by
-default; English and Chinese copy, other languages fall back to English).
-Accepting writes the directory into `HKCU\Environment\Path` (as
-REG_EXPAND_SZ, case-insensitive dedupe) and remembers it under
-`HKCU\Software\CetusPrism\CliPathDir`; declining on an upgrade reverses a
-previous opt-in; a silent install (`/S`) preserves whatever the previous
-install chose. Every write broadcasts WM_SETTINGCHANGE so new terminals see
-the change without re-login. The uninstaller removes the recorded directory
-from the user PATH and clears the marker. The PATH element functions are
+default; English and Chinese copy, other languages fall back to English). A
+silent first install (`/S`) enables PATH; a silent upgrade keeps a previous
+explicit decline. Accepting writes the directory into `HKCU\Environment\Path`
+(as REG_EXPAND_SZ, case-insensitive dedupe) and remembers it under
+`HKCU\Software\CetusPrism\CliPathDir`; declining records `CliPathDeclined`
+and, on an upgrade, removes an earlier opt-in. The template runs the previous
+version's uninstaller before `customInstall`, and that uninstaller deletes
+both markers, so `customInit` captures them first and the choice survives an
+upgrade. Reinstalling to the same directory keeps the existing PATH element
+in place; installing to a new directory removes the recorded old element
+first. Every write broadcasts WM_SETTINGCHANGE so new terminals see the
+change without re-login. The uninstaller removes the recorded directory from
+the user PATH and clears both markers. The PATH element functions are
 exercised against a scratch registry key by a standalone NSIS harness (they
 take the registry root/subkey/value as defines for exactly that reason).
+
+The cmd launcher has a real-process regression: `pnpm run test:cli-shims`
+builds a scratch installation whose install, working, and target directories
+all contain spaces, resolves a bare `dsh` through a child-only PATH, verifies
+that `dsh tui "<spaced target>"` forwards both arguments to the CLI entry,
+and checks that the launcher propagates the entry's exit code.
 
 ## Experimental features
 
@@ -173,6 +185,14 @@ shell, so an existing install upgrades in place.
   nothing in the flow deletes user data.
 
 ## Build and pack (Windows)
+
+The shell's embedded product version comes from `apps/electron/package.json`; changes to that manifest invalidate the Rust build cache.
+
+The installer and uninstaller request `--dsh-installer-quit` and allow eight seconds for graceful shutdown before terminating the process tree. They wait up to another eight seconds for termination; Retry starts a new shutdown request. Windows regression check: `node apps/electron/scripts/test-installer-close.mjs` from the repository root exercises no running process, delayed graceful shutdown, and forced shutdown with a backend child using private executable names and temporary files.
+
+Each shutdown check writes a separate diagnostic file under `%LOCALAPPDATA%\CetusPrism\installer-logs`. It records the installer path, installation directory, administrator status, matching process IDs, shutdown-launch outcome, process-check results, and termination command output. A close failure displays the file path. These records contain no model credentials; process checks use executable names, so the records are needed to distinguish another installation or a process the installer cannot terminate.
+
+For upgrade compatibility with the 1.7.0-beta.1 uninstaller, the installer gives child processes a per-run staging directory under `%USERPROFILE%\.cp`. This avoids exceeding legacy Windows path limits while moving the Inspector assets into the old uninstaller's temporary tree. Only the installer's process environment changes; successful installation or closing the installer restores `TEMP` and `TMP` and removes empty staging directories. Nonempty staging remains available for recovery. `node apps/electron/scripts/test-installer-upgrade.mjs` from the repository root replays the pinned electron-builder 25.1.8 migration function, verifies the original failure and successful migration with shorter staging, and checks environment restoration. Longer user-profile paths and installed upgrades require target-machine qualification.
 
 ```sh
 pnpm run build:lib && pnpm run build:web   # repo-root face builds the deploy needs

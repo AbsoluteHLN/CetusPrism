@@ -176,6 +176,12 @@ export function apply(ctx: ClientContext): void {
     const shellHandle = createSettingsShellStore()
     const shellInstance = shellHandle.create()
     const shellStore: typeof shellHandle = { ...shellHandle, create: () => shellInstance }
+    const disposeNavigation = ctx.on('settings/open-section', (sectionId) => {
+      if (!ctx.slots.entries('settings.section').some(entry => entry.options.id === sectionId)) {
+        throw new Error(`Settings section is not registered: ${sectionId}`)
+      }
+      shellInstance.actions.openSection(sectionId)
+    })
     const disposeCommand = ctx.shortcuts.register({
       id: 'settings.open' as ShortcutCommandId, label: () => t('shortcut.open'), aliases: ['settings', 'preferences'],
       defaults: {
@@ -210,7 +216,7 @@ export function apply(ctx: ClientContext): void {
       },
       inject: shellInjected,
     }, SettingsRoot)
-    return () => { disposeCommand(); disposeSlot() }
+    return () => { disposeNavigation(); disposeCommand(); disposeSlot() }
   })
 
   ctx.slots.inject('settings.trigger', () =>

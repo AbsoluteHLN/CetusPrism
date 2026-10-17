@@ -1,0 +1,37 @@
+- dialog "设置":
+  - navigation:
+    - text: 设置
+    - button "外观与皮肤"
+    - button "通用设置"
+    - button "模型"
+    - button "用量统计"
+    - button "内置插件"
+    - button "Agent 预设"
+    - button "关于与鸣谢"
+    - button "智能体团队"
+  - button "打开配置文件"
+  - button "关闭"
+  - region "运行限制":
+    - heading "运行限制" [level=3]
+    - text: 最大递归深度
+    - button "最大递归深度说明"
+    - textbox "最大递归深度":
+      - /placeholder: ""
+      - text: "1"
+    - text: 子智能体并行数量上限
+    - button "子智能体并行数量上限说明"
+    - textbox "子智能体并行数量上限":
+      - /placeholder: ""
+      - text: "8"
+  - region "模型选择":
+    - heading "模型选择" [level=3]
+    - text: 允许子智能体与智能体团队选择模型
+    - switch "允许子智能体与智能体团队选择模型" [checked]
+    - paragraph: 开启后，Agent 可以从下方授权的提供方和模型中，为新的子智能体或团队成员选择模型。不指定时继承父 Agent 的模型。保存后对新会话生效，现有会话保持原授权。
+    - group "子智能体与团队可选择的模型":
+      - text: 子智能体与团队可选择的模型 DeepSeek
+      - checkbox "DeepSeek-V4-Flash DeepSeek · deepseek-official/deepseek-v4-flash" [checked]
+      - text: DeepSeek-V4-Flash DeepSeek · deepseek-official/deepseek-v4-flash
+      - checkbox "DeepSeek-V4-Flash-Vision-Exp DeepSeek · deepseek-official/deepseek-v4-flash-vision-exp"
+      - text: DeepSeek-V4-Flash-Vision-Exp DeepSeek · deepseek-official/deepseek-v4-flash-vision-exp
+  - button "保存" [disabled]

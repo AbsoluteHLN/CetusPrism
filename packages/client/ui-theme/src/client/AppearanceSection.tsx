@@ -10,7 +10,7 @@ export type AppearanceSectionComponentProps =
 /**
  * Render the Appearance section content column: the dedicated 皮肤/主题 page
  * the theme feature owns (HLN theme cards, background motion, conversation
- * font size). The column plays the shell's v3.2 enter motion on mount.
+ * font size). The column plays the shell's v3.5 enter motion on mount.
  * @param props - composed slot props.
  * @returns the section element tree.
  */

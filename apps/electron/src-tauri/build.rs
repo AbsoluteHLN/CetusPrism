@@ -1,4 +1,6 @@
 fn main() {
+    // tauri.conf.json reads the product version from the parent manifest.
+    println!("cargo:rerun-if-changed=../package.json");
     // include_image! embeds the tray art at macro expansion without a
     // dep-info entry, so cargo never notices tray-art changes on its own;
     // these directives make a changed PNG rerun the build script and the

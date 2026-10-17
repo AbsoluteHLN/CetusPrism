@@ -204,6 +204,16 @@ describe('web e2e: Agent Teams panel', () => {
     }
   })
 
+  it('opens model authorization from the Team panel', async () => {
+    await page.locator('[data-team-action]').getByRole('button', { name: 'Agent Team', exact: true }).click()
+    await page.getByRole('dialog', { name: 'Agent Team', exact: true })
+      .getByRole('button', { name: 'Available model settings', exact: true }).click()
+    const settings = page.getByRole('dialog', { name: 'Settings', exact: true })
+    await settings.getByText('Allow Subagents and Agent Teams to choose models', { exact: true }).waitFor()
+    await settings.getByRole('button', { name: 'Close', exact: true }).click()
+    expect(tripwire.pageErrors).toEqual([])
+  })
+
   it.skipIf(MODE === 'record')('keeps the fixture inventory closed', async () => {
     await assertFixtureInventory(SNAPSHOT_DIR, ['task.expected.md', 'resize.expected.md'])
   })

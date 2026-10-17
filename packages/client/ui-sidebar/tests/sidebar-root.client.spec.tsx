@@ -121,6 +121,25 @@ describe('SidebarRoot shell', () => {
     fireEvent.focus(button)
     expect(Array.from(screen.getByRole('tooltip').querySelectorAll('kbd'), key => key.textContent)).toEqual(['Ctrl', 'N'])
   })
+
+  it('keeps New Session centered behind its reserved shortcut', () => {
+    const shortcut: ShortcutCatalogEntry = { id: 'session.new' as ShortcutCommandId, label: 'New', aliases: [],
+      binding: null, modified: true, conflicts: [], issue: null, keys: ['Ctrl', 'N'], aria: 'Control+N' }
+    mountShell({ shortcuts: [shortcut] })
+    const button = screen.getAllByRole('button', { name: 'New session' })
+      .find(candidate => candidate.querySelector('kbd') !== null)!
+    const mask = button.firstElementChild!
+    expect([...mask.classList].some(name => name.includes('newSessionLabelMask'))).toBe(true)
+    const content = mask.firstElementChild!
+    expect([...content.classList].some(name => name.includes('newSessionContent'))).toBe(true)
+    expect(content.querySelector('svg')).not.toBeNull()
+    expect(content.textContent).toContain('New Session')
+    const shortcutNode = mask.nextElementSibling!
+    expect([...shortcutNode.classList].some(name => name.includes('newSessionShortcut'))).toBe(true)
+    expect(shortcutNode.getAttribute('aria-hidden')).toBe('true')
+    expect(Array.from(button.querySelectorAll('kbd'), key => key.textContent)).toEqual(['Ctrl', 'N'])
+  })
+
   it('routes New Session (capsule + wordmark) and the column toggle', () => {
     const b = mountShell()
     expect(screen.getByTestId('custom-brand-mark')).toBeTruthy()
@@ -148,7 +167,7 @@ describe('SidebarRoot shell', () => {
         options?.fallback ?? null) as SidebarRootComponentProps['renderSlot']}
     />)
 
-    expect(screen.getByText('DSH Local Build')).toBeTruthy()
+    expect(screen.getByText('CetusPrism')).toBeTruthy()
     expect(screen.getByText('1.2.3-rc.4-0123456-dirty')).toBeTruthy()
     expect(container.querySelector('svg')).not.toBeNull()
   })
@@ -168,7 +187,7 @@ describe('SidebarRoot shell', () => {
         options?.fallback ?? null) as SidebarRootComponentProps['renderSlot']}
     />)
 
-    expect(screen.getByText('DSH Local Build')).toBeTruthy()
+    expect(screen.getByText('CetusPrism')).toBeTruthy()
     expect(screen.getByText(expected)).toBeTruthy()
   })
 
@@ -183,7 +202,7 @@ describe('SidebarRoot shell', () => {
         options?.fallback ?? null) as SidebarRootComponentProps['renderSlot']}
     />)
 
-    expect(screen.getByText('DSH Local Build')).toBeTruthy()
+    expect(screen.getByText('CetusPrism')).toBeTruthy()
   })
 
   it('hands the region its wide flag and clamps expandSidebar to the collapsed state', () => {
@@ -288,6 +307,31 @@ describe('Windows caption tooltips', () => {
       expect(screen.getByRole('tooltip').getAttribute('data-side')).toBe('bottom')
     },
   )
+
+  it('collapses Windows New Session immediately and restores its reserved shortcut row', () => {
+    vi.useFakeTimers()
+    document.documentElement.setAttribute('data-windows-titlebar', '')
+    const shortcut: ShortcutCatalogEntry = { id: 'session.new' as ShortcutCommandId, label: 'New', aliases: [],
+      binding: null, modified: true, conflicts: [], issue: null, keys: ['Ctrl', 'N'], aria: 'Control+N' }
+    const shell = mountShell({ shortcuts: [shortcut] })
+    // Expanded, both the wordmark and the dedicated capsule answer this role.
+    const button = () => screen.getAllByRole('button', { name: 'New session' })
+      .find(candidate => candidate.hasAttribute('data-sidebar-new-session'))!
+    expect(button().querySelector('kbd')).not.toBeNull()
+
+    shell.rerender({ collapsed: true, width: 0 })
+    // Windows skips the wide-content fade: the caption control is icon-only at once.
+    expect(button().querySelector('kbd')).toBeNull()
+    expect(button().textContent).not.toContain('New Session')
+    expect(button().querySelector('svg')?.getAttribute('height')).toBe('16')
+    expect(button().getAttribute('aria-keyshortcuts')).toBe('Control+N')
+    fireEvent.click(button())
+    expect(shell.startSession).toHaveBeenCalledOnce()
+
+    shell.rerender({ collapsed: false, width: 300 })
+    expect(button().querySelector('kbd')).not.toBeNull()
+    expect(button().textContent).toContain('New Session')
+  })
 
   it('drops the collapsed New Session bubble below the caption as well', () => {
     vi.useFakeTimers()

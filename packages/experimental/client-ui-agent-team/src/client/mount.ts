@@ -7,6 +7,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { TeamAction, type TeamActionInjected } from './TeamAction.tsx'
 import { en, NS, zh, type TeamKey } from './locales.ts'
 
@@ -35,6 +36,9 @@ export function registerAgentTeamUi(ctx: ClientContext): void {
   }
 
   const actions: TeamActionInjected = {
+    openModelSettings(): void {
+      ctx.emit('settings/open-section', 'subagent')
+    },
     openTeammate(sessionId: SessionId, childSessionId: SessionId): void {
       const parentSessionId = leadSessionId(sessionId)
       if ((sessions.retainInfo(sessionId).getSnapshot().retainedBy.mainView ?? 0) === 0) return

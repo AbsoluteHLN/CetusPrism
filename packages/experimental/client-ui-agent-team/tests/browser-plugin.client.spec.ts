@@ -54,12 +54,13 @@ async function bench(options: { addressed?: boolean } = {}) {
     .find(candidate => candidate.component === TeamAction)
   const actions = (): TeamActionInjected => {
     const injected = entry()!.inject!()
-    const { openTeammate } = injected
-    if (typeof openTeammate !== 'function') {
+    const { openTeammate, openModelSettings } = injected
+    if (typeof openTeammate !== 'function' || typeof openModelSettings !== 'function') {
       throw new Error('Team header action lacks its injected callbacks')
     }
     return {
       openTeammate: openTeammate as TeamActionInjected['openTeammate'],
+      openModelSettings: openModelSettings as TeamActionInjected['openModelSettings'],
     }
   }
   return {
@@ -74,6 +75,16 @@ async function bench(options: { addressed?: boolean } = {}) {
 }
 
 describe('ui-team browser plugin', () => {
+  it('requests the shared model authorization settings section', async () => {
+    const b = await bench()
+    const opened: string[] = []
+    b.ctx.on('settings/open-section', id => { opened.push(id) })
+    b.actions().openModelSettings()
+    expect(opened).toEqual(['subagent'])
+    expect(b.navigation).toEqual([])
+    await b.fiber.dispose()
+  })
+
   it('registers one disposable header action without a Team Remote namespace', async () => {
     const b = await bench()
     expect(inject).toEqual(['sessions', 'uiWorkspace', 'slots', 'locale'])

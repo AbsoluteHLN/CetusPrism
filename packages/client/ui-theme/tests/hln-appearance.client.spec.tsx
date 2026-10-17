@@ -98,6 +98,16 @@ function mount(selection = { ...HLN_DEFAULT_SELECTION }) {
 }
 
 describe('HlnAppearanceRow', () => {
+  it('uses canonical panels and active controls for the appearance catalogs', () => {
+    mount()
+    const panels = document.querySelectorAll('[data-hln-appearance] [data-hln-ui-surface]')
+    expect(panels).toHaveLength(4)
+    expect(document.querySelectorAll('[data-hln-ui-control][data-active="true"]')).toHaveLength(4)
+    expect(document.querySelectorAll('[data-hln-ui-control]')).toHaveLength(
+      HLN_THEMES.length + HLN_FONTS.length + HLN_CJK_FONTS.length + HLN_BG_MOTIONS.length,
+    )
+  })
+
   it('renders every theme, font, CJK font, and background-preset card', () => {
     mount()
     expect(screen.getByText('HLN Interface Style')).toBeDefined()

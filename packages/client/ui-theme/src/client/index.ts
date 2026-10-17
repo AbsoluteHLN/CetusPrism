@@ -5,7 +5,7 @@
  * the DOM — ui-layout's presenter consumes the resolved snapshot. The Host
  * settings scope loads and stores the preference in the user-settings
  * document. The plugin registers the dedicated Appearance settings section
- * (nav row 外观与皮肤) holding the HLN v3.2 selection row (theme / font /
+ * (nav row 外观与皮肤) holding the HLN v3.5 selection row (theme / font /
  * CJK font / background preset) and the conversation font-size row — theme
  * switching, including the native light gallery themes, lives on the HLN
  * theme cards; the legacy light/dark/system appearance row is retired.

@@ -16,13 +16,19 @@
 ; the template inserts between the directory page and InstFiles) asking
 ; whether to add `<install>\bin` to the user PATH. The bin directory holds
 ; the `dsh.cmd` (cmd/PowerShell) and `dsh` (POSIX sh for Git Bash) shims that
-; pack-tauri writes beside the backend runtime; both forward to the bundled
-; node.exe and CLI entry. The choice is remembered in
-; HKCU\Software\CetusPrism\CliPathDir so an uninstall removes exactly the
-; directory that was added, a declined choice reverses an earlier opt-in on
-; upgrade, and a silent install preserves whatever the previous install chose.
-; PATH elements are compared case-insensitively (kernel32::lstrcmpiW) because
-; reinstalling to the same directory can differ in drive-letter and path case.
+; scripts/cli-shims.mjs writes beside the backend runtime; both forward to
+; the bundled node.exe and CLI entry. The accepted directory is remembered in
+; HKCU\Software\CetusPrism\CliPathDir and an explicit decline is remembered in
+; CliPathDeclined. The assisted installer defaults to adding PATH. A silent
+; first install adds PATH; a silent upgrade preserves an explicit decline. A
+; declined upgrade removes an earlier opt-in. The template runs the previous
+; version's uninstaller before customInstall, and that uninstaller deletes
+; both markers, so customInit captures them for the install decision.
+; Installing to a new directory removes the recorded old PATH element before
+; adding the current one; reinstalling to the same directory keeps the
+; existing element in place. PATH elements are compared case-insensitively
+; (kernel32::lstrcmpiW) because reinstalling to the same directory can differ
+; in drive-letter and path case.
 ; The value is always written back as REG_EXPAND_SZ, which behaves as
 ; REG_SZ for values without percent references. Each write broadcasts
 ; WM_SETTINGCHANGE so already-running programs' new terminals see the change.
@@ -43,6 +49,9 @@
 
 !define CETUS_REG_KEY "Software\CetusPrism"
 !define CETUS_REG_CLIPATH_VALUE "CliPathDir"
+!define CETUS_REG_CLIPATH_DECLINED_VALUE "CliPathDeclined"
+
+!include "${__FILEDIR__}\upgrade-temp.nsh"
 
 ; ${BST_CHECKED} comes from WinMessages.nsh, which MUI2 includes before the
 ; customPageAfterChangeDir macro expands; defining it here would collide with
@@ -54,6 +63,12 @@
 Var CliPathCheckbox
 ; "1" = opted in on the CLI page, "0" = declined, "" = silent install (no page).
 Var CliPathChosen
+; The PATH element recorded by the previous accepted install; empty on a
+; first install.
+Var CliPathSavedDir
+; "1" when the previous assisted install explicitly declined PATH; otherwise
+; empty.
+Var CliPathDeclined
 ; membership result of CetusCliPathHasDir, which only the installer build compiles
 Var CetusPathFound
 !endif
@@ -63,6 +78,16 @@ Var CetusRest
 Var CetusPathWork
 Var CetusPathRebuilt
 Var CetusScanIdx
+
+; The template runs the previous version's uninstaller between this macro and
+; customInstall, and that uninstaller deletes both CLI PATH markers. Capture
+; them here so the install decision survives an upgrade.
+!macro customInit
+  !ifndef BUILD_UNINSTALLER
+  ReadRegStr $CliPathDeclined HKCU "${CETUS_REG_KEY}" "${CETUS_REG_CLIPATH_DECLINED_VALUE}"
+  ReadRegStr $CliPathSavedDir HKCU "${CETUS_REG_KEY}" "${CETUS_REG_CLIPATH_VALUE}"
+  !endif
+!macroend
 
 ; ── the CLI PATH page (installer build only) ────────────────────────────────
 
@@ -341,31 +366,94 @@ FunctionEnd
   !include "nsProcess.nsh"
 !endif
 
+!ifndef CETUS_INSTALLER_LOG_DIR
+  !define CETUS_INSTALLER_LOG_DIR "$LOCALAPPDATA\CetusPrism\installer-logs"
+!endif
+
+!macro CETUS_CLOSE_TRACE _TEXT
+  FileOpen $CetusCloseLog "$CetusCloseLogPath" a
+  FileSeek $CetusCloseLog 0 END
+  FileWriteUTF16LE $CetusCloseLog '${_TEXT}$\r$\n'
+  FileClose $CetusCloseLog
+!macroend
+
 !macro customCheckAppRunning
+  Var /GLOBAL CetusCloseLog
+  Var /GLOBAL CetusCloseLogPath
+  CreateDirectory "${CETUS_INSTALLER_LOG_DIR}"
+  GetTempFileName $CetusCloseLogPath "${CETUS_INSTALLER_LOG_DIR}"
+  FileOpen $CetusCloseLog "$CetusCloseLogPath" w
+  FileWriteByte $CetusCloseLog 255
+  FileWriteByte $CetusCloseLog 254
+  FileClose $CetusCloseLog
+  !insertmacro CETUS_CLOSE_TRACE "version=${VERSION} installer=$EXEPATH installDir=$INSTDIR target=${APP_EXECUTABLE_FILENAME}"
+  System::Call 'kernel32::GetCurrentProcessId() i.R3'
+  !insertmacro CETUS_CLOSE_TRACE "installerPid=$R3"
+  System::Call 'shell32::IsUserAnAdmin() i.R3'
+  !insertmacro CETUS_CLOSE_TRACE "installerAdmin=$R3"
+  !ifndef BUILD_UNINSTALLER
+    Call CetusPrepareUpgradeTemp
+    IfErrors cetus_upgrade_temp_failed cetus_upgrade_temp_ready
+cetus_upgrade_temp_failed:
+    !insertmacro CETUS_CLOSE_TRACE "upgradeTemp=failed"
+    MessageBox MB_OK|MB_ICONSTOP "$(uninstallFailed)$\r$\n$CetusCloseLogPath" /SD IDOK
+    SetErrorLevel 2
+    Quit
+cetus_upgrade_temp_ready:
+    !insertmacro CETUS_CLOSE_TRACE "upgradeTemp=$CetusUpgradeTemp"
+  !endif
   ${nsProcess::FindProcess} "${APP_EXECUTABLE_FILENAME}" $R0
+  !insertmacro CETUS_CLOSE_TRACE "initialFind=$R0"
   StrCmp $R0 "0" 0 cetus_check_done
+  nsExec::ExecToStack /OEM `"$SYSDIR\tasklist.exe" /FI "IMAGENAME eq ${APP_EXECUTABLE_FILENAME}" /FO CSV /NH`
+  Pop $R3
+  Pop $R2
+  !insertmacro CETUS_CLOSE_TRACE "tasklistExit=$R3 output=$R2"
   DetailPrint `Closing running "${PRODUCT_NAME}"...`
+cetus_request_quit:
   ; A second launch forwards the flag to the tray instance and exits
   ; immediately; the owner quits without the close confirmation.
+  ClearErrors
   Exec `"$INSTDIR\${APP_EXECUTABLE_FILENAME}" --dsh-installer-quit`
+  IfErrors cetus_quit_launch_failed cetus_quit_launched
+cetus_quit_launch_failed:
+  !insertmacro CETUS_CLOSE_TRACE "quitLaunch=failed"
+  Goto cetus_quit_wait
+cetus_quit_launched:
+  !insertmacro CETUS_CLOSE_TRACE "quitLaunch=started"
+cetus_quit_wait:
   StrCpy $R1 0
 cetus_graceful_wait:
   IntOp $R1 $R1 + 1
   Sleep 500
   ${nsProcess::FindProcess} "${APP_EXECUTABLE_FILENAME}" $R0
+  !insertmacro CETUS_CLOSE_TRACE "gracefulFind=$R0 poll=$R1"
   StrCmp $R0 "0" 0 cetus_closed
-  IntCmp $R1 16 cetus_graceful_wait 0 0
+  IntCmp $R1 16 cetus_force_close cetus_graceful_wait cetus_force_close
+cetus_force_close:
   ; The graceful window expired. Force-kill the whole tree: /T reaps the
   ; backend node.exe child whose open handles would block the file copy.
-  nsExec::Exec `taskkill /f /t /im "${APP_EXECUTABLE_FILENAME}"`
-  Sleep 1000
+  nsExec::ExecToStack /OEM `"$SYSDIR\taskkill.exe" /f /t /im "${APP_EXECUTABLE_FILENAME}"`
+  Pop $R0
+  Pop $R2
+  !insertmacro CETUS_CLOSE_TRACE "taskkillExit=$R0 output=$R2"
+  StrCpy $R1 0
+cetus_force_wait:
+  Sleep 500
   ${nsProcess::FindProcess} "${APP_EXECUTABLE_FILENAME}" $R0
+  !insertmacro CETUS_CLOSE_TRACE "forcedFind=$R0 poll=$R1"
   StrCmp $R0 "0" 0 cetus_closed
-  MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$(appCannotBeClosed)" /SD IDCANCEL IDRETRY cetus_graceful_wait
+  IntOp $R1 $R1 + 1
+  IntCmp $R1 16 cetus_close_failed cetus_force_wait cetus_close_failed
+cetus_close_failed:
+  !insertmacro CETUS_CLOSE_TRACE "result=close-failed"
+  MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$(appCannotBeClosed)$\r$\n$\r$\n$CetusCloseLogPath" /SD IDCANCEL IDRETRY cetus_request_quit
+  SetErrorLevel 2
   Quit
 cetus_closed:
   Sleep 300
 cetus_check_done:
+  !insertmacro CETUS_CLOSE_TRACE "result=check-complete"
 !macroend
 
 ; ── install hook ────────────────────────────────────────────────────────────
@@ -389,39 +477,58 @@ hint_write:
   WriteINIStr "$APPDATA\CetusPrism\install-detected-dsh-home.ini" "detected" "path" "$0"
 hint_skip:
 
-  ; CLI PATH opt-in: apply the page choice, or preserve a silent install's
-  ; previous opt-in with its current directory.
+  ; Apply the page choice. A silent install either enables PATH on first
+  ; install or preserves a previous explicit decline. Both markers were
+  ; captured in customInit; see the comment there for why the registry is
+  ; not read here.
+  StrCmp $CliPathChosen "" 0 clipath_dispatch
+  StrCmp $CliPathDeclined "1" clipath_remove 0
+  StrCpy $CliPathChosen "1"
+clipath_dispatch:
   StrCmp $CliPathChosen "1" clipath_add 0
   StrCmp $CliPathChosen "0" clipath_remove 0
-  Goto clipath_preserve
+  Goto clipath_done
 clipath_add:
   StrCpy $CetusDir "$INSTDIR\bin"
+  StrCmp $CliPathSavedDir "" clipath_add_insert 0
+  StrCpy $0 "$CliPathSavedDir"
+  StrCpy $1 "$CetusDir"
+  System::Call 'kernel32::lstrcmpiW(t r0, t r1)i .r2'
+  StrCmp $2 "0" clipath_add_same 0
+  ; Relocation removes the recorded old element first so the user PATH never
+  ; keeps both the old and the new install directory.
+  StrCpy $CetusDir "$CliPathSavedDir"
+  Call CetusCliPathRemove
+  StrCpy $CetusDir "$INSTDIR\bin"
   Call CetusCliPathAdd
+  Goto clipath_add_write
+clipath_add_same:
+  ; Same directory up to drive-letter and path case: keep its PATH position
+  ; and only re-add when the element was removed externally.
+  Call CetusCliPathHasDir
+  StrCmp $CetusPathFound "1" clipath_add_write 0
+  StrCpy $CetusDir "$INSTDIR\bin"
+  Call CetusCliPathAdd
+  Goto clipath_add_write
+clipath_add_insert:
+  StrCpy $CetusDir "$INSTDIR\bin"
+  Call CetusCliPathAdd
+clipath_add_write:
   WriteRegStr HKCU "${CETUS_REG_KEY}" "${CETUS_REG_CLIPATH_VALUE}" "$CetusDir"
+  DeleteRegValue HKCU "${CETUS_REG_KEY}" "${CETUS_REG_CLIPATH_DECLINED_VALUE}"
   Goto clipath_done
 clipath_remove:
-  ReadRegStr $0 HKCU "${CETUS_REG_KEY}" "${CETUS_REG_CLIPATH_VALUE}"
-  StrCmp $0 "" clipath_cleared
-  StrCpy $CetusDir "$0"
+  StrCmp $CliPathSavedDir "" clipath_declined
+  StrCpy $CetusDir "$CliPathSavedDir"
   Call CetusCliPathRemove
+clipath_declined:
+  WriteRegStr HKCU "${CETUS_REG_KEY}" "${CETUS_REG_CLIPATH_DECLINED_VALUE}" "1"
   Goto clipath_cleared
 clipath_cleared:
   DeleteRegValue HKCU "${CETUS_REG_KEY}" "${CETUS_REG_CLIPATH_VALUE}"
   Goto clipath_done
-clipath_preserve:
-  ReadRegStr $0 HKCU "${CETUS_REG_KEY}" "${CETUS_REG_CLIPATH_VALUE}"
-  StrCmp $0 "" clipath_done
-  StrCpy $CetusDir "$INSTDIR\bin"
-  Call CetusCliPathHasDir
-  StrCmp $CetusPathFound "1" clipath_refresh_marker
-  ; The install directory moved: drop the stale entry, add the current one.
-  StrCpy $CetusDir "$0"
-  Call CetusCliPathRemove
-  StrCpy $CetusDir "$INSTDIR\bin"
-  Call CetusCliPathAdd
-clipath_refresh_marker:
-  WriteRegStr HKCU "${CETUS_REG_KEY}" "${CETUS_REG_CLIPATH_VALUE}" "$INSTDIR\bin"
 clipath_done:
+  Call CetusRestoreUpgradeTemp
 !macroend
 
 ; ── uninstall hook ──────────────────────────────────────────────────────────
@@ -433,4 +540,5 @@ clipath_done:
   Call un.CetusCliPathRemove
 clipath_un_cleared:
   DeleteRegValue HKCU "${CETUS_REG_KEY}" "${CETUS_REG_CLIPATH_VALUE}"
+  DeleteRegValue HKCU "${CETUS_REG_KEY}" "${CETUS_REG_CLIPATH_DECLINED_VALUE}"
 !macroend

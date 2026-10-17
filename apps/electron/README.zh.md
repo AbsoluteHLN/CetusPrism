@@ -63,9 +63,11 @@ apps/electron/
 
 ## CLI shim 与安装器的 PATH 选择页
 
-`pack-tauri.mjs` 在 `<安装目录>/bin` 写入两个 CLI shim：`dsh.cmd`（cmd/PowerShell）与 `dsh`（POSIX sh，供 Git Bash 使用）。两者都通过脚本相对路径解析随包的 `node.exe` 与 CLI 入口，因此无需运行桌面壳，即可在任意工作目录使用 `dsh --version`、`dsh --profile headless "任务"` 等完整 CLI。同一 CLI 闭包也是桌面后端本身，CLI 启动的会话与桌面会话共享 harness home。
+`pack-tauri.mjs` 调用根目录的 `scripts/cli-shims.mjs` 在 `<安装目录>/bin` 写入两个 CLI shim：`dsh.cmd`（cmd/PowerShell）与 `dsh`（POSIX sh，供 Git Bash 使用）。两者都通过脚本相对路径解析随包的 `node.exe` 与 CLI 入口，因此安装后在新开的终端里，可在任意工作目录直接运行 `dsh tui`、`dsh --version`、`dsh --profile headless "任务"` 等完整 CLI，无需单独安装 Node，也无需指向仓库路径。同一 CLI 闭包也是桌面后端本身。
 
-安装器在目录页与安装步骤之间显示一页，询问是否把 `<安装目录>\bin` 加入用户 PATH（复选框默认勾选；文案提供中英文，其余语言回退英文）。接受后该目录写入 `HKCU\Environment\Path`（REG_EXPAND_SZ、大小写不敏感去重），并记录在 `HKCU\Software\CetusPrism\CliPathDir`；升级时取消勾选会撤销先前加入的条目；静默安装（`/S`）保留上一次安装的选择。每次写入都广播 WM_SETTINGCHANGE，新开的终端无需重新登录即可看到变化。卸载程序会从用户 PATH 移除记录的目录并清除标记。PATH 元素函数将注册表根/子键/值名作为 define 暴露，独立 NSIS 测试以临时注册表键实测这组函数。
+安装器在目录页与安装步骤之间显示一页，询问是否把 `<安装目录>\bin` 加入用户 PATH（复选框默认勾选；文案提供中英文，其余语言回退英文）。静默首次安装（`/S`）默认启用 PATH；静默升级保留先前明确拒绝的选择。接受后该目录写入 `HKCU\Environment\Path`（REG_EXPAND_SZ、大小写不敏感去重），并记录在 `HKCU\Software\CetusPrism\CliPathDir`；拒绝则记录 `CliPathDeclined`，升级时撤销先前加入的条目。模板在 `customInstall` 之前会先运行旧版本的卸载器并删除这两个标记，因此 `customInit` 会先行捕获，让选择在升级后仍然生效。重装到同一目录时保留现有 PATH 条目的位置；安装到新目录时先移除记录的旧条目。每次写入都广播 WM_SETTINGCHANGE，新开的终端无需重新登录即可看到变化。卸载程序会从用户 PATH 移除记录的目录并清除两个标记。PATH 元素函数将注册表根/子键/值名作为 define 暴露，独立 NSIS 测试以临时注册表键实测这组函数。
+
+cmd 启动器有真实进程回归：`pnpm run test:cli-shims` 搭建安装、工作、目标目录都含空格的临时安装，通过仅子进程可见的 PATH 解析裸 `dsh`，验证 `dsh tui "<含空格目标>"` 把两个参数原样转发给 CLI 入口，并检查启动器透传入口的退出码。
 
 ## 实验性功能
 
@@ -81,6 +83,14 @@ harness 从 `$DSH_HOME`（默认 `~/.dsh`）解析其用户数据根目录。首
 - 决策文件为该启动失败回退记录 `fallbackHome`；整个流程不删除任何用户数据。
 
 ## 构建与打包（Windows）
+
+外壳内嵌的产品版本来自 `apps/electron/package.json`；修改该清单会使 Rust 构建缓存失效。
+
+安装器和卸载器通过 `--dsh-installer-quit` 请求退出，等待八秒正常关闭后才强制结束进程树，并再等待最多八秒确认终止；点击重试会重新请求退出。Windows 回归检查：在仓库根目录运行 `node apps/electron/scripts/test-installer-close.mjs`，以独立的可执行文件名和临时文件验证无运行实例、延迟正常退出，以及带后端子进程的强制退出。
+
+每次退出检查都会在 `%LOCALAPPDATA%\CetusPrism\installer-logs` 下写入独立的诊断文件，记录安装器路径、安装目录、管理员状态、匹配进程的 PID、退出请求启动结果、进程检测结果及终止命令输出。关闭失败时会显示文件路径。这些记录不含模型凭据；进程检测按可执行文件名进行，因此需要日志来区分其他安装实例或安装器无权终止的进程。
+
+为兼容 1.7.0-beta.1 的旧卸载器，安装器为子进程提供 `%USERPROFILE%\.cp` 下的独立暂存目录，避免将 Inspector 文件移入旧卸载器的临时目录树时超过旧版 Windows 路径限制。仅安装器进程的环境发生变化；安装成功或关闭安装器时会恢复 `TEMP`、`TMP` 并移除空的暂存目录，非空目录会保留用于恢复。在仓库根目录运行 `node apps/electron/scripts/test-installer-upgrade.mjs`，可重放固定版本 electron-builder 25.1.8 的迁移函数，验证原始失败、缩短暂存路径后的迁移成功及环境恢复。更长的用户配置目录路径和实际旧版升级需要在目标机器上验收。
 
 ```sh
 pnpm run build:lib && pnpm run build:web   # repo-root face builds the deploy needs

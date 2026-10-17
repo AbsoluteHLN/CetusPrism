@@ -85,7 +85,7 @@ function bench(options: {
     awaitingFirstTurn: false,
   })
   const useSessions = bindSnapshotSelector(sessions)
-  const injected: TeamActionInjected = { openTeammate: vi.fn() }
+  const injected: TeamActionInjected = { openTeammate: vi.fn(), openModelSettings: vi.fn() }
   const props: TeamActionProps = {
     sessionId,
     useSession: bindSnapshotSelector(session),
@@ -123,6 +123,15 @@ function setProjection(sessions: ReturnType<typeof bench>['sessions'], sessionId
 }
 
 describe('TeamAction', () => {
+  it('opens model authorization settings even when no Team projection is available', () => {
+    const b = bench({ projections: {} })
+    render(<TeamAction {...b.props} />)
+    openPanel()
+    fireEvent.click(screen.getByRole('button', { name: '可用模型设置' }))
+    expect(b.injected.openModelSettings).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('renders the Lead projection and applies later projection frames without any user action', async () => {
     const b = bench()
     render(<TeamAction {...b.props} />)

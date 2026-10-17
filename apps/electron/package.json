@@ -5,6 +5,8 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
+    "test:installer-close": "node scripts/test-installer-close.mjs",
+    "test:installer-upgrade": "node scripts/test-installer-upgrade.mjs",
     "build": "node scripts/build-shell.mjs",
     "dist:win": "node scripts/build-shell.mjs && node scripts/pack-tauri.mjs && node scripts/make-installer.mjs",
     "dist:linux": "node scripts/build-deb.mjs"

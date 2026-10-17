@@ -17,6 +17,7 @@ import type { DeveloperToolsRowInjected } from '../src/client/DeveloperToolsRow.
 import { CloseLabel, HeaderContent, TriggerContent } from '../src/client/chrome.tsx'
 import { GeneralSection } from '../src/client/GeneralSection.tsx'
 import { SettingsDocumentAction } from '../src/client/SettingsDocumentAction.tsx'
+import type { createSettingsShellStore } from '../src/client/shell-store.ts'
 import type { SettingsDocumentActionInjected } from '../src/client/SettingsDocumentAction.tsx'
 
 const SELF = '@deepseek-ai/dsh-client-ui-settings-general'
@@ -88,6 +89,19 @@ function setPageUrl(url: string): void {
 }
 
 describe('ui-settings-general apply', () => {
+  it('opens a registered section and rejects an unavailable section without changing selection', async ({ mock, start }) => {
+    const { c } = await client(mock, start)
+    const entry = c.ctx.slots.entries('sidebar.settings')[0]!
+    const handle = entry.store as ReturnType<typeof createSettingsShellStore>
+    const store = handle.create()
+    c.ctx.emit('settings/open-section', 'general')
+    expect(store.getSnapshot()).toEqual({ open: true, activeId: 'general' })
+    expect(() => c.ctx.emit('settings/open-section', 'missing')).toThrow('Settings section is not registered: missing')
+    expect(store.getSnapshot()).toEqual({ open: true, activeId: 'general' })
+    await c.unload(SELF)
+    c.ctx.emit('settings/open-section', 'missing')
+  }, COLD_BOOT_TIMEOUT_MS)
+
   it('declares the services it uses', () => {
     expect(inject).toEqual(['slots', 'locale', 'connection', 'remote', 'remote.settings', 'configForms', 'shortcuts'])
   })

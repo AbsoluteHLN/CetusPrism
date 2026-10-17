@@ -29,6 +29,8 @@ Users switch the color scheme and content font size from two rows in Settings (G
 
 ### Appearance and font size
 
+CetusPrism exposes its bundled KalciriteUI v3.5 catalogs in Settings → Appearance: eight themes, eight font modes, seven Chinese font modes, and eight background presets. Numbered panels, corner markers, control hover traces, and selected states use the canonical v3.5 artifacts; feature CSS only arranges the gallery. The CetusPrism settings modal uses the opaque theme base fill so conversation text does not show through. The existing browser-local selection key remains unchanged, so saved choices survive upgrades. The font-size setting still writes through the Host settings API.
+
 The plugin registers Appearance preference cubes and a font-size stepper in the General section. The stepper accepts integer values from 10 to 22 px and defaults to 14 px. It changes conversation headings and base text by the same increment, including the user bubble and composer draft; flow-row titles, summaries, and tables follow one step under the body size, while small text and code keep fixed sizes. Each accepted change writes through the Host settings API. Rapid changes serialize in gesture order with namespace revisions, and a rejected latest write reloads the durable values. Non-loopback pages keep both choices process-local.
 
 ### Registering a theme

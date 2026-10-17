@@ -21,6 +21,8 @@ import css from './TeamAction.module.css'
 export interface TeamActionInjected {
   /** Open a roster Session from the current conversation. */
   openTeammate: (sessionId: SessionId, childSessionId: SessionId) => void
+  /** Open the shared Team and Subagent model authorization settings. */
+  openModelSettings: () => void
 }
 
 /** Durable lifecycle overlaid with the member Session's live turn activity. */
@@ -177,7 +179,7 @@ function TaskCard({ task, t }: { task: TeamTask; t: TranslateNS<typeof NS> }) {
 
 /** Render the Team roster and read-only task board. */
 export function TeamAction({
-  sessionId, useSession, useSessions, useSessionStatus, openTeammate, t,
+  sessionId, useSession, useSessions, useSessionStatus, openTeammate, openModelSettings, t,
 }: TeamActionProps) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -300,6 +302,17 @@ export function TeamAction({
           onMouseLeave={scheduleHoverClose}
         >
           <div className={css.body}>
+            <button type="button" data-hln-ui-control data-variant="quiet"
+              onClick={() => {
+                try {
+                  openModelSettings()
+                  changeOpen(false)
+                } catch (reason) {
+                  setError(String(reason))
+                }
+              }}>
+              {t('modelSettings')}
+            </button>
             {error !== null && (
               <div className={css.error} role="alert"><StateDot state="error" />{error}</div>
             )}

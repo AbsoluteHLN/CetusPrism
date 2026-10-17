@@ -1,4 +1,5 @@
 - dialog "Agent Team":
+  - button "Available model settings"
   - heading "Members" [level=3]
   - button "lead Current chat Inactive" [disabled]
   - heading "Shared tasks 2" [level=3]

@@ -1,0 +1,40 @@
+- text: HLN 界面风格
+- heading "主题" [level=3]
+- group "主题":
+  - button "奇点青"
+  - button "张量琥珀"
+  - button "翠流"
+  - button "突触紫"
+  - button "钴蓝流形"
+  - button "钛白氧化"
+  - button "雪花石膏" [pressed]
+  - button "包豪斯编译"
+- heading "字体" [level=3]
+- group "字体":
+  - button "geometric"
+  - button "display" [pressed]
+  - button "technical"
+  - button "grotesque"
+  - button "cyber"
+  - button "berlin"
+  - button "editorial"
+  - button "label"
+- heading "中文字体" [level=3]
+- group "中文字体":
+  - button "自动" [pressed]
+  - button "黑体"
+  - button "标题"
+  - button "宋体"
+  - button "楷体"
+  - button "等宽"
+  - button "仿宋"
+- heading "背景效果" [level=3]
+- group "背景效果":
+  - button "张量数据流" [pressed]
+  - button "神经格架"
+  - button "谐波干涉"
+  - button "程序矩阵"
+  - button "单纯形等高"
+  - button "同步总线"
+  - button "瑞士向量"
+  - button "静默"

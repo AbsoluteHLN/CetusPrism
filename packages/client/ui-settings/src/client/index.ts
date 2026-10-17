@@ -12,6 +12,18 @@ import { SettingsSchemaService } from './schema.ts'
 import { ConfigForms } from './config-form.ts'
 import { SettingsDescribeMirror } from './settings-mirror.ts'
 
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * Open the settings shell on an already registered section.
+     * The shell owns visibility and selection; no settings values are written.
+     * @param sectionId - Id of the registered `settings.section` entry.
+     * @mode emit
+     */
+    'settings/open-section'(sectionId: string): void
+  }
+}
+
 export type {
   SettingsLauncherOwnerProps, SettingsGeneralItemOwnerProps, SettingsHeaderOwnerProps, SettingsOnboardingOwnerProps,
   SettingsPluginsTabOwnerProps, SettingsSectionOwnerProps, SettingsTriggerOwnerProps,

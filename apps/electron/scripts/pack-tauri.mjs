@@ -24,9 +24,10 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { writeCliShims } from '../../../scripts/cli-shims.mjs'
 
 const appRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const repoRoot = join(appRoot, '..', '..')
@@ -192,21 +193,9 @@ if (strippedFiles > 0) {
   console.log(`pack-tauri: stripped ${strippedFiles} declaration/source-map file(s) (${(strippedBytes / 1024 / 1024).toFixed(1)}M)`)
 }
 
-// CLI shims in `<install>/bin`: the installer's CLI page adds this directory
-// to the user PATH when the user opts in, making `dsh` resolvable in cmd,
-// PowerShell, and Git Bash. Both shims resolve the backend through %~dp0 /
-// $0 relative paths, so they keep working wherever the app is installed.
-// ASCII-only content: .cmd files are read in the console codepage.
-mkdirSync(join(outDir, 'bin'), { recursive: true })
-writeFileSync(
-  join(outDir, 'bin', 'dsh.cmd'),
-  '@echo off\r\n"%~dp0..\\resources\\app\\backend\\node.exe" "%~dp0..\\resources\\app\\backend\\runtime\\lib\\bin.js" %*\r\n',
-)
-writeFileSync(
-  join(outDir, 'bin', 'dsh'),
-  '#!/bin/sh\nDIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"\nexec "$DIR/../resources/app/backend/node.exe" "$DIR/../resources/app/backend/runtime/lib/bin.js" "$@"\n',
-  { mode: 0o755 },
-)
+// The shims are shared with scripts/test-cli-shims.mjs, which executes the
+// cmd launcher rather than only inspecting its text.
+writeCliShims(join(outDir, 'bin'))
 
 console.log(`pack-tauri: packed ${String(countFiles(outDir))} files into ${outDir}`)
 

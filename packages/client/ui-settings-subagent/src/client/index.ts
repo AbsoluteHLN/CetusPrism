@@ -1,8 +1,8 @@
 /**
  * The Subagent settings page, browser half: the delegation limits over the
  * `subagent` namespace and the models agents may choose over the
- * `subagent-model-selection` namespace, on one page with one save. The page
- * registers into the Plugins page's `plugins.item` slot while the Host serves
+ * `subagent-model-selection-settings` namespace, on one page with one save. The page
+ * registers into the Settings dialog's `settings.section` slot while the Host serves
  * either namespace and shows the sections it serves.
  */
 
@@ -17,7 +17,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: the ctx.remote Context merge and the forwarded-event key face.
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
-import { SubagentCard } from './SubagentCard.tsx'
+import { SubagentSection } from './SubagentCard.tsx'
 import { subagentCardFace } from './subagent-card-controller.ts'
 import { SubagentLimitsCardController } from './subagent-limits-card-controller.ts'
 import {
@@ -82,12 +82,12 @@ export function apply(ctx: ClientContext): void {
     'ui-settings-subagent: connection generation',
   )
   ctx.effect(() => () => { models.dispose() }, 'ui-settings-subagent: model preference')
-  ctx.effect(() => ctx.configForms.whileServed([SUBAGENT_NS, SUBAGENT_MODEL_SELECTION_NS], () => ctx.slots.inject('plugins.item', () => ctx.slots.register({
-    name: 'plugins.item',
+  ctx.effect(() => ctx.configForms.whileServed([SUBAGENT_NS, SUBAGENT_MODEL_SELECTION_NS], () => ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
     id: 'subagent',
     order: 30,
     label: () => t('subagentTitle'),
     locale: NS,
     inject: () => subagentCardFace(limitsFace, modelsFace),
-  }, SubagentCard))), 'ui-settings-subagent: page')
+  }, SubagentSection))), 'ui-settings-subagent: page')
 }

@@ -12,8 +12,8 @@
   en: 79f05b60cb6db4fe
   zh: b9db74b875d92444
 /dsh-electron/cli-shims-and-the-installer-s-path-page:
-  en: 6a7a1d975db0fc69
-  zh: 77343e2a99484fa0
+  en: bd5987e10bbd3196
+  zh: c3aefbcf1ce0f81e
 /dsh-electron/experimental-features:
   en: 20f2c8834cd85446
   zh: d60824e26d7a433b
@@ -21,11 +21,11 @@
   en: 5f5c21b19da0fecc
   zh: ce4630a0089ec34a
 /dsh-electron/build-and-pack-windows:
-  en: 5403fab0e1c75231
-  zh: 533bbd7a96443efc
+  en: 85a2f96bb4778181
+  zh: 0c4119ec58c86560
 /dsh-electron/build-and-pack-linux-deb:
-  en: c46b943cef84e21d
-  zh: 1f2e8157bff55d7f
+  en: da293c44d4dabbfd
+  zh: 4a2022a49789930a
 /dsh-electron/deploy-layout-hoisted-self-contained:
   en: 15dd270d9ccc6c7d
   zh: b77aa3e9b7431c71

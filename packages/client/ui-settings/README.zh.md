@@ -29,6 +29,8 @@ kind: "package-reference"
 
 ### 配置表单
 
+功能插件可发送 `settings/open-section` 事件，并传入已有 `settings.section` 的 id 来打开该页面。设置外壳拥有此导航操作，缺失的分区会被拒绝；此事件不读取或写入偏好值。消费者只需本包的类型声明，无需导入外壳实现。
+
 `ctx.configForms.developerTools` 管理代码工作工具开关与 Web 和桌面端共享的偏好 `ui-settings.enabled`，默认为 `true`。其 `enabled` 可观察值发布已接受的选择，`setEnabled` 使用相同的有序设置写入。桌面端和回环 Web 将设置持久化到 Host 文档；远程 Web 将此选择保存在单个浏览器本地可观察值中，刷新后重置，不发送 Host 写入。此设置控制界面展示和 HTML 预览权限，不控制 Host 授权或 Session 记录。 使用 Host 偏好的客户端在首个经过 schema 解析并接受的值到达前保持开发者功能关闭；首次响应缺失或失败不会启用它们。后续刷新保留已接受的选择。
 
 功能适配器使用 `ctx.configForms.get(entryId)` 获取该 Host 条目所有编辑器共享的已接受值和写入队列。快照包含解析后的 `value`、继承 `base`、原始 `user`、修订号、可写性和持久化模式。`set` 与 `unset` 提交单个操作，`mutate` 提交一个原子操作列表。暂存编辑器传入编辑前读取的修订号；冲突时保留草稿。清除操作移除覆盖并恢复继承。

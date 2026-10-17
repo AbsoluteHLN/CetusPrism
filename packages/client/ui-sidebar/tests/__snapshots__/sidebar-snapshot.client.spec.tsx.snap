@@ -11,6 +11,7 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
   >
     <div
       class="logoRow"
+      data-sidebar-logo-row="true"
       data-window-drag="true"
     >
       <button
@@ -38,6 +39,7 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
     <button
       aria-label="New session"
       class="newSession"
+      data-sidebar-new-session="true"
       type="button"
     >
       <span
@@ -69,6 +71,7 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
     </div>
     <div
       class="footArea"
+      data-sidebar-foot-area="true"
     >
       <div
         class="footerActions"
@@ -102,6 +105,7 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
   >
     <div
       class="logoRow"
+      data-sidebar-logo-row="true"
       data-window-drag="true"
     >
       <button
@@ -122,10 +126,10 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
             >
               <svg
                 aria-hidden="true"
-                data-content="965fe321"
+                data-content="28551336"
                 fill="none"
-                height="17.6580310880829"
-                viewBox="0 0 23.16 17.04"
+                height="21"
+                viewBox="0 0 24 21"
                 width="24"
               />
             </div>
@@ -143,7 +147,7 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
                 <span
                   class="localBuildTitle"
                 >
-                  DSH Local Build
+                  CetusPrism
                 </span>
                 <span
                   class="buildVersion"
@@ -176,6 +180,7 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
     <button
       aria-label="New session"
       class="newSession"
+      data-sidebar-new-session="true"
       type="button"
     >
       <span
@@ -212,6 +217,7 @@ exports[`sidebar shell snapshots > renders Windows caption controls in expanded 
     </div>
     <div
       class="footArea"
+      data-sidebar-foot-area="true"
     >
       <div
         class="footerActions"
@@ -245,6 +251,7 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
   >
     <div
       class="logoRow"
+      data-sidebar-logo-row="true"
       data-window-drag="true"
     >
       <button
@@ -262,10 +269,10 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
           >
             <svg
               aria-hidden="true"
-              data-content="965fe321"
+              data-content="28551336"
               fill="none"
-              height="17.6580310880829"
-              viewBox="0 0 23.16 17.04"
+              height="21"
+              viewBox="0 0 24 21"
               width="24"
             />
           </div>
@@ -290,6 +297,7 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
     <button
       aria-label="New session"
       class="newSession"
+      data-sidebar-new-session="true"
       type="button"
     >
       <span
@@ -321,6 +329,7 @@ exports[`sidebar shell snapshots > renders the collapsed rail after the crossfad
     </div>
     <div
       class="footArea"
+      data-sidebar-foot-area="true"
     >
       <div
         class="footerActions"
@@ -354,6 +363,7 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
   >
     <div
       class="logoRow"
+      data-sidebar-logo-row="true"
       data-window-drag="true"
     >
       <button
@@ -374,10 +384,10 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
             >
               <svg
                 aria-hidden="true"
-                data-content="965fe321"
+                data-content="28551336"
                 fill="none"
-                height="17.6580310880829"
-                viewBox="0 0 23.16 17.04"
+                height="21"
+                viewBox="0 0 24 21"
                 width="24"
               />
             </div>
@@ -395,7 +405,7 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
                 <span
                   class="localBuildTitle"
                 >
-                  DSH Local Build
+                  CetusPrism
                 </span>
                 <span
                   class="buildVersion"
@@ -428,6 +438,7 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
     <button
       aria-label="New session"
       class="newSession"
+      data-sidebar-new-session="true"
       type="button"
     >
       <span
@@ -464,6 +475,7 @@ exports[`sidebar shell snapshots > renders the expanded column (wordmark, capsul
     </div>
     <div
       class="footArea"
+      data-sidebar-foot-area="true"
     >
       <div
         class="footerActions"
@@ -497,6 +509,7 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
   >
     <div
       class="logoRow"
+      data-sidebar-logo-row="true"
       data-window-drag="true"
     >
       <button
@@ -517,10 +530,10 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
             >
               <svg
                 aria-hidden="true"
-                data-content="965fe321"
+                data-content="28551336"
                 fill="none"
-                height="17.6580310880829"
-                viewBox="0 0 23.16 17.04"
+                height="21"
+                viewBox="0 0 24 21"
                 width="24"
               />
             </div>
@@ -538,7 +551,7 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
                 <span
                   class="localBuildTitle"
                 >
-                  DSH 本地构建
+                  CetusPrism
                 </span>
                 <span
                   class="buildVersion"
@@ -571,6 +584,7 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
     <button
       aria-label="新建会话"
       class="newSession"
+      data-sidebar-new-session="true"
       type="button"
     >
       <span
@@ -607,6 +621,7 @@ exports[`sidebar shell snapshots > renders the expanded column in the default lo
     </div>
     <div
       class="footArea"
+      data-sidebar-foot-area="true"
     >
       <div
         class="footerActions"

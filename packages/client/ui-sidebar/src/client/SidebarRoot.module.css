@@ -287,7 +287,7 @@
   min-width: 0;
   height: 24px;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 500;
   line-height: 24px;
   letter-spacing: 0.04em;
 }
@@ -465,9 +465,26 @@
   max-width: 0;
 }
 
-.newSessionLabelMask { flex: 1; min-width: 0; }
-.newSession:is(:hover, :focus-visible) .newSessionLabelMask:has(+ .newSessionShortcut) { overflow: hidden; mask-image: linear-gradient(to right, black calc(100% - 16px), transparent); }
-.newSessionContent { display: flex; width: 100cqw; align-items: center; justify-content: center; gap: 6px; }
+.newSessionLabelMask {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The full-width inner row centers against the button, not against the space
+   left after the shortcut; the mask clips it only when that shortcut appears. */
+.newSession:is(:hover, :focus-visible) .newSessionLabelMask:has(+ .newSessionShortcut) {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, black calc(100% - 16px), transparent);
+}
+
+.newSessionContent {
+  display: flex;
+  width: 100cqw;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
 .newSessionContent > svg { flex: none; }
 
 .newSessionShortcut {

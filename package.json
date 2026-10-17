@@ -63,6 +63,7 @@
     "test:expected": "vitest run --config configs/vitest.expected.config.ts",
     "test:expected:refresh": "DSH_SNAPSHOT=refresh vitest run --config configs/vitest.expected.config.ts",
     "test:approval-policy": "node --test .github/review-ownership/check-approval.test.mjs .github/review-ownership/blame-ownership.test.mjs .github/review-ownership/author-weight.test.mjs",
+    "test:cli-shims": "node scripts/test-cli-shims.mjs",
     "test:issue-management": "node .github/issue-management/policy.test.mjs",
     "test:snapshot": "vitest run --config configs/vitest.snapshot.config.ts",
     "test:snapshot:record": "DSH_SNAPSHOT=record vitest run --config configs/vitest.snapshot.config.ts --update",

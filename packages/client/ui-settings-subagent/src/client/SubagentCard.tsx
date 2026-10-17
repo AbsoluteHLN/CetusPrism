@@ -3,6 +3,7 @@
 import { useId } from 'react'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
+import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { SettingsForm } from '@deepseek-ai/dsh-client-ui-primitives'
 import { formLabels } from './locales.ts'
 import { SubagentLimitsFields } from './SubagentLimitsFields.tsx'
@@ -13,6 +14,16 @@ import css from './SubagentCard.module.css'
 /** Framework-derived props for the shared Subagent settings card. */
 export type SubagentCardProps = PropsRuntime<'plugins.item'>
   & PropsLocale<'settings.subagent'> & InjectFace<SubagentCardFace>
+
+/**
+ * Render the shared authorization form in Settings.
+ * @param props - Settings runtime, locale, and form actions.
+ * @returns The delegation and model authorization form.
+ */
+export function SubagentSection(props: PropsRuntime<'settings.section'>
+  & PropsLocale<'settings.subagent'> & InjectFace<SubagentCardFace>) {
+  return <SubagentCard {...props} view="page" />
+}
 
 /**
  * Render the available Subagent settings with one configuration page and save footer.

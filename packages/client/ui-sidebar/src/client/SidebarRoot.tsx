@@ -272,12 +272,16 @@ export function SidebarRoot({
           aria-keyshortcuts={newShortcut?.aria}
           onClick={() => { startSession() }}
         >
-          {/* The rail draws Regular: Medium's 1.3px stroke scaled to the rail's
-              larger glyph reads visibly heavier than the neighboring 1px icons. */}
-          {wide
-            ? <IconNewChatOutlineMedium size={14} />
-            : <IconNewChatOutlineRegular size={windowsTitlebar ? 16 : 18} />}
-          {wide && <span className={clsx(css.newSessionLabel, css.wide)}>{t('session.new')}</span>}
+          <span className={css.newSessionLabelMask}>
+            <span className={css.newSessionContent}>
+              {/* The rail draws Regular: Medium's 1.3px stroke scaled to the rail's
+                  larger glyph reads visibly heavier than the neighboring 1px icons. */}
+              {wide
+                ? <IconNewChatOutlineMedium size={14} />
+                : <IconNewChatOutlineRegular size={windowsTitlebar ? 16 : 18} />}
+              {wide && <span className={clsx(css.newSessionLabel, css.wide)}>{t('session.new')}</span>}
+            </span>
+          </span>
           {wide && newShortcut !== undefined && newShortcut.keys.length > 0 && <span className={css.newSessionShortcut} aria-hidden="true">
             <ShortcutKeys keys={newShortcut.keys} />
           </span>}

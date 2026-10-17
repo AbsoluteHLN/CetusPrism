@@ -6,23 +6,23 @@ import { describe, expect, it } from 'vitest'
 const css = readFileSync(fileURLToPath(new URL('../src/client/SidebarRoot.module.css', import.meta.url)), 'utf8')
 
 /**
- * Declarations of one exact selector, keyed by property.
+ * Merged declarations of every rule whose selector list contains one exact
+ * selector; later rules override earlier ones.
  * @param selector - exact selector text.
  * @returns the normalized declarations, or undefined when absent.
  */
 function declarations(selector: string): Map<string, string> | undefined {
-  const withoutComments = css.replace(/\/\*[\s\S]*?\*\//g, ' ')
+  const withoutComments = css.slice(0, css.indexOf('@media (prefers-reduced-motion')).replace(/\/\*[\s\S]*?\*\//g, ' ')
+  const found = new Map<string, string>()
   for (const [, selectorList = '', body = ''] of withoutComments.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (!selectorList.split(',').map(value => value.trim()).includes(selector)) continue
-    const found = new Map<string, string>()
+    if (!selectorList.split(/,(?![^()]*\))/u).map(value => value.trim()).includes(selector)) continue
     for (const part of body.split(';')) {
       const colon = part.indexOf(':')
       if (colon === -1) continue
       found.set(part.slice(0, colon).trim(), part.slice(colon + 1).trim().replace(/\s+/g, ' '))
     }
-    return found
   }
-  return undefined
+  return found.size === 0 ? undefined : found
 }
 
 describe('SidebarRoot.module.css', () => {
@@ -71,5 +71,60 @@ describe('SidebarRoot.module.css', () => {
     expect(declarations('.brandName')?.get('font-size')).toBe('18px')
     expect(declarations('.fallbackBrandName')?.get('font-size')).toBe('17px')
     expect(declarations('.fallbackBrandName')?.get('white-space')).toBe('nowrap')
+  })
+
+  it('centers New Session against the full button while reserving its shortcut', () => {
+    expect(declarations('.newSessionLabelMask')?.get('flex')).toBe('1')
+    expect(declarations('.newSessionLabelMask')?.get('min-width')).toBe('0')
+    expect(declarations('.newSessionContent')?.get('width')).toBe('100cqw')
+    expect(declarations('.newSessionContent')?.get('align-items')).toBe('center')
+    expect(declarations('.newSessionContent')?.get('justify-content')).toBe('center')
+    expect(declarations('.newSessionContent')?.get('gap')).toBe('6px')
+    expect(declarations('.newSessionShortcut')?.get('display')).toBe('inline-flex')
+    expect(declarations('.newSessionShortcut')?.get('flex')).toBe('none')
+    expect(declarations('.newSessionShortcut')?.get('opacity')).toBe('0')
+    expect(
+      declarations('.newSession:is(:hover, :focus-visible) .newSessionShortcut')?.get('opacity'),
+    ).toBe('1')
+    expect(
+      declarations(
+        '.newSession:is(:hover, :focus-visible) .newSessionLabelMask:has(+ .newSessionShortcut)',
+      )?.get('overflow'),
+    ).toBe('hidden')
+    expect(
+      declarations(
+        '.newSession:is(:hover, :focus-visible) .newSessionLabelMask:has(+ .newSessionShortcut)',
+      )?.get('mask-image'),
+    ).toBe('linear-gradient(to right, black calc(100% - 16px), transparent)')
+  })
+
+  it('places collapsed Windows caption controls with their reserved geometry', () => {
+    expect(
+      declarations(':global([data-windows-titlebar]) .root:not(.collapsed) .newSession')?.get('margin-left'),
+    ).toBe('0')
+    const collapsed = declarations(':global([data-windows-titlebar]) .collapsed .newSession')
+    expect(collapsed?.get('position')).toBe('fixed')
+    expect(collapsed?.get('top')).toBe('calc((var(--dsh-windows-titlebar-height) - 28px) / 2)')
+    expect(collapsed?.get('left')).toBe('48px')
+    expect(collapsed?.get('width')).toBe('28px')
+    expect(collapsed?.get('height')).toBe('28px')
+    expect(collapsed?.get('border-radius')).toBe('50%')
+    expect(
+      declarations(
+        ':global([data-windows-titlebar]) .railIn .newSession',
+      )?.get('animation'),
+    ).toBe('none')
+    expect(
+      declarations(
+        ":global(html[data-windows-titlebar]:has([data-sidebar-collapsed='true']))",
+      )?.get('--dsh-windows-menu-start'),
+    ).toBe('84px')
+  })
+
+  it('keeps feature-owned text emphasis at 500 or lighter', () => {
+    expect(declarations('.brandName')?.get('font-weight')).toBe('500')
+    expect(declarations('.newSession')?.get('font-weight')).toBe('500')
+    expect(declarations('.newSessionShortcut')?.get('font-weight')).toBe('400')
+    expect(declarations('.buildVersion')?.get('font-weight')).toBe('500')
   })
 })

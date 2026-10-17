@@ -16,7 +16,7 @@ import { connectFreshWorkspaceZh, writeComposerDraft } from './support.ts'
 const DIR = fileURLToPath(new URL('../../../snapshots/web/zcode-preset', import.meta.url))
 const EVIDENCE = fileURLToPath(new URL('../../../dev-docs/evidence', import.meta.url))
 
-/** Pin the scenario's shell catalog without changing the shipped OS selection. */
+/** Pin shell and packaged skill inputs for replay on every OS. */
 async function snapshotOverlay(): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), 'dsh-zcode-snapshot-'))
   onTestFinished(() => rm(directory, { recursive: true, force: true }))
@@ -25,9 +25,15 @@ async function snapshotOverlay(): Promise<string> {
     .find(entry => entry.id === 'preset-zcode-inspired')
   if (row === undefined) throw new Error('shipped ZCode preset is missing')
   const config = row.config as PresetDefinition
-  const plugins = config.plugins.map(plugin => plugin.id === 'tool-bash'
-    ? { ...plugin, disabled: false }
-    : plugin.id === 'tool-pwsh' ? { ...plugin, disabled: true } : plugin)
+  const packagedSkills = fileURLToPath(new URL('../../../packages/sandbox/sandbox-windows-acl/assets/', import.meta.url))
+  const plugins = config.plugins.map(plugin => {
+    if (plugin.id === 'tool-bash') return { ...plugin, disabled: false }
+    if (plugin.id === 'tool-pwsh') return { ...plugin, disabled: true }
+    if (plugin.id === 'skill-filesystem') {
+      return { ...plugin, config: { includeDefaultRoots: false, customSkillDirs: [packagedSkills], watch: false } }
+    }
+    return plugin
+  })
   const path = join(directory, 'cordis.patch.yml')
   await writeFile(path, yaml.dump([{ id: row.id, config: { ...config, plugins } }], { schema: entryListSchema }))
   return path
@@ -60,6 +66,10 @@ it.skipIf(webSnapshotMode() === 'record')('records and restores the selected nat
   const id = await settled
   const agent = scaffold.ctx.agents.get(id)
   if (agent === undefined) throw new Error('selected preset session has no live agent')
+  const skills = await scaffold.ctx.skills.list({ cwd: agent.session.header.cwd, scope: agent })
+  expect(skills.map(({ name, source }) => ({ name, source }))).toEqual([
+    { name: 'diagnose-windows-sandbox-acl', source: 'custom' },
+  ])
   expect(agent.session.snapshotEvents().filter(event => event.type === 'agent-preset/selected')
     .map(event => event.data.agentPreset)).toContain('zcode-inspired')
   const system = agent.session.deriveMessages().filter(message => message.role === 'system')

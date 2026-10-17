@@ -68,9 +68,11 @@ Windows 标准构建通过，生成 398 个 client artifacts；5 个产品单元
 
 [第二次自动验证](https://github.com/AbsoluteHLN/CetusPrism/actions/runs/39071558192) 中，Ubuntu 和 Windows 的冻结安装、标准构建及 131 项关键单元测试均通过。浏览器准备阶段发现根工作区未声明 Playwright，因此改为通过其所属 `@deepseek-ai/dsh-web-frontend` 子包调用；复用既有工作区依赖和上游 CI 的调用方式，不向根包新增依赖。浏览器回归及最终锁不变检查等待后续 run。
 
+[第三次自动验证](https://github.com/AbsoluteHLN/CetusPrism/actions/runs/39072029935) 中，Windows 全部通过；Ubuntu 的冻结安装、构建、131 项单元测试、浏览器准备及 15/16 项 Web 回归通过。剩余 ZCode 请求回放依赖 Windows 专属技能目录，已通过测试 overlay 的现有文件系统技能配置，在各平台固定同一份随包 ACL 诊断技能，并断言来源为 custom。未执行 ACL 修复，未改产品预设、黄金记录或持久化代际。本机修正后两项回放和定向 lint 通过，独立监督接受该场景修正；Linux 修正后回放等待后续 run。
+
 ## 未验证、阻塞与下一步
 
-- 未验证：真实 GLM/其他 provider 的质量增益、Linux/macOS 执行及第三方桌面应用、重新打包后的完整 Windows 安装升级流程。原生实测不代表所有应用自动化都已验收；本轮模式是原生 ZCode 原则指导，不是外部 ZCode runtime 集成。
+- 未验证：真实 GLM/其他 provider 的质量增益、Linux/macOS 原生桌面交互及第三方桌面应用、macOS 构建、重新打包后的完整 Windows 安装升级流程。Linux 和 Windows 构建已通过 hosted CI；原生实测不代表所有应用自动化都已验收。本轮模式是原生 ZCode 原则指导，不是外部 ZCode runtime 集成。
 - 兼容性后续：单独设计官方 rc.2 大范围 API/权限/profile 迁移；继续保留独立的真实 provider 质量和安装升级验收。
 - 额度目标：既有 goal 处于 paused 且未完成，新目标创建被工具拒绝；当前工具不提供恢复或替换未完成目标的接口。本轮没有伪造完成旧目标，因此不能提供准确的本轮 goal token 统计。
 - 回滚：通过回退本轮集成提交恢复此前组合；不删除或覆盖已提交 Session fixture 代际，不修改用户凭据与会话文件。

@@ -12,17 +12,58 @@ export const catalog = {
       name: 'get_window_state',
       description: 'Capture a Cua Driver window screenshot.',
       inputSchema: { type: 'object', properties: { pid: { type: 'integer' }, window_id: { type: 'integer' } }, required: ['pid', 'window_id'] },
-      outputSchema: { type: 'object', properties: { window_id: { type: 'integer' }, clicked: { type: 'boolean' } }, required: ['window_id', 'clicked'] },
+      outputSchema: {
+        type: 'object',
+        properties: {
+          window_id: { type: 'integer' },
+          clicked: { type: 'boolean' },
+          snapshot_id: { type: 'string' },
+          elements: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                element_index: { type: 'integer' },
+                element_token: { type: 'string' },
+                role: { type: 'string' },
+                label: { type: 'string' },
+              },
+              required: ['element_index', 'element_token', 'role', 'label'],
+            },
+          },
+        },
+        required: ['window_id', 'clicked', 'snapshot_id', 'elements'],
+      },
+    },
+    {
+      name: 'list_apps',
+      description: 'List installed and running applications.',
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     },
     {
       name: 'click',
       description: 'Click the selected Cua Driver window.',
-      inputSchema: { type: 'object', properties: { pid: { type: 'integer' }, window_id: { type: 'integer' } }, required: ['pid', 'window_id'] },
+      inputSchema: {
+        type: 'object',
+        properties: {
+          pid: { type: 'integer' },
+          window_id: { type: 'integer' },
+          element_token: { type: 'string' },
+          delivery_mode: { type: 'string', enum: ['background', 'foreground'] },
+        },
+        required: ['pid', 'window_id'],
+        additionalProperties: false,
+      },
+    },
+    {
+      name: 'bring_to_front',
+      description: 'Activate a desktop window.',
+      inputSchema: { type: 'object', properties: { pid: { type: 'integer' } }, required: ['pid'], additionalProperties: false },
     },
     {
       name: 'check_permissions',
       description: 'Read host desktop permissions without prompting.',
-      inputSchema: { type: 'object', properties: {} },
+      inputSchema: { type: 'object', properties: {}, additionalProperties: false },
     },
   ],
 }
@@ -75,7 +116,12 @@ export class CuaDriver {
           { type: 'text', text: 'Cua Driver fixture window.' },
           { type: 'image', mimeType: 'image/png', data: screenshotBase64 },
         ],
-        structuredContent: { window_id: 7, clicked: fixture.clicked },
+        structuredContent: {
+          window_id: 7,
+          clicked: fixture.clicked,
+          snapshot_id: 'fixture-snapshot',
+          elements: [{ element_index: 4, element_token: 'fixture-snapshot:4', role: 'button', label: 'Increment' }],
+        },
       }) }
     }
     if (name === 'click') fixture.clicked = true

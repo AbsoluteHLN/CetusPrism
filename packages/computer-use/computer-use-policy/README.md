@@ -70,7 +70,15 @@ The service registers the `computerDelivery` session-projection unit — state i
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as the delivery policy is user-owned session state: providers translate it at their own boundary, and an enforcement refusal reaches the model as the provider's ordinary tool error.
+### Delivery policy
+
+#### What the model sees
+
+The policy is user-owned Session state. Enforcing providers report denied operations through their ordinary tool errors; the policy event itself is not model-visible.
+
+#### Token effect
+
+The policy adds no request content. A provider's denial adds the corresponding tool-result text.
 
 #### KV Cache effect
 

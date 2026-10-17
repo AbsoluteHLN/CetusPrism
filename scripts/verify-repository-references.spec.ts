@@ -44,6 +44,16 @@ function repository(test: TestContext) {
 }
 
 describe('maintained repository reference policy', () => {
+  it('allows revision pins only in the upstream ledger while retaining URL checks', () => {
+    const commit = 'a'.repeat(40)
+    const commits = new Set([commit])
+    expect(findRepositoryReferences('docs/UPSTREAM.alignment.json', JSON.stringify({ upstreamCommit: commit }), commits)).toEqual([])
+    expect(findRepositoryReferences('docs/other.json', JSON.stringify({ upstreamCommit: commit }), commits))
+      .toMatchObject([{ kind: 'commit-hash' }])
+    expect(findRepositoryReferences('docs/UPSTREAM.alignment.json', organizationUrl, commits))
+      .toMatchObject([{ kind: 'organization-url' }])
+  })
+
   it('permits only the independent kit repository and its source URLs', () => {
     for (const suffix of ['', '.git', '/tree/main/packages/entry']) {
       expect(findRepositoryReferences('package.json', `${organizationUrl}/libreoffice-kit${suffix}`, new Set())).toEqual([])

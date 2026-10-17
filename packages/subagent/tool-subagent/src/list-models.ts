@@ -81,7 +81,7 @@ async function listSubagentModels(
 /**
  * Register `list_subagent_models` for one owning delegation-tool instance.
  * @param ctx - Context whose tool registry owns the fixed discovery definition.
- * @param policy - Route policy captured for this Session.
+ * @param policySource - Route policy or its current-value reader for this Session.
  * @returns A disposer for the scoped tool registration.
  */
 export function registerListSubagentModels(

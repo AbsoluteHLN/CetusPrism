@@ -77,7 +77,7 @@ export interface TeamMemberSnapshot {
   readonly error?: string
 }
 
-/** Historical member snapshot accepted by `team/member` payload version 2. */
+/** Version 2 member snapshot before optional model-route metadata was added. */
 export type TeamMemberSnapshotV2 = Omit<TeamMemberSnapshot, 'modelProvider' | 'reasoningEffort'>
 
 /** Current runtime-enriched roster row. */
@@ -269,10 +269,8 @@ export interface TeamWaitResult {
 
 declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
-    /** Whole teammate lifecycle value; v2 is retained for history and v3 adds model route metadata. */
-    'team/member':
-      | { version: 2; teamId: TeamId; member: TeamMemberSnapshotV2 }
-      | { version: 3; teamId: TeamId; member: TeamMemberSnapshot }
+    /** Whole teammate lifecycle value; optional model-route metadata is part of version 2. */
+    'team/member': { version: 2; teamId: TeamId; member: TeamMemberSnapshot }
     /** Whole shared-task value, stored only in the Team Lead Session. */
     'team/task': { version: 2; teamId: TeamId; task: TeamTaskSnapshot }
     /** Durable mailbox enqueue, stored before delivery is attempted. */

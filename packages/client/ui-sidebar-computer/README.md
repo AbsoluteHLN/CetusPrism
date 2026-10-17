@@ -43,18 +43,29 @@ The newest image block across all settled computer-use results renders as the li
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as this package draws a control panel in the browser and registers nothing model-facing. The model-facing surface — the Cua Driver tools and their guidance — belongs to the provider packages.
+### Computer control panel
+
+#### What the model sees
+
+No model sees this UI directly. The panel reads the session-standard Chat hook, keeps root calls named with `cua_driver_native__`, and forwards `cancel`; the Cua Driver provider owns its tools, guidance, execution, and results.
+
+#### Token effect
+
+This UI adds zero model-input tokens: it contributes no prompt, tool schema, independent request, or model-visible result.
 
 #### KV Cache effect
 
-None; the panel reads session events already in the transcript and assembles no model request.
+Reading and rerendering session events does not modify the request prefix. Tool execution and results stay owned by the provider packages, so this panel offers no cache guarantee.
 
 ## Known Limitations and Deferred Work
+
+<a id="known-limitations-and-deferred-work"></a>
 
 - The feed covers root calls named with the native provider's prefix only; the MCP-based Cua Driver provider uses a different tool namespace and gets no rows.
 - The feed covers root calls only; a computer-use call dispatched inside another tool shows only in the transcript.
 - The stop gesture interrupts the session's current run, not one computer action; cancellation does not undo input already delivered to an application (the provider's own contract).
 
+<a id="dev-note"></a>
 ### Dev Note
 
 The panel subscribes to two framework channels (the Chat standard hook and the session running flag) and owns one local fact, the resolved frame URL. There is no store and no invariant: nothing survives a remount, and every displayed fact is reconstructable from the session log.

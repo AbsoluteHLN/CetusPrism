@@ -182,6 +182,9 @@ html body {
 html body #root[data-hln-ui-root] {
   background: transparent;
   min-height: 100vh;
+  --hln-cetus-bg-motion-duration: 52s;
+  --hln-cetus-bg-motion-easing: linear;
+  --hln-cetus-composer-fade-size: 36px;
 }
 
 /* ---------- Background layering ---------- */
@@ -202,6 +205,7 @@ html body #root[data-hln-ui-root] {
    hairline grid whose only moving element is one slow accent band. */
 html body #root[data-hln-ui-root][data-hln-bg-motion]::after {
   content: none;
+  animation: none;
 }
 
 html body #root[data-hln-bg-motion='tensor-stream']::before {
@@ -211,7 +215,7 @@ html body #root[data-hln-bg-motion='tensor-stream']::before {
     linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--hln-ui-accent) 14%, transparent) 50%, transparent 100%);
   background-size: 48px 48px, 48px 48px, 380px 100%;
   opacity: 0.5;
-  animation: hln-cetus-band-glide 52s linear infinite;
+  animation: hln-cetus-band-glide var(--hln-cetus-bg-motion-duration) var(--hln-cetus-bg-motion-easing) infinite;
 }
 
 /* The band sweeps fully offscreen on both ends, so the infinite loop has no
@@ -340,7 +344,7 @@ html body [role='dialog'] [aria-current='true'] {
    negative space, accent hover, accent selected state via aria-pressed.
    Scoped to the dialog so other surfaces keep their bare composition. */
 
-html body [role='dialog'] button[class*='card'] {
+html body [role='dialog'] button[class*='card']:not([data-hln-ui-control]) {
   border-radius: 0;
   border: 1px solid var(--hln-ui-line);
   background: color-mix(in srgb, var(--hln-ui-bg-1) 88%, transparent);
@@ -350,13 +354,13 @@ html body [role='dialog'] button[class*='card'] {
     color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
-html body [role='dialog'] button[class*='card']:hover:not([aria-pressed='true']) {
+html body [role='dialog'] button[class*='card']:not([data-hln-ui-control]):hover:not([aria-pressed='true']) {
   border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
   color: var(--hln-ui-text);
   background: color-mix(in srgb, var(--hln-ui-accent) 6%, var(--hln-ui-bg-1));
 }
 
-html body [role='dialog'] button[class*='card'][aria-pressed='true'] {
+html body [role='dialog'] button[class*='card']:not([data-hln-ui-control])[aria-pressed='true'] {
   border-color: var(--hln-ui-accent);
   color: var(--hln-ui-accent);
   background: color-mix(in srgb, var(--hln-ui-accent) 12%, var(--hln-ui-bg-1));
@@ -467,6 +471,12 @@ html body [role='dialog'] {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html body #root[data-hln-ui-root]::before,
+  html body #root[data-hln-ui-root]::after {
+    animation: none !important;
+    will-change: auto;
+  }
+
   html body [role='dialog'] {
     animation: none;
   }
@@ -577,6 +587,11 @@ html body [role='dialog'] {
   position: relative;
 }
 
+/* Settings text must not overlap the conversation behind the modal. */
+html body [role='dialog'][data-shortcut-modal='settings'] {
+  background: var(--hln-ui-bg-1);
+}
+
 /* Flyout panels portal to body as direct children and carry their own fixed
    coordinates (left/top inline from useAnchoredPosition). The relative above
    outranks their module class and drops them into document flow below the
@@ -626,6 +641,15 @@ html body [role='menu'] [role='menuitemradio'][aria-checked='true'] {
 }
 
 /* ---------- Composer card ---------- */
+
+/* Keep the transcript fade in a fixed band above the input. The matching
+   padding reserves that band in scroll flow so the final message can clear it. */
+html body #root [data-content-phase='active'] > [data-conversation-scroll] > [data-composer-seat] {
+  padding-block-start: var(--hln-cetus-composer-fade-size);
+  background:
+    linear-gradient(180deg, transparent, var(--hln-ui-bg-0))
+    top / 100% var(--hln-cetus-composer-fade-size) no-repeat;
+}
 
 /* The composer card takes the v3.5 large-surface anatomy: precision hairline
    vector panel with line-color edge, zero blur, zero elevation shadow. */
@@ -804,12 +828,12 @@ html body #root [class*='frame'] > [class*='sidebarCol'] {
 
 /* Logo row reads as the official [data-hln-ui-bar]: hairline under the brand
    plus the 38.2% golden-section accent rule. */
-html body #root [class*='frame'] [class*='_wVi6q_logoRow'] {
+html body #root [data-sidebar-logo-row] {
   position: relative;
   border-bottom: 1px solid var(--hln-ui-line);
 }
 
-html body #root [class*='frame'] [class*='_wVi6q_logoRow']::after {
+html body #root [data-sidebar-logo-row]::after {
   content: '';
   position: absolute;
   left: 0;
@@ -824,19 +848,26 @@ html body #root [class*='frame'] [class*='_wVi6q_logoRow']::after {
 /* 新会话 as an official control: solid surface fill (a translucent wash over
    the animated backdrop reads as a murky gray slab), hairline border,
    accent-tinted hover. */
-html body #root [class*='frame'] button[class*='_wVi6q_newSession'] {
+html body #root [data-sidebar-new-session] {
   background: var(--hln-ui-bg-2);
   border: 1px solid var(--hln-ui-line);
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.02em;
   transition:
     background-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
     border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
-html body #root [class*='frame'] button[class*='_wVi6q_newSession']:hover {
+html body #root [data-sidebar-new-session]:hover {
   background: color-mix(in srgb, var(--hln-ui-accent) 6%, var(--hln-ui-bg-2));
   border-color: color-mix(in srgb, var(--hln-ui-accent) 55%, var(--hln-ui-line));
+}
+
+/* Caption controls use the compact titlebar geometry owned by ui-sidebar. */
+html[data-windows-titlebar] body #root [data-sidebar-collapsed='true'] [data-sidebar-new-session] {
+  border: none;
+  background: transparent;
+  letter-spacing: normal;
 }
 
 /* Workspace section header: the zone boundary under the 新会话 button is a

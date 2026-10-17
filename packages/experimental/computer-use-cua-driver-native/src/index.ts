@@ -10,6 +10,7 @@ import { createMcpToolDefinition } from '@deepseek-ai/dsh-mcp-client'
 import { z } from 'zod'
 import type { CuaDriver as NativeDriver } from '@trycua/cua-driver'
 import type {} from '@deepseek-ai/dsh-computer-use'
+import type { ComputerUseDeliveryMode } from '@deepseek-ai/dsh-computer-use-policy'
 import type {} from '@deepseek-ai/dsh-system-prompt'
 import type {} from '@deepseek-ai/dsh-tools'
 
@@ -34,6 +35,30 @@ const ToolCatalog = z.object({
 /** DeepSeek's function-name alphabet and maximum length are protocol constants. */
 const TOOL_NAME = /^[A-Za-z0-9_-]{1,64}$/u
 
+/** Native catalog tools that inspect desktop or SDK state without changing it. */
+const BACKGROUND_ONLY_READ_TOOLS: ReadonlySet<string> = new Set([
+  'list_apps',
+  'list_windows',
+  'get_window_state',
+  'verify_state',
+  'debug_window_info',
+  'clipboard_read',
+  'get_screen_size',
+  'get_desktop_state',
+  'get_cursor_position',
+  'get_agent_cursor_state',
+  'check_permissions',
+  'health_report',
+  'get_config',
+  'get_accessibility_tree',
+  'zoom',
+  'get_browser_state',
+  'get_recording_state',
+  'get_session',
+  'list_sessions',
+  'get_session_state',
+])
+
 const GUIDANCE = `Cua Driver native computer-use tools operate the host desktop. Discover the exact app and window, then get a fresh window snapshot before acting. Use element_token from that snapshot, or coordinates from its screenshot. A new snapshot of that window invalidates its earlier element tokens. Select either target or the legacy pid/window_id fields; do not combine them.
 
 Prefer background delivery. A refusal does not authorize a foreground retry. Verify the requested outcome from fresh state after an action; a delivered click alone does not prove the outcome. After cancellation, inspect current state before retrying because completed input is not rolled back. Other sessions and applications may change the same desktop.
@@ -44,6 +69,8 @@ On macOS, cursor-overlay operations may return facility_unavailable even when sc
  * Own one native runtime and expose its catalog through the MCP result adapter.
  * Startup failures roll back every registration. Unload removes tools, aborts
  * calls and image admission, awaits settlement and SDK shutdown, then releases computer use.
+ * Calls use the optional delivery policy per agent session; without an agent,
+ * they use its composition default. An absent policy preserves SDK arguments.
  * @param ctx - context providing the exclusive registration and tool services.
  * @returns after native import, runtime creation, and tool discovery complete.
  */
@@ -109,9 +136,17 @@ export async function apply(ctx: Context): Promise<void> {
         async call(args, execution) {
           const combined = AbortSignal.any([execution.signal, lifetime.signal])
           combined.throwIfAborted()
-          const result = await activeDriver.callTool(tool.name, JSON.stringify(args), { signal: combined })
+          const policy = inner.get('computerUseDeliveryPolicy')
+          const mode = policy === undefined
+            ? undefined
+            : execution.agent === undefined
+              ? policy.defaultMode
+              : policy.modeOf(execution.agent.session)
+          const callArguments = applyDeliveryPolicy(tool.name, tool.inputSchema, args, mode)
+          const result = await activeDriver.callTool(tool.name, JSON.stringify(callArguments), { signal: combined })
           combined.throwIfAborted()
-          return JSON.parse(result.rawJson) as unknown
+          const value: unknown = JSON.parse(result.rawJson)
+          return tool.name === 'get_window_state' ? exposeWindowHandles(value) : value
         },
       })
       inner.tools.register(definition)
@@ -135,4 +170,50 @@ export async function apply(ctx: Context): Promise<void> {
       text: GUIDANCE,
     })
   }
+}
+
+/** Enforce background-only delivery using the active SDK catalog and known read-only tools. */
+function applyDeliveryPolicy(
+  name: string,
+  inputSchema: Record<string, unknown>,
+  args: Record<string, unknown>,
+  mode: ComputerUseDeliveryMode | undefined,
+): Record<string, unknown> {
+  if (mode !== 'background-only') return args
+  if (supportsBackgroundDelivery(inputSchema)) return { ...args, delivery_mode: 'background' }
+  if (BACKGROUND_ONLY_READ_TOOLS.has(name)) return args
+  throw new Error(`Computer-use delivery policy "background-only" rejects Cua Driver tool "${name}" without a background delivery route`)
+}
+
+/** Read the optional background enum from one SDK tool's advertised input schema. */
+function supportsBackgroundDelivery(inputSchema: Record<string, unknown>): boolean {
+  const properties = inputSchema.properties
+  if (!isRecord(properties)) return false
+  const deliveryMode = properties.delivery_mode
+  return isRecord(deliveryMode) && Array.isArray(deliveryMode.enum) && deliveryMode.enum.includes('background')
+}
+
+/** Add the native snapshot handles to model-visible content without changing canonical fields. */
+function exposeWindowHandles(value: unknown): unknown {
+  if (!isRecord(value) || !Array.isArray(value.content) || !isRecord(value.structuredContent)) return value
+  const text = windowHandleText(value.structuredContent)
+  if (text === undefined) return value
+  return { ...value, content: [...value.content, { type: 'text', text }] }
+}
+
+/** Project native action handles as an index map without copying the full tree. */
+function windowHandleText(structured: Record<string, unknown>): string | undefined {
+  if (!Array.isArray(structured.elements)) return undefined
+  const lines = structured.elements.flatMap((element) => {
+    if (!isRecord(element) || typeof element.element_index !== 'number'
+      || !Number.isInteger(element.element_index) || typeof element.element_token !== 'string') return []
+    return [`${element.element_index} -> ${JSON.stringify(element.element_token)}`]
+  })
+  if (lines.length === 0) return undefined
+  return `Cua Driver element_index to element_token (valid until this window is snapshotted again):\n${lines.join('\n')}`
+}
+
+/** Narrow parsed native JSON without trusting its fields. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

@@ -36,9 +36,18 @@
   en: 338fc3d44bc8a3b3
   zh: 4314842b17ed3578
 /deepseek-ai-dsh-computer-use-policy/model-experience:
-  en: f9aa4818201feb14
-  zh: b218cb5439d5bee3
-/deepseek-ai-dsh-computer-use-policy/model-experience/kv-cache-effect:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-computer-use-policy/model-experience/delivery-policy:
+  en: 6ae264b68a4c06ec
+  zh: 1bedf79ac8f4d74b
+/deepseek-ai-dsh-computer-use-policy/model-experience/delivery-policy/what-the-model-sees:
+  en: 8b9f44d79653ae62
+  zh: 9d5beac821d35855
+/deepseek-ai-dsh-computer-use-policy/model-experience/delivery-policy/token-effect:
+  en: de98f2fd5d6eeba6
+  zh: 00f0356dbe01bbf3
+/deepseek-ai-dsh-computer-use-policy/model-experience/delivery-policy/kv-cache-effect:
   en: 42b2d690ed2eabe4
   zh: ff1e9ecd1f22f851
 /deepseek-ai-dsh-computer-use-policy/known-limitations-and-deferred-work:

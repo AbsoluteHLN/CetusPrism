@@ -225,7 +225,11 @@ export class TeamService extends Service {
     return this.roster.list(this.roster.membership(agent))
   }
 
-  /** Read the live Team-specific provider/model ceiling for settings and admission. */
+  /**
+   * Read the live Team-specific provider/model ceiling for settings and admission.
+   * @returns the current Team allowlist and optional default route.
+   * @throws {TeamError} if Team routes are invalid or the default is not in allowedModels.
+   */
   modelPolicy(): { allowedModels: TeamModelSelection[]; defaultModel?: TeamModelSelection } {
     const allowedModels = normalizeModels(readConfigValue(this.config.allowedModels, []))
     const defaultModel = normalizeModel(readConfigValue(this.config.defaultModel, undefined))

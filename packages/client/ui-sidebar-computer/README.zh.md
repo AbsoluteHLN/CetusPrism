@@ -43,14 +43,23 @@ kind: "package-reference"
 <a id="model-experience"></a>
 ## 模型体验
 
-无；本包只在浏览器中绘制控制面板，不注册任何模型可见内容。模型可见面——Cua Driver 工具本身及其指引——属于 provider 包。
+### Computer 控制面板
+
+#### 模型看到什么
+
+没有模型直接看到这个 UI。面板读取会话标准 Chat hook，保留名称带 `cua_driver_native__` 的根调用，并转发 `cancel`；Cua Driver provider 拥有其工具、指引、执行与结果。
+
+#### Token 影响
+
+这个 UI 不增加模型输入 token：它不贡献 prompt、工具 schema、独立请求或模型可见结果。
 
 #### KV Cache 影响
 
-无；页面读取的会话事件已在日志中，不组装模型请求。
+读取和重渲染会话事件不会改变请求前缀。工具执行与结果仍归 provider 包所有，因此本面板不提供缓存保证。
+
+## 已知限制与后续工作
 
 <a id="known-limitations-and-deferred-work"></a>
-## 已知限制与后续工作
 
 - 记录只覆盖名称带原生 provider 线上前缀的根调用；基于 MCP 的 Cua Driver provider 使用不同的工具命名空间，不产生记录行。
 - 记录只覆盖根调用；在其他工具内部派发的计算机操作只会出现在转录正文中。

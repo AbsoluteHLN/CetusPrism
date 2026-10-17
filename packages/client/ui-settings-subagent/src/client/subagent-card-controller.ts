@@ -53,6 +53,7 @@ export interface SubagentCardFace {
  * Derive the shared card state without duplicating either form's subscriptions.
  * @param limits - Current delegation-limit form.
  * @param models - Current model-authorization form.
+ * @param teamModels - Current Team-specific model restriction form.
  * @returns Availability and settlement across the sections this Host serves.
  */
 export function subagentCardShell(
@@ -77,6 +78,7 @@ export function subagentCardShell(
  * Compose one card from the existing forms; each write retains its namespace revision fence.
  * @param limits - Limit form source and actions.
  * @param models - Model form source and actions.
+ * @param teamModels - Team restriction form source and actions.
  * @returns Framework-bound sources and shared save/discard actions.
  */
 export function subagentCardFace(

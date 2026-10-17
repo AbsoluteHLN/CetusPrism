@@ -7,6 +7,8 @@ kind: "package-reference"
 
 English | [中文](README.zh.md)
 
+The new-task Agent preset menu offers an optional ZCode-inspired mode. It retains Standard mode tools and policies and adds inspect, plan and evidence guidance through the native persona plugin. Standard remains the default. Select before starting a task; existing sessions retain their recorded preset. Settings → Agent presets can save a new-task default; choose Standard again to roll back. This mode uses the selected provider/model and imports no ZCode runtime, credentials or private configuration. Its reference is ZCode 3.15.1 (`aac4755666d09fdcd70272fcf063c077a639015f`); it makes no model-quality guarantee.
+
 ## Summary
 
 Choose Agent presets and the new-task default in Web, read what each mode does and what it declares. Authoring is guided to Creator mode.

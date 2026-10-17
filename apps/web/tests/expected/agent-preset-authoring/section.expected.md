@@ -1,10 +1,14 @@
 - dialog "设置":
   - navigation:
     - text: 设置
+    - button "外观与皮肤"
     - button "通用设置"
     - button "模型"
+    - button "用量统计"
     - button "内置插件"
     - button "Agent 预设"
+    - button "关于与鸣谢"
+    - button "智能体团队"
   - button "打开配置文件"
   - button "关闭"
   - heading "Agent 预设" [level=2]
@@ -43,5 +47,11 @@
       - 'button "模式说明: 创造模式"': 模式说明
       - 'button "如何使用: 创造模式"': 如何使用
       - 'button "查看配置: 创造模式"': 查看配置
+    - listitem:
+      - 'button "设为新任务默认: ZCode 原则模式"':
+        - text: ZCode 原则模式 内置
+        - code: zcode-inspired
+        - text: 保留原生 DSH 工具，增加参考 ZCode 的检查、规划与验证指导；沿用所选模型，无需 ZCode 运行时或账号
+      - 'button "查看配置: ZCode 原则模式"': 查看配置
   - heading "自定义" [level=3]
   - button "让 Agent 帮我创建预设模式"

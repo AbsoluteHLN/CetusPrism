@@ -9,7 +9,6 @@ import type {
   TeamId,
   TeamMemberProjection,
   TeamMemberSnapshot,
-  TeamMemberSnapshotV2,
   TeamMessageId,
   TeamMessageSnapshot,
   TeamProjection,
@@ -65,24 +64,20 @@ const contentBlockSchema: z.ZodType<ContentBlock> = z.lazy(() => z.union([
   }),
 ])) as z.ZodType<ContentBlock>
 
-const teamMemberSnapshotV2Shape = {
+const teamMemberSnapshotShape = {
   id: sessionIdSchema,
   name: z.string(),
   description: z.string(),
   provider: z.string(),
   model: z.string().min(1).optional(),
+  modelProvider: z.string().min(1).optional(),
+  reasoningEffort: z.string().min(1).optional(),
   context: z.enum(['fresh', 'fork']),
   phase: z.enum(['provisioning', 'active', 'failed']),
   error: z.string().optional(),
 }
 
-const teamMemberSnapshotV2Schema = z.object(teamMemberSnapshotV2Shape).strict() as z.ZodType<TeamMemberSnapshotV2>
-
-const teamMemberSnapshotSchema = z.object({
-  ...teamMemberSnapshotV2Shape,
-  modelProvider: z.string().min(1).optional(),
-  reasoningEffort: z.string().min(1).optional(),
-}).strict() as z.ZodType<TeamMemberSnapshot>
+const teamMemberSnapshotSchema = z.object(teamMemberSnapshotShape).strict() as z.ZodType<TeamMemberSnapshot>
 
 const teamTaskSnapshotSchema = z.object({
   id: teamTaskIdSchema,
@@ -108,18 +103,23 @@ const teamEventSelectorSchema = z.object({
   teamId: teamIdSchema,
 }).loose()
 
-const teamMemberEventSchema = z.discriminatedUnion('version', [
+/** Read the intermediate v3 writer and normalize its payload to the current v2 event. */
+const teamMemberEventSchema = z.union([
   z.object({
     version: z.literal(2),
     teamId: teamIdSchema,
-    member: teamMemberSnapshotV2Schema,
+    member: teamMemberSnapshotSchema,
   }).strict(),
   z.object({
     version: z.literal(3),
     teamId: teamIdSchema,
     member: teamMemberSnapshotSchema,
   }).strict(),
-]) as z.ZodType<SessionEventMap['team/member']>
+]).transform((event): SessionEventMap['team/member'] => ({
+  version: 2,
+  teamId: event.teamId,
+  member: event.member,
+}))
 
 const teamTaskEventSchema = z.object({
   version: z.literal(2),
@@ -214,7 +214,7 @@ export function isTeamEvent(event: SessionEvent): event is TeamSessionEvent {
 }
 
 /** Decode one persisted Team value and retain the schema failure as its cause. */
-function parsePersisted<T>(type: TeamEventType, schema: z.ZodType<T>, value: unknown): T {
+function parsePersisted<T>(type: TeamEventType, schema: { parse(value: unknown): T }, value: unknown): T {
   try {
     return schema.parse(value)
   } catch (error: unknown) {

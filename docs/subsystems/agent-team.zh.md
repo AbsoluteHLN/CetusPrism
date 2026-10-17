@@ -9,18 +9,27 @@
 `TeamId` 是具有独立[品牌](core.zh.md#branded-ids)的 Root `SessionId`。`TeamTaskId` 在 Team 内按 `task-<n>` 单调分配；`TeamMessageId` 是全局随机值。teammate 的 Session id 始终是持久身份，而 `name` 是不可变的模型／UI 标签。
 
 ```ts type-equiv
+/** Provider/model pair allowed for a Team member runtime. */
+interface TeamModelSelection {
+  /** LLM provider name used by the child Agent. */
+  readonly provider: string
+  /** Model id interpreted by that provider. */
+  readonly model: string
+}
+```
+
+```ts type-equiv
 /** Whole durable value written on every teammate lifecycle change. */
 interface TeamMemberSnapshot {
   readonly id: SessionId
   readonly name: string
   readonly description: string
-  /** Spawn/fork provider used to create the member runtime. */
   readonly provider: string
-  /** Selected model id, when an explicit Team route is configured. */
+  /** Model selected for this member, when the Team policy specifies one. */
   readonly model?: string
-  /** LLM provider for `model`; distinct from the spawn/fork `provider`. */
+  /** LLM provider selected for this member; `provider` above remains the spawn/fork backend. */
   readonly modelProvider?: string
-  /** Exact model-advertised reasoning tier selected for the member. */
+  /** Exact model-advertised reasoning effort selected for this member. */
   readonly reasoningEffort?: string
   readonly context: 'fresh' | 'fork'
   readonly phase: TeamMemberPhase
@@ -30,7 +39,7 @@ interface TeamMemberSnapshot {
 
 每个 member 都从 `provisioning` 开始，并且只到达一个终态 roster phase：`active` 或 `failed`。roster 的 `running`／`inactive` 状态单独派生，绝不会重写该记录。
 
-`team/member` payload v2 仍可读取既有记录，包括可选的 `model` 字段。新写入的成员生命周期记录使用 payload v3，新增 `modelProvider` 和 `reasoningEffort`；严格的 v2 记录不能携带这两个字段。其他 Agent Teams 事件 payload 仍使用 v2。`agentTeam` 投影缓存当前为 state version 5，因此旧 v4 缓存会从 Session 日志重建。
+`team/member` 继续写入 payload v2，`modelProvider` 和 `reasoningEffort` 为可选字段；缺少这些字段的既有 v2 记录仍可读取。投影读取方也接受中间版本写入的 v3 记录，并在内存中归一化为 v2，不改写 Session 日志。其他 Agent Teams 事件 payload 仍使用 v2。`agentTeam` 投影缓存当前为 state version 5，因此旧 v4 缓存会从 Session 日志重建。
 
 ## 持久 mailbox
 
@@ -96,6 +105,10 @@ interface TeamMemberProjection {
   readonly role: 'lead' | 'teammate'
   /** Durable lifecycle; the Lead row is always `active`. Turn activity comes from Session status. */
   readonly phase: TeamMemberPhase
+  /** Effective member route recorded when the teammate was created. */
+  readonly model?: string
+  readonly modelProvider?: string
+  readonly reasoningEffort?: string
   readonly error?: string
 }
 ```
@@ -161,6 +174,13 @@ membership(agent: Agent): TeamMembership
  * @returns Lead and teammate rows in creation order.
  */
 listMembers(agent: Agent): TeamMemberView[]
+
+/**
+ * Read the live Team-specific provider/model ceiling for settings and admission.
+ * @returns the current Team allowlist and optional default route.
+ * @throws {TeamError} if Team routes are invalid or the default is not in allowedModels.
+ */
+modelPolicy(): { allowedModels: TeamModelSelection[]; defaultModel?: TeamModelSelection }
 
 /**
  * Create one named, continuable direct child of the Team Lead.

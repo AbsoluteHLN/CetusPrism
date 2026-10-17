@@ -38,17 +38,28 @@ The chip is inert while the composer is locked (a run is active or the session i
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as this package draws a control in the browser and registers nothing model-facing. The enforcement surface — the policy read per tool call — belongs to the provider packages.
+### Computer foreground policy
+
+#### What the model sees
+
+No model sees this UI directly. The toggle reads `computerDelivery` and submits `/foreground`; the [delivery-policy service](../../computer-use/computer-use-policy/README.md) owns the policy that consumers apply and the resulting tool behavior.
+
+#### Token effect
+
+This UI adds zero model-input tokens: it contributes no prompt, tool schema, independent request, or model-visible result.
 
 #### KV Cache effect
 
-None; the toggle reads a session projection and submits a session command.
+Changing the toggle does not modify an assembled request prefix by itself. If the provider-side policy changes later behavior, that package and its consumers own those request effects; this package offers no cache guarantee.
 
 ## Known Limitations and Deferred Work
+
+<a id="known-limitations-and-deferred-work"></a>
 
 - The chip covers the current session only; new sessions start from the policy service's composed default.
 - A host without the `/foreground` command but with the projection (a composition mismatch) surfaces as a loud submit error, not a hidden chip; the projection and the command come from the same service, so the mismatch cannot occur in a composed deployment.
 
+<a id="dev-note"></a>
 ### Dev Note
 
 The toggle is stateless: it renders the pushed projection view and submits one command line, so nothing survives a remount and no store exists. **Runtime invariant:** No companion is published because every displayed fact is the projection frame or the composer lock state, both owned by their registries, so no independent observation can diverge from the chip.

@@ -2251,6 +2251,11 @@
       "doc": "docs/subsystems/invariants.md",
       "symbol": "InvariantInstaller",
       "source": "packages/runtime-diagnostics/invariants/src/index.ts"
+    },
+    {
+      "doc": "docs/subsystems/agent-team.md",
+      "symbol": "TeamModelSelection",
+      "source": "packages/experimental/agent-team/src/types.ts"
     }
   ]
 }

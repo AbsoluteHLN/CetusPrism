@@ -2312,6 +2312,18 @@ lsp 工具将提供方选择和语言服务器子进程置于 ctx.lsp 之后，�
         "fresh",
         "fork"
       ]
+    },
+    "model": {
+      "type": "string",
+      "description": "Optional model id; when configured it must be in the Team allowed-model list."
+    },
+    "provider": {
+      "type": "string",
+      "description": "Authorized LLM provider id for this teammate. Supply together with model."
+    },
+    "reasoning_effort": {
+      "type": "string",
+      "description": "Optional exact effort id advertised by the selected model; without a provider/model pair it applies to the Lead route."
     }
   },
   "required": [

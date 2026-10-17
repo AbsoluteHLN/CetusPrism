@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-打开**设置 → 智能体团队**，即可设置委派可以多深、多宽，以及 Agent 可以为子智能体选择哪些模型。页面把 Host 的两个命名空间 `subagent` 与 `subagent-model-selection-settings` 收在一次保存之下；Host 服务其中任一命名空间时页面就存在，并只显示被服务的部分。
+打开**设置 → 智能体团队**，即可设置委派限制、授权子智能体模型，以及限制团队模型和默认模型。页面把 `subagent`、`subagent-model-selection-settings` 与 `agent-team` 收在一次保存之下；Host 服务其中任一命名空间时页面就存在，并只显示可用部分。
 
 ## 目录
 
@@ -31,7 +31,9 @@ kind: "package-reference"
 
 **模型选择**把权限开关和精确的适配器路由一起暂存。开启时至少要选一条路由；关闭会保留已选路由以备后用。Host 已存储但没有适配器公布的路由留在**已保存但当前不可用**分组里并且仍可移除；加载失败的提供方会被报告而不隐藏其他提供方，加载失败时提供**重试**。
 
-一次**保存**通过各自的命名空间写入两个部分，每次写入都以其草稿读取时的修订号作栅栏。两次写入相互独立：Host 拒绝的部分保留草稿并报告失败，另一部分照常落地；被更新的 Host 修订号超越的模型草稿会以冲突形式报告并要求放弃，而不是覆盖较新的路由。离开页面即丢弃所有草稿。
+**团队模型限制**提供团队专属的允许列表和可选默认模型。所选路由仍须经过通用模型选择设置授权。团队列表为空表示不增加额外限制，不会关闭 Host 检查。团队服务在接纳新成员时读取当前策略；运行中的成员保留已记录的路由。
+
+一次**保存**通过各自的命名空间写入有改动的部分，每次写入都以其草稿读取时的修订号作栅栏。各次写入相互独立：Host 拒绝的部分保留草稿并报告失败，其他部分照常落地；被更新的 Host 修订号超越的模型草稿会以冲突形式报告并要求放弃，而不是覆盖较新的路由。离开页面即丢弃所有草稿。
 
 -----
 
@@ -41,7 +43,7 @@ kind: "package-reference"
 <details>
 <summary>实现细节——点击展开</summary>
 
-宿主半侧是一个空的 `apply`，只为让本包占一条 Loader 行，客户端模块系统据此送出浏览器半侧。浏览器半侧通过 `ctx.configForms.get` 分别绑定两个命名空间：`SubagentLimitsCardController` 用 `ui-primitives` 的共享 `SettingsFormModel` 暂存运行限制，字段规格只接受不低于各自下限的安全整数；`SubagentModelSelectionCardController` 自己维护草稿，因为它的两个字段要作为一次带修订栅栏的 `mutate` 保存，它把已存储的路由与 `remote.session.modelCatalog()` 合并，在 `llm/adapters-updated` 与 `settings/document-updated` 时重读目录，连接重置时丢弃草稿。`subagentCardFace` 把两者合成 `SubagentCard` 在共享 `SettingsForm` 里渲染的一个 face，保存时校验两部分并写入有改动的那些。页面通过 `ctx.configForms.whileServed` 监视两个命名空间，注册进设置对话框的 `settings.section` slot。
+宿主半侧为浏览器模块提供 Loader 行。浏览器通过 `ctx.configForms.get` 绑定三个命名空间。`SubagentLimitsCardController`、`SubagentModelSelectionCardController` 与 `TeamModelRestrictionCardController` 分别管理草稿，`subagentCardFace` 将其组合进共享 `SettingsForm`。模型目录更新会刷新候选项，修订号变化保护草稿不被并发写入覆盖，连接重置会丢弃断线状态。页面通过 `ctx.configForms.whileServed` 监视三个命名空间并完成注册。
 
 </details>
 

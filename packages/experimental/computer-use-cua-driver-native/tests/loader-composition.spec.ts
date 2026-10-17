@@ -19,7 +19,7 @@ import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import * as NativeProvider from '../src/index.ts'
-import { resetFixture, screenshotBase64 } from './fixtures/cua-driver.ts'
+import { fixture, resetFixture, screenshotBase64 } from './fixtures/cua-driver.ts'
 
 vi.mock('@trycua/cua-driver', async () => import('./fixtures/cua-driver.ts'))
 
@@ -34,6 +34,13 @@ class VisualModel extends LlmAdapter {
     this.requests.push(options)
     if (this.requests.length === 1) {
       const call = { type: 'tool-call' as const, id: ToolCallId('native-window'), name: 'cua_driver_native__get_window_state', arguments: '{"pid":9,"window_id":7}' }
+      yield { type: 'block-start', index: 0, blockType: 'tool-call' }
+      yield { type: 'block-end', index: 0, block: call }
+      yield { type: 'finish', reason: { kind: 'tool-calls' } }
+      return
+    }
+    if (this.requests.length === 2) {
+      const call = { type: 'tool-call' as const, id: ToolCallId('native-click'), name: 'cua_driver_native__click', arguments: '{"pid":9,"window_id":7,"element_token":"fixture-snapshot:4"}' }
       yield { type: 'block-start', index: 0, blockType: 'tool-call' }
       yield { type: 'block-end', index: 0, block: call }
       yield { type: 'finish', reason: { kind: 'tool-calls' } }
@@ -101,9 +108,14 @@ it('loads from cordis.yml and logs the native screenshot before the next model r
   await idle.promise
   stop()
 
-  expect(model.requests).toHaveLength(2)
+  expect(model.requests).toHaveLength(3)
   expect(JSON.stringify(model.requests[0])).toContain('cua_driver_native__get_window_state')
   expect(JSON.stringify(model.requests[0])).toContain('Cua Driver native computer-use tools operate the host desktop.')
+  expect(JSON.stringify(model.requests[1]?.messages)).toContain('fixture-snapshot:4')
+  expect(fixture.calls).toMatchObject([
+    { name: 'get_window_state' },
+    { name: 'click', args: { element_token: 'fixture-snapshot:4' } },
+  ])
   const toolEvent = agent.session.snapshotEvents().find(event => event.type === 'tool/result')
   expect(toolEvent?.data.message.source.callId).toBe('native-window')
   const toolResult = agent.session.deriveMessages().find(message => message.role === 'tool')
@@ -121,5 +133,5 @@ it('loads from cordis.yml and logs the native screenshot before the next model r
     name: 'cua_driver_native__get_window_state', arguments: { pid: 9, window_id: 7 },
   })
   if (direct.isError) throw new Error('Programmatic native screenshot failed')
-  expect(direct.value).toMatchObject({ structuredContent: { window_id: 7, clicked: false } })
+  expect(direct.value).toMatchObject({ structuredContent: { window_id: 7, clicked: true } })
 })

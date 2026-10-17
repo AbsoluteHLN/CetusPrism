@@ -20,7 +20,9 @@ pnpm dsh --profile headless --patch apps/cli/config/examples/glm-harness/cordis.
 
 ## 兼容性与回滚
 
-[覆盖配置](../../../apps/cli/config/examples/glm-harness/cordis.yml)使用已有插件，不改变 Agent、Session 或 LLM wire 接口。稳定指导通过正常系统消息进入日志，工具结果和提供商回放元数据走已有会话路径。本示例适用于 `headless`；Web 预设拥有自己的 persona，使用相同指导前需要作用域内的组合。
+[覆盖配置](../../../apps/cli/config/examples/glm-harness/cordis.yml)使用已有插件，不改变 Agent、Session 或 LLM wire 接口。稳定指导通过正常系统消息进入日志，工具结果和提供商回放元数据走已有会话路径。本示例适用于 `headless`，不会更改 Web 组合。
+
+随发行版交付的 Web 组合已通过 `zcode-inspired` 提供等价的原生指导；参见 [Web 组合 README](../../../packages/bundle/web-app/README.zh.md)。它的 `standard` preset 仍是默认项，可选 preset 只对新会话生效，已有会话保留其记录的 preset。该 preset 不切换 provider 或模型，模型设置保持独立。
 
 后续启动时去掉 `--patch` 即停止应用该组合。已有会话和提供商凭据仍然保留。独立的内置智能体配置存储支持校验保存和单代回滚，但不回滚外部提供商状态。
 

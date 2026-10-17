@@ -335,6 +335,13 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         returns: 'Lead and teammate rows in creation order.',
       },
       {
+        signature: 'modelPolicy(): { allowedModels: TeamModelSelection[]; defaultModel?: TeamModelSelection }',
+        description: 'Read the live Team-specific provider/model ceiling for settings and admission.',
+        parameters: [],
+        returns: 'the current Team allowlist and optional default route.',
+        throws: ['{TeamError} if Team routes are invalid or the default is not in allowedModels.'],
+      },
+      {
         signature: 'async spawnTeammate(caller: Agent, request: SpawnTeammateRequest): Promise<SpawnTeammateResult>',
         description: 'Create one named, continuable direct child of the Team Lead.',
         parameters: [{ name: 'caller', description: 'exact live Lead Agent.' }, { name: 'request', description: 'immutable name, description, prompt, context mode, provider, and cancellation.' }],
@@ -7650,7 +7657,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'TeamAgentRoute',
-    declaration: 'export interface TeamAgentRoute {\n    readonly provider?: string;\n    readonly model?: string;\n}',
+    declaration: 'export interface TeamAgentRoute {\n    readonly provider?: string;\n    readonly model?: string;\n    readonly reasoningEffort?: string;\n}',
   },
   {
     name: 'TeamId',
@@ -7662,11 +7669,15 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'TeamMemberView',
-    declaration: 'export interface TeamMemberView {\n    readonly id: SessionId;\n    readonly name: string;\n    readonly role: \'lead\' | \'teammate\';\n    readonly status: \'running\' | \'inactive\' | \'provisioning\' | \'failed\';\n    readonly description?: string;\n    readonly provider?: string;\n    readonly context?: \'fresh\' | \'fork\';\n    readonly model?: string;\n    readonly diagnostics: string[];\n}',
+    declaration: 'export interface TeamMemberView {\n    readonly id: SessionId;\n    readonly name: string;\n    readonly role: \'lead\' | \'teammate\';\n    readonly status: \'running\' | \'inactive\' | \'provisioning\' | \'failed\';\n    readonly description?: string;\n    readonly provider?: string;\n    readonly context?: \'fresh\' | \'fork\';\n    readonly model?: string;\n    readonly modelProvider?: string;\n    readonly reasoningEffort?: string;\n    readonly diagnostics: string[];\n}',
   },
   {
     name: 'TeamMessageId',
     declaration: 'export type TeamMessageId = Branded<\'TeamMessageId\'>;',
+  },
+  {
+    name: 'TeamModelSelection',
+    declaration: 'export interface TeamModelSelection {\n    readonly provider: string;\n    readonly model: string;\n}',
   },
   {
     name: 'TeamTaskAction',

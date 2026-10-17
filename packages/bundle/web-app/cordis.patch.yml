@@ -134,7 +134,7 @@
 
     # The Schedule service owns the task store and delivers each due occurrence
     # as a follow-up in its original Session. The clock reading and the four
-    # reminder tools belong to the `standard`, `cordis`, and `ptc` presets,
+    # reminder tools belong to the `standard`, `cordis`, `ptc`, and `zcode-inspired` presets,
     # which declare them in their own scope.
     - id: schedule
       name: '@deepseek-ai/dsh-schedule'
@@ -292,6 +292,10 @@
       name: '@deepseek-ai/dsh-client-ui-sidebar-browser'
       disabled: !!js "ctx.get('profileContext')?.name !== 'desktop'"
 
+    # The right Sidebar's computer-use control tab.
+    - id: ui-sidebar-computer
+      name: '@deepseek-ai/dsh-client-ui-sidebar-computer'
+
     - id: ui-sidebar-terminal
       name: '@deepseek-ai/dsh-client-ui-sidebar-terminal'
     # The right Sidebar's workspace file tree tab type.
@@ -405,6 +409,11 @@
 
     - id: ui-permission
       name: '@deepseek-ai/dsh-client-ui-permission-presets'
+
+    # The composer's optional computer-foreground control. It hides itself
+    # when no computer-use policy is mounted.
+    - id: ui-computer-foreground
+      name: '@deepseek-ai/dsh-client-ui-computer-foreground'
 
     # The agent-preset row in General settings: the default preset for
     # sessions created later. Absent a roster it renders nothing.

@@ -13,7 +13,12 @@ const ROOT = SessionId('team-root')
 const TEAM = TeamId(ROOT)
 const CHILD = SessionId('child-a')
 
-function event<T extends Extract<SessionEventType, `team/${string}`>>(type: T, data: SessionEventMap[T], seq: SessionSeq): SessionEvent<T> {
+type HistoricalTeamMemberV3 = { version: 3; teamId: ReturnType<typeof TeamId>; member: TeamMemberSnapshot }
+
+type FixtureEventData<T extends Extract<SessionEventType, `team/${string}`>> =
+  T extends 'team/member' ? SessionEventMap[T] | HistoricalTeamMemberV3 : SessionEventMap[T]
+
+function event<T extends Extract<SessionEventType, `team/${string}`>>(type: T, data: FixtureEventData<T>, seq: SessionSeq): SessionEvent<T> {
   return { type, data, seq, time: seq } as unknown as SessionEvent<T>
 }
 
@@ -132,14 +137,14 @@ describe('Agent Teams projection events', () => {
       .toEqual(projected)
   })
 
-  it('replays strict v2 members and applies v3 model-route metadata', () => {
+  it('replays legacy and model-bearing v2 members and rejects malformed optional metadata', () => {
     const legacy = event('team/member', {
       version: 2,
       teamId: TEAM,
       member: member({ model: 'legacy-model' }),
     }, SessionSeq(0))
     const routed = event('team/member', {
-      version: 3,
+      version: 2,
       teamId: TEAM,
       member: member({
         model: 'selected-model',
@@ -148,6 +153,7 @@ describe('Agent Teams projection events', () => {
         phase: 'active',
       }),
     }, SessionSeq(1))
+    expect(projectTeam(ROOT, [legacy]).members[0]).toMatchObject({ model: 'legacy-model', phase: 'provisioning' })
     expect(projectTeam(ROOT, [legacy, routed]).members[0]).toMatchObject({
       model: 'selected-model',
       modelProvider: 'mock',
@@ -155,16 +161,16 @@ describe('Agent Teams projection events', () => {
       phase: 'active',
     })
 
-    const unversionedRouteMetadata = {
+    const malformedRouteMetadata = {
       version: 2 as const,
       teamId: TEAM,
-      member: { ...member(), modelProvider: 'mock' },
+      member: member({ modelProvider: '' }),
     }
-    const rejected = project(ROOT, [event('team/member', unversionedRouteMetadata, SessionSeq(0))])
+    const rejected = project(ROOT, [event('team/member', malformedRouteMetadata, SessionSeq(0))])
     expect(rejected.failure).toMatch(/team\/member payload is invalid/)
   })
 
-  it('rebuilds a v4 checkpoint from mixed v2 and v3 member history', async () => {
+  it('rebuilds a checkpoint from v2 and normalizes historical v3 member history without rewriting it', async () => {
     const ctx = new Context()
     onTestFinished(() => ctx.fiber.dispose())
     await ctx.plugin(SessionStore)
@@ -194,6 +200,13 @@ describe('Agent Teams projection events', () => {
     expect(restored.checkpoint['agentTeam']?.ver).toBe(5)
     expect(teamProjectionDefinition.stateSchema.parse(restored.checkpoint['agentTeam']?.val).members[0])
       .toMatchObject({ modelProvider: 'mock', reasoningEffort: 'high' })
+    expect(routed.data.version).toBe(3)
+    const malformedHistorical = event('team/member', {
+      version: 3,
+      teamId: TEAM,
+      member: member({ modelProvider: '', phase: 'active' }),
+    }, SessionSeq(1))
+    expect(project(ROOT, [legacy, malformedHistorical]).failure).toMatch(/team\/member payload is invalid/)
   })
 
   it('enforces teammate identity and lifecycle', () => {
@@ -542,7 +555,7 @@ describe('Agent Teams projection events', () => {
 
     it('views durable roster and non-deleted derived tasks and reuses the view across mailbox-only changes', () => {
       const activeMember = event('team/member', {
-        version: 3,
+        version: 2,
         teamId: TEAM,
         member: member({ phase: 'active', model: 'model-a', modelProvider: 'mock', reasoningEffort: 'high' }),
       }, SessionSeq(1))

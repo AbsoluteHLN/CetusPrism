@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Open **Settings → Agent Teams** to set how deep and how wide delegation may go, and which models agents may choose for their subagents. The page groups the two Host namespaces, `subagent` and `subagent-model-selection-settings`, under one save; it exists while the Host serves either and shows the sections it serves.
+Open **Settings → Agent Teams** to set delegation limits, authorize subagent models, and restrict Team models and their default. The page groups `subagent`, `subagent-model-selection-settings`, and `agent-team` under one save; it exists while the Host serves any of them and shows the available sections.
 
 ## Table of Contents
 
@@ -31,7 +31,9 @@ Configure providers under **Settings → Models**, then enable model selection h
 
 **Model selection** stages its permission switch and the exact adapter routes together. Enabling requires at least one selected route; disabling keeps the selected routes for later. Routes the Host stored but no adapter advertises stay listed under **Saved but currently unavailable** and remain removable; a provider that failed to load is reported without hiding the others, and a failed load offers **Retry**.
 
-One **Save** writes both sections through their own namespaces, each fenced by the revision its draft read. The writes are independent: a section the Host refuses keeps its draft with the failure reported while the other lands, and a model draft a newer Host revision superseded is reported as a conflict to discard rather than overwriting the newer routes. Leaving the page drops every draft.
+**Team model restrictions** adds a Team-specific allowlist and optional default model. Its routes must remain authorized by the shared model-selection setting. An empty Team list adds no further restriction; it does not disable the Host checks. The Team service reads the live policy when admitting a new teammate; running teammates retain their recorded route.
+
+One **Save** writes dirty sections through their own namespaces, each fenced by the revision its draft read. The writes are independent: a section the Host refuses keeps its draft with the failure reported while the others land, and a model draft a newer Host revision superseded is reported as a conflict to discard rather than overwriting the newer routes. Leaving the page drops every draft.
 
 -----
 
@@ -41,7 +43,7 @@ One **Save** writes both sections through their own namespaces, each fenced by t
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-The Host half is an empty `apply`, present only so the package holds a Loader row the client module system serves the browser half for. The browser half binds each namespace through `ctx.configForms.get`: `SubagentLimitsCardController` stages the limits over the shared `SettingsFormModel` of `ui-primitives`, with a field spec that admits safe whole numbers at or above each field's floor; `SubagentModelSelectionCardController` keeps its own draft because its two fields save as one revision-fenced `mutate`, joins the stored routes with `remote.session.modelCatalog()`, and re-reads the catalogue on `llm/adapters-updated` and `settings/document-updated` while a connection reset drops its draft. `subagentCardFace` composes the two into the one face `SubagentCard` renders inside the shared `SettingsForm`, whose save validates both and writes the dirty ones. The page registers into the Settings dialog's `settings.section` slot through `ctx.configForms.whileServed` over both namespaces.
+The Host half exposes the Loader row for the browser module. The browser binds the three namespaces through `ctx.configForms.get`. `SubagentLimitsCardController`, `SubagentModelSelectionCardController`, and `TeamModelRestrictionCardController` own their drafts; `subagentCardFace` combines them in the shared `SettingsForm`. Model catalog updates refresh the displayed candidates, revision changes protect drafts from concurrent writes, and connection resets discard disconnected state. The page registers through `ctx.configForms.whileServed` over all three namespaces.
 
 </details>
 

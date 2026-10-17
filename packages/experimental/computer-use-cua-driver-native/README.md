@@ -38,16 +38,20 @@ The provider has no configuration fields. It loads the exact Cua Driver npm vers
 
 Use an attachment store and a model route that explicitly declares image input to receive screenshots. The [MCP result adapter](../../mcp/mcp-client/README.md) owns image admission and diagnostic behavior; programmatic callers retain the canonical raw result when a model cannot receive its images. Calls use Cua Driver's upstream tool parameters and results.
 
+When the optional [computer-use delivery policy](../../computer-use/computer-use-policy/README.md) is mounted, each call uses its agent session's effective mode; programmatic calls without an agent use the composition's `defaultMode`. Under `background-only`, the provider forces `delivery_mode: "background"` when the upstream input schema supports it, allows confirmed read-only tools including permission-status inspection, and rejects every other tool before native dispatch. Without the policy service, arguments pass through unchanged.
+
 ### Host requirements
 
 The native dependency supplies platform binaries through npm optional dependencies. Keep optional dependencies enabled. Grant desktop permissions to the application that launches DSH; this provider neither installs a permission-owning app nor changes OS grants. The native runtime shares the host process, so native crashes can terminate that process. Use the [installed MCP provider](../computer-use-cua-driver-mcp/README.md) when the separate Cua Driver application should own permissions and execution.
 
 ### Verify the installed SDK
 
-From the repository root, run this opt-in check against the installed native dependency. It discovers tools, reads permission status with `prompt: false`, and verifies teardown; it captures no screenshots, sends no input, and requests no OS permissions. Clearing `NODE_USE_ENV_PROXY` prevents Node from installing the launching shell's proxy before test setup.
+From PowerShell at the repository root, run this opt-in native smoke. It loads the installed SDK, discovers its tools, reads permission status with the no-argument `check_permissions` call, and verifies teardown. It captures no screenshot, sends no input, and requests no OS permissions, so it does not verify a live screenshot or input route. Remove `NODE_USE_ENV_PROXY` so Node does not install the launching shell's proxy before test setup.
 
-```sh
-env -u NODE_USE_ENV_PROXY DSH_COMPUTER_USE_NATIVE_E2E=1 node node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts packages/experimental/computer-use-cua-driver-native/tests/native.e2e.ts
+```powershell
+$env:DSH_COMPUTER_USE_NATIVE_E2E = '1'
+Remove-Item Env:NODE_USE_ENV_PROXY -ErrorAction SilentlyContinue
+node node_modules/vitest/vitest.mjs run --config configs/vitest.e2e.config.ts packages/experimental/computer-use-cua-driver-native/tests/native.e2e.ts
 ```
 
 -----
@@ -64,7 +68,7 @@ The provider reserves the shared computer-use registration before loading native
 |---|---|
 | [src/index.ts](src/index.ts) | Native runtime ownership, catalog validation, tool registration, and provider guidance |
 
-Tool definitions reuse the existing MCP result adapter. Cua Driver's JSON catalog determines the schemas; its raw result supplies canonical text, structured output, and image bytes. The computer-use service carries only the provider name and exclusive registration.
+Tool definitions reuse the existing MCP result adapter. Cua Driver's JSON catalog determines the schemas; its raw result supplies canonical text, structured output, and image bytes. Window snapshots add only the element-index-to-token map to model-visible text; canonical structured output and screenshot content remain unchanged.
 
 </details>
 
@@ -110,7 +114,7 @@ The unchanged guidance preserves its repeated prompt prefix. Mounting, removing,
 
 #### What the model sees
 
-Tools use the `cua_driver_native__` prefix followed by the upstream name and retain the upstream descriptions and input schemas. Upstream tool refusals become tool errors. Supported screenshots appear as durable image references beside result text; the canonical raw result remains available to programmatic callers.
+Tools use the `cua_driver_native__` prefix followed by the upstream name and retain the upstream descriptions and input schemas. Window snapshot text includes an element-index-to-token map because the MCP adapter renders `content` but keeps `structuredContent` for programmatic callers. Upstream tool refusals become tool errors. Supported screenshots appear as durable image references beside result text; the canonical raw result remains available to programmatic callers.
 
 #### Token effect
 

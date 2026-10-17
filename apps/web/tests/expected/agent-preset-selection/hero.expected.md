@@ -1,2 +1,2 @@
 - button "Choose workspace": workspace
-- button "Standard mode"
+- button "Minimal mode"

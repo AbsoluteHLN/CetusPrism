@@ -38,16 +38,20 @@ kind: "package-reference"
 
 挂载附件存储并使用明确声明支持图像输入的模型路由，才能接收截图。[MCP 结果适配器](../../mcp/mcp-client/README.zh.md) 负责图像接纳和诊断行为；模型无法接收图像时，程序调用方仍保留规范原始结果。调用采用 Cua Driver 上游的工具参数和结果。
 
+挂载可选的[电脑操作投递策略](../../computer-use/computer-use-policy/README.zh.md)后，每次调用都会读取所属 agent 会话的有效模式；没有 agent 的程序调用采用组合配置的 `defaultMode`。在 `background-only` 模式下，如果上游输入 schema 支持，提供者会强制设置 `delivery_mode: "background"`；已确认的只读工具（包括权限状态查询）仍可调用，其他工具会在分发到原生 SDK 前被拒绝。未挂载策略服务时，参数保持原样传递。
+
 ### 主机要求
 
 原生依赖通过 npm 可选依赖提供各平台二进制文件，因此必须保留可选依赖安装。请向启动 DSH 的应用授予桌面权限；此提供者既不安装独立持有权限的应用，也不更改操作系统授权。原生运行时与主机共享进程，因此原生崩溃可能终止该进程。如果需要由独立的 Cua Driver 应用持有权限并执行操作，请使用[已安装的 MCP 提供者](../computer-use-cua-driver-mcp/README.zh.md)。
 
 ### 验证已安装的 SDK
 
-在仓库根目录运行这项显式启用的检查，验证已安装的原生依赖。它发现工具、通过 `prompt: false` 读取权限状态，并验证卸载；它不截图、不发送输入，也不请求操作系统权限。清除 `NODE_USE_ENV_PROXY` 可防止 Node 在测试初始化之前采用启动 shell 的代理设置。
+在仓库根目录的 PowerShell 中运行这项显式启用的原生 smoke。它加载已安装的 SDK、发现工具、使用无参数的 `check_permissions` 调用读取权限状态，并验证卸载。它不截图、不发送输入，也不请求操作系统权限，因此不能验证真实截图或输入路径。删除 `NODE_USE_ENV_PROXY` 可防止 Node 在测试初始化之前采用启动 shell 的代理设置。
 
-```sh
-env -u NODE_USE_ENV_PROXY DSH_COMPUTER_USE_NATIVE_E2E=1 node node_modules/vitest/vitest.mjs run --config vitest.e2e.config.ts packages/experimental/computer-use-cua-driver-native/tests/native.e2e.ts
+```powershell
+$env:DSH_COMPUTER_USE_NATIVE_E2E = '1'
+Remove-Item Env:NODE_USE_ENV_PROXY -ErrorAction SilentlyContinue
+node node_modules/vitest/vitest.mjs run --config configs/vitest.e2e.config.ts packages/experimental/computer-use-cua-driver-native/tests/native.e2e.ts
 ```
 
 -----
@@ -64,7 +68,7 @@ env -u NODE_USE_ENV_PROXY DSH_COMPUTER_USE_NATIVE_E2E=1 node node_modules/vitest
 |---|---|
 | [src/index.ts](src/index.ts) | 原生运行时所有权、目录校验、工具注册和提供者指导文本 |
 
-工具定义复用现有 MCP 结果适配器。Cua Driver 的 JSON 目录决定 schema，其原始结果提供规范文本、结构化输出和图像字节。电脑操作服务只保存提供者名称并保证独占注册。
+工具定义复用现有 MCP 结果适配器。Cua Driver 的 JSON 目录决定 schema，其原始结果提供规范文本、结构化输出和图像字节。窗口快照只把元素索引到 token 的映射加入模型可见文本；规范结构化输出和截图内容保持不变。
 
 </details>
 
@@ -110,7 +114,7 @@ On macOS, cursor-overlay operations may return facility_unavailable even when sc
 
 #### 模型看到什么
 
-工具名称使用 `cua_driver_native__` 前缀并附加上游名称，保留上游描述和输入 schema。上游工具拒绝转为工具错误。支持的截图作为持久化图像引用出现在结果文本旁；程序调用方仍可读取规范原始结果。
+工具名称使用 `cua_driver_native__` 前缀并附加上游名称，保留上游描述和输入 schema。窗口快照文本包含元素索引到 token 的映射，因为 MCP 适配器会渲染 `content`，而 `structuredContent` 只供程序调用方读取。上游工具拒绝转为工具错误。支持的截图作为持久化图像引用出现在结果文本旁；程序调用方仍可读取规范原始结果。
 
 #### Token 影响
 

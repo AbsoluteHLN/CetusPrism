@@ -44,8 +44,10 @@ export function renderPersistencePair(root: string, source: string, en: string, 
   const context = {
     repoRoot: root,
     isTranslationPairSource,
-    // Match the pairing gate's worktree plane: gitignored paths do not exist.
-    repositoryFileExists: (rel: string) => !isGitIgnoredPath(rel, gitIgnoredPaths(root)) && existsSync(join(root, rel)),
+    // Persistence commands also operate on the fork's local, ignored history.
+    // Other references keep the pairing gate's tracked-file visibility.
+    repositoryFileExists: (rel: string) => (rel.startsWith('docs/persistence-changes/')
+      || !isGitIgnoredPath(rel, gitIgnoredPaths(root))) && existsSync(join(root, rel)),
   }
   const errors = translationStructureDiff(
     translationStructureSignature(sourceTree, zhTargets, { ...context, sourcePath: paths.source, markdown: en }),

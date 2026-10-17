@@ -9,18 +9,27 @@ Types shared by the experimental implicit-root Team domain, model tools, and hos
 `TeamId` is the root `SessionId` under a distinct [brand](core.md#branded-ids). `TeamTaskId` is Team-local and monotonically allocated as `task-<n>`; `TeamMessageId` is globally random. A teammate's Session id remains its persistent identity, while `name` is an immutable model/UI label.
 
 ```ts type-equiv
+/** Provider/model pair allowed for a Team member runtime. */
+interface TeamModelSelection {
+  /** LLM provider name used by the child Agent. */
+  readonly provider: string
+  /** Model id interpreted by that provider. */
+  readonly model: string
+}
+```
+
+```ts type-equiv
 /** Whole durable value written on every teammate lifecycle change. */
 interface TeamMemberSnapshot {
   readonly id: SessionId
   readonly name: string
   readonly description: string
-  /** Spawn/fork provider used to create the member runtime. */
   readonly provider: string
-  /** Selected model id, when an explicit Team route is configured. */
+  /** Model selected for this member, when the Team policy specifies one. */
   readonly model?: string
-  /** LLM provider for `model`; distinct from the spawn/fork `provider`. */
+  /** LLM provider selected for this member; `provider` above remains the spawn/fork backend. */
   readonly modelProvider?: string
-  /** Exact model-advertised reasoning tier selected for the member. */
+  /** Exact model-advertised reasoning effort selected for this member. */
   readonly reasoningEffort?: string
   readonly context: 'fresh' | 'fork'
   readonly phase: TeamMemberPhase
@@ -30,7 +39,7 @@ interface TeamMemberSnapshot {
 
 Every member starts in `provisioning` and reaches exactly one terminal roster phase, `active` or `failed`. Roster `running`/`inactive` status is derived separately and never rewrites this record.
 
-`team/member` payload v2 remains readable for existing records, including its optional `model` field. New member lifecycle writes use payload v3, which adds `modelProvider` and `reasoningEffort`; strict v2 records cannot carry those fields. Other Agent Teams event payloads remain v2. The `agentTeam` projection cache is at state version 5, so a v4 cache is rebuilt from the Session log.
+`team/member` continues to write payload v2 with optional `modelProvider` and `reasoningEffort` fields; existing v2 records without them remain readable. The projection reader also accepts records from the intermediate v3 writer and normalizes them to v2 in memory without rewriting Session logs. Other Agent Teams event payloads remain v2. The `agentTeam` projection cache is at state version 5, so a v4 cache is rebuilt from the Session log.
 
 ## Durable mailbox
 
@@ -96,6 +105,10 @@ interface TeamMemberProjection {
   readonly role: 'lead' | 'teammate'
   /** Durable lifecycle; the Lead row is always `active`. Turn activity comes from Session status. */
   readonly phase: TeamMemberPhase
+  /** Effective member route recorded when the teammate was created. */
+  readonly model?: string
+  readonly modelProvider?: string
+  readonly reasoningEffort?: string
   readonly error?: string
 }
 ```
@@ -161,6 +174,13 @@ membership(agent: Agent): TeamMembership
  * @returns Lead and teammate rows in creation order.
  */
 listMembers(agent: Agent): TeamMemberView[]
+
+/**
+ * Read the live Team-specific provider/model ceiling for settings and admission.
+ * @returns the current Team allowlist and optional default route.
+ * @throws {TeamError} if Team routes are invalid or the default is not in allowedModels.
+ */
+modelPolicy(): { allowedModels: TeamModelSelection[]; defaultModel?: TeamModelSelection }
 
 /**
  * Create one named, continuable direct child of the Team Lead.

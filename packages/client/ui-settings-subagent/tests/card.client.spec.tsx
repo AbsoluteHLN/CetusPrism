@@ -71,7 +71,8 @@ function renderSubagent(
     useSubagentLimitsCard: bindSnapshotSelector(limits),
     useSubagentModelSelectionCard: bindSnapshotSelector(models),
     useTeamModelRestrictionCard: bindSnapshotSelector(createSnapshotStore<TeamModelRestrictionState>({
-      ...settled, available: false, candidates: [], catalogStatus: 'idle', catalogPartial: false, defaultModelKey: '',
+      ...settled, available: false, candidates: [], catalogStatus: 'idle', catalogPartial: false,
+      defaultModelKey: '', conflicted: false, globalEnabled: false,
     })),
   } as SubagentCardProps
   render(<SubagentCard {...props} />)

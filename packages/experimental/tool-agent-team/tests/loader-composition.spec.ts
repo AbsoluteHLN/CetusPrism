@@ -44,6 +44,7 @@ afterEach(async () => {
   for (const ctx of contexts) await ctx.fiber.dispose()
   contexts.clear()
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true })
+  vi.restoreAllMocks()
 })
 
 it('loads the Team profile services from cordis.yml and exposes allowed models and exact reasoning tiers', async () => {
@@ -89,13 +90,12 @@ it('loads the Team profile services from cordis.yml and exposes allowed models a
   ctx.baseUrl = pathToFileURL(root).href + '/'
   await ctx.plugin(Loader)
   ctx.loader.builtins.include = Include
-  ctx.loader.internal = {
-    version: 'v2',
-    async import(specifier: string) {
-      if (!modules.has(specifier)) throw new Error(`Unexpected Loader import: ${specifier}`)
-      return modules.get(specifier)
-    },
-  } as unknown as NonNullable<typeof ctx.loader.internal>
+  const internal = ctx.loader.internal
+  if (internal === undefined) throw new Error('Loader internal module hooks are unavailable')
+  vi.spyOn(internal, 'import').mockImplementation(async (specifier: string) => {
+    if (!modules.has(specifier)) throw new Error(`Unexpected Loader import: ${specifier}`)
+    return modules.get(specifier)
+  })
   await ctx.loader.create({ name: 'cordis:include', config: { path: pathToFileURL(configPath).href } })
   await ctx.loader.await()
   for (const entry of ctx.loader.entries()) await entry.fiber?.await()

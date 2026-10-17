@@ -13,37 +13,50 @@
             config:
               suffix: Your working directory is {{cwd}}.
               prefix: You are a coding agent powered by the {{model}} model.
-          - id: agent-instructions
+          - &standard-agent-instructions
+            id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
             config:
               maxBytes: 65536
-          - id: time-context
+          - &standard-time-context
+            id: time-context
             name: '@deepseek-ai/dsh-time-context'
-          - id: tool-bash
+          - &standard-tool-bash
+            id: tool-bash
             name: '@deepseek-ai/dsh-tool-bash'
             disabled: !!js process.platform === 'win32'
-          - id: tool-pwsh
+          - &standard-tool-pwsh
+            id: tool-pwsh
             name: '@deepseek-ai/dsh-tool-pwsh'
             disabled: !!js process.platform !== 'win32'
-          - id: tool-fs
+          - &standard-tool-fs
+            id: tool-fs
             name: '@deepseek-ai/dsh-tool-fs'
-          - id: tool-fs-search
+          - &standard-tool-fs-search
+            id: tool-fs-search
             name: '@deepseek-ai/dsh-tool-fs-search'
             config:
               sampleOverCapGlobResults: false
-          - id: tool-jobs
+          - &standard-tool-jobs
+            id: tool-jobs
             name: '@deepseek-ai/dsh-tool-jobs'
-          - id: tool-schedule
+          - &standard-tool-schedule
+            id: tool-schedule
             name: '@deepseek-ai/dsh-tool-schedule'
-          - id: skill-filesystem
+          - &standard-skill-filesystem
+            id: skill-filesystem
             name: '@deepseek-ai/dsh-skill-filesystem'
-          - id: tool-skill
+          - &standard-tool-skill
+            id: tool-skill
             name: '@deepseek-ai/dsh-tool-skill'
-          - id: command-goal
+          - &standard-command-goal
+            id: command-goal
             name: '@deepseek-ai/dsh-command-goal'
-          - id: tool-goal
+          - &standard-tool-goal
+            id: tool-goal
             name: '@deepseek-ai/dsh-tool-goal'
-          - id: planning
+          - &standard-planning
+            id: planning
             name: cordis:group
             group: true
             isolate:
@@ -64,7 +77,8 @@
                     Make the plan decision-complete: state the goal and success criteria; group implementation changes by subsystem; identify public API, schema, and data-flow changes; cover edge cases, failure modes, tests, acceptance criteria, and explicit assumptions. Keep it concise enough to review but detailed enough that another engineer can implement it without making design decisions.
 
                     When ready, call exit_plan_mode with the complete plan markdown, starting with a # title. Make exit_plan_mode the only and final tool call in that assistant response: it presents the plan for approval, and implementation begins only in a later step after approval. Do not paste the final plan as a plain reply or ask "should I proceed?" through prose or ask_user_question. If review rejects it, incorporate the feedback and present again. If the review channel is unavailable or aborted, stay in plan mode and ask the user to switch modes manually; do not proceed with implementation.
-          - id: compaction
+          - &standard-compaction
+            id: compaction
             name: cordis:group
             group: true
             isolate:
@@ -81,7 +95,8 @@
                   thresholdChars: 8192
                   headChars: 4096
                   tailChars: 1024
-          - id: delegation
+          - &standard-delegation
+            id: delegation
             name: cordis:group
             group: true
             isolate:
@@ -144,19 +159,65 @@
                 config:
                   subagentProvider: spawn
                   maxRounds: 64
-          - id: tool-ask-user
+          - &standard-tool-ask-user
+            id: tool-ask-user
             name: '@deepseek-ai/dsh-tool-ask-user'
-          - id: tool-todo
+          - &standard-tool-todo
+            id: tool-todo
             name: '@deepseek-ai/dsh-tool-todo'
             config:
               allowParallelInProgress: true
-          - id: tool-web
+          - &standard-tool-web
+            id: tool-web
             name: '@deepseek-ai/dsh-tool-web'
             config:
               fetch: true
               searchTimeoutMs: 60000
-          - id: present
+          - &standard-present
+            id: present
             name: '@deepseek-ai/dsh-tool-present'
-          - id: tool-plugin-manager
+          - &standard-tool-plugin-manager
+            id: tool-plugin-manager
             name: '@deepseek-ai/dsh-plugin-manager/tools'
             disabled: true
+
+# Optional native preset: public ZCode 3.15.1 principles, no external runtime.
+# Aliases retain exactly the Standard tools and policies. Default remains standard.
+    - id: preset-zcode-inspired
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: zcode-inspired
+        order: 5
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              suffix: Your working directory is {{cwd}}.
+              prefix: |-
+                You are a coding agent powered by the {{model}} model.
+
+                Inspect relevant files and repository instructions before editing. Follow the project's conventions and keep changes focused on the requested outcome.
+
+                Track multi-step work with the available planning tools. Resume from recorded progress after compaction. Use file contents, tool results and test outcomes as completion evidence.
+
+                Report completed work, failed checks, unverified requirements and blockers separately. Never claim that a test ran without observing its result.
+          - *standard-agent-instructions
+          - *standard-time-context
+          - *standard-tool-bash
+          - *standard-tool-pwsh
+          - *standard-tool-fs
+          - *standard-tool-fs-search
+          - *standard-tool-jobs
+          - *standard-tool-schedule
+          - *standard-skill-filesystem
+          - *standard-tool-skill
+          - *standard-command-goal
+          - *standard-tool-goal
+          - *standard-planning
+          - *standard-compaction
+          - *standard-delegation
+          - *standard-tool-ask-user
+          - *standard-tool-todo
+          - *standard-tool-web
+          - *standard-present
+          - *standard-tool-plugin-manager

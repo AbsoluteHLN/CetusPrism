@@ -678,7 +678,7 @@ describe('Team identity and provisioning', () => {
       .filter(candidate => candidate.type === 'team/member' && candidate.data.member.id === selected.member.id)
       .at(-1)
     expect(writtenMemberEdge?.data).toMatchObject({
-      version: 3,
+      version: 2,
       member: { modelProvider: 'mock', reasoningEffort: 'high' },
     })
     await expect(ctx.agentTeams.spawnTeammate(lead, {

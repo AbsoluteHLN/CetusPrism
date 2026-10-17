@@ -2594,6 +2594,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-commands':
         specifier: workspace:*
         version: link:../../client/ui-commands
+      '@deepseek-ai/dsh-client-ui-computer-foreground':
+        specifier: workspace:*
+        version: link:../../client/ui-computer-foreground
       '@deepseek-ai/dsh-client-ui-conversation':
         specifier: workspace:*
         version: link:../../client/ui-conversation
@@ -2699,6 +2702,9 @@ importers:
       '@deepseek-ai/dsh-client-ui-sidebar-browser':
         specifier: workspace:*
         version: link:../../client/ui-sidebar-browser
+      '@deepseek-ai/dsh-client-ui-sidebar-computer':
+        specifier: workspace:*
+        version: link:../../client/ui-sidebar-computer
       '@deepseek-ai/dsh-client-ui-sidebar-documentpreview':
         specifier: workspace:*
         version: link:../../client/ui-sidebar-documentpreview
@@ -8412,6 +8418,9 @@ importers:
       '@deepseek-ai/dsh-computer-use':
         specifier: workspace:*
         version: link:../../computer-use/computer-use
+      '@deepseek-ai/dsh-computer-use-policy':
+        specifier: workspace:*
+        version: link:../../computer-use/computer-use-policy
       '@deepseek-ai/dsh-llm':
         specifier: workspace:*
         version: link:../../llm/llm

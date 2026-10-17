@@ -1,20 +1,121 @@
 {
   "repository": "https://github.com/deepseek-ai/deepseek-harness",
   "license": "MIT",
-  "upstreamVersion": "0.2.1-alpha.2",
-  "upstreamTag": "dsh-v0.2.1-alpha.2",
+  "upstreamVersion": "0.2.1-rc.2",
+  "upstreamTag": "dsh-v0.2.1-rc.2",
+  "upstreamCommit": "687f282e8625c6b8d11ff58211a90524be2e4317",
+  "priorReviewedTag": "dsh-v0.2.1-alpha.2",
+  "priorReviewedCommit": "d743267388641bc76f17c45ce8b4c231aed1d32c",
   "productVersion": "1.7.1-beta.1",
   "workspacePackageVersion": "0.2.1-alpha.1",
-  "verifiedOn": "2026-10-13",
-  "integrationStatus": "reviewed-not-merged",
-  "alignmentPolicy": "Record upstream separately; do not replace product or workspace versions with the reviewed upstream version.",
-  "notes": {
-    "baseline": "The prior alignment record identified dsh-v0.1.7-rc.1 as the initial distribution baseline; the current shallow checkout does not establish a merge base with the reviewed upstream.",
-    "verified": "The official repository and peeled release tag were fetched and checked independently of the CetusPrism main branch on 2026-10-13.",
-    "mergeDecision": "No upstream merge is recorded. Selected native composition and integration changes preserve the existing Agent, Session and LLM APIs; reviewing the latest upstream does not imply all upstream changes are incorporated.",
-    "historyPolicy": "Keep current local API and persistence contracts. Missing historical Agent Note citations use verified files at the fixed upstream release tag; frozen archives are not rewritten or restored wholesale.",
-    "referenceSources": {
-      "reviewedRelease": "https://github.com/deepseek-ai/deepseek-harness/tree/dsh-v0.2.1-alpha.2"
-    }
-  }
+  "verifiedOn": "2026-10-18",
+  "integrationStatus": "selected-backport-validated",
+  "headAtReview": "590aea6964d0a40943d0670c895db49d2a14bf21",
+  "alignmentPolicy": "Record the fetched upstream separately, review selectively, and do not replace product or workspace versions or claim a wholesale merge.",
+  "fetched": {
+    "officialMaster": "refs/remotes/official/master",
+    "officialCommit": "687f282e8625c6b8d11ff58211a90524be2e4317",
+    "officialTag": "dsh-v0.2.1-rc.2",
+    "priorReviewedTag": "dsh-v0.2.1-alpha.2",
+    "priorReviewedCommit": "d743267388641bc76f17c45ce8b4c231aed1d32c",
+    "mergeBaseEstablished": false,
+    "note": "The shallow local history has no established merge base with official master; do not infer ancestry from content equality."
+  },
+  "reviewed": {
+    "releaseDelta": {
+      "from": "dsh-v0.2.1-alpha.2",
+      "to": "refs/remotes/official/master",
+      "filesChanged": 3698,
+      "insertions": 149551,
+      "deletions": 18929,
+      "meaning": "This is the pinned release-tree delta from the prior reviewed tag to rc.2, not a local-to-official merge scope."
+    },
+    "scope": [
+      "client question composer",
+      "session format constants and release metadata",
+      "sqlite storage schema constants",
+      "dependency and profile deltas",
+      "existing computer-use packages"
+    ],
+    "selectionPolicy": "Select only narrowly applicable fixes with exact upstream commits and verified local preimages; do not copy release styling, API stacks, or profiles wholesale."
+  },
+  "incorporated": {
+    "status": "validated-focused",
+    "commits": [
+      "279302b762ba01974abf31d66f8aac411907f7e8"
+    ],
+    "files": [
+      "packages/client/ui-user-questions/src/client/QuestionComposer.tsx",
+      "packages/client/ui-user-questions/src/client/QuestionComposer.module.css"
+    ],
+    "note": "Question composer focus fix applied with exact preimages. Full official release migration remains unapplied.",
+    "validation": "QuestionComposer behavior tests passed in the 14-file, 228-test integrated regression run; full official migration remains deferred."
+  },
+  "candidate": {
+    "status": "validated-focused",
+    "commit": "279302b762ba01974abf31d66f8aac411907f7e8",
+    "title": "fix(ui-user-questions): keep a focused single-select custom row unselected while an option is chosen",
+    "paths": [
+      "packages/client/ui-user-questions/src/client/QuestionComposer.tsx",
+      "packages/client/ui-user-questions/src/client/QuestionComposer.module.css"
+    ],
+    "reason": "The local files match the exact upstream preimages; the narrow UI fix prevents a focused empty custom row in a single-select question from looking selected after an option is chosen. It is unrelated to the parent task's main composer fade or computer-use runtime work.",
+    "preimageBlobs": {
+      "tsx": "33bbcbec0a087c1f18e2e4d0b56f8ec66fdd07d5",
+      "css": "5f2eb4701b7024827fbcbf6dbcb7e2f3ce22b2d7"
+    },
+    "applyCheck": "git apply --check with the exported upstream patch is clean"
+  },
+  "nativeCapability": {
+    "existingLocalStack": {
+      "entry": "apps/electron/backend/entry.mjs",
+      "overlay": "apps/electron/backend/desktop-computer-use.patch.yml",
+      "mountedPackages": [
+        "@deepseek-ai/dsh-computer-use",
+        "@deepseek-ai/dsh-computer-use-policy",
+        "@deepseek-ai/dsh-experimental-computer-use-cua-driver-native"
+      ]
+    },
+    "officialDeltaFromAlpha2ToRc2": {
+      "changedPackages": [
+        "packages/computer-use/computer-use/package.json",
+        "packages/experimental/computer-use-cua-driver-mcp/package.json",
+        "packages/experimental/computer-use-cua-driver-native/package.json"
+      ],
+      "unchangedSourceAreas": [
+        "packages/computer-use/computer-use/src",
+        "packages/experimental/computer-use-cua-driver-mcp/src",
+        "packages/experimental/computer-use-cua-driver-native/src"
+      ],
+      "newExperimentalStack": [
+        "packages/experimental/cua",
+        "packages/experimental/cua-macos"
+      ],
+      "dependencyDifference": "The local native driver keeps zod ^4.4.3 while official pins exact 4.4.3; both use @trycua/cua-driver 0.28.0."
+    },
+    "conclusion": "No existing-driver backport is identified from alpha.2 to rc.2. The official new CUA stack is separate and macOS-oriented, so it is not a direct Windows replacement or a narrow fix."
+  },
+  "compatibilityScope": {
+    "sessionFormat": {
+      "localWriter": 4,
+      "officialWriter": 4,
+      "localLatestReleasedRecorded": 3,
+      "officialLatestReleasedRecorded": 4,
+      "note": "Equal writer constants do not prove semantic or reader compatibility; the release metadata difference is recorded, not silently copied."
+    },
+    "sqlite": {
+      "sessionQuerySchemaVersion": 8,
+      "storageSchemaVersion": 1,
+      "note": "These constants match between HEAD and official master, but adjacent migration rules remain mandatory."
+    },
+    "unappliedOrDeferred": [
+      "API remote-access, credential precedence, principal, and RBAC stacks",
+      "profile patches and disabled plugin-market tooling",
+      "the 26-file command-chip restoration",
+      "the new experimental CUA object stack",
+      "the 3,698-file release-tree delta"
+    ]
+  },
+  "evidence": "dev-docs/evidence/2026-10-18-upstream.md",
+  "reviewWorktree": "Integration changes reviewed over this base HEAD; the delivery commit is reported after commit."
 }

@@ -20,7 +20,9 @@ The default reasoning level is `high`. Edit the overlay's provider capability li
 
 ## Compatibility and rollback
 
-The [overlay](../../../apps/cli/config/examples/glm-harness/cordis.yml) uses existing plugins and changes no Agent, Session, or LLM wire interfaces. Stable guidance enters the normal system-message log; tool results and provider replay metadata follow the existing session path. This example is for `headless`: Web presets own their own personas and need a scoped composition before using equivalent guidance.
+The [overlay](../../../apps/cli/config/examples/glm-harness/cordis.yml) uses existing plugins and changes no Agent, Session, or LLM wire interfaces. Stable guidance enters the normal system-message log; tool results and provider replay metadata follow the existing session path. This example is for `headless`; it does not change the Web composition.
+
+The shipped Web composition provides the equivalent native guidance as `zcode-inspired`; see [the Web bundle README](../../../packages/bundle/web-app/README.md). Its `standard` preset remains the default, the optional preset is selected for a new session, and an existing session keeps its recorded preset. That preset does not switch provider or model; Settings → Models remains separate.
 
 Omit `--patch` to stop applying this composition to subsequent launches. Existing sessions and the provider credential remain intact. The separate built-in-agent configuration store offers validated saves and one-generation rollback; it does not roll back external provider state.
 

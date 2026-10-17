@@ -21,14 +21,23 @@
   en: c82d1e8d2b619fb6
   zh: 598386bec3205ef8
 /deepseek-ai-dsh-client-ui-sidebar-computer/model-experience:
-  en: cf79013605451aed
-  zh: 0ea146268c4a0717
-/deepseek-ai-dsh-client-ui-sidebar-computer/model-experience/kv-cache-effect:
-  en: a927354b897a1764
-  zh: 6d2a61a37d8357f0
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-client-ui-sidebar-computer/model-experience/computer-control-panel:
+  en: af0a349f17c0f91b
+  zh: 832c56d6f3f3d2cb
+/deepseek-ai-dsh-client-ui-sidebar-computer/model-experience/computer-control-panel/what-the-model-sees:
+  en: 85f6f9c1f499ce27
+  zh: 7faabbc7a8cc15e3
+/deepseek-ai-dsh-client-ui-sidebar-computer/model-experience/computer-control-panel/token-effect:
+  en: 61768e1c8de69166
+  zh: 6058f888038e2e42
+/deepseek-ai-dsh-client-ui-sidebar-computer/model-experience/computer-control-panel/kv-cache-effect:
+  en: baee3ae4810eda8a
+  zh: 3d4b270f0edd3a8c
 /deepseek-ai-dsh-client-ui-sidebar-computer/known-limitations-and-deferred-work:
-  en: 0a85f882ec52b1f6
-  zh: 243e704c5bdda05f
+  en: dd1c193f0fd72ab5
+  zh: 2cabe5f9b14d7085
 /deepseek-ai-dsh-client-ui-sidebar-computer/known-limitations-and-deferred-work/dev-note:
   en: 8270df3ca6128532
   zh: d16cb2c9a33d15ef

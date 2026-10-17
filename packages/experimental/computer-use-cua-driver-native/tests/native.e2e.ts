@@ -28,7 +28,7 @@ it.skipIf(process.env.DSH_COMPUTER_USE_NATIVE_E2E !== '1')(
       const result = await ctx.tools.execute({
         name: 'cua_driver_native__check_permissions',
         callId: ToolCallId('native-live-permissions'),
-        arguments: { prompt: false },
+        arguments: {},
         signal,
       })
       expect(result.isError).toBe(false)

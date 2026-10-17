@@ -1,0 +1,11 @@
+version: 1
+scenario: zcode-preset
+profile: web
+# Pin Bash for this request-only fixture on every OS; no shell command executes.
+composition: web-zcode-inspired-bash
+recording: authored
+replay:
+  override: true
+header:
+  class: web-zcode-inspired-bash
+  pin: true

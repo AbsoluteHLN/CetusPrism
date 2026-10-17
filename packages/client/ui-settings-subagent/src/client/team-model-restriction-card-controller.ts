@@ -8,16 +8,19 @@ import {
   type AllowedSubagentModel, type SubagentModelCandidate, type SubagentModelSelectionSettings,
 } from './subagent-model-selection-card-controller.ts'
 
+/** Team-specific model restrictions stored in the profile configuration. */
 export interface TeamModelRestrictionSettings {
   allowedModels: AllowedSubagentModel[]
   defaultModel?: AllowedSubagentModel
 }
 
+/** Catalog candidate annotated with the current Host authorization. */
 export interface TeamModelRestrictionCandidate extends SubagentModelCandidate {
   /** This exact provider/model pair is also admitted by the shared Subagent policy. */
   hostAllowed: boolean
 }
 
+/** Observable Team settings form and catalog state. */
 export interface TeamModelRestrictionState {
   available: boolean
   writable: boolean
@@ -33,6 +36,7 @@ export interface TeamModelRestrictionState {
   defaultModelKey: string
 }
 
+/** Form actions and observable state consumed by the Team settings card. */
 export interface TeamModelRestrictionFace {
   hooks: { teamModelRestrictionCard: SnapshotStore<TeamModelRestrictionState> }
   toggleModel: (key: string) => void
@@ -113,6 +117,7 @@ export class TeamModelRestrictionCardController {
     if (this.hostEnabled()) void this.loadCatalog()
   }
 
+  /** Unsubscribe settings observers and invalidate pending completions. */
   dispose(): void {
     this.disposed = true
     this.saveGeneration += 1
@@ -121,6 +126,10 @@ export class TeamModelRestrictionCardController {
     this.unsubscribeGlobal()
   }
 
+  /**
+   * Expose the settings card state and editing actions.
+   * @returns The settings card's observable state and editing actions.
+   */
   inject(): TeamModelRestrictionFace {
     return {
       hooks: { teamModelRestrictionCard: this.store },
@@ -132,6 +141,7 @@ export class TeamModelRestrictionCardController {
     }
   }
 
+  /** Reload the model catalog under the current Host authorization. */
   refreshCatalog(): void {
     if (this.disposed) return
     this.catalogGeneration += 1
@@ -141,6 +151,7 @@ export class TeamModelRestrictionCardController {
     else this.publish()
   }
 
+  /** Discard the disconnected form state and refresh the catalog. */
   resetConnection(): void {
     if (this.disposed) return
     this.saveGeneration += 1

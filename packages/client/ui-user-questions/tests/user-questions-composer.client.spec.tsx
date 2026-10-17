@@ -196,6 +196,19 @@ function wait(questions: PendingQuestion['questions'] = QUESTIONS, deadline?: nu
 const answerBatch = (answers: object[]) => ({ answers })
 
 describe('QuestionComposer', () => {
+  it('keeps a focused empty custom answer unselected until typing replaces the chosen option', () => {
+    const { carrier } = wait()
+    render(<QuestionComposer matched={carrier} {...kit} />)
+    const custom = screen.getByPlaceholderText('输入你的答案')
+    const row = custom.closest('[class*="customRow"]')!
+    fireEvent.focus(custom)
+    expect(screen.getByRole('radio', { name: /工程落地型/ }).getAttribute('aria-checked')).toBe('true')
+    expect(row.className).toContain('customRowYielded')
+    fireEvent.change(custom, { target: { value: '自定义要求' } })
+    expect(screen.getByRole('radio', { name: /工程落地型/ }).getAttribute('aria-checked')).toBe('false')
+    expect(row.className).not.toContain('customRowYielded')
+  })
+
   it('a blocking request shows no wait status before or after the first edit, exactly as before timed questions', () => {
     // The blocking card never carried a countdown, so there is nothing for a
     // held or frozen label to describe; the header keeps only the question and its two controls.

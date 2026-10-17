@@ -66,7 +66,7 @@ agentTeams:
   defaultModel: { provider: native, model: deepseek-chat }
 ```
 
-任何显式的成员模型选择都要求 Host 模型选择服务已启用，并命中 Host 允许列表；Team 专属 `allowedModels` 再作为额外限制，默认路由和继承路由也在服务层校验。公开的 `spawnTeammate()` 服务入口与模型工具执行相同的规则，因此绕过工具直接调用服务也不能扩大模型权限。可选的 `defaultModel` 必须包含在 Team 列表中；否则只有 Lead 当前路由同时属于两个列表时才会继承。显式 `agentOptions` 优先，旧 `model` 字段使用 Lead 的 LLM 提供方。选择 `spawn` 或 `fork` 的 `provider` 参数不会参与 LLM 允许列表比较。选中的模型与推理档位会持久化到成员记录，并通过 `agentOptions` 传入子运行时。
+Team 的 `allowedModels` 为空时，不增加 Team 专属的路由限制。为成员选择任何路由——通过显式选择、`defaultModel` 或非空 Team 允许列表——仍要求 Host 模型选择服务已启用，且路由在 Host 允许列表中。配置 `defaultModel` 时，它必须属于非空的 Team `allowedModels` 列表。如果未配置 Team 默认模型和 Team 允许列表，也没有请求模型选择，子智能体会继承 Lead 路由，且不经过 Team 模型策略选择。直接调用公开的 `spawnTeammate()` 服务入口也执行相同检查。显式 `agentOptions` 路由优先，旧 `model` 字段使用 Lead 的 LLM 提供方。选择 `spawn` 或 `fork` 的 `provider` 参数与 LLM 路由允许列表分开处理。选中的模型与推理档位会持久化到成员记录，并通过 `agentOptions` 传入子运行时。
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-experimental-agent-team)是每个受支持字段及其 JSDoc 的穷尽式真源。
 
@@ -159,7 +159,7 @@ Lead 可以停止 teammate 的当前轮次，而不会删除其排队的消息�
 
 Team 事件追加到精确的 live Lead 会话，并在操作报告成功或唤醒等待者之前 flush。`team/member`、`team/task`、`team/message/queued` 与 `team/message/delivered` 仅存在于日志：它们从不进入会话表面，因此派生模型历史不受协作记录影响。顺序与时间由会话事件的 `seq` 与 `time` 负责，快照不重复保存。
 
-原生 V4 的 Team 事件及检查点准入会拒绝退役的 `tool-result` 内容，防止它进入邮箱状态。历史转换由 Session 格式迁移负责，Team 投影不转换旧包装。
+原生 V4 Team 事件及检查点准入会拒绝退役的 `tool-result` 内容，防止它进入邮箱状态。当前写入方保持 `team/member` 的载荷版本为 2，并可加入可选的 `modelProvider` 与 `reasoningEffort` 字段。Team 投影也会读取先前合并版本写入的 v3 成员事件，并在内存中归一化，不重写日志。当前读取方因此可恢复这些历史；不保证旧版本读取含有新可选字段的记录。其他历史 Session 格式转换仍由 Session 迁移负责。
 
 Mailbox 投影与 checkpoint 准入保留本地声明的校验器之外获准内容中全部已解码 JSON 字段，包括自有 `__proto__` 键。本地字段检查覆盖 `text`、`reasoning`、`image` 和 `tool-call`；获准的未知标签保持不透明。Team 投影缓存版本 4 从 Session 日志重建较早缓存版本的 checkpoint；Session 格式版本保持不变。
 

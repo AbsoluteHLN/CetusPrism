@@ -2,8 +2,13 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import type { Agent } from '@deepseek-ai/dsh-agent'
 import ComputerUseRegistry from '@deepseek-ai/dsh-computer-use'
 import { ComputerUseProviderName } from '@deepseek-ai/dsh-computer-use/brand'
+import ComputerUseDeliveryPolicy, { setComputerUseDelivery } from '@deepseek-ai/dsh-computer-use-policy'
+import SessionStore, { SessionId } from '@deepseek-ai/dsh-session'
+import type { Session } from '@deepseek-ai/dsh-session'
+import SessionProjectionRegistry from '@deepseek-ai/dsh-session-projection'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
 import { ToolCallId } from '@deepseek-ai/dsh-llm'
@@ -26,13 +31,24 @@ afterEach(async () => {
   await ctx.fiber.dispose()
 })
 
-function execute(rawName: string, args: Record<string, unknown> = {}) {
+function execute(rawName: string, args: Record<string, unknown> = {}, agent?: Agent) {
   return ctx.tools.execute({
     name: `cua_driver_native__${rawName}`,
     callId: ToolCallId('native-test'),
     arguments: args,
     signal: new AbortController().signal,
+    ...(agent === undefined ? {} : { agent }),
   })
+}
+
+async function mountDeliveryPolicy(defaultMode: 'allow-foreground' | 'background-only'): Promise<void> {
+  await ctx.plugin(SessionStore)
+  await ctx.plugin(SessionProjectionRegistry)
+  await ctx.plugin(ComputerUseDeliveryPolicy, { defaultMode })
+}
+
+function agentFor(session: Session): Agent {
+  return { session } as Agent
 }
 
 describe('Cua Driver native provider', () => {
@@ -41,14 +57,103 @@ describe('Cua Driver native provider', () => {
     await fiber
     expect(ctx.computerUse.providerName).toBe('cua-driver-native')
     expect(ctx.tools.schemas().map(tool => tool.name)).toEqual(catalog.tools.map(tool => `cua_driver_native__${tool.name}`))
-    const result = await execute('click', { pid: 9, window_id: 7 })
+    const result = await execute('click', { pid: 9, window_id: 7, delivery_mode: 'foreground' })
     expect(result.isError).toBe(false)
-    expect(fixture.calls).toMatchObject([{ name: 'click', args: { pid: 9, window_id: 7 } }])
+    expect(fixture.calls).toMatchObject([{ name: 'click', args: { pid: 9, window_id: 7, delivery_mode: 'foreground' } }])
     await fiber.dispose()
     expect(ctx.tools.schemas()).toEqual([])
     expect(ctx.computerUse.providerName).toBeUndefined()
     expect(fixture.shutdowns).toBe(1)
     expect(fixture.destroys).toBe(1)
+  })
+
+  it('projects window snapshot handles while preserving canonical structured content', async () => {
+    fixture.call = async () => ({
+      content: [{ type: 'text', text: 'Window snapshot.' }],
+      structuredContent: {
+        window_id: 7,
+        clicked: false,
+        snapshot_id: 'snapshot-7',
+        elements: [{ element_index: 4, element_token: 'snapshot-7:4', role: 'button', label: 'Increment' }],
+      },
+    })
+    await ctx.plugin(NativeProvider)
+
+    const result = await execute('get_window_state', { pid: 9, window_id: 7 })
+    expect(result.isError).toBe(false)
+    expect(result.content.some(block => block.type === 'text' && block.text.includes('4 -> "snapshot-7:4"'))).toBe(true)
+    expect(JSON.stringify(result.content)).not.toContain('Increment')
+    expect(JSON.stringify(result.content)).not.toContain('button')
+    expect(result.value).toMatchObject({
+      structuredContent: {
+        snapshot_id: 'snapshot-7',
+        elements: [{ element_index: 4, element_token: 'snapshot-7:4', role: 'button', label: 'Increment' }],
+      },
+    })
+  })
+
+  it('does not project structured fields from tools other than window snapshots', async () => {
+    fixture.call = async () => ({
+      content: [{ type: 'text', text: 'Permission status.' }],
+      structuredContent: { snapshot_id: 'private-status' },
+    })
+    await ctx.plugin(NativeProvider)
+
+    const result = await execute('check_permissions')
+    expect(result.isError).toBe(false)
+    expect(JSON.stringify(result.content)).not.toContain('private-status')
+  })
+
+  it('forces catalog-supported delivery to background for an agentless call under the composition default', async () => {
+    await mountDeliveryPolicy('background-only')
+    await ctx.plugin(NativeProvider)
+
+    const result = await execute('click', { pid: 9, window_id: 7, delivery_mode: 'foreground' })
+    expect(result.isError).toBe(false)
+    expect(fixture.calls).toMatchObject([
+      { name: 'click', args: { pid: 9, window_id: 7, delivery_mode: 'background' } },
+    ])
+  })
+
+  it('rejects operations without a background route and allows catalogued read-only tools', async () => {
+    await mountDeliveryPolicy('background-only')
+    await ctx.plugin(NativeProvider)
+
+    const denied = await execute('bring_to_front', { pid: 9 })
+    expect(denied.isError).toBe(true)
+    expect(denied.content.some(block => block.type === 'text' && block.text.includes('background-only'))).toBe(true)
+    expect(fixture.calls).toEqual([])
+
+    const allowed = await execute('list_apps')
+    expect(allowed.isError).toBe(false)
+    const permissions = await execute('check_permissions')
+    expect(permissions.isError).toBe(false)
+    expect(fixture.calls).toMatchObject([
+      { name: 'list_apps', args: {} },
+      { name: 'check_permissions', args: {} },
+    ])
+  })
+
+  it('resolves background-only separately for each agent session', async () => {
+    await mountDeliveryPolicy('allow-foreground')
+    const session = ctx.sessions.create(SessionId('native-background-session'))
+    const otherSession = ctx.sessions.create(SessionId('native-foreground-session'))
+    setComputerUseDelivery(session, 'background-only')
+    await ctx.plugin(NativeProvider)
+
+    const background = await execute(
+      'click', { pid: 9, window_id: 7, delivery_mode: 'foreground' }, agentFor(session),
+    )
+    const foreground = await execute(
+      'click', { pid: 10, window_id: 8, delivery_mode: 'foreground' }, agentFor(otherSession),
+    )
+
+    expect(background.isError).toBe(false)
+    expect(foreground.isError).toBe(false)
+    expect(fixture.calls).toMatchObject([
+      { name: 'click', args: { pid: 9, window_id: 7, delivery_mode: 'background' } },
+      { name: 'click', args: { pid: 10, window_id: 8, delivery_mode: 'foreground' } },
+    ])
   })
 
   it('rejects another provider before importing or creating a native runtime', async () => {

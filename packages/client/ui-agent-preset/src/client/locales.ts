@@ -21,6 +21,8 @@ export type AgentPresetSettingsKey =
   | 'presetMinimalDescription'
   | 'presetCordisName'
   | 'presetCordisDescription'
+  | 'presetZcodeName'
+  | 'presetZcodeDescription'
   | 'inUse'
   | 'noDescription'
   | 'brokenBadge'
@@ -36,6 +38,8 @@ export type AgentPresetSettingsKey =
 /** English copy. */
 export const en: Record<AgentPresetSettingsKey, string> = {
   ...guideEn,
+  presetZcodeName: 'ZCode-inspired mode',
+  presetZcodeDescription: 'Native DSH tools with inspect, plan and evidence guidance inspired by ZCode. Uses your selected model; no ZCode runtime or account.',
   builtInGroup: 'Built-in', customGroup: 'Custom',
   sectionIntro: 'Choose the agent’s tools and how it works. Use Standard mode for everyday tasks, or Creator mode to add capabilities to DSH.',
 
@@ -80,6 +84,8 @@ export const en: Record<AgentPresetSettingsKey, string> = {
 /** Simplified Chinese copy. */
 export const zh: Record<AgentPresetSettingsKey, string> = {
   ...guideZh,
+  presetZcodeName: 'ZCode 原则模式',
+  presetZcodeDescription: '保留原生 DSH 工具，增加参考 ZCode 的检查、规划与验证指导；沿用所选模型，无需 ZCode 运行时或账号',
   builtInGroup: '内置', customGroup: '自定义',
   sectionIntro: '选择 Agent 的工具和工作方式。日常任务用「标准模式」，扩展 DSH 的能力用「创造模式」。',
 

@@ -1,6 +1,7 @@
 /** Public Agent Teams identities, durable records, and service request values. */
 
 import type { Branded } from '@deepseek-ai/dsh-brand'
+import type { Volatile } from '@deepseek-ai/cordis'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm/types'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 
@@ -8,6 +9,8 @@ import type { SessionId } from '@deepseek-ai/dsh-session/types'
 export interface TeamAgentRoute {
   readonly provider?: string
   readonly model?: string
+  /** Exact model-advertised effort id; omission delegates to the model default. */
+  readonly reasoningEffort?: string
 }
 
 /** Identifies the implicit team rooted at one top-level Session. */
@@ -65,10 +68,17 @@ export interface TeamMemberSnapshot {
   readonly provider: string
   /** Model selected for this member, when the Team policy specifies one. */
   readonly model?: string
+  /** LLM provider selected for this member; `provider` above remains the spawn/fork backend. */
+  readonly modelProvider?: string
+  /** Exact model-advertised reasoning effort selected for this member. */
+  readonly reasoningEffort?: string
   readonly context: 'fresh' | 'fork'
   readonly phase: TeamMemberPhase
   readonly error?: string
 }
+
+/** Historical member snapshot accepted by `team/member` payload version 2. */
+export type TeamMemberSnapshotV2 = Omit<TeamMemberSnapshot, 'modelProvider' | 'reasoningEffort'>
 
 /** Current runtime-enriched roster row. */
 export interface TeamMemberView {
@@ -80,6 +90,8 @@ export interface TeamMemberView {
   readonly provider?: string
   readonly context?: 'fresh' | 'fork'
   readonly model?: string
+  readonly modelProvider?: string
+  readonly reasoningEffort?: string
   readonly diagnostics: string[]
 }
 
@@ -119,6 +131,10 @@ export interface TeamMemberProjection {
   readonly role: 'lead' | 'teammate'
   /** Durable lifecycle; the Lead row is always `active`. Turn activity comes from Session status. */
   readonly phase: TeamMemberPhase
+  /** Effective member route recorded when the teammate was created. */
+  readonly model?: string
+  readonly modelProvider?: string
+  readonly reasoningEffort?: string
   readonly error?: string
 }
 
@@ -176,10 +192,10 @@ export interface Config {
   readonly maxMessageBytes?: number
   /** Maximum milliseconds allowed for Team-owned runtime disposal. */
   readonly disposalTimeoutMs?: number
-  /** Independent allowlist for models usable by this Team. Empty means unrestricted. */
-  readonly allowedModels?: TeamModelSelection[]
-  /** Optional LLM provider/model fallback used when a spawn request omits its route. */
-  readonly defaultModel?: TeamModelSelection | undefined
+  /** Additional independent provider/model ceiling for every Team. Empty means no Team-specific ceiling. */
+  readonly allowedModels?: Volatile<TeamModelSelection[]> | TeamModelSelection[]
+  /** Optional default route, which must also appear in the Team allowlist. */
+  readonly defaultModel?: Volatile<TeamModelSelection | undefined> | TeamModelSelection
 }
 
 /** Input for creating one durable teammate. */
@@ -253,8 +269,10 @@ export interface TeamWaitResult {
 
 declare module '@deepseek-ai/dsh-session/types' {
   interface SessionEventMap {
-    /** Whole teammate lifecycle value, stored only in the Team Lead Session. */
-    'team/member': { version: 2; teamId: TeamId; member: TeamMemberSnapshot }
+    /** Whole teammate lifecycle value; v2 is retained for history and v3 adds model route metadata. */
+    'team/member':
+      | { version: 2; teamId: TeamId; member: TeamMemberSnapshotV2 }
+      | { version: 3; teamId: TeamId; member: TeamMemberSnapshot }
     /** Whole shared-task value, stored only in the Team Lead Session. */
     'team/task': { version: 2; teamId: TeamId; task: TeamTaskSnapshot }
     /** Durable mailbox enqueue, stored before delivery is attempted. */

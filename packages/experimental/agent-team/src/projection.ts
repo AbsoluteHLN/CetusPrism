@@ -9,6 +9,7 @@ import type {
   TeamId,
   TeamMemberProjection,
   TeamMemberSnapshot,
+  TeamMemberSnapshotV2,
   TeamMessageId,
   TeamMessageSnapshot,
   TeamProjection,
@@ -64,7 +65,7 @@ const contentBlockSchema: z.ZodType<ContentBlock> = z.lazy(() => z.union([
   }),
 ])) as z.ZodType<ContentBlock>
 
-const teamMemberSnapshotSchema = z.object({
+const teamMemberSnapshotV2Shape = {
   id: sessionIdSchema,
   name: z.string(),
   description: z.string(),
@@ -73,6 +74,14 @@ const teamMemberSnapshotSchema = z.object({
   context: z.enum(['fresh', 'fork']),
   phase: z.enum(['provisioning', 'active', 'failed']),
   error: z.string().optional(),
+}
+
+const teamMemberSnapshotV2Schema = z.object(teamMemberSnapshotV2Shape).strict() as z.ZodType<TeamMemberSnapshotV2>
+
+const teamMemberSnapshotSchema = z.object({
+  ...teamMemberSnapshotV2Shape,
+  modelProvider: z.string().min(1).optional(),
+  reasoningEffort: z.string().min(1).optional(),
 }).strict() as z.ZodType<TeamMemberSnapshot>
 
 const teamTaskSnapshotSchema = z.object({
@@ -99,11 +108,18 @@ const teamEventSelectorSchema = z.object({
   teamId: teamIdSchema,
 }).loose()
 
-const teamMemberEventSchema = z.object({
-  version: z.literal(2),
-  teamId: teamIdSchema,
-  member: teamMemberSnapshotSchema,
-}).strict() as z.ZodType<SessionEventMap['team/member']>
+const teamMemberEventSchema = z.discriminatedUnion('version', [
+  z.object({
+    version: z.literal(2),
+    teamId: teamIdSchema,
+    member: teamMemberSnapshotV2Schema,
+  }).strict(),
+  z.object({
+    version: z.literal(3),
+    teamId: teamIdSchema,
+    member: teamMemberSnapshotSchema,
+  }).strict(),
+]) as z.ZodType<SessionEventMap['team/member']>
 
 const teamTaskEventSchema = z.object({
   version: z.literal(2),
@@ -229,7 +245,10 @@ function applyProjectionEvent(state: TeamProjectionState, event: SessionEvent): 
   try {
     const selector = parsePersisted(event.type, teamEventSelectorSchema, event.data)
     if (selector.teamId !== state.id) return state
-    if (selector.version !== 2) {
+    const supportedVersion = event.type === 'team/member'
+      ? selector.version === 2 || selector.version === 3
+      : selector.version === 2
+    if (!supportedVersion) {
       throw new Error(`unsupported Agent Teams event version ${String(selector.version)}`)
     }
     return applyCurrentTeamEvent(state, parseCurrentTeamEvent(event))
@@ -315,6 +334,9 @@ const teamMemberProjectionSchema = z.object({
   name: z.string(),
   role: z.enum(['lead', 'teammate']),
   phase: z.enum(['provisioning', 'active', 'failed']),
+  model: z.string().min(1).optional(),
+  modelProvider: z.string().min(1).optional(),
+  reasoningEffort: z.string().min(1).optional(),
   error: z.string().optional(),
 }).strict() as z.ZodType<TeamMemberProjection>
 
@@ -349,6 +371,9 @@ function buildTeamProjection(state: TeamProjectionState): TeamProjection {
       name: member.name,
       role: 'teammate',
       phase: member.phase,
+      ...member.model === undefined ? {} : { model: member.model },
+      ...member.modelProvider === undefined ? {} : { modelProvider: member.modelProvider },
+      ...member.reasoningEffort === undefined ? {} : { reasoningEffort: member.reasoningEffort },
       ...member.error === undefined ? {} : { error: member.error },
     })
   }
@@ -387,7 +412,7 @@ export function teamProjectionView(state: TeamProjectionState): TeamProjection {
 /** Team projection selected by the projected Session identity; the wire view carries durable roster and task state only. */
 export const teamProjectionDefinition = {
   key: 'agentTeam',
-  stateVersion: 4,
+  stateVersion: 5,
   stateSchema: teamProjectionEntrySchema,
   init: header => emptyTeamState(header.id),
   apply: applyProjectionEvent,

@@ -40,7 +40,8 @@
   "dependencies": {
     "@deepseek-ai/dsh-experimental-agent-team": "workspace:*",
     "@deepseek-ai/dsh-experimental-client-ui-agent-team": "workspace:*",
-    "@deepseek-ai/dsh-experimental-tool-agent-team": "workspace:*"
+    "@deepseek-ai/dsh-experimental-tool-agent-team": "workspace:*",
+    "@deepseek-ai/dsh-tool-subagent": "workspace:*"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:~"

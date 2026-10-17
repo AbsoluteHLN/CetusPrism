@@ -1,6 +1,7 @@
 /** Agent Teams service façade over roster, mailbox, task, and runtime lifecycle owners. */
 
 import { Context, Service } from '@deepseek-ai/cordis'
+import type { Volatile } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-headless'
@@ -60,53 +61,73 @@ function positiveLimit(name: string, value: number): number {
 }
 
 function normalizeModels(value: readonly TeamModelSelection[] | undefined): TeamModelSelection[] {
-  return (value ?? []).map((entry, index) => normalizeModel(entry, `allowedModels[${index}]`))
+  const configured = value ?? []
+  if (configured.some(entry => !entry || typeof entry.provider !== 'string' || typeof entry.model !== 'string')) {
+    throw new TeamError('Team model routes need provider and model ids', 'TEAM_INVALID_CONFIG')
+  }
+  const routes = configured.map((entry) => ({ provider: entry.provider.trim(), model: entry.model.trim() }))
+  if (routes.some(route => route.provider.length === 0 || route.model.length === 0)) {
+    throw new TeamError('Team model routes need non-empty provider and model ids', 'TEAM_INVALID_CONFIG')
+  }
+  if (new Set(routes.map(route => `${route.provider}\0${route.model}`)).size !== routes.length) {
+    throw new TeamError('Team model routes must not contain duplicates', 'TEAM_INVALID_CONFIG')
+  }
+  return routes
 }
 
-function normalizeModel(value: TeamModelSelection, label: string): TeamModelSelection {
+function normalizeModel(value: TeamModelSelection | undefined): TeamModelSelection | undefined {
+  if (value === undefined) return undefined
+  if (typeof value.provider !== 'string' || typeof value.model !== 'string') {
+    throw new TeamError('Team default model needs provider and model ids', 'TEAM_INVALID_CONFIG')
+  }
   const provider = value.provider.trim()
   const model = value.model.trim()
-  if (provider.length === 0 || model.length === 0) {
-    throw new TeamError(`${label} must contain non-empty provider and model`, 'TEAM_INVALID_CONFIG')
-  }
+  if (!provider || !model) throw new TeamError('Team default model needs provider and model ids', 'TEAM_INVALID_CONFIG')
   return { provider, model }
 }
 
-/** Validate configured model routes and their default before any Team runtime is created. */
-function validateModelConfig(config: Pick<Config, 'allowedModels' | 'defaultModel'>): {
-  allowedModels: TeamModelSelection[]
-  defaultModel: TeamModelSelection | undefined
-} {
-  const allowedModels = normalizeModels(config.allowedModels)
-  const defaultModel = config.defaultModel === undefined
-    ? undefined
-    : normalizeModel(config.defaultModel, 'defaultModel')
-  if (allowedModels.length > 0 && defaultModel !== undefined
-    && !allowedModels.some(candidate => candidate.provider === defaultModel.provider
-      && candidate.model === defaultModel.model)) {
-    throw new TeamError('defaultModel must be included in a non-empty allowedModels list', 'TEAM_INVALID_CONFIG')
+function readConfigValue<T>(value: Volatile<T> | T | undefined, fallback: T): T {
+  if (value !== undefined && typeof value === 'object' && value !== null
+      && 'get' in value && typeof value.get === 'function') return value.get() as T
+  return value === undefined ? fallback : value as T
+}
+
+interface HostModelSelectionSettings {
+  current(): { enabled: boolean; allowedModels: readonly TeamModelSelection[] }
+}
+
+/** Read Host route authority structurally, keeping the Team runtime independent of its UI plugin. */
+function currentHostModelPolicy(ctx: Context): { enabled: boolean; allowedModels: TeamModelSelection[] } | undefined {
+  const provider: unknown = ctx.get('subagentModelSelection')
+  if (provider === undefined) return undefined
+  if (typeof provider !== 'object' || provider === null || !('current' in provider) || typeof provider.current !== 'function') {
+    throw new TeamError('Host model-selection policy service is malformed', 'TEAM_HOST_MODEL_SELECTION_UNAVAILABLE')
   }
-  return { allowedModels, defaultModel }
+  const current = (provider as HostModelSelectionSettings).current()
+  if (typeof current.enabled !== 'boolean') {
+    throw new TeamError('Host model-selection policy is malformed', 'TEAM_HOST_MODEL_SELECTION_UNAVAILABLE')
+  }
+  return { enabled: current.enabled, allowedModels: normalizeModels(current.allowedModels) }
 }
 
 /** Agent Teams service backed by the exact live Lead Session log. */
 export class TeamService extends Service {
-  static inject = ['agents', 'sessions', 'sessionPersistence', 'sessionProjections', 'subagents']
+  static inject = ['agents', 'sessions', 'sessionPersistence', 'sessionProjections', 'subagents', 'llm']
 
-  static Config: z<Config> = z.object({
+  static Config = z.object({
     maxMembers: z.number().step(1).min(1).default(DEFAULT_MAX_MEMBERS),
     maxTasks: z.number().step(1).min(1).default(DEFAULT_MAX_TASKS),
     maxPendingMessagesPerMember: z.number().step(1).min(1).default(DEFAULT_MAX_PENDING_MESSAGES),
     maxMessageBytes: z.number().step(1).min(1).default(DEFAULT_MAX_MESSAGE_BYTES),
     disposalTimeoutMs: z.number().step(1).min(1).default(DEFAULT_DISPOSAL_TIMEOUT_MS),
-    allowedModels: z.array(modelRouteSchema).default([]),
-    defaultModel: z.union([z.const(undefined), modelRouteSchema]),
+    allowedModels: z.array(modelRouteSchema).default([]).volatile(),
+    defaultModel: z.union([z.const(undefined), modelRouteSchema]).volatile(),
   })
 
   /** Validated deployment limits used by every Team operation. */
   private readonly config: Required<Omit<Config, 'defaultModel' | 'allowedModels'>> & {
-    allowedModels: TeamModelSelection[]
-    defaultModel: TeamModelSelection | undefined
+    allowedModels: Volatile<TeamModelSelection[]> | TeamModelSelection[]
+    defaultModel: Volatile<TeamModelSelection | undefined> | TeamModelSelection | undefined
   }
 
   private readonly activity: TeamActivity
@@ -130,13 +151,22 @@ export class TeamService extends Service {
         'disposalTimeoutMs',
         config.disposalTimeoutMs ?? DEFAULT_DISPOSAL_TIMEOUT_MS,
       ),
-      ...validateModelConfig(config),
+      allowedModels: config.allowedModels ?? [],
+      defaultModel: config.defaultModel,
     }
 
+    this.modelPolicy()
     this.activity = new TeamActivity()
     this.lifecycle = new TeamRuntimeLifecycle(this.config.disposalTimeoutMs)
     this.journal = new TeamJournal(ctx, (root) => { this.activity.notify(TeamId(root.id)) })
-    this.roster = new TeamRoster(ctx, this.journal, this.lifecycle, this.config.maxMembers, this.config.allowedModels, this.config.defaultModel)
+    this.roster = new TeamRoster(
+      ctx,
+      this.journal,
+      this.lifecycle,
+      this.config.maxMembers,
+      () => this.modelPolicy(),
+      () => currentHostModelPolicy(ctx),
+    )
     this.mailbox = new TeamMailbox(
       ctx,
       this.journal,
@@ -156,7 +186,10 @@ export class TeamService extends Service {
     })
 
     ctx.on('session/event', (session, event) => { this.mailbox.observeSessionEvent(session, event) })
-    ctx.on('agent/created', ({ agent }) => { this.scheduleRecovery(agent) })
+    ctx.on('agent/created', ({ agent }) => {
+      this.scheduleRecovery(agent)
+      return undefined
+    })
     ctx.on('agent/status', ({ agent }) => {
       const membership = this.roster.tryMembership(agent)
       if (membership !== undefined) this.activity.notify(membership.id)
@@ -190,6 +223,16 @@ export class TeamService extends Service {
    */
   listMembers(agent: Agent): TeamMemberView[] {
     return this.roster.list(this.roster.membership(agent))
+  }
+
+  /** Read the live Team-specific provider/model ceiling for settings and admission. */
+  modelPolicy(): { allowedModels: TeamModelSelection[]; defaultModel?: TeamModelSelection } {
+    const allowedModels = normalizeModels(readConfigValue(this.config.allowedModels, []))
+    const defaultModel = normalizeModel(readConfigValue(this.config.defaultModel, undefined))
+    if (defaultModel && !allowedModels.some(route => route.provider === defaultModel.provider && route.model === defaultModel.model)) {
+      throw new TeamError('Team default model must be included in the Team allowed-model list', 'TEAM_DEFAULT_MODEL_NOT_ALLOWED')
+    }
+    return { allowedModels, ...defaultModel ? { defaultModel } : {} }
   }
 
   /**

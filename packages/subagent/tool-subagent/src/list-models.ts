@@ -82,9 +82,13 @@ async function listSubagentModels(
  * Register `list_subagent_models` for one owning delegation-tool instance.
  * @param ctx - Context whose tool registry owns the fixed discovery definition.
  * @param policy - Route policy captured for this Session.
+ * @returns A disposer for the scoped tool registration.
  */
-export function registerListSubagentModels(ctx: Context, policy: ModelSelectionPolicy): void {
-  ctx.tools.register(defineTool({
+export function registerListSubagentModels(
+  ctx: Context,
+  policySource: ModelSelectionPolicy | (() => ModelSelectionPolicy),
+): () => void {
+  return ctx.tools.register(defineTool({
     name: 'list_subagent_models',
     description:
       'Discover LLM routes for subagents without changing the current Agent. Call with no arguments to list '
@@ -107,6 +111,7 @@ export function registerListSubagentModels(ctx: Context, policy: ModelSelectionP
       render: (_args, result) => [{ type: 'text', text: result }],
     },
     execute(args, exec) {
+      const policy = typeof policySource === 'function' ? policySource() : policySource
       return listSubagentModels(ctx, policy, args, exec.signal)
     },
   }))

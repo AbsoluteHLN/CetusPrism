@@ -8,6 +8,7 @@ import { SettingsForm } from '@deepseek-ai/dsh-client-ui-primitives'
 import { formLabels } from './locales.ts'
 import { SubagentLimitsFields } from './SubagentLimitsFields.tsx'
 import { SubagentModelSelectionFields } from './SubagentModelSelectionFields.tsx'
+import { TeamModelRestrictionFields } from './TeamModelRestrictionFields.tsx'
 import { subagentCardShell, type SubagentCardFace } from './subagent-card-controller.ts'
 import css from './SubagentCard.module.css'
 
@@ -34,9 +35,10 @@ export function SubagentCard(props: SubagentCardProps) {
   const { t } = props
   const limits = props.useSubagentLimitsCard(snapshot => snapshot)
   const models = props.useSubagentModelSelectionCard(snapshot => snapshot)
+  const teamModels = props.useTeamModelRestrictionCard(snapshot => snapshot)
   const headingId = useId()
   if (props.view === 'summary') return t('subagentDescription')
-  const state = subagentCardShell(limits, models)
+  const state = subagentCardShell(limits, models, teamModels)
   return (
     <SettingsForm labels={formLabels(t)}
       state={state} onSave={props.save} onDiscard={props.discard}>
@@ -55,6 +57,15 @@ export function SubagentCard(props: SubagentCardProps) {
             <h3 className={css.heading} id={`${headingId}-models`}>{t('subagentModelSelectionTitle')}</h3>
             <SubagentModelSelectionFields t={t} state={{ ...models, saving: state.saving }}
               toggleEnabled={props.toggleEnabled} toggleModel={props.toggleModel} retryCatalog={props.retryCatalog} />
+          </section>
+        )
+        : null}
+      {teamModels.available
+        ? (
+          <section className={css.section} aria-labelledby={`${headingId}-team-models`}>
+            <h3 className={css.heading} id={`${headingId}-team-models`}>{t('teamModelRestrictionTitle')}</h3>
+            <TeamModelRestrictionFields t={t} state={{ ...teamModels, saving: state.saving }}
+              toggleModel={props.toggleTeamModel} setDefault={props.setTeamDefault} retryCatalog={props.retryTeamCatalog} />
           </section>
         )
         : null}

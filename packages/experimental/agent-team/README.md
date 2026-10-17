@@ -56,7 +56,7 @@ With the tools installed, the model does the rest on request — for example, "c
 | `maxMessageBytes` | `65,536` | Maximum size of one sent message |
 | `disposalTimeoutMs` | `5,000` | Time allowed for shutdown cleanup |
 
-Teams can enforce an independent LLM provider/model policy in addition to the subagent backend selection. Configure the allowlist and optional default route in the Team service:
+Teams can enforce an additional LLM provider/model allowlist alongside the Host subagent allowlist and the separate `spawn`/`fork` backend selection. Configure the Team routes and optional default in the Team service:
 
 ```yaml
 agentTeams:
@@ -66,9 +66,7 @@ agentTeams:
   defaultModel: { provider: native, model: deepseek-chat }
 ```
 
-Configured model routes must provide non-empty `provider` and `model` values after trimming surrounding whitespace; otherwise the Team service fails to load. When `allowedModels` is non-empty, the configured `defaultModel` must also appear in that list.
-
-When `allowedModels` is non-empty, `spawn_teammate` requires a listed LLM provider/model route and rejects other pairs. The tool's explicit `agentOptions` route has priority; the legacy `model` field uses the Lead's LLM provider, then `defaultModel`, then the Lead's current route are used as fallbacks. The `provider` argument that selects `spawn` or `fork` is never compared with the LLM allowlist. The selected model is persisted with the roster member and the complete route is passed to the child runtime through `agentOptions`.
+Every explicit teammate model selection requires the Host model-selection service to be enabled and its Host allowlist to admit the route; the Team-specific `allowedModels` list then adds a further restriction. The service validates default and inherited Team routes too, so calling the public `spawnTeammate()` API directly cannot bypass the model boundary. An optional `defaultModel` must be present in `allowedModels`; otherwise the Lead route is used only when it belongs to both lists. The explicit `agentOptions` route has priority, while the legacy `model` field uses the Lead's LLM provider. The `provider` argument that selects `spawn` or `fork` is never compared with either LLM allowlist. The selected model and reasoning effort are persisted with the roster member, and the complete route is passed to the child runtime through `agentOptions`.
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-experimental-agent-team) is the exhaustive source for every accepted field and its JSDoc.
 

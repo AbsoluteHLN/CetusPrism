@@ -20,6 +20,10 @@ export type SubagentSettingsLocaleKey =
   | 'subagentModelSelectionPartial' | 'subagentModelSelectionUnavailable'
   | 'subagentModelSelectionUnavailableGroup' | 'subagentModelSelectionEmpty'
   | 'subagentModelSelectionRequired' | 'subagentModelSelectionConflict' | 'subagentModelSelectionOff'
+  | 'teamModelRestrictionTitle' | 'teamModelRestrictionHelp' | 'teamModelRestrictionAllowed'
+  | 'teamModelRestrictionHostRequired' | 'teamModelRestrictionHostDenied'
+  | 'teamModelRestrictionEmpty' | 'teamModelRestrictionDefault' | 'teamModelRestrictionNoDefault'
+  | 'teamModelRestrictionInvalid'
 
 /** English copy. */
 export const en: Record<SubagentSettingsLocaleKey, string> = {
@@ -58,6 +62,15 @@ export const en: Record<SubagentSettingsLocaleKey, string> = {
   subagentModelSelectionRequired: 'Select at least one model before saving.',
   subagentModelSelectionConflict: 'Settings changed elsewhere. Discard your draft and try again.',
   subagentModelSelectionOff: 'Subagents use configured defaults or inherit the parent agent\'s model. Saved model choices are retained.',
+  teamModelRestrictionTitle: 'Agent Team model restriction',
+  teamModelRestrictionHelp: 'This is an extra Team-only ceiling. A selected route must also remain in the shared Subagent allowlist above. An empty Team list adds no further restriction.',
+  teamModelRestrictionAllowed: 'Models available to Agent Teams',
+  teamModelRestrictionHostRequired: 'Enable model selection above and authorize routes there first. Existing Team selections remain visible for removal.',
+  teamModelRestrictionHostDenied: 'Not in shared allowlist',
+  teamModelRestrictionEmpty: 'No shared-authorized model routes are currently available.',
+  teamModelRestrictionDefault: 'Default model for new Team members',
+  teamModelRestrictionNoDefault: 'Inherit the Lead route when allowed',
+  teamModelRestrictionInvalid: 'Remove routes that are no longer shared-authorized, or clear the default before saving.',
 }
 
 /** Simplified Chinese copy. */
@@ -97,6 +110,15 @@ export const zh: Record<SubagentSettingsLocaleKey, string> = {
   subagentModelSelectionRequired: '保存前请至少选择一个模型。',
   subagentModelSelectionConflict: '设置已在其他位置更新。请放弃修改后重试。',
   subagentModelSelectionOff: '关闭后，子智能体使用配置的默认模型或继承父 Agent 的模型；已选模型会保留。',
+  teamModelRestrictionTitle: '智能体团队专属限制',
+  teamModelRestrictionHelp: '此列表是团队额外的模型上限。团队所选路由仍须同时保留在上方的通用子智能体允许列表中。团队列表留空表示不增加额外限制。',
+  teamModelRestrictionAllowed: '团队成员可使用的模型',
+  teamModelRestrictionHostRequired: '请先在上方启用模型选择并授权路由；已有团队选择仍可查看和移除。',
+  teamModelRestrictionHostDenied: '不在通用允许列表',
+  teamModelRestrictionEmpty: '当前没有通用授权的模型路由。',
+  teamModelRestrictionDefault: '新团队成员默认模型',
+  teamModelRestrictionNoDefault: '符合限制时继承 Lead 模型',
+  teamModelRestrictionInvalid: '请移除已不在通用允许列表的模型，或清除默认模型后再保存。',
 }
 
 /**

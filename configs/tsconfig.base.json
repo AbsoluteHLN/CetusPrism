@@ -1488,6 +1488,9 @@
     "@deepseek-ai/dsh-tool-subagent": [
       "../packages/subagent/tool-subagent/src"
     ],
+    "@deepseek-ai/dsh-tool-subagent/list-models": [
+      "../packages/subagent/tool-subagent/src/list-models.ts"
+    ],
     "@deepseek-ai/dsh-tool-subagent-control": [
       "../packages/subagent/tool-subagent-control/src"
     ],

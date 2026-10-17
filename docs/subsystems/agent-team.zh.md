@@ -14,7 +14,14 @@ interface TeamMemberSnapshot {
   readonly id: SessionId
   readonly name: string
   readonly description: string
+  /** Spawn/fork provider used to create the member runtime. */
   readonly provider: string
+  /** Selected model id, when an explicit Team route is configured. */
+  readonly model?: string
+  /** LLM provider for `model`; distinct from the spawn/fork `provider`. */
+  readonly modelProvider?: string
+  /** Exact model-advertised reasoning tier selected for the member. */
+  readonly reasoningEffort?: string
   readonly context: 'fresh' | 'fork'
   readonly phase: TeamMemberPhase
   readonly error?: string
@@ -22,6 +29,8 @@ interface TeamMemberSnapshot {
 ```
 
 每个 member 都从 `provisioning` 开始，并且只到达一个终态 roster phase：`active` 或 `failed`。roster 的 `running`／`inactive` 状态单独派生，绝不会重写该记录。
+
+`team/member` payload v2 仍可读取既有记录，包括可选的 `model` 字段。新写入的成员生命周期记录使用 payload v3，新增 `modelProvider` 和 `reasoningEffort`；严格的 v2 记录不能携带这两个字段。其他 Agent Teams 事件 payload 仍使用 v2。`agentTeam` 投影缓存当前为 state version 5，因此旧 v4 缓存会从 Session 日志重建。
 
 ## 持久 mailbox
 

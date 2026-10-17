@@ -4,6 +4,25 @@
   padding: 12px 0;
 }
 
+.defaultModel {
+  display: grid;
+  grid-template-columns: minmax(180px, .65fr) minmax(220px, 1fr);
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--dsw-alias-label-primary);
+}
+
+.defaultModel select {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 640px) {
+  .defaultModel { grid-template-columns: minmax(0, 1fr); }
+}
+
 .toggleRow {
   display: flex;
   align-items: flex-start;

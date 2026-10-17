@@ -23,6 +23,9 @@ import { SubagentLimitsCardController } from './subagent-limits-card-controller.
 import {
   SUBAGENT_MODEL_SELECTION_NS, SubagentModelSelectionCardController,
 } from './subagent-model-selection-card-controller.ts'
+import {
+  TeamModelRestrictionCardController, type TeamModelRestrictionSettings,
+} from './team-model-restriction-card-controller.ts'
 import { en, zh, type SubagentSettingsLocaleKey } from './locales.ts'
 
 export type { SubagentCardProps } from './SubagentCard.tsx'
@@ -31,6 +34,7 @@ export type { SubagentLimitsCardFace, SubagentLimitsCardState, SubagentLimitsSet
 export type {
   SubagentModelSelectionCardFace, SubagentModelSelectionCardState, SubagentModelSelectionSettings,
 } from './subagent-model-selection-card-controller.ts'
+export type { TeamModelRestrictionFace, TeamModelRestrictionState, TeamModelRestrictionSettings } from './team-model-restriction-card-controller.ts'
 export type { SubagentSettingsLocaleKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -65,6 +69,11 @@ export function apply(ctx: ClientContext): void {
     ctx.configForms.get(SUBAGENT_MODEL_SELECTION_NS),
     ctx,
   )
+  const teamModels = new TeamModelRestrictionCardController(
+    ctx.configForms.get<TeamModelRestrictionSettings>('agent-team'),
+    ctx.configForms.get(SUBAGENT_MODEL_SELECTION_NS),
+    ctx,
+  )
   const limitsFace = limits.inject()
   const modelsFace = models.inject()
   // The model catalogue is not part of any settings section: adapters come and
@@ -82,12 +91,25 @@ export function apply(ctx: ClientContext): void {
     'ui-settings-subagent: connection generation',
   )
   ctx.effect(() => () => { models.dispose() }, 'ui-settings-subagent: model preference')
-  ctx.effect(() => ctx.configForms.whileServed([SUBAGENT_NS, SUBAGENT_MODEL_SELECTION_NS], () => ctx.slots.inject('settings.section', () => ctx.slots.register({
+  ctx.effect(() => () => { teamModels.dispose() }, 'ui-settings-subagent: Team model restriction')
+  ctx.effect(
+    () => ctx.remote.$on('llm/adapters-updated', () => { teamModels.refreshCatalog() }),
+    'ui-settings-subagent: Team model catalog invalidations',
+  )
+  ctx.effect(
+    () => ctx.remote.$on('settings/document-updated', () => { teamModels.refreshCatalog() }),
+    'ui-settings-subagent: Team settings invalidations',
+  )
+  ctx.effect(
+    () => ctx.on('connection/reset', () => { teamModels.resetConnection() }),
+    'ui-settings-subagent: Team connection generation',
+  )
+  ctx.effect(() => ctx.configForms.whileServed([SUBAGENT_NS, SUBAGENT_MODEL_SELECTION_NS, 'agent-team'], () => ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
     id: 'subagent',
     order: 30,
     label: () => t('subagentTitle'),
     locale: NS,
-    inject: () => subagentCardFace(limitsFace, modelsFace),
+    inject: () => subagentCardFace(limitsFace, modelsFace, teamModels.inject()),
   }, SubagentSection))), 'ui-settings-subagent: page')
 }

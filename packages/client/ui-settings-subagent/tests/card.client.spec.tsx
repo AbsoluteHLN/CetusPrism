@@ -9,6 +9,7 @@ import { SubagentCard, type SubagentCardProps } from '../src/client/SubagentCard
 import type { SubagentLimitsCardState } from '../src/client/subagent-limits-card-controller.ts'
 import type { SettingsFieldState, SettingsFormShell } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SubagentModelSelectionCardState } from '../src/client/subagent-model-selection-card-controller.ts'
+import type { TeamModelRestrictionState } from '../src/client/team-model-restriction-card-controller.ts'
 import { en } from '../src/client/locales.ts'
 
 afterEach(cleanup)
@@ -57,6 +58,9 @@ function renderSubagent(
     toggleEnabled: vi.fn(),
     toggleModel: vi.fn(),
     retryCatalog: vi.fn(),
+    toggleTeamModel: vi.fn(),
+    setTeamDefault: vi.fn(),
+    retryTeamCatalog: vi.fn(),
     save: vi.fn(),
     discard: vi.fn(),
   }
@@ -66,6 +70,9 @@ function renderSubagent(
     t,
     useSubagentLimitsCard: bindSnapshotSelector(limits),
     useSubagentModelSelectionCard: bindSnapshotSelector(models),
+    useTeamModelRestrictionCard: bindSnapshotSelector(createSnapshotStore<TeamModelRestrictionState>({
+      ...settled, available: false, candidates: [], catalogStatus: 'idle', catalogPartial: false, defaultModelKey: '',
+    })),
   } as SubagentCardProps
   render(<SubagentCard {...props} />)
   return { actions, limits, models }

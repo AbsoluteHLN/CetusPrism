@@ -104,6 +104,8 @@ kind: "package-reference"
 | [`src/model-selection-state.ts`](src/model-selection-state.ts) | 记录并继承已读取决定的 Session 事件 |
 | [`src/list-models.ts`](src/list-models.ts) | `list_subagent_models` 运行时发现工具 |
 
+组合模型目录工具的 profile 包应从已发布的 `@deepseek-ai/dsh-tool-subagent/list-models` 入口导入 `registerListSubagentModels`。从 `src/` 导入会绕过包的发布边界。
+
 </details>
 
 -----

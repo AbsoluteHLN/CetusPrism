@@ -56,9 +56,15 @@
 - README 和 Agent Note 检查使用 Git 维护的文件，排除未跟踪且 ignored 的私有资料；强制暂存的违规文档仍拒绝。修正旧翻译 sidecar 断言并补充 code-language library 分类，移除对未发货私有技能文本的测试依赖。临时 Git fixture 覆盖空树、私有坏文件、非法暂存文件与合法暂存文件；这些检查不等于完整 fresh-clone 文档及持久化历史检查已通过。
 - 新增 `.github/workflows/cetus-validation.yml`，通过精确的 ignore 例外纳入版本控制，针对 main push/PR 提供 Ubuntu 和 Windows 冻结安装、标准构建、关键单元与真实 Web 回归。保留现有手动 macOS 工作流；不增加 release、发布凭据或外部服务调用。取消重复 native build，并按平台安装 Chromium。
 
-Windows 标准构建通过，生成 398 个 client artifacts；5 个产品单元文件 106 项、4 个 Web 文件 16 项及 gate graph 定向 93 项通过。完整 lint 通过，仅有既有 unused-disable 警告。依赖工具的一次隐式安装产生了无关锁文件改写，已恢复原锁；没有把该改写作为产品更新提交。
+Windows 标准构建通过，生成 398 个 client artifacts；5 个产品单元文件 106 项、4 个 Web 文件 16 项及 gate graph 定向 93 项通过。完整 lint 通过，仅有既有 unused-disable 警告。依赖工具的一次隐式安装产生了无关 peer 解析改写，先恢复原锁，再依据 CI 错误补回唯一缺失的本地 Session 链接；外部包版本和完整性校验值未变。
 
 最终集中 `doc-sync` 为 42 项通过、0 失败、0 跳过，包含文档标准和 Agent Note 的 25 项脚本回归；七类原遗留失败已关闭。独立监督审查放行，工作流环境变量位置问题已按 GitHub 官方 context 可用范围修正。Git hooks 将随正常提交和推送执行；远端 CI 需由本次 push 触发，其实际结果在交付回复单独报告。本轮不重新打包安装程序，不发布 release；回滚通过撤销本次维护提交完成。
+
+### 首次远端验证与锁文件修正
+
+[首次自动验证](https://github.com/AbsoluteHLN/CetusPrism/actions/runs/39071140201) 已在 Ubuntu 和 Windows 实际启动，两端都通过供应链策略检查，但冻结安装发现 `ui-computer-foreground` 声明的 `@deepseek-ai/dsh-session` 未记录在锁文件。补充对应的本地 `workspace:*` 链接，保留冻结安装与原策略。锁文件解析前后比较确认只有该依赖映射变化；包管理器另归一化三个既有条目的排序，没有更改 registry 版本或校验值。
+
+本机离线锁检查缺少注册表元数据；联网的 lockfile-only 检查遇到 npm 注册表超时和连接重置后取消。该检查不下载依赖、不运行生命周期脚本，也不写入 node_modules；没有把网络中断报告为验证通过。远端首次运行已证明两种 hosted runner 能完成同一策略检查，修正后的完整安装、构建与浏览器结果仍须查看后续 run。正常 Git hooks 和已通过的本地产品回归保持有效。
 
 ## 未验证、阻塞与下一步
 

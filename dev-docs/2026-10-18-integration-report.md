@@ -66,6 +66,8 @@ Windows 标准构建通过，生成 398 个 client artifacts；5 个产品单元
 
 本机离线锁检查缺少注册表元数据；联网的 lockfile-only 检查遇到 npm 注册表超时和连接重置后取消。该检查不下载依赖、不运行生命周期脚本，也不写入 node_modules；没有把网络中断报告为验证通过。远端首次运行已证明两种 hosted runner 能完成同一策略检查，修正后的完整安装、构建与浏览器结果仍须查看后续 run。正常 Git hooks 和已通过的本地产品回归保持有效。
 
+[第二次自动验证](https://github.com/AbsoluteHLN/CetusPrism/actions/runs/39071558192) 中，Ubuntu 和 Windows 的冻结安装、标准构建及 131 项关键单元测试均通过。浏览器准备阶段发现根工作区未声明 Playwright，因此改为通过其所属 `@deepseek-ai/dsh-web-frontend` 子包调用；复用既有工作区依赖和上游 CI 的调用方式，不向根包新增依赖。浏览器回归及最终锁不变检查等待后续 run。
+
 ## 未验证、阻塞与下一步
 
 - 未验证：真实 GLM/其他 provider 的质量增益、Linux/macOS 执行及第三方桌面应用、重新打包后的完整 Windows 安装升级流程。原生实测不代表所有应用自动化都已验收；本轮模式是原生 ZCode 原则指导，不是外部 ZCode runtime 集成。

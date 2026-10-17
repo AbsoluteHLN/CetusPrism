@@ -58,12 +58,12 @@ jobs:
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/cetus-playwright
         if: runner.os == 'Linux'
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install --with-deps chromium
       - name: Install Chromium on Windows
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/cetus-playwright
         if: runner.os == 'Windows'
-        run: pnpm exec playwright install chromium
+        run: pnpm --filter @deepseek-ai/dsh-web-frontend exec playwright install chromium
       - name: Test shipped Web interactions
         env:
           PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/cetus-playwright

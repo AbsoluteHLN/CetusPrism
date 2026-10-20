@@ -31,6 +31,8 @@ Settings shows the built-in and custom card groups with default highlighting and
 
 The new-session picker and Settings roster always offer Standard, Creator, PTC, Minimal, and custom presets; the Developer tools preference governs developer views, never preset availability. Choosing a healthy default also synchronizes the blank session on the current new-task surface. Creator starts a new task using the `cordis` preset. Existing sessions, including blank sessions reused by New Session, keep their selected mode.
 
+The new-session screen carries an execution-backend chip beside the preset chip. It lists DSH, Pi and ZCode with the installed version of each and whether it can start a session at all. A backend without an installed runtime stays visible and is refused with the Host's reason instead of falling back silently.
+
 Known shipped presets offer mode details and usage examples in a read-only dialog. Its tabs preserve each page's scroll position; closing returns focus to the opening action. Help does not change the new-task default. The default badge replaces the card's group badge, and the preset id appears beside the title. Guide copy and examples belong to this package.
 
 **Let the agent create a plugin** in the Plugins page's **Add plugin** arrow menu enters the same Creator flow as Settings. It submits no message and preserves unsent drafts. While the roster loads or Creator is unavailable, the menu item is disabled with an explanation. Both entries show a Toast with the reason if the Host refuses the preset switch.
@@ -70,6 +72,7 @@ Selection changes affect only later tasks; existing plugins and prompts remain u
 <a id="known-limitations-and-deferred-work"></a>
 
 - Web creates and edits no preset: the configuration viewer is read-only, and a bundle installed through Creator mode declares a new preset or overrides a shipped one by row id, replacing its complete child list.
+- The backend chip names the backends the deployment offers. Sessions still bind to DSH, so a registered external runtime is refused with an explicit reason rather than bound to a session.
 
 <a id="dev-note"></a>
 ### Dev Note

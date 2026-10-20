@@ -34,6 +34,11 @@ export type AgentPresetSettingsKey =
   | 'createPluginChecking'
   | 'createPluginUnavailable'
   | 'createPluginMissing'
+  | 'backendSeatHint'
+  | 'backendVersion'
+  | 'backendUnconfigured'
+  | 'backendIncompatible'
+  | 'backendSwitchRefused'
 
 /** English copy. */
 export const en: Record<AgentPresetSettingsKey, string> = {
@@ -79,6 +84,13 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   createPluginUnavailable: 'Temporarily unavailable. Reopen this menu to retry',
   createPluginMissing: 'Creator mode is not included in this configuration',
 
+  backendSeatHint: 'Choose the execution backend for your new task',
+  backendVersion: 'Version',
+  backendUnconfigured: 'No runtime is installed for this backend',
+  backendIncompatible: 'The installed runtime does not match this version',
+
+  backendSwitchRefused: 'Could not switch the execution backend: {reason}',
+
 }
 
 /** Simplified Chinese copy. */
@@ -120,6 +132,13 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   createPluginChecking: '正在确认创造模式是否可用',
   createPluginUnavailable: '暂时不可用，请重新打开菜单重试',
   createPluginMissing: '当前配置未提供创造模式',
+
+  backendSeatHint: '选择新任务使用的执行底座',
+  backendVersion: '版本',
+  backendUnconfigured: '未安装该底座的运行时',
+  backendIncompatible: '已安装的运行时与当前版本不兼容',
+
+  backendSwitchRefused: '无法切换执行底座：{reason}',
 
 }
 

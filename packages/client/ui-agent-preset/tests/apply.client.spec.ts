@@ -21,6 +21,8 @@ import { AgentPresetSection } from '../src/client/AgentPresetSection.tsx'
 import type { AgentPresetSectionInjected } from '../src/client/AgentPresetSection.tsx'
 import { AgentPresetSeat } from '../src/client/AgentPresetSeat.tsx'
 import type { AgentPresetSeatInjected } from '../src/client/AgentPresetSeat.tsx'
+import { AgentBackendSeat } from '../src/client/AgentBackendSeat.tsx'
+import type { AgentBackendSeatInjected } from '../src/client/AgentBackendSeat.tsx'
 import { AgentPresetSeatController } from '../src/client/seat-store.ts'
 import { CreatePluginMenuItem, type CreatePluginMenuItemInjected } from '../src/client/CreatePluginMenuItem.tsx'
 import { apply as hostApply } from '../src/index.ts'
@@ -167,6 +169,19 @@ async function bench(options: {
       calls.push(`select:${agentPreset}`)
       return Promise.resolve(options.selectGate).then(() => ({ ok: true as const, value: agentPreset }))
     },
+    // The execution-backend catalog the host publishes beside the roster.
+    backends: () => {
+      calls.push('backends')
+      return Promise.resolve({
+        ok: true as const,
+        value: {
+          backends: [
+            { id: 'dsh' as const, name: 'DSH', version: 'native', source: 'cetusprism', availability: 'ready' as const, capabilities: { cancel: true, resume: true, tools: true, modelRouting: 'cetus' as const } },
+            { id: 'pi' as const, name: 'Pi', version: 'unconfigured', source: 'external-runtime', availability: 'unconfigured' as const, reason: 'Pi runtime is not configured', capabilities: { cancel: false, resume: false, tools: false, modelRouting: 'external-runtime' as const } },
+          ],
+        },
+      })
+    },
   }
   ctx.provide('remote.agentPresets', agentPresets as never)
   Object.assign(remote, { agentPresets })
@@ -206,6 +221,7 @@ function declareConversation(slots: SlotRegistry): () => void {
     name: 'conversation',
     children: {
       'conversation.hero.agentPreset': { kind: 'single', scope: 'session-maybe' },
+      'conversation.hero.agentBackend': { kind: 'single', scope: 'session-maybe' },
       'conversation.session.header.actions': { kind: 'list', scope: 'session' },
     },
   } as never, () => null)
@@ -440,7 +456,7 @@ describe('ui-agent-preset apply', () => {
     const before = calls.length
 
     remote.emit('settings/document-updated', ['agent-preset-registry', 1])
-    await vi.waitFor(() => { expect(calls.length).toBe(before + 3) })
+    await vi.waitFor(() => { expect(calls.length).toBe(before + 4) })
     const afterRelevant = calls.length
 
     remote.emit('settings/document-updated', ['llm-deepseek', 1])
@@ -466,7 +482,7 @@ describe('ui-agent-preset apply', () => {
     ctx.emit('connection/reset')
 
     // A reconnect can land on a host whose roster changed under the browser.
-    await vi.waitFor(() => { expect(calls.length).toBe(before + 3) })
+    await vi.waitFor(() => { expect(calls.length).toBe(before + 4) })
     conversation()
   })
 
@@ -480,9 +496,10 @@ describe('ui-agent-preset apply', () => {
     remote.emit('settings/document-updated', ['agent-preset-registry', 1])
     await vi.waitFor(() => { expect(calls.length).toBeGreaterThan(before) })
 
-    // The directory and unbound seat reload: a section nobody opened has
-    // nothing to converge, and reading the roster for it would be wasted.
-    expect(calls.length - before).toBe(2)
+    // The directory, unbound seat and backend catalog reload: a section nobody
+    // opened has nothing to converge, and reading the roster for it would be
+    // wasted.
+    expect(calls.length - before).toBe(3)
   })
 
   it('registers the new-session chip and the header label, and drops both on disposal', async () => {
@@ -497,13 +514,39 @@ describe('ui-agent-preset apply', () => {
 
     const chip = slots.entries('conversation.hero.agentPreset')[0]!
     expect(chip.component).toBe(AgentPresetSeat)
+    const backendChip = slots.entries('conversation.hero.agentBackend')[0]!
+    expect(backendChip.component).toBe(AgentBackendSeat)
     const label = slots.entries('conversation.session.header.actions')[0]!
     expect(label.component).toBe(AgentPresetLabel)
     expect(label.options).toMatchObject({ id: 'agent-preset', order: -10 })
     await fiber.dispose()
     expect(slots.entries('conversation.hero.agentPreset')).toHaveLength(0)
+    expect(slots.entries('conversation.hero.agentBackend')).toHaveLength(0)
     expect(slots.entries('conversation.session.header.actions')).toHaveLength(0)
     expect(slots.entries('settings.section')).toHaveLength(0)
+    conversation()
+  })
+
+  it('shows every execution backend and refuses the ones that cannot start', async () => {
+    const { ctx, slots } = await bench()
+    declareRoot(slots)
+    const conversation = declareConversation(slots)
+    ctx.provide('conversation', {} as never)
+    ctx.provide('sessions', sessionsDouble(ctx, { byId: {} }) as never)
+    ctx.provide('uiWorkspace', uiWorkspaceDouble() as never)
+    await ctx.plugin({ inject: [...inject, 'conversation', 'sessions', 'uiWorkspace'], apply }).await()
+
+    const backendChip = slots.entries('conversation.hero.agentBackend')[0]!
+    const seat = (backendChip.inject as unknown as () => AgentBackendSeatInjected)()
+    await seat.load()
+    const state = seat.hooks.agentBackendSeat.getSnapshot()
+    expect(state.options.map(option => option.id)).toEqual(['dsh', 'pi'])
+    expect(state.current).toBe('dsh')
+
+    // The backend that has no runtime stays visible, and the refusal carries
+    // the reason the host published rather than a generic failure.
+    expect(await seat.select('pi')).toBe('Pi runtime is not configured')
+    expect(seat.hooks.agentBackendSeat.getSnapshot().refusal).toBe('Pi runtime is not configured')
     conversation()
   })
 

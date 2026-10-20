@@ -368,3 +368,26 @@ it('reports every process-global service published by a preset', async () => {
   await declare(ctx, { id: 'leaks', plugins: [{ name: 'cordis:leaks' }] })
   expect((await ctx.agentPresets.resolve('leaks')).broken).toContain('presetAlpha, presetZulu')
 })
+
+describe('execution backends', () => {
+  it('offers DSH, Pi and ZCode over the remote contract', async () => {
+    const ctx = await setup()
+    const catalog = ctx.agentPresets.remoteExportBackends()
+    expect(catalog.backends.map(backend => backend.id)).toEqual(['dsh', 'pi', 'zcode'])
+    expect(catalog.backends[0]).toMatchObject({ availability: 'ready', version: 'native' })
+    expect(catalog.backends[1]).toMatchObject({ availability: 'unconfigured' })
+  })
+
+  it('marks a registered runtime ready and releases it on dispose', async () => {
+    const ctx = await setup()
+    const dispose = ctx.agentPresets.registerBackend({
+      id: 'zcode',
+      describe: () => ({ version: '3.16.2', source: 'external-runtime', compatible: true }),
+    })
+    expect(ctx.agentPresets.remoteExportBackends().backends.find(backend => backend.id === 'zcode'))
+      .toMatchObject({ availability: 'ready', version: '3.16.2' })
+    dispose()
+    expect(ctx.agentPresets.remoteExportBackends().backends.find(backend => backend.id === 'zcode'))
+      .toMatchObject({ availability: 'unconfigured' })
+  })
+})

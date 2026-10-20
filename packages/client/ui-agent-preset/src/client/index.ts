@@ -39,6 +39,9 @@ import { AgentPresetSeat } from './AgentPresetSeat.tsx'
 import type { AgentPresetSeatInjected } from './AgentPresetSeat.tsx'
 import { AgentPresetSection } from './AgentPresetSection.tsx'
 import type { AgentPresetSectionInjected } from './AgentPresetSection.tsx'
+import { AgentBackendSeat } from './AgentBackendSeat.tsx'
+import type { AgentBackendSeatInjected } from './AgentBackendSeat.tsx'
+import { AgentBackendSeatController } from './backend-store.ts'
 import { AgentPresetSeatController, type AgentPresetStage } from './seat-store.ts'
 import { AgentPresetSectionController } from './section-store.ts'
 import { en, zh, type AgentPresetSettingsKey } from './locales.ts'
@@ -54,6 +57,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 export type { AgentPresetLabelInjected, AgentPresetLabelProps } from './AgentPresetLabel.tsx'
 export type { AgentPresetSeatInjected, AgentPresetSeatProps } from './AgentPresetSeat.tsx'
 export type { AgentPresetSectionInjected, AgentPresetSectionProps } from './AgentPresetSection.tsx'
+export type { AgentBackendSeatInjected, AgentBackendSeatProps } from './AgentBackendSeat.tsx'
+export type { AgentBackendOption, AgentBackendSeatState } from './backend-store.ts'
+export { DEFAULT_AGENT_BACKEND, backendOptions, readBackendCatalog } from './backend-store.ts'
 export type { AgentPresetSeatState } from './seat-store.ts'
 export type { AgentPresetSectionState, PresetView } from './section-store.ts'
 export type { AgentPresetOption, AgentPresetSettingsState } from './settings-store.ts'
@@ -101,6 +107,9 @@ export function apply(ctx: ClientContext): void {
     return seat
   }
   const section = new AgentPresetSectionController(ctx)
+  // The execution-backend catalog is a deployment fact, not a session fact: one
+  // controller serves every surface, and a reconnect re-reads it.
+  const backends = new AgentBackendSeatController(ctx)
   const mainBlankSeat = (): AgentPresetSeatController | undefined => {
     const summary = Object.values(ctx.sessions.list.getSnapshot().byId)
       .find((session) => {
@@ -123,6 +132,7 @@ export function apply(ctx: ClientContext): void {
       if (section.store.getSnapshot().status !== 'idle') void section.load()
       void unboundSeat.load()
       for (const seat of seats.values) void seat.load()
+      void backends.load()
     }
     const disposers = [
       ctx.remote.$on('settings/document-updated', (ns) => {
@@ -172,6 +182,16 @@ export function apply(ctx: ClientContext): void {
         locale: 'settings.agentPreset',
         inject: seatInjected,
       }, AgentPresetSeat)
+      const backendChip = scope.slots.register({
+        name: 'conversation.hero.agentBackend',
+        locale: 'settings.agentPreset',
+        inject: (): AgentBackendSeatInjected => ({
+          hooks: { agentBackendSeat: backends.store },
+          load: () => backends.load(),
+          select: (id: string) => backends.select(id),
+          dismissRefusal: () => { backends.dismissRefusal() },
+        }),
+      }, AgentBackendSeat)
       const label = scope.slots.register({
         name: 'conversation.session.header.actions',
         id: 'agent-preset',
@@ -183,6 +203,7 @@ export function apply(ctx: ClientContext): void {
       return () => {
         creatorDraft = undefined
         chip()
+        backendChip()
         label()
       }
     }, 'ui-agent-preset: new-session chip and header label')

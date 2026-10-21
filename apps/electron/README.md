@@ -214,6 +214,15 @@ compile time, so no rcedit pass runs), deploys the CLI closure straight into
 deploy (below), and prunes non-win32-x64 native prebuilds and the
 LibreOffice kit. `CARGO_TARGET_DIR` redirects the Rust target tree, and `CETUS_DIST_DIR` redirects the assembled payload and installer output: on Windows both default to `E:/dependency-cache/cetusprism/dist` so the ~500MB artifact stays out of the project tree; other hosts keep `apps/electron/dist`.
 
+`build-shell.mjs` fixes the release shell's `RUSTFLAGS`: `-C target-feature=+crt-static`
+links the MSVC CRT statically, so the target machine does not need the VC++
+x64 redistributable, and `--remap-path-prefix=E:\dependency-cache=cargo-cache`
+rewrites the build machine's crate source paths before Rust bakes them into
+the panic-location strings. `node scripts/check-offline-pack.mjs` from the
+repository root is the offline gate for both properties: it checks that the
+pack keeps its offline flags, that the binary carries no forbidden path, and
+that the import table lists no dynamic CRT.
+
 ## Build and pack (Linux .deb)
 
 ```sh
@@ -256,8 +265,17 @@ The backend runtime is a hoisted pnpm deploy:
 
 ```sh
 pnpm --filter @deepseek-ai/dsh deploy --prod --offline \
-  --node-linker=hoisted --config.inject-workspace-packages=true <runtime-dir>
+  --node-linker=hoisted --config.inject-workspace-packages=true \
+  --trust-lockfile <runtime-dir>
 ```
+
+`--trust-lockfile` is required for an offline deploy. pnpm 11 otherwise
+verifies the deploy target's freshly written lockfile against the
+supply-chain policies, and that check fetches every package's metadata and
+provenance attestations from `registry.npmjs.org` — it retries forever when
+the registry is unreachable, so the deploy never finishes offline. The
+verification cache is keyed by the lockfile's path, so every new output
+directory misses it.
 
 `--node-linker=hoisted` produces one flat, fully materialized `node_modules`
 with no junctions, so copying or archiving the tree cannot sever resolution.

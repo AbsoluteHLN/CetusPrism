@@ -25,6 +25,16 @@ dev-docs/evidence/
 # desktop shell (regenerable via apps/electron/scripts/build-shell.mjs), and
 # the machine-local superseded-work archive.
 temp/
+# Packaging output that landed in the tree. The canonical Windows landing spot
+# is E:/dependency-cache/cetusprism/dist (scripts/check-offline-pack.mjs reads
+# that same directory); these entries only exist when a run was redirected
+# into the repository.
+koutput/
+verify-evidence/
+# Build outputs: every package publishes from its lib/ directory (see each
+# package.json "files"), so a tracked dist/ directory is an artifact that was
+# committed by accident.
+packages/*/*/dist/
 apps/electron/src-tauri/target/
 dev-docs/archive/
 examples/*/*.jsonl

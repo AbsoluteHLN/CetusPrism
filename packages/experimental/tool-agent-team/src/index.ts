@@ -61,6 +61,30 @@ interface TeamModelSelectionSettings {
   current(): { enabled: boolean; allowedModels: readonly AllowedModelRoute[] }
 }
 
+/**
+ * Read the Team's own contribution to the shared discovery policy.
+ *
+ * The Team narrows the Host allowlist with its own restriction list, and both
+ * lists are read per call so a live change narrows the catalog at once. The
+ * returned routes are this Team's contribution only: the scope intersects them
+ * with every other owner of the same discovery tool.
+ * @param ctx - Context owning the Host model-selection setting and the Team policy.
+ * @returns The routes this Team authorizes for child model selection.
+ */
+function teamDiscoveryPolicy(ctx: Context): { readonly routes: readonly AllowedModelRoute[] } {
+  const settings: TeamModelSelectionSettings | undefined = ctx.get('subagentModelSelection')
+  if (settings === undefined) {
+    throw new Error('Team model selection is unavailable because its settings service is not loaded')
+  }
+  const current = settings.current()
+  if (!current.enabled) throw new Error('Team model selection is disabled in settings')
+  const teamPolicy = currentTeamModelPolicy(ctx)
+  return {
+    routes: current.allowedModels.filter(route => teamPolicy.allowedModels.length === 0
+      || teamPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)),
+  }
+}
+
 /** Resolve an explicit Team member route against the Host-owned allowlist. */
 function resolveTeamAgentOptions(
   ctx: Context,
@@ -242,19 +266,9 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
   const register = (disposer: () => unknown): void => { disposers.push(disposer) }
   try {
     if (config.modelSelectionSettings) {
-      register(registerListSubagentModels(scoped, () => {
-        const settings: TeamModelSelectionSettings | undefined = ctx.get('subagentModelSelection')
-        if (settings === undefined) {
-          throw new Error('Team model selection is unavailable because its settings service is not loaded')
-        }
-        const current = settings.current()
-        if (!current.enabled) throw new Error('Team model selection is disabled in settings')
-        const teamPolicy = currentTeamModelPolicy(ctx)
-        return {
-          routes: current.allowedModels.filter(route => teamPolicy.allowedModels.length === 0
-            || teamPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)),
-        }
-      }))
+      // The Team owns one policy in the scope's shared discovery tool; another
+      // owner of the same scope (a delegation tool) narrows the same catalog.
+      register(registerListSubagentModels(scoped, () => teamDiscoveryPolicy(ctx)))
     }
     register(scoped.systemPrompt.section({
       name: 'team:policy',

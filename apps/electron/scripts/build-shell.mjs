@@ -59,7 +59,30 @@ for (const [label, path] of [['cargo.exe', cargoExe], ['cargo registry', join(ca
   }
 }
 
+// Release-shell delivery properties, enforced on every build so a fresh
+// checkout ships the same binary as the released installer:
+//
+//   1. `--remap-path-prefix` rewrites the build machine's absolute source
+//      paths before they reach the binary. Rust's `file!()` bakes them into
+//      the panic-location strings in `.rdata`; `strip = "symbols"` does not
+//      remove them, so without this the shipped shell leaks the dependency
+//      cache layout (measured: 270 `E:\dependency-cache` hits).
+//   2. `-C target-feature=+crt-static` links the MSVC CRT statically, so the
+//      target machine does not need the VC++ x64 redistributable
+//      (measured: `VCRUNTIME140.dll` / `VCRUNTIME140_1.dll` in the import
+//      table disappear).
+//
+// Both flags are independent and both are required. A caller-supplied
+// RUSTFLAGS is preserved and these are appended to it.
+const REQUIRED_RUSTFLAGS = [
+  '-C target-feature=+crt-static',
+  '--remap-path-prefix=E:\\dependency-cache=cargo-cache',
+  '--remap-path-prefix=E:/dependency-cache=cargo-cache',
+]
+const rustFlags = [process.env.RUSTFLAGS, ...REQUIRED_RUSTFLAGS].filter(Boolean).join(' ')
+
 console.log('build-shell: cargo build --release --offline ...')
+console.log(`build-shell: RUSTFLAGS=${rustFlags}`)
 execFileSync(cargoExe, ['build', '--release', '--offline'], {
   cwd: projectDir,
   stdio: 'inherit',
@@ -68,6 +91,7 @@ execFileSync(cargoExe, ['build', '--release', '--offline'], {
     CARGO_HOME: cargoHome,
     RUSTUP_HOME: rustupHome,
     CARGO_TARGET_DIR: targetDir,
+    RUSTFLAGS: rustFlags,
   },
 })
 

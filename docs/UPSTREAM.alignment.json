@@ -8,9 +8,9 @@
   "priorReviewedCommit": "d743267388641bc76f17c45ce8b4c231aed1d32c",
   "productVersion": "1.7.3",
   "workspacePackageVersion": "0.2.1-alpha.1",
-  "verifiedOn": "2026-10-18",
+  "verifiedOn": "2026-10-22",
   "integrationStatus": "selected-backport-validated",
-  "headAtReview": "590aea6964d0a40943d0670c895db49d2a14bf21",
+  "headAtReview": "9f0ab4bfb78bc0baf27138363e7ba97b4be42db6",
   "alignmentPolicy": "Record the fetched upstream separately, review selectively, and do not replace product or workspace versions or claim a wholesale merge.",
   "fetched": {
     "officialMaster": "refs/remotes/official/master",
@@ -19,7 +19,10 @@
     "priorReviewedTag": "dsh-v0.2.1-alpha.2",
     "priorReviewedCommit": "d743267388641bc76f17c45ce8b4c231aed1d32c",
     "mergeBaseEstablished": false,
-    "note": "The shallow local history has no established merge base with official master; do not infer ancestry from content equality."
+    "note": "The shallow local history has no established merge base with official master; do not infer ancestry from content equality. Refetched on 2026-10-22: official/master is still 687f282e86 (last upstream commit 2026-10-17), so the tree is already at the newest official upstream.",
+    "fetchedOn": "2026-10-22",
+    "remoteName": "official",
+    "newCommitsSincePriorReview": 0
   },
   "reviewed": {
     "releaseDelta": {
@@ -37,19 +40,162 @@
       "dependency and profile deltas",
       "existing computer-use packages"
     ],
-    "selectionPolicy": "Select only narrowly applicable fixes with exact upstream commits and verified local preimages; do not copy release styling, API stacks, or profiles wholesale."
+    "selectionPolicy": "Select only narrowly applicable fixes with exact upstream commits and verified local preimages; do not copy release styling, API stacks, or profiles wholesale.",
+    "secondReview": {
+      "reviewedOn": "2026-10-22",
+      "baseline": "ec48669f48 (upstream 0.2.1-alpha.1, the point this fork actually forked from)",
+      "nonMergeUpstreamCommits": 1281,
+      "forkChangedFiles": 1435,
+      "upstreamChangedFiles": 4059,
+      "conflictFiles": 439,
+      "conflictHotspots": [
+        "packages/client (117)",
+        "packages/experimental (39)",
+        "packages/subagent (23)"
+      ],
+      "zeroConflictCandidates": 567,
+      "candidatesWhoseFilesAllExistInFork": 223,
+      "candidatesPassingGitApplyCheck": 69,
+      "appliedThisRound": 8,
+      "selectionRule": "Only upstream commits whose every changed file exists in this fork, does not overlap the fork divergence, and passes `git apply --check` against the current worktree may be backported. Whole-path overwrites of fork-owned namespaces are forbidden.",
+      "rejectedButApplicable": [
+        {
+          "commit": "59ba1321eb",
+          "title": "fix(subprocess): back Windows terminals with node-pty's bundled console host",
+          "reason": "Changes Windows PTY allocation for every terminal in the product; no local reproduction of the upstream console-host defect, so the blast radius outweighs the benefit."
+        },
+        {
+          "commit": "599b9f45d4",
+          "title": "fix(plugins): preserve scoped patches during Host edits",
+          "reason": "Depends on upstream app-boot APIs (profilePatchPreset / ProfilePatch) that do not exist in this fork's app-boot; the backport would not compile."
+        },
+        {
+          "commit": "15ae753dcd",
+          "title": "fix(plugin): inspect preset contributions before profile activation",
+          "reason": "Depends on upstream bundleDeclarations in plugin-manager, absent in this fork."
+        }
+      ],
+      "notApplicable": [
+        "API remote-access RBAC, principal, and credential-precedence stacks (hosted/cloud product direction)",
+        "llm-deepseek-account package (hosted account directory)",
+        "plugin-market and secret-mask UI (not part of this product surface)",
+        "HTTPS web listener (needs the `selfsigned` dependency, unavailable in the offline store)",
+        "CUA / macOS native stacks (not the Windows desktop target)"
+      ]
+    }
   },
   "incorporated": {
     "status": "validated-focused",
     "commits": [
-      "279302b762ba01974abf31d66f8aac411907f7e8"
+      "279302b762ba01974abf31d66f8aac411907f7e8",
+      "288a2bd6dcb13e8310eb31cbe65db9ae149bf436",
+      "898ed6d192",
+      "14e9bf61cb",
+      "df41b7cd2d",
+      "3121a4b5da",
+      "6ec995d49b",
+      "8953554b5e",
+      "5578ecf655"
     ],
     "files": [
       "packages/client/ui-user-questions/src/client/QuestionComposer.tsx",
       "packages/client/ui-user-questions/src/client/QuestionComposer.module.css"
     ],
-    "note": "Question composer focus fix applied with exact preimages. Full official release migration remains unapplied.",
-    "validation": "QuestionComposer behavior tests passed in the 14-file, 228-test integrated regression run; full official migration remains deferred."
+    "note": "Question composer focus fix applied with exact preimages. Full official release migration remains unapplied. Second round (2026-10-22): 8 narrowly applicable upstream fixes backported on top.",
+    "validation": "QuestionComposer behavior tests passed in the 14-file, 228-test integrated regression run; full official migration remains deferred.",
+    "rounds": [
+      {
+        "round": "2026-10-22",
+        "commits": [
+          {
+            "commit": "288a2bd6dcb13e8310eb31cbe65db9ae149bf436",
+            "title": "fix(cordis): adopt effect disposers from their owning fiber",
+            "paths": [
+              "vendor/cordis/src/fiber.ts",
+              "packages/core/scope/tests/scope.spec.ts",
+              "docs/cordis-api/fiber.md",
+              "docs/cordis-api/fiber.zh.md",
+              "docs/cordis-api/fiber.i18n.yaml",
+              "vendor/README.md"
+            ],
+            "reason": "本次根修把跨 fiber 的 contribution 交给 ctx.effect 回收；上游这条修复正是该归属语义的正解，避免 effect 在错误 fiber 上被回收。"
+          },
+          {
+            "commit": "898ed6d192",
+            "title": "fix(api-gateway): count mux traffic as heartbeat liveness",
+            "paths": [
+              "packages/api/gateway/src/stream-server.ts",
+              "packages/api/gateway/tests/stream-server.host.spec.ts",
+              "packages/api/gateway/README.md",
+              "packages/api/gateway/README.zh.md",
+              "packages/api/gateway/README.i18n.yaml"
+            ],
+            "reason": "桌面端长会话靠 mux 通道保活；把 mux 流量计入心跳，避免空闲长会话被当成断连。"
+          },
+          {
+            "commit": "14e9bf61cb",
+            "title": "fix(hmr,skills): contain watcher errors that arrive after close",
+            "paths": [
+              "packages/boot/hmr/src/watch-config.ts",
+              "packages/boot/hmr/tests/watch-config.spec.ts",
+              "packages/skill/skill-filesystem/src/index.ts",
+              "packages/skill/skill-filesystem/tests/skill-filesystem-watcher.spec.ts"
+            ],
+            "reason": "桌面宿主长期挂着文件监听；关闭后迟到的 watcher 错误会变成未捕获异常。"
+          },
+          {
+            "commit": "df41b7cd2d",
+            "title": "fix(credentials-local): contain watcher errors that arrive after close",
+            "paths": [
+              "packages/credentials/credentials-local/src/index.ts",
+              "packages/credentials/credentials-local/tests/watcher.spec.ts"
+            ],
+            "reason": "同族的凭据监听错误兜底，和 HMR/技能监听一起堵住宿主未捕获异常。"
+          },
+          {
+            "commit": "3121a4b5da",
+            "title": "fix(ui-chat): show a stopped notice for turns interrupted by a DSH stop",
+            "paths": [
+              "packages/client/ui-chat/src/client/chat/MessageItem.tsx",
+              "packages/client/ui-chat/src/client/conversation-nodes/turn-error.ts",
+              "packages/client/ui-chat/src/client/locale.ts",
+              "packages/client/ui-chat/tests/chat-view.client.spec.tsx",
+              "packages/client/ui-chat/tests/conversation-node-definitions.client.spec.ts"
+            ],
+            "reason": "被打断的轮次此前没有可见提示，用户会以为会话卡死；桌面端与 QQ companion 都会打断轮次。"
+          },
+          {
+            "commit": "6ec995d49b",
+            "title": "fix(session-title): keep the first output line and bound the cap by the request",
+            "paths": [
+              "packages/session/session-title-llm/src/index.ts",
+              "packages/session/session-title-llm/tests/llm.spec.ts"
+            ],
+            "reason": "会话标题取首行并按请求预算截断，修复多行/超长输出污染标题。"
+          },
+          {
+            "commit": "8953554b5e",
+            "title": "fix(web): clip the collapsed right sidebar so PageUp cannot shift the frame",
+            "paths": [
+              "packages/client/ui-dockkit/src/components/DockSurface.tsx",
+              "packages/client/ui-sidebar-right/src/client/shell/SidebarRight.module.css",
+              "apps/web/tests/sidebar-right.e2e.ts"
+            ],
+            "reason": "右侧栏折叠时 PageUp 会把整个框架推走，纯前端布局缺陷。"
+          },
+          {
+            "commit": "5578ecf655",
+            "title": "refactor(session-projection): return the exact change-feed disposer",
+            "paths": [
+              "packages/session/session-projection/src/index.ts"
+            ],
+            "reason": "投影订阅返回精确 disposer，避免多订阅/少退订导致的状态漂移。"
+          }
+        ],
+        "applyCheck": "every commit passed `git apply --check` against the worktree before it was applied",
+        "validation": "vitest (configs/vitest.config.ts) over the 12 affected packages: 109 test files passed, 2103 tests passed; the only 3 failures are Windows symlink-privilege (EPERM) cases in packages/skill/skill-filesystem/tests/skill-filesystem.spec.ts, unrelated to these commits."
+      }
+    ]
   },
   "candidate": {
     "status": "validated-focused",
@@ -64,7 +210,30 @@
       "tsx": "33bbcbec0a087c1f18e2e4d0b56f8ec66fdd07d5",
       "css": "5f2eb4701b7024827fbcbf6dbcb7e2f3ce22b2d7"
     },
-    "applyCheck": "git apply --check with the exported upstream patch is clean"
+    "applyCheck": "git apply --check with the exported upstream patch is clean",
+    "secondRound": {
+      "status": "applied-narrow-backport",
+      "commits": [
+        "288a2bd6dcb13e8310eb31cbe65db9ae149bf436",
+        "898ed6d192",
+        "14e9bf61cb",
+        "df41b7cd2d",
+        "3121a4b5da",
+        "6ec995d49b",
+        "8953554b5e",
+        "5578ecf655"
+      ],
+      "titles": [
+        "fix(cordis): adopt effect disposers from their owning fiber",
+        "fix(api-gateway): count mux traffic as heartbeat liveness",
+        "fix(hmr,skills): contain watcher errors that arrive after close",
+        "fix(credentials-local): contain watcher errors that arrive after close",
+        "fix(ui-chat): show a stopped notice for turns interrupted by a DSH stop",
+        "fix(session-title): keep the first output line and bound the cap by the request",
+        "fix(web): clip the collapsed right sidebar so PageUp cannot shift the frame",
+        "refactor(session-projection): return the exact change-feed disposer"
+      ]
+    }
   },
   "nativeCapability": {
     "existingLocalStack": {
@@ -117,5 +286,14 @@
     ]
   },
   "evidence": "dev-docs/evidence/2026-10-18-upstream.md",
-  "reviewWorktree": "Integration changes reviewed over this base HEAD; the delivery commit is reported after commit."
+  "reviewWorktree": "Second review over base HEAD 9f0ab4bfb7; the delivery commit is reported after commit.",
+  "discoveryRegistrationInvariant": {
+    "defect": "tool \"list_subagent_models\" is already registered in this scope",
+    "introducedBy": "this fork only — upstream tool-agent-team has no modelSelectionSettings switch and never registers the discovery tool",
+    "rootCause": "The delegation tool and the Agent Team both registered `list_subagent_models` in the same Agent scope; dsh-tools rejects a second name inside one scope. The shipped package is built into two entry points (lib/index.js bundles list-models inline, lib/list-models.js is standalone), so module-level state was duplicated and never shared.",
+    "fix": "packages/subagent/tool-subagent/src/list-models.ts keeps one registration per scope in a process-wide registry (Symbol.for keyed) and intersects the policies of every contributor; packages/experimental/tool-agent-team/src/index.ts contributes its narrowed policy instead of registering a second time.",
+    "regressionTest": "packages/experimental/tool-agent-team/tests/loader-composition.spec.ts mounts the delegation tool and the Team in one Agent scope; before the fix it failed with the exact reported error.",
+    "runtimeGate": "scripts/check-offline-pack.mjs refuses a payload whose desktop overlay enables modelSelectionSettings while the shipped tool-subagent runtime predates the fix."
+  },
+  "secondEvidence": "dev-docs/2026-10-22-upstream-integration-report.md"
 }

@@ -111,6 +111,16 @@ execFileSync(process.execPath, [
   pnpmCjs,
   '--filter', '@deepseek-ai/dsh', 'deploy', '--prod', '--offline',
   '--node-linker=hoisted', '--config.inject-workspace-packages=true',
+  // pnpm 11 verifies the deploy target's freshly written lockfile against the
+  // supply-chain policies before installing it. That check re-fetches every
+  // package's metadata and provenance attestations from registry.npmjs.org,
+  // so it needs the network even under `--offline` and retries forever when
+  // the registry is unreachable. The verification cache is keyed by the
+  // lockfile's path, so a new output directory (the `CETUS_DIST_DIR` landing
+  // spot) always misses the cache. `--trust-lockfile` skips the verification
+  // step: the lockfile is the reviewed artifact of this repository, and the
+  // deploy still runs fully offline from the content-addressable store.
+  '--trust-lockfile',
   join(appDir, 'backend', 'runtime'),
 ], { cwd: repoRoot, stdio: 'inherit' })
 

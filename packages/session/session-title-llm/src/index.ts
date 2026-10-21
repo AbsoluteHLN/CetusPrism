@@ -64,7 +64,7 @@ export interface SessionTitleLlmConfig {
   readonly targetCjkCharacters: number
   /** Maximum UTF-8 bytes in the final JSON-framed user prompt. */
   readonly maxInputBytes: number
-  /** Auxiliary generation output-token cap. */
+  /** Auxiliary generation output-token cap, never above the cap the session's current request recorded. */
   readonly maxOutputTokens: number
   /** End-to-end auxiliary request deadline in milliseconds. */
   readonly timeoutMs: number
@@ -191,6 +191,23 @@ function resolveRoute(
   return request.route
 }
 
+/**
+ * Bound the configured output cap by the cap the session's current main
+ * request materialized, so a route the deployment capped below the configured
+ * value is never asked for more. A session whose header records no cap leaves
+ * the configured cap unchanged.
+ * @param config - validated model-provider policy.
+ * @param request - service-owned session of this title request.
+ * @returns the smaller of the configured cap and the logged request cap.
+ */
+function titleMaxTokens(
+  config: ResolvedSessionTitleLlmConfig,
+  request: SessionTitleProviderRequest,
+): number {
+  const materialized = request.session.requestHeader()?.config.maxTokens
+  return materialized === undefined ? config.maxOutputTokens : Math.min(config.maxOutputTokens, materialized)
+}
+
 /** Stable language-aware system instruction shared by both provider plugins. */
 function systemPrompt(config: ResolvedSessionTitleLlmConfig): string {
   return [
@@ -198,7 +215,24 @@ function systemPrompt(config: ResolvedSessionTitleLlmConfig): string {
     'Return only the title on one line, **in plain text of natural language**, with no quotes, prefix, explanation, Markdown, XML, or terminal control codes. No code is allowed.',
     'Use the language of the messages.',
     `Aim for about ${config.targetWords} words in non-CJK languages or ${config.targetCjkCharacters} CJK characters.`,
+    'If the messages give little to name, still return a short best-effort title, such as Greeting, instead of explaining.',
   ].join('\n')
+}
+
+/** Asterisk emphasis wrapping a whole line, such as `**Title**`. */
+const EMPHASIS_WRAPPER = /^(?<marker>\*{1,3})(?<inner>\S(?:.*\S)?)\k<marker>$/u
+
+/**
+ * Take the title from model output: the first non-empty line, without
+ * asterisk emphasis that wraps that whole line. Models that disregard the
+ * one-line instruction put the title first and commentary after it.
+ */
+function titleFromOutput(text: string): string {
+  const line = text.split(/\r?\n/u).map(item => item.trim()).find(item => item.length > 0) ?? ''
+  const groups = EMPHASIS_WRAPPER.exec(line)?.groups
+  const marker = groups?.['marker']
+  const inner = groups?.['inner']
+  return marker === undefined || inner === undefined || inner.includes(marker) ? line : inner
 }
 
 /** Frame exact messages as JSON so user text cannot break structural delimiters. */
@@ -258,12 +292,13 @@ export async function generateSessionTitleWithLlm(
   })]
   const system = systemPrompt(config)
   using callDeadline = deadline(request.signal, config.timeoutMs, SESSION_TITLE_TIMEOUT_CODE)
+  const maxTokens = titleMaxTokens(config, request)
   const options: GenerateOptions = deepFreeze({
     provider: route.provider,
     model: route.model,
     messages,
     system,
-    maxTokens: config.maxOutputTokens,
+    maxTokens,
     sessionId: request.session.id,
     purpose: 'session-title',
     signal: callDeadline.signal,
@@ -274,7 +309,7 @@ export async function generateSessionTitleWithLlm(
     route,
     system,
     messages,
-    maxTokens: config.maxOutputTokens,
+    maxTokens,
   })
   callDeadline.signal.throwIfAborted()
   const assembler = new BlockAssembler()
@@ -293,7 +328,7 @@ export async function generateSessionTitleWithLlm(
     .filter((block): block is Extract<(typeof blocks)[number], { type: 'text' }> => block.type === 'text')
     .map(block => block.text)
     .join(' ')
-  const title = normalizeSessionTitle(text, Number.MAX_SAFE_INTEGER)
+  const title = normalizeSessionTitle(titleFromOutput(text), Number.MAX_SAFE_INTEGER)
   if (title.length === 0) throw new Error('session-title-llm: title model produced no text')
   return {
     title,

@@ -555,6 +555,10 @@ export class TeamMailbox {
           return true
         }
       }
+      // A parked member is not woken by mail. Its message waits in the
+      // durable queue for the resume that brings it back, which is the
+      // whole point of the release.
+      if (this.parkedMember(root, message.targetId)) return false
       await steerHostSubagentPrompt(this.ctx.subagents, root, message.targetId, content, source, signal)
       return target === undefined
         ? true
@@ -563,6 +567,22 @@ export class TeamMailbox {
       this.ctx.logger.warn(`team message "${message.id}" remains queued: ${errorMessage(error)}`)
       return false
     }
+  }
+
+  /**
+   * Whether one member is parked and must not be woken by a delivery.
+   *
+   * A dormant member keeps its identity but runs no turn: its mail waits in
+   * the durable queue until a resume brings it back. Delivering to it here
+   * would wake it — which is exactly what the release was for, and what the
+   * specification says must not happen.
+   * @param root - exact live Team Lead.
+   * @param targetId - the target Session identity.
+   * @returns whether the member is dormant.
+   */
+  private parkedMember(root: Agent, targetId: SessionId): boolean {
+    const member = this.journal.state(root).members.find(candidate => candidate.id === targetId)
+    return member?.phase === 'dormant'
   }
 
   /** Flush one live target receipt before the Lead records its delivered edge. */

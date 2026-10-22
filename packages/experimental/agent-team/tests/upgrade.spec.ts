@@ -331,6 +331,64 @@ describe('Team dormant teammates', () => {
     expect(durable(lead).members.find(member => member.name === 'worker')?.phase).toBe('active')
   })
 
+  it('does not wake a dormant teammate with mail', async () => {
+    const { ctx, lead } = await setup(['hang'])
+    await spawn(ctx, lead, 'worker')
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+
+    const sent = await ctx.agentTeams.sendMessage(lead, {
+      target: 'worker',
+      content: content('the review is ready'),
+      signal: SIGNAL,
+    })
+
+    // The message is durable and queued. Delivering it would have
+    // cold-resumed the member, which is the one thing the release is for:
+    // a dormant member keeps its identity and runs no turn.
+    expect(sent.status).toBe('queued')
+    expect(durable(lead).members.find(member => member.name === 'worker')?.phase).toBe('dormant')
+    expect(durable(lead).delivered).not.toContain(sent.messageId)
+  })
+
+  it('delivers the mail that waited for a dormant teammate', async () => {
+    const { ctx, lead } = await setup(['hang', 'hang'])
+    await spawn(ctx, lead, 'worker')
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+    const sent = await ctx.agentTeams.sendMessage(lead, {
+      target: 'worker',
+      content: content('the review is ready'),
+      signal: SIGNAL,
+    })
+
+    await ctx.agentTeams.resumeTeammate(lead, {
+      name: 'worker',
+      prompt: content('continue the review'),
+      signal: SIGNAL,
+    })
+
+    // The member is back, and the mail that waited for it arrives then.
+    await vi.waitFor(() => {
+      expect(durable(lead).delivered).toContain(sent.messageId)
+    }, { timeout: 5_000 })
+  })
+
+  it('keeps a teammate dormant when its resume fails', async () => {
+    const { ctx, lead } = await setup(['hang'])
+    await spawn(ctx, lead, 'worker')
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+    vi.spyOn(ctx.subagents, 'sendMessage').mockRejectedValueOnce(new Error('the session is not available'))
+
+    await expect(ctx.agentTeams.resumeTeammate(lead, {
+      name: 'worker',
+      prompt: content('continue the review'),
+      signal: SIGNAL,
+    })).rejects.toMatchObject({ code: 'TEAM_MEMBER_NOT_RESUMABLE' })
+
+    // The member runs nothing, so it goes back to the phase it was released
+    // into: a later resume has to be able to bring it back.
+    expect(durable(lead).members.find(member => member.name === 'worker')?.phase).toBe('dormant')
+  })
+
   it('rejects a resume for a member that is not dormant', async () => {
     const { ctx, lead } = await setup(['hang'])
     await spawn(ctx, lead, 'worker')

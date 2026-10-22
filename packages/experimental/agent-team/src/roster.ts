@@ -342,17 +342,10 @@ export class TeamRoster {
     if (member.phase !== 'dormant') {
       throw new TeamError(`teammate "${request.name}" is not a dormant member`, 'TEAM_MEMBER_NOT_FOUND')
     }
-    // The subagent service cold-resumes an absent continuable child from
-    // persistence and submits this turn to it.
-    try {
-      await this.ctx.subagents.sendMessage(caller, member.id, request.prompt, { signal })
-    } catch (error: unknown) {
-      throw new TeamError(
-        `teammate "${request.name}" cannot be resumed: ${errorMessage(error)}`,
-        'TEAM_MEMBER_NOT_RESUMABLE',
-        { cause: error },
-      )
-    }
+    // The member becomes active before its turn is submitted. The child
+    // Agent is created while the prompt is on its way, and a member the
+    // roster still calls dormant is not a Team member at that moment — so it
+    // would come back without the tools that let it answer.
     const active = await this.journal.transact(root.id, async () => {
       signal.throwIfAborted()
       const current = this.journal.state(root).members.find(candidate => candidate.id === member.id)
@@ -367,7 +360,49 @@ export class TeamRoster {
       })
       return settled
     })
+    // The subagent service cold-resumes an absent continuable child from
+    // persistence and submits this turn to it.
+    try {
+      await this.ctx.subagents.sendMessage(caller, member.id, request.prompt, { signal })
+    } catch (error: unknown) {
+      // The member runs nothing, so it goes back to the phase it was
+      // released into: an active member without a runtime is a member no
+      // later resume can bring back.
+      await this.park(root, member.id)
+      throw new TeamError(
+        `teammate "${request.name}" cannot be resumed: ${errorMessage(error)}`,
+        'TEAM_MEMBER_NOT_RESUMABLE',
+        { cause: error },
+      )
+    }
     return { member: this.memberView(active) }
+  }
+
+  /**
+   * Put one member back into the phase it was released into.
+   *
+   * A resume that fails leaves the member running nothing, and the phase
+   * the roster carries has to say so: an active member without a runtime is
+   * a member no later resume can bring back.
+   * @param root - exact live Team Lead.
+   * @param memberId - the member identity.
+   */
+  private async park(root: Agent, memberId: SessionId): Promise<void> {
+    try {
+      await this.journal.transact(root.id, async () => {
+        const current = this.journal.state(root).members.find(candidate => candidate.id === memberId)
+        if (current === undefined || current.phase !== 'active') return
+        await this.journal.appendAndFlush(root, 'team/member', {
+          version: 2,
+          teamId: TeamId(root.id),
+          member: { ...current, phase: 'dormant' },
+        })
+      })
+    } catch (error: unknown) {
+      this.ctx.logger.warn(
+        `team member "${memberId}" could not be parked after a failed resume: ${errorMessage(error)}`,
+      )
+    }
   }
 
   /**

@@ -277,6 +277,14 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 1. **preset 只被记录与校验，不被施加**：preset 是 Session 级编排（由用户在 composer 或 Host 侧选定），
    Team 侧无法替子会话改写编排。因此 `preset` 落在成员快照里并受 `allowedPresets` 约束，
    但真正让子会话跑在哪个 preset 上，仍由 Session 侧的 preset 选定权决定。
+   **本轮取证确认这是有意的边界而非缺陷**：子 Agent 的 preset 由父级继承
+   （`packages/subagent/subagent/src/child-agent.ts:205` 的 `composeFrom(childCtx, parent.ctx)`），
+   `SubagentCapabilities`（`packages/subagent/subagent/src/types.ts:130-136`）只声明
+   `toolFilter` 与 `persona` 两个 per-child 施加点，**没有** per-child preset；
+   `ContinuableCreateRequest`（`types.ts:219-229`）同样只带 `sessionId` / `parent` / `signal`。
+   团队走 continuable 路径（`packages/experimental/agent-team/src/roster.ts:513`），
+   要按成员施加 preset 就必须在 subagent 层开新口子——那是**全仓共享包**改动，
+   影响所有 DSH 会话，按工程纪律须按 preset/底座开关隔离，不属于本轮范围。
 2. **dormant 成员不会被 `send_message` 唤醒**：消息照常入队并在其复原后送达（与离线成员同语义），
    唤醒动作只有 `reactivate_teammate`（它带一次任务）。
 3. **`maxMembers` 计入 dormant 成员**（S4.2.4 的口径）：长期逗留不会绕过成员上限，

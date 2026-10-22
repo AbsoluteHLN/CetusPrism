@@ -29,6 +29,18 @@ interface PresetRow {
   config: { id: string; plugins: PluginRow[] }
 }
 
+/**
+ * The output tokens one routed request reserves.
+ *
+ * A model neither configuration nor the catalog sizes is given pi-ai's
+ * default output cap (`DEFAULT_MAX_TOKENS` in
+ * `packages/llm/llm-pi-ai/src/config.ts`), and that cap is what the
+ * threshold below leaves aside before it compacts. The number is named here
+ * so the budget reads as the shape it is — a window minus a reserve — rather
+ * than as a window times a ratio.
+ */
+const OUTPUT_RESERVE_TOKENS = 32_768
+
 const parsed = loadCordisYaml(
   readFileSync(new URL('../presets/standard.patch.yml', import.meta.url), 'utf8'),
 ) as { insert: PresetRow[] }[]
@@ -47,7 +59,7 @@ it('gives the model its window instead of a flat reserve', () => {
   const config = resolveConfig(compactionConfig())
   const policy = resolveTargetPolicy(config, { provider: 'any', model: 'any' })
   const thresholdOf = (contextWindow: number): number =>
-    resolveCompactSpec(policy, contextWindow, 32_768).thresholdTokens
+    resolveCompactSpec(policy, contextWindow, OUTPUT_RESERVE_TOKENS).thresholdTokens
 
   // A 128K window and the service defaults left 29,696 tokens before
   // compaction — under a quarter of the window. These are the budgets the
@@ -73,7 +85,7 @@ it('gives the GLM composition the same shaped budget', () => {
   const config = resolveConfig(engine.config as BasicCompactionConfig)
   const policy = resolveTargetPolicy(config, { provider: 'any', model: 'any' })
   const thresholdOf = (contextWindow: number): number =>
-    resolveCompactSpec(policy, contextWindow, 32_768).thresholdTokens
+    resolveCompactSpec(policy, contextWindow, OUTPUT_RESERVE_TOKENS).thresholdTokens
 
   expect(thresholdOf(128_000)).toBe(87_040)
   expect(thresholdOf(200_000)).toBe(159_040)

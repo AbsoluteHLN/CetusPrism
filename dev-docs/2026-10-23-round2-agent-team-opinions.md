@@ -1,10 +1,11 @@
-# 第二轮裁决意见（S4 智能体团队升级：A/B/C 三问）
+# 第二轮裁决意见（S4 智能体团队升级：A/B/C 三问 + 补充 D/E 两问）
 
 - 作者：智能体团队架构师（本文件为本 Bot 专属产出）
 - 日期：2026-10-23
-- 范围：只回答第二轮三问（A：resume() 错误码拆分；B：档案 preset 与请求 preset 优先级；C：`allowedPresets` 是否对账真实 preset 目录）。不重复首轮审查内容，不引用已收口项。
+- 范围：第二轮三问（A：resume() 错误码拆分；B：档案 preset 与请求 preset 优先级；C：`allowedPresets` 是否对账真实 preset 目录），以及回归风险审查员重写稿（`dev-docs/2026-10-23-regression-risk-review.md`，`“docs(review): take the regression review's rewritten draft” 批次`）的补充两问（D：广播目标顺序的头阻塞语义；E：resume 失败原因折叠的 cause 钉子）。不重复首轮审查内容，不引用已收口项。
 - 代码基线：`E:\Projects\CetusPrism` 分支 `release/v1.7.3`（本 Bot 本轮零代码改动、零 git 写操作；本文所有证据为本轮实读实跑所得）。
-- 本轮验证命令（已验证）：`pnpm vitest run --config configs/vitest.config.ts packages/experimental/agent-team/tests/upgrade.spec.ts` → 1 file / 42 tests 全绿，exit 0（2026-10-23 实跑）。
+- 本轮验证命令（已验证）：`pnpm vitest run --config configs/vitest.config.ts packages/experimental/agent-team/tests/upgrade.spec.ts` → 1 file / 42 tests 全绿，exit 0（2026-10-23 04:43 实跑）。
+- **基线更新（05:43 补记）**：A/B/C 作答后，首席已落 `“fix(agent-team): let the profile pin the preset, and keep the resume failure” 批次`（问题 B 的档案钉 preset + 问题 A 的 resume 失败原因落账）与 `第二轮裁决记录批次`（第二轮裁决记录）；本文件 A–C 章节保留作答时的原文与当时的行号，D/E 两章按**落地后的新基线**作答。同文件同命令复跑：1 file / 47 tests 全绿，exit 0（47 = 42 + 落地波新增 5 例）。A–C 章节中受该提交影响的行号（如 `park()` 从 :390-406 移至 :395-413）以 D/E 章引注的当前行号为准。
 
 ---
 
@@ -79,7 +80,7 @@
 
 ### 理由
 
-- 两类拼错的失真等级不同：backend 拼错会走完 provisioning 硬失败、失败成员占名字占名额（正是 `dbaf5e308c` 关闭的形态）；preset 拼错的后果只是「成员行记录了一个不生效的 id」，子会话实际跑继承预设——软失真，且已有边界条款覆盖其语义。
+- 两类拼错的失真等级不同：backend 拼错会走完 provisioning 硬失败、失败成员占名字占名额（正是 `“fix(agent-team): refuse an execution backend the deployment does not have” 修复` 关闭的形态）；preset 拼错的后果只是「成员行记录了一个不生效的 id」，子会话实际跑继承预设——软失真，且已有边界条款覆盖其语义。
 - 对账成本不匹配：preset 目录在另一个服务（`AgentPresetRegistry`，`list()` 为异步 `:238`），而 agent-team 的 `checkRanges` 是同步集合判定（`range.ts:33-59`）；要么给实验包新开对 preset-registry 的硬注入（装载顺序耦合、需先验证所有部署形态下 agentPresets 必在——**未验证**），要么把校验改异步穿透到 spawn 主链路。为一个当前不生效的记录值付出跨包耦合，收益不成立。
 - 但边界必须从「无人提过」变成「明文登记」：在 spec「已知边界」追加一条（与 #1 并列）：allowedPresets 为 Team 自声明集合，不与部署 preset 目录对账，未知 preset id 静默记录且不生效；同时 `spawn_teammate` 的 preset 参数描述应补一句「须为部署声明的 preset id」（`tool-agent-team/src/index.ts:411` 现在只提 range，未提目录），避免模型自由编 id。
 
@@ -91,8 +92,70 @@
 
 ---
 
+## 补充问题 D：广播目标顺序的「头阻塞」语义
+
+**一句话结论：外层短路不是"按目标本地队列序"不变量本身——那条不变量由按目标串行化（`serializeDispatch`）加逐目标积压补投（`dispatchBroadcastThrough`）承载；建议先改实现（跨目标短路改为逐目标独立尝试、聚合返回）再钉新语义。这个改动不触碰持久化协议，对"不丢消息"零影响；而现状语义在新 S4 世界里有一个真实的活性代价。**
+
+### 证据（已验证）
+
+1. 投递栈三层：`tryDispatchBroadcast`（`mailbox.ts:261-281`，inFlight 去重）→ `dispatchBroadcastAdmitted`（:290-304，按 `targetIds` 顺序，**首个失败即 `return false`**，:301）→ `serializeDispatch`（:490-505，按 targetId 串行）→ `dispatchBroadcastThrough`（:314-340，每次投递把该目标**积压的全部广播**按持久队列序补投到被请求条目为止）。
+2. 「按目标本地队列序」的真正承载者是后两层：`serializeDispatch`（:490-505）按 targetId 串行化投递，`dispatchBroadcastThrough`（:320-338）逐目标补投积压。外层 for 的顺序不承载任何排序不变量——跨目标本无顺序契约。
+3. 失败形状：`deliverBroadcast` 对无 runtime 目标走 `target === undefined` 分支（`mailbox.ts:373-380`），`persistedTargetRecorded` 查不到 → 返回 false，边不落、消息保持 queued（warn：`mailbox.ts:385`）。dormant 成员（合法目标，`resolveReachableMember` 只接受 active/dormant，`roster.ts:101`）正好命中此分支。
+4. 既有测试只钉了「失败目标**之前**的目标保留边」：`upgrade.spec.ts:898-941`（targetIds `['alpha','beta']`、beta 末位 released → alpha 保留边、status queued、resume(beta) 后只补投 beta）。**失败目标之后的 live 目标**无任何用例；这正是重写稿缺口 4（:89）与待确认问题 1（:114）的空白。
+5. 补投驱动清单（已验证）：(a) 成员启动/复活 `recoverFor`（`mailbox.ts:89-111`，重投该成员的全部积压消息与广播）；(b) 新广播 admission 时对每个目标走 `dispatchBroadcastThrough`，把该目标积压的**全部**广播一并补投（:320-338——新广播 B2 点名 live 时，积压的 B1 会被一并送到 live）；(c) 没有定时器/周期驱动。
+6. **传染性（关键）**：starved 目标自己的恢复也被头阻塞——`recoverFor(live)`（`mailbox.ts:103-110`）对点名 live 的积压广播调 `tryDispatchBroadcast`，而它仍从 `targetIds` 头部开始迭代（:295），撞上头部 ghost 依旧提前返回。live 的自救通道只有两条：头部目标复活（其恢复把头部送完、循环继续到 live），或任一**新广播**点名 live。
+7. 重写稿 :89 的验收措辞有一处与实现不符：「后续任一新驱动（如再发一条普通消息）才补投」——普通单播的驱动链（`tryDispatchAdmitted` → `dispatchThrough`，`mailbox.ts:508-528`）只过滤 `state.messages` 队列，**不触碰积压广播**。能补投积压广播的驱动是：新广播点名该目标（证据 5b）、头部目标复活、或进程重启后的冷恢复。
+
+### 裁决 + 理由
+
+- **裁决：这不是"按目标本地队列序"的有意不变量，而是外层短路的实现缝隙；建议先改实现再钉新语义（逐目标独立尝试、聚合返回）。**
+- 依据一：队列序不变量由 `serializeDispatch` + `dispatchBroadcastThrough` 承载（证据 1），与外层是否短路无关。把 `if (!delivered) return false`（:301）改为聚合（`allDelivered &&= delivered`，循环后返回），每个目标仍按各自本地队列序投递、失败目标保持 queued——**语义只多不少**。
+- 依据二：与 spec 的意图一致。S4.4 宣称的是"每目标一条投递边"（spec :269；投影层对重复边直接抛错，`projection.ts:404-411`），不是"目标间串行、遇阻全停"。头阻塞下 `[dormant, live]` 里 live 的等待时长取决于别人的复活时机，这不是广播原语该有的语义。
+- 现状可钉但代价真实：生产中能坐上"头部"的只有 dormant（合法）或「active 无 runtime」——后者正是备忘录 :168 挂账的 park 吞错残留形态（`roster.ts:411-413`），它会成为永不解决的头部，压制其后所有目标直到下次新广播点名。若首席决定本轮零代码，钉现状必须如实写"live 本次驱动收不到、要等新广播点名或头部复活"，不能按重写稿 :89 的"普通消息补投"写（不成立）。
+- 对「不丢消息」的影响：**两种语义都不丢，改动不触碰持久化协议**。durable broadcast 记录、per-target 边、投递前 `targetRecorded` 幂等检查（`mailbox.ts:358`）、`markBroadcastDelivered` 的重复边防护（:419-420）全部不变。差异只在"谁在本驱动内被投递"——所以这个选择是时延/公平性取舍，不碰消息丢失性质；改实现不会让"不丢"变差，只会让"送达更及时"。
+
+### 风险 / 遗漏
+
+- 钉新语义的用例要同时断言三个性质：live 本进程本次驱动内收到（新语义）；dormant 头部目标保持 queued、边不落；头部复活后只补投头部（live 不重复投）。红→绿可逆：撤掉聚合改动（恢复短路）转红。
+- 若维持现状：README/spec 需明写「广播按 targetIds 顺序投递，首个不可达目标会阻断其后目标在本驱动内的送达，直至该目标复活或新广播点名」——把现状从隐式行为升格为登记语义，避免调度缝改动导致静默漂移。
+- 未验证项：`trackDispatch`/`inFlightMessages` 在聚合实现下的簿记等价性（本 Bot 未写实现验证，属建议落法时的实现者职责）；跨目标聚合失败时 `status: 'queued'` 的既有语义不变（`broadcast` :250 的 accepted/queued 二值不变，聚合只影响内部循环）。
+
+---
+
+## 补充问题 E：resume 失败的原因折叠——要不要钉「cause 可观测」？
+
+**一句话结论：拆码与补诊断不是二选一——首席已按问题 A 的裁决落地"单码 + 原因落账"（`“fix(agent-team): let the profile pin the preset, and keep the resume failure” 批次`），现在唯一还开着的钉子是"抛出的 `TeamError.cause` 保留原始错误"；补一条断言即可，红→绿可逆。若拆码与保留 cause 只能取一：选保留 cause，不拆码。**
+
+### 证据
+
+1. 已落地（已验证，当前源码 + git log）：`park()` 增加 `reason` 参数并把原因写进成员行 `error`（`roster.ts:395`、`:403` `...reason === undefined ? {} : { error: reason }`）；resume 失败传 `errorMessage(error)`（`roster.ts:375`）；成功复活时剥离陈旧 failure（`roster.ts:355-358`）。新用例钉住：`upgrade.spec.ts:522-539`（成行 error）、`:541-559`（复活清陈因）。
+2. 单码与 cause 仍在（已验证）：`roster.ts:377-379`——单一 `TEAM_MEMBER_NOT_RESUMABLE` + `{ cause: error }`。`PERSISTENCE_UNAVAILABLE` 仍从 resume 路径结构性不可达（`requirePersistence` 唯一调用点 `continuation.ts:108`，spawn 专属），重写稿 :88 里"含 `PERSISTENCE_UNAVAILABLE` 类"的前提与首轮 A 题取证一致地不成立。
+3. **cause 目前零断言**（已验证）：grep `\.cause|cause:` 在 agent-team 全部测试只命中 `team.spec.ts:1754-1762` 的 `lifecycle.settle` 包装用例，与 resume 无关。重写稿 :88 要求的「cause 可观测」钉子仍缺。
+4. 信息通道对照（已验证）：抛出的 `TeamError` 消息内嵌底层文案（:377）、`cause` 保留原始对象（:379）、durable 行落 `errorMessage` 文案（:403）。**cause 是唯一保留原始错误类型与 code 的通道**——成员行 `error` 只存 `errorMessage()` 文本，`cause` 上才有 `SubagentError` 的 name/code（如 observeSession 失败 → `continuation.ts:420`）。
+
+### 裁决
+
+- **要补钉**。落法：在既有 `'keeps a teammate dormant when its resume fails'`（`upgrade.spec.ts:505-520`）旁追加：捕获 rejects 后断言 `error.cause` 为 Error 且其 `message` 与 mock 的 `'the session is not available'`（:509）一致；可再加一例以 `SubagentError('...', 'NOT_RESUMABLE')` 作 mock，断言 `cause.code` 透传。红→绿可逆验证：删掉 `roster.ts:379` 的 `{ cause: error }` 转红。
+- 与问题 A 的关系：A 题的最终形态已由 `“fix(agent-team): let the profile pin the preset, and keep the resume failure” 批次` 落地——拆码被否、单码保留、原因落账实现并有用例。E 是这条线的收尾：把"cause 透传"从实现细节升格为被钉住的契约，与 A 题"诊断增强"方向同源。
+- 二选一的取舍：**保留 cause**。理由：(1) Team 层没有按底层原因分叉的后续行为，第二个错误码不产生任何决策差异（A 题理由，仍然成立）；(2) cause 的信息量严格大于一个新 team 码（原始 name + code + message 全保留），且不需要 Team 层自建"底层原因 → team 码"映射表；(3) 拆码要动已钉契约（`upgrade.spec.ts` 现存三处 code 断言：:515、:532、:550）而收益为零——其唯一理论消费场景（`PERSISTENCE_UNAVAILABLE`）在 resume 路径不可达。
+
+### 风险 / 遗漏
+
+- cause 断言建议钉「身份/文案 + code 存在性」，不要钉死具体错误类：真实链路的 cause 多为 `SubagentError`（`subagent/src/error.ts:10-14`），mock 可控；钉类会放大无关重构的脆性。
+- park 吞错残留仍在（`roster.ts:411-413` warn 后吞）：原因落账以「park 写回成功」为前提，journal 写回失败时行停在 active 且无 error 文案——该残留维持备忘录 :168 挂账，与 cause 钉子正交。
+- 未验证项：未实跑带 cause 断言的新用例（本 Bot 不改测试文件；以上红→绿判断基于 roster.ts:379 的透传实现与 grep 证据，落地时按用例红→绿可逆流程验证）。
+
+---
+
 ## Chief 裁决复核（本轮权限内）
 
 - 三问的分派本身无误判：A 确为错误折叠而非重复投递问题（备忘录 :168 的定性与我本轮对 resume 链的取证一致）；B 确为规格缺口（`roster.ts:466` 与同函数内 name/backend/route 冲突口径不一致）；C 的正确问法确实是「可枚举目录是否存在且可达」——答案是存在（`list()`）但跨服务且异步。
 - 备忘录 :168 登记的 park 吞错残留（`roster.ts:401-405`）维持挂账，属于 A 题风险面的真实残留项，本轮证据一致。
 - 未发现 Chief 本轮裁决与代码事实相悖之处。
+
+### 补充复核（05:43，针对 A/B/C 作答后的落地波）
+
+- `“fix(agent-team): let the profile pin the preset, and keep the resume failure” 批次` 对问题 B 的落地与本 Bot 建议一致且精确：档案冲突检查块新增 preset 冲突分支报 `TEAM_PROFILE_CONFLICT`（`roster.ts:472-477`），取值改为档案优先（`:485` `profile?.preset ?? request.preset`），注释明言「the declared profile wins over the request」（:482-484）——即档案赢、冲突报错，与本文件 B 章裁决一致。
+- 问题 A 的诊断落账同波实现（`park(root, memberId, reason)` → 成员行 `error`，`roster.ts:395/:403`），即本文件 A 章"首选补强"项；拆码未做，符合 A 章结论。首席在追加简报中实测确认的「resume 半途断裂重复投递窗口不存在」（`“fix(agent-team): stop the mailbox from waking a dormant teammate” 修复` 相位前置、`continuation-activation.ts:521→:530` 原子交付）与本 Bot 对 resume 链的取证无冲突，E 题按此事实基线作答。
+- `“fix(tool-agent-team): say that a preset is recorded, not applied” 修复`（工具文案「preset is recorded, not applied」）与本文件 C 章"登记边界 + 文案提示"方向一致；C 章的「已知边界登记 + 目录对账延后」裁决未被本波推翻。
+- 对 D/E 两问，首席本轮尚未裁决；本文件给出的建议是 D 先改实现再钉新语义、E 补 cause 断言，供下一轮采纳。

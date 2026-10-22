@@ -23,6 +23,7 @@ import { serialize } from '@deepseek-ai/dsh-llm-deepseek/src/serialize.ts'
 import type { GenerateOptions } from '@deepseek-ai/dsh-llm'
 import { MockAdapter, textResponse, toolCallResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import TeamService from '../../agent-team/src/index.ts'
+import type { AgentProfile } from '../../agent-team/src/index.ts'
 import * as toolTeam from '../src/index.ts'
 
 function serializeRequest(request: GenerateOptions) {
@@ -34,7 +35,11 @@ const SIGNAL = new AbortController().signal
 const TOOL_NAMES = [
   'spawn_teammate',
   'send_message',
+  'broadcast_message',
   'list_agents',
+  'list_agent_profiles',
+  'release_teammate',
+  'reactivate_teammate',
   'wait_agent',
   'interrupt_agent',
   'team_task_create',
@@ -69,6 +74,7 @@ async function setup(
   legacyControl = false,
   teamModelSelection = false,
   teamAllowedModels: { provider: string; model: string }[] = [],
+  teamProfiles: AgentProfile[] = [],
 ) {
   const ctx = new Context()
   contexts.add(ctx)
@@ -88,7 +94,7 @@ async function setup(
       allowedModels: [{ provider: 'selected-provider', model: 'selected-model' }],
     })
   }
-  await ctx.plugin(TeamService, { allowedModels: teamAllowedModels })
+  await ctx.plugin(TeamService, { allowedModels: teamAllowedModels, profiles: teamProfiles })
   const fiber = await ctx.plugin(toolTeam, { modelSelectionSettings: teamModelSelection })
   const adapter = new MockAdapter(script)
   ctx.llm.registerAdapter(['mock'], adapter)
@@ -258,11 +264,166 @@ describe('dsh-tool-team', () => {
         expect(schema?.properties).toHaveProperty('target')
         expect(schema?.properties).not.toHaveProperty('id')
         expect(schema?.properties).not.toHaveProperty('name')
-        expect(schema?.properties?.status?.enum).toEqual(['running', 'inactive', 'provisioning', 'failed'])
+        expect(schema?.properties?.status?.enum).toEqual(['running', 'inactive', 'provisioning', 'dormant', 'failed'])
       }
       expect(ctx.agentTeams.listMembers(lead)).toEqual([member])
     },
   )
+
+  it('projects dormant members, resumability, and profile identity in the roster', async () => {
+    const { ctx, lead } = await setup([])
+    const member = {
+      id: SessionId('dormant-member'), name: 'reviewer', role: 'teammate' as const,
+      status: 'dormant' as const, description: 'review changes', diagnostics: [],
+      profileId: 'reviewer-profile', preset: 'fast', resumable: true,
+    }
+    vi.spyOn(ctx.agentTeams, 'listMembers').mockReturnValue([member])
+    const listed = await execute(ctx, lead, 'list_agents', {})
+    expect(listed.isError, text(listed)).toBe(false)
+    expect(JSON.parse(text(listed))).toEqual([
+      {
+        target: 'reviewer',
+        role: 'teammate',
+        status: 'dormant',
+        description: 'review changes',
+        profile_id: 'reviewer-profile',
+        preset: 'fast',
+        resumable: true,
+        diagnostics: [],
+      },
+    ])
+  })
+
+  it('lists the agent profiles the deployment declares', async () => {
+    const { ctx, lead } = await setup([], false, false, [], [
+      { id: 'reviewer', name: 'reviewer', description: 'Reviews the current change set.', backend: 'spawn' },
+      {
+        id: 'builder',
+        name: 'builder',
+        description: 'Implements the agreed change.',
+        backend: 'fork',
+        provider: 'mock',
+        model: 'mock',
+        allowedEfforts: ['high'],
+        preset: 'fast',
+      },
+    ])
+    const listed = await execute(ctx, lead, 'list_agent_profiles', {})
+    expect(listed.isError, text(listed)).toBe(false)
+    expect(JSON.parse(text(listed))).toEqual([
+      {
+        id: 'reviewer',
+        name: 'reviewer',
+        description: 'Reviews the current change set.',
+        backend: 'spawn',
+        allowed_efforts: [],
+      },
+      {
+        id: 'builder',
+        name: 'builder',
+        description: 'Implements the agreed change.',
+        backend: 'fork',
+        provider: 'mock',
+        model: 'mock',
+        allowed_efforts: ['high'],
+        preset: 'fast',
+      },
+    ])
+  })
+
+  it('instantiates a declared profile without a name or description', async () => {
+    const { ctx, lead } = await setup(['hang'], false, false, [], [
+      { id: 'reviewer', name: 'reviewer', description: 'Reviews the current change set.', backend: 'spawn' },
+    ])
+    const spawned = await execute(ctx, lead, 'spawn_teammate', { profile_id: 'reviewer', prompt: 'review the diff' })
+    expect(spawned.isError, text(spawned)).toBe(false)
+    const childId = spawnedChildId(ctx, lead, spawned)
+    await waitRunning(ctx, childId)
+    // The profile owns the member identity and the execution backend.
+    expect(ctx.agentTeams.listMembers(lead)[1]).toMatchObject({
+      name: 'reviewer',
+      provider: 'spawn',
+      profileId: 'reviewer',
+    })
+    const initial = ctx.agents.get(childId)?.session.snapshotEvents().find(event => event.type === 'user/message'
+      && event.data.source.kind === 'user')
+    expect(initial?.type === 'user/message'
+      ? initial.data.content.flatMap(block => block.type === 'text' ? [block.text] : [])
+      : []).toEqual([
+      expect.stringContaining('You are teammate "reviewer".'),
+      'review the diff',
+    ])
+  }, 20_000)
+
+  it('rejects a spawn that contradicts the declared profile and a nameless spawn without one', async () => {
+    const { ctx, lead } = await setup([], false, false, [], [
+      { id: 'reviewer', name: 'reviewer', description: 'Reviews the current change set.', backend: 'spawn' },
+    ])
+    const conflict = await execute(ctx, lead, 'spawn_teammate', {
+      profile_id: 'reviewer', name: 'other', description: 'conflicting name', prompt: 'work',
+    })
+    expect(conflict.isError).toBe(true)
+    expect(text(conflict)).toContain('conflicts with the declared profile')
+    const nameless = await execute(ctx, lead, 'spawn_teammate', { prompt: 'work' })
+    expect(nameless.isError).toBe(true)
+    expect(text(nameless)).toContain('requires a name')
+  })
+
+  it('releases a teammate into dormant and brings the same identity back', async () => {
+    const { ctx, lead } = await setup(['hang', textResponse('worker done')])
+    const spawned = await execute(ctx, lead, 'spawn_teammate', {
+      name: 'reviewer', description: 'review changes', prompt: 'stay available',
+    })
+    expect(spawned.isError, text(spawned)).toBe(false)
+    const childId = spawnedChildId(ctx, lead, spawned)
+    await waitRunning(ctx, childId)
+
+    const released = await execute(ctx, lead, 'release_teammate', { name: 'reviewer' })
+    expect(released.isError, text(released)).toBe(false)
+    expect(JSON.parse(text(released))).toMatchObject({
+      member: { target: 'reviewer', status: 'dormant', resumable: true },
+    })
+    const listed = JSON.parse(text(await execute(ctx, lead, 'list_agents', {}))) as Array<Record<string, unknown>>
+    expect(listed).toContainEqual(expect.objectContaining({
+      target: 'reviewer', status: 'dormant', resumable: true,
+    }))
+
+    const reactivated = await execute(ctx, lead, 'reactivate_teammate', {
+      name: 'reviewer', prompt: 'continue the review',
+    })
+    expect(reactivated.isError, text(reactivated)).toBe(false)
+    const member = JSON.parse(text(reactivated)).member as { target: string; status: string }
+    expect(member.target).toBe('reviewer')
+    expect(member.status).not.toBe('dormant')
+  }, 20_000)
+
+  it('delivers one broadcast to several members at once', async () => {
+    const { ctx, lead } = await setup(['hang', 'hang'])
+    const first = await execute(ctx, lead, 'spawn_teammate', {
+      name: 'alpha', description: 'first worker', prompt: 'wait',
+    })
+    const second = await execute(ctx, lead, 'spawn_teammate', {
+      name: 'beta', description: 'second worker', prompt: 'wait',
+    })
+    expect(first.isError, text(first)).toBe(false)
+    expect(second.isError, text(second)).toBe(false)
+    await waitRunning(ctx, spawnedChildId(ctx, lead, first))
+    await waitRunning(ctx, spawnedChildId(ctx, lead, second))
+
+    const broadcast = await execute(ctx, lead, 'broadcast_message', {
+      targets: ['alpha', 'beta'], message: 'status report',
+    })
+    expect(broadcast.isError, text(broadcast)).toBe(false)
+    const receipt = JSON.parse(text(broadcast)) as { messageId: string; targets: string[]; status: string }
+    expect(receipt.targets).toEqual(['alpha', 'beta'])
+    // Accepted means every expanded target recorded the broadcast.
+    expect(receipt.status).toBe('accepted')
+    expect(receipt.messageId).not.toBe('')
+
+    const empty = await execute(ctx, lead, 'broadcast_message', { targets: [], message: 'nobody' })
+    expect(empty.isError).toBe(true)
+    expect(text(empty)).toContain('at least one target')
+  }, 20_000)
 
   it.each(['running', 'inactive'] as const)('returns interrupted %s status', async (previousStatus) => {
     const { ctx, lead } = await setup([])

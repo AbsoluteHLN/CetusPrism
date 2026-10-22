@@ -26,7 +26,7 @@ export interface TeamActionInjected {
 }
 
 /** Durable lifecycle overlaid with the member Session's live turn activity. */
-type MemberStatus = 'running' | 'inactive' | 'provisioning' | 'failed'
+type MemberStatus = 'running' | 'inactive' | 'provisioning' | 'dormant' | 'failed'
 
 /** Full props of the Team conversation-header action. */
 export type TeamActionProps =
@@ -47,6 +47,7 @@ function memberStatusKey(status: MemberStatus): TeamKey {
     case 'running': return 'memberStatus.running'
     case 'inactive': return 'memberStatus.inactive'
     case 'provisioning': return 'memberStatus.provisioning'
+    case 'dormant': return 'memberStatus.dormant'
     case 'failed': return 'memberStatus.failed'
   }
 }
@@ -56,6 +57,9 @@ function memberDotState(status: Exclude<MemberStatus, 'inactive'>): StateDotStat
     case 'running':
     case 'provisioning': return 'ongoing'
     case 'failed': return 'error'
+    // A dormant member is parked on purpose: idle, not error, and still
+    // reachable — the row stays clickable so it can be resumed.
+    case 'dormant': return 'idle'
   }
 }
 

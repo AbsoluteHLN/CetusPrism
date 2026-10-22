@@ -3,20 +3,20 @@
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/experimental/tool-agent-team/README.md
 /:
-  en: 770d44b09466af9a
-  zh: b8b84ed9464ce41b
+  en: 5ff54722fe37febf
+  zh: 2d7e5bf7d62e4f7b
 /deepseek-ai-dsh-experimental-tool-agent-team:
   en: 0b01a243291821bc
   zh: 0dadd38d709ae9bd
 /deepseek-ai-dsh-experimental-tool-agent-team/summary:
-  en: 0cce9e5ec6d1946a
-  zh: 6bc76243f494815c
+  en: a59a636b1df1a37c
+  zh: 30ac9a6722e1efa9
 /deepseek-ai-dsh-experimental-tool-agent-team/table-of-contents:
   en: d152484eb41ac6b4
   zh: 09388d293f9be9cb
 /deepseek-ai-dsh-experimental-tool-agent-team/use-this-package:
-  en: 1e928b05f250c945
-  zh: 0281800e08a58fce
+  en: 1f671aee17d63bab
+  zh: 1ea7a8d5d1937e61
 /deepseek-ai-dsh-experimental-tool-agent-team/use-this-package/when-to-choose-it:
   en: 5261677934ea6e71
   zh: a8bafd94d2b293ec
@@ -24,11 +24,11 @@
   en: 9af650a79711b3b3
   zh: 2930360011b544e0
 /deepseek-ai-dsh-experimental-tool-agent-team/use-this-package/what-the-model-can-do:
-  en: b0f578356343a744
-  zh: b4a4c8208d06e4b4
+  en: b23ac9e26ac35ab2
+  zh: ac85898262dc1692
 /deepseek-ai-dsh-experimental-tool-agent-team/use-this-package/what-success-and-failure-look-like:
-  en: 259e9d39e1d1579a
-  zh: c61feed86e1ba2d2
+  en: fd88ea7fb9b4c2ba
+  zh: 2a3e107d6065160b
 /deepseek-ai-dsh-experimental-tool-agent-team/understand-the-implementation:
   en: 3952eb1d9de1f988
   zh: 789d51b88f41b710
@@ -36,11 +36,11 @@
   en: 6aed48e0580e7e87
   zh: a3bc882052b9fde0
 /deepseek-ai-dsh-experimental-tool-agent-team/understand-the-implementation/source-map:
-  en: 29c1bff5023123be
-  zh: 079c4819ec9ef277
+  en: 696d5c117cfcfc8c
+  zh: d69a0c264c80bde9
 /deepseek-ai-dsh-experimental-tool-agent-team/understand-the-implementation/policy-and-tools:
-  en: 3e730667f904c7bd
-  zh: 7f48e6c07c615d77
+  en: af5734c5da3d68b9
+  zh: eb0cc05f082ab025
 /deepseek-ai-dsh-experimental-tool-agent-team/understand-the-implementation/scoped-registration-and-teardown:
   en: c2b29f27a74c02c0
   zh: 026f2ef93dd604d8
@@ -54,8 +54,8 @@
   en: 8e1e365ff3b0dfb2
   zh: c6c91fbf1e1df934
 /deepseek-ai-dsh-experimental-tool-agent-team/model-experience/team-policy-and-tools/what-the-model-sees:
-  en: 17ed13a2c408baa9
-  zh: 4bc24f3de8155eb3
+  en: ed72f92f3a27895e
+  zh: c409c088fc0bcf4c
 /deepseek-ai-dsh-experimental-tool-agent-team/model-experience/team-policy-and-tools/token-effect:
   en: fe314af98a2130b8
   zh: ea89cb40dd11d57c
@@ -63,8 +63,8 @@
   en: cba54e491b29b664
   zh: 288015d4794998f9
 /deepseek-ai-dsh-experimental-tool-agent-team/known-limitations-and-deferred-work:
-  en: c459b2e8236e6a6c
-  zh: 7cd2af569e9b751a
+  en: 75ec8d85f4336af7
+  zh: 41f305f37d7709f1
 /deepseek-ai-dsh-experimental-tool-agent-team/known-limitations-and-deferred-work/dev-note:
   en: e67f633dc6fe7773
   zh: 3bb0c20c93f16f98

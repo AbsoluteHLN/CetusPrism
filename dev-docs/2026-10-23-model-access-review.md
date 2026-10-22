@@ -52,7 +52,7 @@
 - 证据：vendor `supportsDeveloperRole = isOpenRouter && (id 以 anthropic/ 或 openai/ 开头) || (!isNonStandard && !isOpenRouter)`（vendor:1256,1260）；仓库按 provider/host 名单判 openrouter 一律 false（`catalog.ts:727-729`）。
 - 复现：openrouter 路由改指私有网关 + `anthropic/*` 模型 + reasoning → vendor 发 developer、仓库无预警告。
 - 修法：`sendsDeveloperRole` 增加 model id 前缀入参（1-2 文件）。
-- **已修**（提交 `9a785a2f4f`）：`sendsDeveloperRole` 已按 model id 前缀判定（`anthropic/` / `openai/`），回归见 `tests/catalog.spec.ts` 的 `it('warns for the OpenRouter models pi-ai serves as OpenAI')`。
+- **已修**（提交 `“fix(llm-pi-ai): answer the developer-role detection per model for OpenRouter” 修复`）：`sendsDeveloperRole` 已按 model id 前缀判定（`anthropic/` / `openai/`），回归见 `tests/catalog.spec.ts` 的 `it('warns for the OpenRouter models pi-ai serves as OpenAI')`。
 
 ### D5【低】pi-ai 链路 Retry-After 全程丢失
 - 证据：`providerRetryAfterMs` 仅 llm-deepseek 装配（`llm-deepseek/src/transport.ts:36-42`）；pi-ai 错误路径只留 message 文本（vendor `utils/error-body.js:111-118`），header 丢弃；llm-retry 尊重该字段但恒缺省（`llm-retry/src/index.ts:227-235`）。
@@ -79,7 +79,7 @@
 | D1 api 重指残留 `base.compat` | ✅ 已修（本次） | `catalog.ts` `resolveModelCompat` + 3 条回归 |
 | D2 compat 告警只覆盖 developer role | ⚠️ 部分落地（实测后收缩） | ② 运行时分类已修（`REASONING_EFFORT_REJECTED`）；① 配置期扩展经实测证伪，不做 |
 | D3 大小写敏感偏离 vendor | ✅ 已修（本次） | `catalog.ts` `sendsDeveloperRole` + 3 条回归 |
-| D4 OpenRouter 模型 id 前缀 | ✅ 已修（`9a785a2f4f`） | `catalog.ts` + 1 条回归 |
+| D4 OpenRouter 模型 id 前缀 | ✅ 已修（`“fix(llm-pi-ai): answer the developer-role detection per model for OpenRouter” 修复`） | `catalog.ts` + 1 条回归 |
 | D5 pi-ai 链路 Retry-After 丢失 | ⏸ 未做 | 根因在上游（pi-ai 压平 Error 链） |
 | D6 HTTP 408 未分类 | ✅ 已修（本次） | `stream.ts` `classifyPiAiError` + 1 条回归 |
 | D7 discovery 不 interrogate 换址 | ⏸ 未做 | 可选，README 已声明取舍 |

@@ -1,6 +1,6 @@
 # 智能体团队 S4 升级审查（档案 / 驻留 / 模式范围 / 群聊广播）
 
-审查者：智能体团队架构师 · 2026-10-23 · 基线：commit `5d87f61543` / `2e5d7fc1b6` / `7c7a9c9501`（release/v1.7.3）
+审查者：智能体团队架构师 · 2026-10-23 · 基线：commit `S4 服务层批次` / `S4 工具层批次` / `S4 配置+规格批次`（release/v1.7.3）
 范围：`agent-team/src`、`tool-agent-team/src`、`client-ui-agent-team/src/client`、三份 README、`cordis.patch.yml`、规格 §4 S4。
 已认定的有意边界（不再提）：preset 仅校验不施加；`MemberStatus` dormant 缺失已修；`allowedEfforts` readonly 已修。
 

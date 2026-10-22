@@ -11,12 +11,12 @@
 | D1 | 路由级 `api` 重指后旧协议 `base.compat` 经 `...base` 残留进 wire 模型 | `catalog.ts` `resolveModelCompat`（`945-985`，判定在 `973`，空块在 `981`） | 夹具换成带**共有字段**的条目（`supportsLongCacheRetention`），撤掉修复 → 2 条转红 |
 | D2 | 私有网关 compat 误判只对 developer role 有告警 | **收缩**：① 经实测证伪不做（csu 网关接受 `max_completion_tokens` 与 `stream_options`，全部 200；按「URL 无法自证」扩展会对每个私有网关普遍告警）；② 落地为 `REASONING_EFFORT_REJECTED` + 指引 | 真实措辞 10/10 分类符合预期（`koutput/probe-effort-classification.ts`） |
 | D3 | `sendsDeveloperRole` 大小写敏感偏离 vendor | `catalog.ts` `sendsDeveloperRole`（`723-736`），仅 `deepseek.com` 小写化（`691`） | 3 条回归 + 部署态/全目录实测 0 警告 |
-| D4 | OpenRouter 模型 id 前缀规则未复刻 | `9a785a2f4f` | 既有回归 |
+| D4 | OpenRouter 模型 id 前缀规则未复刻 | `“fix(llm-pi-ai): answer the developer-role detection per model for OpenRouter” 修复` | 既有回归 |
 | D6 | HTTP 408 未分类 → 终态丢弃 | `stream.ts` `classifyPiAiError`（`96-140`） | HTTP 映射表新增 `[408,'TIMEOUT']` |
 | D8 | "No API key" 落 `PI_AI_ERROR`，缺凭据语义 | `stream.ts` → `MISSING_CREDENTIAL` | 既有用例补 code 断言 |
-| — | `warnings` → 配置面闭环 | `c00b497ce5` | 客户端三通道同显守卫（`e40d84380f`） |
-| — | 压缩预算 preset/示例对齐 | `1861ee8d80` | **文案已按机制重写**（`33770460f6`）：阈值 = `min(窗×ratio, 窗 − 输出预留 − headroom)`，`ratio 0.9` 不是约束项，128K 窗实为 87,040（68%），原「90%」说法 4 处全改 |
-| — | `docs/config-catalog.md` 过期 | `74dde8494b` | 生成器重跑，`verify-config-catalog` 由红转绿 |
+| — | `warnings` → 配置面闭环 | `“feat(llm): carry configuration risks to the configuration surface” 批次` | 客户端三通道同显守卫（`“test(ui-settings-models): guard that every diagnostic a route carries is shown” 批次`） |
+| — | 压缩预算 preset/示例对齐 | `“feat(compaction): give the model the window instead of a flat reserve” 批次` | **文案已按机制重写**（`“fix(compaction): state the pressure shape as the mechanism that produces it” 文案重写`）：阈值 = `min(窗×ratio, 窗 − 输出预留 − headroom)`，`ratio 0.9` 不是约束项，128K 窗实为 87,040（68%），原「90%」说法 4 处全改 |
+| — | `docs/config-catalog.md` 过期 | `“docs(config): regenerate the config catalog” 批次` | 生成器重跑，`verify-config-catalog` 由红转绿 |
 
 ---
 
@@ -24,10 +24,10 @@
 
 | 核对 | 发现 | 处置 |
 |---|---|---|
-| 回归覆盖 | **我新加的分类器漏掉部署态自己的措辞**：CSU 网关对 DeepSeek 的原话是 `reasoning_effort must be low, high, xhigh, max`，不含任何拒绝词 → 实测落回 `INVALID_REQUEST`，新码在部署态根本不触发 | 改为「强拒绝词 **或** 档位枚举」判据（`5073379125`），部署态原话 + 4 条边界用例 |
-| 回归覆盖 | **D1 夹具选错**：`zai` 的 compat 键与 anthropic 读取集**交集为空**，只能证明「块被清空」，证明不了「共有字段不再保留旧值」 | 换成带共有字段的条目（`a53bb15d47`） |
+| 回归覆盖 | **我新加的分类器漏掉部署态自己的措辞**：CSU 网关对 DeepSeek 的原话是 `reasoning_effort must be low, high, xhigh, max`，不含任何拒绝词 → 实测落回 `INVALID_REQUEST`，新码在部署态根本不触发 | 改为「强拒绝词 **或** 档位枚举」判据（`“fix(llm-pi-ai): read the effort refusal the way the gateway states it” 修复`），部署态原话 + 4 条边界用例 |
+| 回归覆盖 | **D1 夹具选错**：`zai` 的 compat 键与 anthropic 读取集**交集为空**，只能证明「块被清空」，证明不了「共有字段不再保留旧值」 | 换成带共有字段的条目（`“test(llm-pi-ai): pin the shared compat field a repoint would leak” 批次`） |
 | 回归覆盖 | `retry-policy.ts:40-41` 引的是注释不是默认值（实为 `:14`） | 已修 |
-| 文档规范 | **upgrade-ideas 的 Top 1 解决的是不存在的问题**：它称旧品牌断言「仍存在」，而修复提交 `6a382f4358`（01:18:55）比该文档提交（01:19:09）**早 14 秒** | 已改为「已完成」并标注时序 |
+| 文档规范 | **upgrade-ideas 的 Top 1 解决的是不存在的问题**：它称旧品牌断言「仍存在」，而修复提交 `“test(ui-conversation): assert the hero copy the product ships” 修复`（01:18:55）比该文档提交（01:19:09）**早 14 秒** | 已改为「已完成」并标注时序 |
 | 文档规范 | model-access-review 的「修法优先级 Top 5」列的 5 项在同一文档已标为完成/证伪 | 改为「四、仍待处理」 |
 | 文档规范 | 27 处行号漂移（22 在 model-access / 4 在 agentloop / 1 在 upgrade-ideas） | 全部重指；另修 agentloop 的 `canRunParallel`→`canRunInParallel` |
 | S4 一致性 | **规格 S4.3.3 明文要求「`allowedBackends` 取值必须来自实际存在的后端目录，否则拒绝」，实现只有一半**（`packages/experimental/agent-team/src/range.ts:47-53`）；真实目录 `ctx.subagents.list()`（`packages/subagent/subagent/src/index.ts:543-545`）就在手边，Team 服务已注入 `subagents`（`src/index.ts:155`）却从未查。越界后端不是被「拒绝」，而是先落一条 `provisioning` 成员行（`src/roster.ts:496-509`）再因 `expectProvider` 抛 `NO_PROVIDER`（`subagent/src/index.ts:612-618`）失败成 `failed`，**仍占名字与名额** | **已落地（见 §三.A）** |
@@ -137,7 +137,7 @@
 
 ### 1. 首稿的 4 处事实错误（已在首稿就地订正；后被作者重写取代）
 
-首稿（提交 `7e195235cf`）有 4 处结论与源码不符，我已就地订正并附证据：
+首稿（提交 `“docs(review): add the regression and coverage risk review” 首稿`）有 4 处结论与源码不符，我已就地订正并附证据：
 
 | # | 原文 | 事实 | 证据 |
 |---|---|---|---|
@@ -146,7 +146,7 @@
 | 3 | 「`client-ui-agent-team/TeamAction.tsx:29`（已修）」 | **并未修**，且与首稿 §二 第 8 条「靠手抄」自相矛盾 | `packages/experimental/client-ui-agent-team/src/client/TeamAction.tsx:29` |
 | 4 | 根治写法 `TeamMemberProjection['phase']` | 派生源写错：`phase` 是**持久相位** `provisioning｜active｜dormant｜failed`，客户端要的是**运行时视图** `running｜inactive｜provisioning｜dormant｜failed`；按 phase 派生会把 `running`/`inactive` 换成 `active`，改坏 UI | `packages/experimental/agent-team/src/types.ts:53` 与 `:131`；`TeamMemberView` 已由 `src/client.ts:7` 导出 |
 
-**后续**：作者在我入库后**重写了整份文档**（基线改为正确的 `e587aac456`，并把在途落地波次单列），新版更详实且**不含上述 4 处错误**——订正因此成为空操作，记录留档。重写版的缺口编号与首稿不同，下面的处置按**新版**列。
+**后续**：作者在我入库后**重写了整份文档**（基线改为正确的 `“docs(review): add the agent-team design review” 批次`，并把在途落地波次单列），新版更详实且**不含上述 4 处错误**——订正因此成为空操作，记录留档。重写版的缺口编号与首稿不同，下面的处置按**新版**列。
 
 **裁决（仍然成立）**：订正 4 的改法（`type MemberStatus = TeamMemberView['status']`）比「加 pin」更根本——去掉手抄后，服务端加枚举值客户端自动跟随，pin 就不必要了。重写版 §四.4 独立推荐的修法（「客户端从 client 面导入该 union，让服务层加值直接变成客户端编译错」）与此一致。按订正后的写法落地。
 
@@ -165,7 +165,7 @@
 | 零代码收口 ② 工具文案「the member runs under」 | **留第二轮** | 降级为记录性字段描述 |
 | 零代码收口 ③ failed spawn 永久占名占额 | **本轮已做** | README 已补边界声明（本次一并落地） |
 
-**首稿缺口 1（resume 半途断裂）已关闭**：实测 22 条探针全过（`koutput/resume-abort.spec.ts`，git-ignored），结论是**重复投递窗口不存在**——`d0d7a3276b` 把相位记录提前到提示提交之前，审查引用的 `roster.ts:357` 是**修复前**的文件。交付与最后一次 abort 检查是原子的（`continuation-activation.ts:521` → `:530` 之间无 `await`），**已送达的提示不可能随后被拒绝**。残留的是一个更窄的问题：`park()` 吞掉 journal 失败（`roster.ts:401-405`）会让成员停在 `active` 而无 runtime，后续 resume 报 `TEAM_MEMBER_NOT_FOUND`——不是重复投递。
+**首稿缺口 1（resume 半途断裂）已关闭**：实测 22 条探针全过（`koutput/resume-abort.spec.ts`，git-ignored），结论是**重复投递窗口不存在**——`“fix(agent-team): stop the mailbox from waking a dormant teammate” 修复` 把相位记录提前到提示提交之前，审查引用的 `roster.ts:357` 是**修复前**的文件。交付与最后一次 abort 检查是原子的（`continuation-activation.ts:521` → `:530` 之间无 `await`），**已送达的提示不可能随后被拒绝**。残留的是一个更窄的问题：`park()` 吞掉 journal 失败（`roster.ts:401-405`）会让成员停在 `active` 而无 runtime，后续 resume 报 `TEAM_MEMBER_NOT_FOUND`——不是重复投递。
 
 **首稿缺口 2（档案 preset 与请求 preset 的优先级）** —— 规格问题，留第二轮（第二轮问题 B）。
 
@@ -177,7 +177,7 @@
 | 2 测试覆盖 | 缺口清单见上表，处置已定 |
 | 3 持久化事件兼容（stateVersion 5→6） | **采信**，且比首稿更精确：老折叠是新版折叠的**子集**（新版只多放行 dormant 边），任何「旧版接受、新版拒绝」的边不存在，老 JSONL 重放不会引入 `failure`；不需要迁移，`stateVersion` 递增本身即是门禁 |
 | 4 类型断裂面 | **采信方法**（复制型 union 是根因 → 客户端改为导入服务端 union → 穷尽性守卫 → 契约测试 → `git grep` 排查指令）；其推荐的修法与本轮已落地的一致 |
-| 5 基线失败处置 | **采信**（3 条 hero 失败已由 `6a382f4358` 修掉，实测两包 + agent-team 共 303 用例全绿） |
+| 5 基线失败处置 | **采信**（3 条 hero 失败已由 `“test(ui-conversation): assert the hero copy the product ships” 修复` 修掉，实测两包 + agent-team 共 303 用例全绿） |
 
 **闸门判断（重写版新增的独立小节，我的补充）**：pre-commit 与 pre-push **都不跑 vitest**（pre-push 只有 `pnpm run typecheck`），这条成立。但重写版举的那个例子不成立，且它的教训比它的结论更重要。
 
@@ -189,12 +189,12 @@
 
 | 项 | 提交 | 验证 |
 |---|---|---|
-| 重写版缺口 1 广播投递失败路径 + 缺口 2 跨 Team 档案复用（另含 resume 往返幂等） | `4f13403e6e` | `packages/experimental/agent-team` + `tool-agent-team` 共 8 个文件 176/176，退出码 0 |
-| 类型断裂面去掉手抄（重写版 §四.4 的推荐修法） | `3eaaf48d6d` | `packages/experimental/client-ui-agent-team` 33/33，退出码 0 |
-| Responses 协议 developer-role 告警钉子（首稿缺口 6a） | `8cf1ddc4e7` | `packages/llm/llm-pi-ai/tests/catalog.spec.ts` 104/104；变异 `sendsDeveloperRole` 的短路 → 新用例转红、其余 103 条仍绿 |
-| `packages/llm/llm` 整包基线红灯 | `b3a7d59646` | 整包 52 个文件 1296/1296，退出码 0——**该包此前是红的** |
-| 重写版零代码收口 ③ + 后端目录校验入正文 | `dbee9d28f8` | 中英配对已重录并复验通过（`verify-translation-pairing` 退出码 0） |
-| 重写版审查文档入库 | `a7fadf15bf` | 取代首稿 `7e195235cf` |
+| 重写版缺口 1 广播投递失败路径 + 缺口 2 跨 Team 档案复用（另含 resume 往返幂等） | `“test(agent-team): cover the broadcast, profile and resume gaps the review named” 批次` | `packages/experimental/agent-team` + `tool-agent-team` 共 8 个文件 176/176，退出码 0 |
+| 类型断裂面去掉手抄（重写版 §四.4 的推荐修法） | `“fix(client-ui-agent-team): derive the member status from the server's view” 修复` | `packages/experimental/client-ui-agent-team` 33/33，退出码 0 |
+| Responses 协议 developer-role 告警钉子（首稿缺口 6a） | `“test(llm-pi-ai): pin the developer role warning on the Responses protocol” 批次` | `packages/llm/llm-pi-ai/tests/catalog.spec.ts` 104/104；变异 `sendsDeveloperRole` 的短路 → 新用例转红、其余 103 条仍绿 |
+| `packages/llm/llm` 整包基线红灯 | `“fix(llm): observe the invariant on the event, not on the commit” 重写` | 整包 52 个文件 1296/1296，退出码 0——**该包此前是红的** |
+| 重写版零代码收口 ③ + 后端目录校验入正文 | `“docs(agent-team): say what an absent backend does before anything is written” 批次` | 中英配对已重录并复验通过（`verify-translation-pairing` 退出码 0） |
+| 重写版审查文档入库 | `“docs(review): take the regression review's rewritten draft” 批次` | 取代首稿 `“docs(review): add the regression and coverage risk review” 首稿` |
 
 **本轮所有验证命令都带 `--config configs/vitest.config.ts`**：仓库没有根 vitest 配置，裸 `vitest run <path>` 既无 alias 表也不带 jsdom setup，会给出误导性的红灯（`window is not defined`、`ResizeObserver is not defined`、「找不到包」）。这与上面闸门判断是同一条事实。
 
@@ -212,8 +212,8 @@
 
 | 题 | 意见 | 裁决 | 落点 |
 |---|---|---|---|
-| A `resume()` 是否按底层原因拆错误码 | 不拆；补「诊断落账」 | **采信** | `1052319549` |
-| B 档案 preset 与请求 preset 谁赢 | 档案赢、冲突报错 | **采信** | `1052319549` + 规格 S4.1.7 |
+| A `resume()` 是否按底层原因拆错误码 | 不拆；补「诊断落账」 | **采信** | `“fix(agent-team): let the profile pin the preset, and keep the resume failure” 批次` |
+| B 档案 preset 与请求 preset 谁赢 | 档案赢、冲突报错 | **采信** | `“fix(agent-team): let the profile pin the preset, and keep the resume failure” 批次` + 规格 S4.1.7 |
 | C `allowedPresets` 是否对账 preset 目录 | 本轮登记为已知边界 | **采信** | 规格「已知边界」第 4 条 + 工具参数描述 |
 
 **A 的承重前提我复核过**：`PERSISTENCE_UNAVAILABLE` 唯一产地是 `requirePersistence()`（`packages/subagent/subagent/src/continuation.ts:533`），唯一调用点是 `startContinuable()`（同文件 `:108`），而 resume 链走 `sendMessage → deliverFollowup → coldResume`，整条链不含 `startContinuable` ⇒ **该码在 resume 路径结构性不可达**，「拆出它」是伪差距。真正可到达的只有 `NOT_RESUMABLE`（`continuation.ts:420,431,453`）与 `CONTINUATION_UNAVAILABLE`（`:540-548`），而两者的处置完全相同（park 回写 + 报因），拆出来的码没有消费者。契约已钉死单一码（`upgrade.spec.ts` 断言 `TEAM_MEMBER_NOT_RESUMABLE`），本轮不动。
@@ -231,7 +231,7 @@
 
 ① 我此前记的 convert.spec.ts 反例数**少记一条**：实为 2 正例 + 4 反例（第 4 条在 `:988-992`，`developer_message` 措辞 → `INVALID_REQUEST`）；方向无碍。
 ② 「三域枚举」的量词修正成立：与成员状态同域的只有 `packages/experimental/tool-agent-team/src/index.ts:154` 一处；同文件 `:136` 的 `ACTIVE_WAIT_STATUSES: ReadonlySet<TeamMemberView['status']>` 是正确范本。
-③ 「TeamAction.tsx:29 已修」的措辞应读作「手抄未去掉」而非「完全没修」——`dormant` 缺失这个编译错误确实已修，手抄这一层是 `3eaaf48d6d` 才去掉。
+③ 「TeamAction.tsx:29 已修」的措辞应读作「手抄未去掉」而非「完全没修」——`dormant` 缺失这个编译错误确实已修，手抄这一层是 `“fix(client-ui-agent-team): derive the member status from the server's view” 修复` 才去掉。
 ④ 派生源订正成立且是最重要的一条（`TeamMemberPhase` ≠ `TeamMemberView['status']`）。
 
 **新风险的归因更正**：意见书报的「`packages/llm/llm` 整包存在 1/5 概率抖动」需要更正——05:02 那次红的确是我跑的，但失败用例是 `packages/llm/llm-deepseek/tests/runtime.spec.ts > recovers in one replacement request when the provider lists dozens of missing file ids`，**超时 5000ms**；用路径过滤 `packages/llm/llm` 时前缀误匹配进了 `llm-deepseek`。该文件单独跑 158/158 全绿（7.8s），全仓体检里同一个用例也超时 ⇒ 是**并行负载下的超时**，不是 llm 整包抖动。归因写错会让闸门决策建在假前提上。
@@ -240,9 +240,9 @@
 
 | 违规 | 处置 | 提交 |
 |---|---|---|
-| V1 配对哈希失步 + 中文目录落后 | 中文目录补齐 4 个新字段与 `AgentProfile` 接口块、两处 Source 行号订正、哈希重录 | `587f4700fd` |
-| V2 `agent-team/src/index.ts:74` 的 unknown 断言 | 去掉断言，声明与运行时对齐（`allowedEfforts` 放宽为 `string[]`，只读承诺留在 view） | `587f4700fd` |
-| V3 对照文档行号/结论漂移 | GLM 重试预算 2→10、`retry-policy.ts` 行号、三处源码行号订正 | `2d9d0d4b4b` |
+| V1 配对哈希失步 + 中文目录落后 | 中文目录补齐 4 个新字段与 `AgentProfile` 接口块、两处 Source 行号订正、哈希重录 | `“fix(agent-team): declare the effort list the way the runtime keeps it” 修复` |
+| V2 `agent-team/src/index.ts:74` 的 unknown 断言 | 去掉断言，声明与运行时对齐（`allowedEfforts` 放宽为 `string[]`，只读承诺留在 view） | `“fix(agent-team): declare the effort list the way the runtime keeps it” 修复` |
+| V3 对照文档行号/结论漂移 | GLM 重试预算 2→10、`retry-policy.ts` 行号、三处源码行号订正 | `“docs(spec): correct the parity table's GLM retry budget and line numbers” 修正` |
 
 **V1 的真因比审查员写的更深一层**：审查员说「只需重录哈希」，实际重录后闸门仍红（`docs/config-catalog.md ↔ .zh.md` 代码块 #33 分叉）——英文目录已被重生成，中文目录整体落后（缺 4 个字段 + 整个 `AgentProfile` 接口块 + 2 处过期 Source 行号）。生成器 `scripts/gen-config-catalog.ts:18` **只写英文**，中文侧是手工维护，只能手工补齐。
 
@@ -256,7 +256,7 @@ Duration 1777.22s
 
 **结论：无一落在我改过的包里。** 本轮 13 笔提交共碰 14 个文件（agent-team 的 `roster.ts` / `team.spec.ts` / `upgrade.spec.ts` / README×3、tool-agent-team 的 `src/index.ts`、client-ui-agent-team 的 `TeamAction.tsx`、llm 的 `invariant.spec.ts`、llm-pi-ai 的 `catalog.spec.ts`），与 89 个失败文件零交集。失败集中在三类 Windows 环境限制：**符号链接权限**（`packages/workspace/workspace`、`packages/api/workspace-files`、`packages/fs/fs-sandbox` 等的 symlink 用例）、**子进程/超时**（`packages/util/native-command/tests/file-applications-windows.spec.ts`、`scripts/oxlint-contract.spec.ts`）、**发布产物不存在**（`scripts/check-workspace-constraints.spec.ts` 的 14 条「published payload」用例，连 auto-review、ui-sidebar 等我没碰的包同样红）。
 
-唯一与 llm 相关的失败文件是 `packages/llm/llm-deepseek/tests/runtime.spec.ts`，该包最后改动在 `eb61b2e8b8`（17 笔提交之前），单独跑 158/158 全绿 ⇒ 负载超时，非本轮引入。
+唯一与 llm 相关的失败文件是 `packages/llm/llm-deepseek/tests/runtime.spec.ts`，该包最后改动在 `“feat: 融合官方 deepseek-harness 0.2.1-alpha.1 内核并恢复不变量 seam” 批次`（17 笔提交之前），单独跑 158/158 全绿 ⇒ 负载超时，非本轮引入。
 
 ### 7. pre-push focused vitest 闸门：采纳设计，落地排在抖动修复之后
 

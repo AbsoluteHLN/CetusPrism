@@ -10,7 +10,7 @@
 3. **压缩预算是比例制、无 microcompact**：`packages/compaction/compaction-basic/src/config.ts:20,23` 阈值 0.8 / 保留 0.16，与上游 200K/32K/13K 常量制不可换算；局部压缩无对应实现（parity §2.3:83）。
 4. **无 doom-loop 软告警层**：重复工具调用、预算告警均无模型可见提示（parity §2.4:94「本仓无对应实现」）；README 自认「无内置 turn 预算」（`packages/core/agent-loop/README.md:217`）。
 5. **persona 双源漂移**：`packages/bundle/web-app/presets/standard.patch.yml:207` 与 `apps/cli/config/examples/glm-harness/cordis.yml:56-64` 是两份措辞不一致的手写 persona，会继续分叉（parity 差异 #6）。
-6. **基线曾有 3 条永远失败的用例**：`packages/client/ui-conversation/tests/skeleton.client.spec.tsx:388,552,586,618` 断言旧品牌文案（品牌已改名 CetusPrism）。**已于 `6a382f4358`（2026-10-23 01:18:55）修复，改为断言现行品牌文案，本仓 `packages/client/ui-conversation` 现 656/656 全绿。** 本条写作时该修复已入库 14 秒，故此处的「仍断言旧品牌文案」与事实不符。
+6. **基线曾有 3 条永远失败的用例**：`packages/client/ui-conversation/tests/skeleton.client.spec.tsx:388,552,586,618` 断言旧品牌文案（品牌已改名 CetusPrism）。**已于 `“test(ui-conversation): assert the hero copy the product ships” 修复`（2026-10-23 01:18:55）修复，改为断言现行品牌文案，本仓 `packages/client/ui-conversation` 现 656/656 全绿。** 本条写作时该修复已入库 14 秒，故此处的「仍断言旧品牌文案」与事实不符。
 
 ## 2. 升级思路清单
 
@@ -57,7 +57,7 @@
 ### 思路 6：修复 3 条基线失败用例 —— 【已完成，本轮内】
 
 - **问题**：如体检 6。
-- **状态**：**已由 `6a382f4358` 完成**——`skeleton.client.spec.tsx:388,552,586,618` 改为断言现行品牌文案，`packages/client/ui-conversation` 现 656/656 全绿（退出码 0）。
+- **状态**：**已由 `“test(ui-conversation): assert the hero copy the product ships” 修复` 完成**——`skeleton.client.spec.tsx:388,552,586,618` 改为断言现行品牌文案，`packages/client/ui-conversation` 现 656/656 全绿（退出码 0）。
 - **本条保留的原因**：它记录了「回归判定基线」这一前置条件的来历；下面 Top 3 里排在第一位的「修复 3 条基线失败用例」即指此项，已完成。
 - **收益**：回归判定恢复「除已知环境基线外全绿」；思路 1/2 的回归判定不再带噪音。
 - **成本**：1 个测试文件，无产品改动。
@@ -81,7 +81,7 @@
 
 ## 3. Top 3 排序建议
 
-1. **思路 6（基线用例）——【已完成】**：成本最低、立刻把回归判定基线修干净，是其余所有共享包改动的前置。已由 `6a382f4358` 落地。
+1. **思路 6（基线用例）——【已完成】**：成本最低、立刻把回归判定基线修干净，是其余所有共享包改动的前置。已由 `“test(ui-conversation): assert the hero copy the product ships” 修复` 落地。
 2. **思路 1（调度拓扑）**：对照表唯一被裁「需要上游同形」的执行正确性差异（parity §4），直接影响副作用任务的结果正确性，且为 P0。**注意**：后续 AgentLoop 对齐复核已独立核实上游 `dependsOn` 在生产入口恒为空数组，拓扑排序是空转——「与上游同形」这一条已不需要做；剩下的只是「要不要新增上游没有的能力」这一产品决策。
 3. **思路 2（软告警）**：改动面最小的模型可见能力补齐，与思路 1 同在 agent-loop，可共用同一隔离开关与快照基建，边际成本最低。
 

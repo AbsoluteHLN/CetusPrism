@@ -14,9 +14,9 @@
 
 | 项目 | 2026-10-20 核实结果 | 依据 |
 |---|---|---|
-| 本地与 GitHub | main 为 08b821b3f7a0e592995fcd169d4029c75a475442，与 origin/main 无差异；初始工作区干净，查询无开放 PR | 本轮 Git 与 GitHub 查询 |
+| 本地与 GitHub | main 为 “test: pin packaged skills in cross-platform ZCode replay” 批次，与 origin/main 无差异；初始工作区干净，查询无开放 PR | 本轮 Git 与 GitHub 查询 |
 | 既有验收 | 10 月 18 日最终 Linux/Windows CI 均成功，各构建并通过 131 项单元、16 项 Web 测试；不是本轮重构后的结果 | [既有 CI](https://github.com/AbsoluteHLN/CetusPrism/actions/runs/39072749368) |
-| 官方 DSH | 本轮已抓取 master 到 upstream/master，仍为 rc.2 的 687f282e8625c6b8d11ff58211a90524be2e4317；与上次记录的官方树无差异，本地尚未整体纳入该版本 | [兼容记录](../docs/UPSTREAM.alignment.json)、本轮 fetch 与 tree diff |
+| 官方 DSH | 本轮已抓取 master 到 upstream/master，仍为 rc.2 的 上游 rc.2 合并点（PR #6408）；与上次记录的官方树无差异，本地尚未整体纳入该版本 | [兼容记录](../docs/UPSTREAM.alignment.json)、本轮 fetch 与 tree diff |
 | ZCode | 现有 composer 项为 DSH 上的 zcode-inspired persona；原生辅助适配器只支持 native，zcode/antigravity 驱动明确拒绝执行 | [原生适配器](../packages/preset/agent-preset-registry/src/builtin-agent-adapter.ts)、Web preset |
 | ZCode 参考版本 | 旧计划参考 3.15.1；官方 README 已更新至 3.16.2，本轮查询的 main 为 3c5b227649371507ddc4eb46ac5133afe6db1cab | [官方源码](https://github.com/zai-org/ZCode)、本轮 GitHub 查询 |
 | ZCode 执行接口 | 公开源码有 agent-server/app-server 的 stdio NDJSON 入口；core 导出 AgentRuntime 和模型/工具/存储注入接口，但 @zcode/core 标记 private，尚未在 Cetus 验证协议或运行时兼容 | [协议说明](https://github.com/zai-org/ZCode/blob/main/apps/zcode-cli/docs/design/v2/zcode-protocol-agent-server.md)、[core 导出](https://github.com/zai-org/ZCode/blob/main/apps/zcode-cli/packages/core/src/index.ts)、[包声明](https://github.com/zai-org/ZCode/blob/main/apps/zcode-cli/packages/core/package.json) |

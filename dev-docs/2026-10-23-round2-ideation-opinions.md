@@ -1,6 +1,6 @@
 # 第二轮分歧意见 · 取舍与盲点（idea架构师）
 
-日期：2026-10-23　分支：`release/v1.7.3`（HEAD `b5d522e762`，未自行复核 git 状态，采信题面）
+日期：2026-10-23　分支：`release/v1.7.3`（HEAD `“docs(spec): record what the fifth review's gaps turned into” 批次`，未自行复核 git 状态，采信题面）
 输入：`dev-docs/2026-10-23-chief-adjudication-memo.md`（下称 memo）、第一轮 upgrade-ideas、题面仓库事实。凡「已验证」均注明本次核验方式；「未验证」处附验证方法。
 
 ---

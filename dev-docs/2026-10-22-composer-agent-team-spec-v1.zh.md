@@ -242,7 +242,7 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 | S4.4.3 | 新增事件 `team/message/broadcast` 与 `team/message/broadcast-delivered`（载荷版本 1）；`TeamMessageSnapshot` 保留单目标快照，另加广播快照 `TeamBroadcastSnapshot`（`types.ts`）。投影状态新增 `broadcasts` 与 `broadcastDelivered` 两个集合，`stateVersion` 递增。 |
 | S4.4.4 | 消息体上限、每目标待投递上限（`mailbox.ts:124-129` `TEAM_MAILBOX_FULL`、`:137-139` `TEAM_MESSAGE_TOO_LARGE`）对广播同样生效，按**展开后的目标数**计。 |
 | S4.4.5 | 群消息**永不进模型对话面**（`journal.ts:65-69` 的 log-only 约束）。 |
-| S4.4.6 | 决策前置：fork 保留上游已删除的 durable mailbox（上游 `c772c85c17` 改为直接 inbox steer），而广播依赖队列协议。**本规格选择保留 fork 的 mailbox 协议**，群聊叠加其上；与上游再同步时该语义冲突需登记在 `docs/UPSTREAM.alignment.json`。 |
+| S4.4.6 | 决策前置：fork 保留上游已删除的 durable mailbox（上游 `“refactor(agent-team): send directly through Agent inbox steering” 重构` 改为直接 inbox steer），而广播依赖队列协议。**本规格选择保留 fork 的 mailbox 协议**，群聊叠加其上；与上游再同步时该语义冲突需登记在 `docs/UPSTREAM.alignment.json`。 |
 
 ### 4.7 不变量（不得破坏）
 

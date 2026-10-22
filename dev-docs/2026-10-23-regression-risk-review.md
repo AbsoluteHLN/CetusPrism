@@ -1,6 +1,6 @@
 # S4 回归与覆盖风险审查（回归风险审查员 · 2026-10-23）
 
-范围：`E:\Projects\CetusPrism` @ `release/v1.7.3`，**审查基线 HEAD `e587aac456`**。注意：开局事实中的「HEAD `7c7a9c9501`，工作树干净，未 push」已过时——该轮审查后仓库已推进约 20 个提交（模型接入/AgentLoop/压缩修复波次），且分支已与 `origin/release/v1.7.3` 同步（`git status -sb` 无 ahead/behind）。当前工作树另有 3 个未提交文件（`agent-team/src/roster.ts` +10、`tests/upgrade.spec.ts` +37、`tests/team.spec.ts` +8/−2），是裁决备忘 §三.A 三项的**在途落地波次**，本文将其作为「在途」单列，不与 HEAD 混算。
+范围：`E:\Projects\CetusPrism` @ `release/v1.7.3`，**审查基线 HEAD `“docs(review): add the agent-team design review” 批次`**。注意：开局事实中的「HEAD `S4 配置+规格批次`，工作树干净，未 push」已过时——该轮审查后仓库已推进约 20 个提交（模型接入/AgentLoop/压缩修复波次），且分支已与 `origin/release/v1.7.3` 同步（`git status -sb` 无 ahead/behind）。当前工作树另有 3 个未提交文件（`agent-team/src/roster.ts` +10、`tests/upgrade.spec.ts` +37、`tests/team.spec.ts` +8/−2），是裁决备忘 §三.A 三项的**在途落地波次**，本文将其作为「在途」单列，不与 HEAD 混算。
 
 方法：读源码 + 读测试 + 跑测试 + `git show` 对照基线折叠语义。全程只读，唯一写入是本文件。
 
@@ -8,11 +8,11 @@
 
 ## 结论摘要
 
-1. **S4 三批提交未触及任何共享驱动**：`5d87f61543`（agent-team 服务层，14 文件全在 `packages/experimental/agent-team`）、`2e5d7fc1b6`（tool-agent-team + client-ui-agent-team）、`7c7a9c9501`（glm 示例配置 + 规格）三批合计无一文件位于 `packages/core/agent-loop`、`packages/compaction/compaction-basic`、`packages/llm/*` 源码（`git show <sha> --stat`，三次均验）。共享包回归风险 = 低；窗口内 llm-pi-ai / compaction 的改动全部来自裁决修复波次（`f4d90a6f2c` / `171d72117f` / `1861ee8d80` 等），已由本地交叉核对闭环（`dev-docs/2026-10-23-regression-coverage-review.md`）。
-2. **持久化兼容安全，无需迁移**：`projection.ts:513` `stateVersion: 6`；老折叠只接受 `provisioning → {active, failed}`（`git show 52ce2d5156:.../projection.ts` 的转移判定），新折叠 `isMemberTransition`（`src/projection.ts:325-330`）是其**超集**（新增 dormant 边），老会话重放不会引入 failure；缓存行按 `ver` 匹配，不匹配即丢弃并从日志全量重折（`session-projection-cache/tests/cache.spec.ts:636` 钉住）。
+1. **S4 三批提交未触及任何共享驱动**：`S4 服务层批次`（agent-team 服务层，14 文件全在 `packages/experimental/agent-team`）、`S4 工具层批次`（tool-agent-team + client-ui-agent-team）、`S4 配置+规格批次`（glm 示例配置 + 规格）三批合计无一文件位于 `packages/core/agent-loop`、`packages/compaction/compaction-basic`、`packages/llm/*` 源码（对三批逐批跑 `git show --stat`，三次均验）。共享包回归风险 = 低；窗口内 llm-pi-ai / compaction 的改动全部来自裁决修复波次（`“fix(llm-pi-ai): land the model-access review D1/D3/D6/D8” 批次` / `“fix(llm): name the effort declaration when the endpoint refuses a reasoning effort” 修复` / `“feat(compaction): give the model the window instead of a flat reserve” 批次` 等），已由本地交叉核对闭环（`dev-docs/2026-10-23-regression-coverage-review.md`）。
+2. **持久化兼容安全，无需迁移**：`projection.ts:513` `stateVersion: 6`；老折叠只接受 `provisioning → {active, failed}`（zcode 逐维对照批次时点的 projection.ts 转移判定），新折叠 `isMemberTransition`（`src/projection.ts:325-330`）是其**超集**（新增 dormant 边），老会话重放不会引入 failure；缓存行按 `ver` 匹配，不匹配即丢弃并从日志全量重折（`session-projection-cache/tests/cache.spec.ts:636` 钉住）。
 3. **客户端枚举断裂已被本轮修掉**：`client-ui-agent-team/src/client/TeamAction.tsx:29` 的 `MemberStatus` 已含 `'dormant'`，`memberStatusKey`（`:45-53`）与 `memberDotState`（`:55-64`）穷尽，locale 中英双词条就位（`locales.ts:30, :64`）。
 4. **upgrade.spec 覆盖了任务书五缺口中的三个**：dormant 恢复失败回退（`upgrade.spec.ts:375-390`）、档案冲突（`:207-240`）、范围拒绝（`upgrade.spec.ts:436-475`）均已钉住；**广播投递失败、跨 Team 档案复用**仍无用例。叠加在途波次后，剩余用例缺口 5 条、零代码收口 3 条（见下）。
-5. **3 条基线失败已处置完毕，无需再裁**：`6a382f4358`（01:18:55「assert the hero copy the product ships」）更新断言；本次实测 `packages/client/ui-conversation` + `packages/client/ui-agent-preset` + agent-team 三套 **12 个测试文件 303 条用例全部通过，退出码 0**（03:36:43 运行，基线 = HEAD + 3 个在途文件）。
+5. **3 条基线失败已处置完毕，无需再裁**：`“test(ui-conversation): assert the hero copy the product ships” 修复`（01:18:55「assert the hero copy the product ships」）更新断言；本次实测 `packages/client/ui-conversation` + `packages/client/ui-agent-preset` + agent-team 三套 **12 个测试文件 303 条用例全部通过，退出码 0**（03:36:43 运行，基线 = HEAD + 3 个在途文件）。
 
 ---
 
@@ -20,7 +20,7 @@
 
 ### 1. 共享包隔离：未触及；未来隔离开关的最小侵入点
 
-三轮提交文件清单核对（`git show 5d87f61543 --stat` / `2e5d7fc1b6 --stat` / `7c7a9c9501 --stat`）：改动全部落在 `packages/experimental/{agent-team,tool-agent-team,client-ui-agent-team}`、`apps/cli/config/examples/glm-harness/cordis.yml`、`apps/cli/config/examples/agent-team-profile/cordis.patch.yml` 与文档。共享驱动零改动。
+三轮提交文件清单核对（对三批各跑一次 `git show --stat`）：改动全部落在 `packages/experimental/{agent-team,tool-agent-team,client-ui-agent-team}`、`apps/cli/config/examples/glm-harness/cordis.yml`、`apps/cli/config/examples/agent-team-profile/cordis.patch.yml` 与文档。共享驱动零改动。
 
 未来若要在 `packages/core/agent-loop` 引入按 preset/底座隔离的开关，最小侵入点（按侵入度排序）：
 
@@ -50,7 +50,7 @@
 ### 3. 持久化事件兼容：stateVersion 5→6，老会话重放安全，无需迁移
 
 - **状态是事件的重折，不是被信任的载荷**：投影缓存行按 `ver` 比对活跃单元的 `stateVersion`（`session-projection/src/index.ts:430`），不匹配即丢弃、从 `init` 起对整条日志重折（同文件 `:460,512`）；`session-projection-cache/tests/cache.spec.ts:636` 明确钉住「当前文档的行全部不过 live unit 的 stateVersion」路径。agent-team 侧自己也有钉：`agent-team/tests/projection-events.spec.ts:101,200` 断言 checkpoint `ver === teamProjectionDefinition.stateVersion`。
-- **折叠语义是旧版的超集**：基线折叠（`52ce2d5156:projection.ts`）只接受 `provisioning → {active, failed}`；新折叠（`projection.ts:325-330`）额外放行 `provisioning→dormant`、`active→dormant`、`dormant→active`。任何「旧版接受、新版拒绝」的边不存在，老 JSONL 重放不会引入 `failure`。快照 schema 对旧载荷向后兼容：`phase` 枚举扩了 `'dormant'`（`projection.ts:81`），`profileId/preset/reasoningEffort` 均为 optional（`:77-79`）；`team/member` 事件的 version 2/3 双版本 union 并归一为 v2（`projection.ts:112-127`）。
+- **折叠语义是旧版的超集**：基线折叠（zcode 逐维对照批次时的 projection.ts）只接受 `provisioning → {active, failed}`；新折叠（`projection.ts:325-330`）额外放行 `provisioning→dormant`、`active→dormant`、`dormant→active`。任何「旧版接受、新版拒绝」的边不存在，老 JSONL 重放不会引入 `failure`。快照 schema 对旧载荷向后兼容：`phase` 枚举扩了 `'dormant'`（`projection.ts:81`），`profileId/preset/reasoningEffort` 均为 optional（`:77-79`）；`team/member` 事件的 version 2/3 双版本 union 并归一为 v2（`projection.ts:112-127`）。
 - **版本门禁已存在且生效**：不支持的**未来**版本在折叠时抛错并落终端 `failure`（`projection.ts:293-300` + `applyProjectionEvent` 的 catch 置 failure，`:302-305`），客户端面板把 `team.failure` 渲染为告警（`client-ui-agent-team/src/client/TeamAction.tsx:334-336`）——即老代码读新会话会「响亮失败」而不是静默错折，符合 AGENTS.md「Misconfiguration fails loud」。
 - **结论**：不需要数据迁移，不需要额外版本门禁；`stateVersion` 递增本身即是门禁（registry 甚至拒绝同 key 跨版本共享 cell：`session-projection/tests/registry.spec.ts:483-491`）。唯一建议：补一条「旧版（v5 时代）事件序列 + 含 profileId 的新行混存」的重放回归用例（见缺口 5）。
 
@@ -67,7 +67,7 @@
 
 ### 5. 基线失败处置：已修，无需再裁
 
-3 条基线失败（hero 标题断言旧文案）已由 `6a382f4358` 修复——修复提交早于上轮裁决 14 秒（文档规范核对已标注时序）。我的实测收口：两个客户端包 + agent-team 全套 **12 文件 303 用例全绿，退出码 0**（命令见「上线前必做」#3）。结论：**已修，留痕即可，勿再列入上线清单**。
+3 条基线失败（hero 标题断言旧文案）已由 `“test(ui-conversation): assert the hero copy the product ships” 修复` 修复——修复提交早于上轮裁决 14 秒（文档规范核对已标注时序）。我的实测收口：两个客户端包 + agent-team 全套 **12 文件 303 用例全绿，退出码 0**（命令见「上线前必做」#3）。结论：**已修，留痕即可，勿再列入上线清单**。
 
 ---
 
@@ -75,9 +75,9 @@
 
 | 改动 | 直接受影响 | 传导面 | 风险 | 依据 |
 |---|---|---|---|---|
-| `5d87f61543` 服务层（档案/驻留/范围/广播/投影） | `packages/experimental/agent-team`（src 9 文件 + tests 2） | 所有使用 agent-team 的 preset/会话 | **中**（共享驱动未触及；新增相位与事件版本均有 union 门禁） | `git show 5d87f61543 --stat` |
-| `2e5d7fc1b6` 工具层+客户端 | `tool-agent-team`（+220）、`client-ui-agent-team`（TeamAction/locales） | Team 工具的全部 LLM 调用方、roster 面板 | **中低**（客户端枚举断裂已在本轮闭环；工具错误码新增需同步人读清单，见 P2-3） | `git show 2e5d7fc1b6 --stat` |
-| `7c7a9c9501` 配置+规格 | `glm-harness/cordis.yml`、`agent-team-profile/cordis.patch.yml`、规格文档 | 部署示例的 preset 行为 | **低**（示例 overlay；预算数字无守卫，见缺口 6） | `git show 7c7a9c9501 --stat` |
+| S4 服务层批次（档案/驻留/范围/广播/投影） | `packages/experimental/agent-team`（src 9 文件 + tests 2） | 所有使用 agent-team 的 preset/会话 | **中**（共享驱动未触及；新增相位与事件版本均有 union 门禁） | 对该批跑 `git show --stat` |
+| S4 工具层批次（工具层+客户端） | `tool-agent-team`（+220）、`client-ui-agent-team`（TeamAction/locales） | Team 工具的全部 LLM 调用方、roster 面板 | **中低**（客户端枚举断裂已在本轮闭环；工具错误码新增需同步人读清单，见 P2-3） | 对该批跑 `git show --stat` |
+| S4 配置+规格批次 | `glm-harness/cordis.yml`、`agent-team-profile/cordis.patch.yml`、规格文档 | 部署示例的 preset 行为 | **低**（示例 overlay；预算数字无守卫，见缺口 6） | 对该批跑 `git show --stat` |
 | 在途波次（未提交） | `roster.ts` +10（`TEAM_BACKEND_NOT_AVAILABLE` 目录校验前置于成员行）+ 两个 spec | 关闭裁决 A.1「越界后端占名占额」 | **低**（修复方向正确：先校验后写行，且补了持久断言） | `git diff -- packages/experimental/agent-team` |
 | 全仓 typecheck | 测试文件三处错误 | pre-push 闸门 | **已闭环**（Chief 修复入库；完整闸门结果以其群内贴出为准，我未复跑 bundle） | lefthook.yml:52-55 唯一类型闸门 |
 

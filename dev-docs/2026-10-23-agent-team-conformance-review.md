@@ -1,6 +1,6 @@
 # S4 智能体团队升级 · 实现一致性核对
 
-日期：2026-10-23-　分支：`release/v1.7.3`　HEAD：`401f3e82bc`
+日期：2026-10-23-　分支：`release/v1.7.3`　HEAD：`“docs(review): record the D2 measurement and its narrower landing” 批次`
 核对对象：`dev-docs/2026-10-22-composer-agent-team-spec-v1.zh.md` §4（S4.1–S4.4、§4.7 不变量、§4.8 实施结果）
 　　　　　`dev-docs/2026-10-23-agentloop-alignment-review.md`（§5 闸门判断、§6 不得照搬清单、P0-1 / P2 前提）
 核对范围：只读源码；仅本文档为写入产物。未修改任何 `packages/` / `apps/` 源文件，未改测试，未做 git 写操作。
@@ -267,7 +267,7 @@
 |---|---|---|
 | 行数 / 标题 | 210 行，《Agent Loop 行为对齐复核（AgentLoop对齐师 · 2026-10-23）》 | 103 行，《Agent loop 对齐复核（独立验证版）》 |
 | 章节编号 | §1 P0/P1/P2 复核表、**§2 §6 不得照搬清单复核**、§3 影响排序、§3 建议动作、§4 未验证项、**§5 闸门判断** | §0 结论摘要、§1 P0 复核、§2 P1 复核、§3 P2 复核、§4 勘误、§5 §6 清单复核、§6 影响排序、§7 建议动作 |
-| git 状态 | 已提交（`401f3e82bc`） | **未提交修改**（`git status` = ` M`），mtime `2026-10-23 02:05:43`（早于本轮写入） |
+| git 状态 | 已提交（`“docs(review): record the D2 measurement and its narrower landing” 批次`） | **未提交修改**（`git status` = ` M`），mtime `2026-10-23 02:05:43`（早于本轮写入） |
 
 **任务简报引用的章节号（§5 闸门判断、§6 不得照搬清单、P0-1、P2「本审查期内已被消除」）对应的是 HEAD 已提交版**；工作树重写版把这两节重新编号为 §5「§6 清单逐条复核」与（无闸门节）。本轮复核**以 HEAD 已提交版为准**，同时把重写版作为对照列出。本轮未对该文件做任何写入（`git status` 中的 ` M` 在本轮开始前即存在，且本轮唯一的写操作是新建本文档）。
 
@@ -276,7 +276,7 @@
 - 本次核对给出的 vendor 路径提示是 `node_modules/.pnpm/@earendil-works+pi-ai@0.87.*/node_modules/@earendil-works/pi-ai/dist/`。**该路径无法支撑 P0-1 的前提**：pi-ai 0.87 的 dist 是 LLM 传输层库，对 `dependsOn` / `scheduleTools` / `parallelGroups` **全部 0 命中**（grep 全 dist，exit=0，No matches found）。
 - P0-1 的「上游」实为 **ZCode 快照**。本机快照仍在：`C:\Users\19635\AppData\Local\Temp\cetusprism-zcode-official-20261013-2`，工作树文件已删（该目录下文件总数 = 0），但 `.git\objects\pack\pack-d460ebf9082a3459f5a8978ea6216bd4999171ba.pack` 在位，与审查所引 `pack-d460ebf…` 一致。
 - 取证方式（**只读**）：`git verify-pack -v <idx>` 枚举对象；`GIT_OBJECT_DIRECTORY` 指向上游 objects、`--git-dir` 指向本仓 `.git`，用 `git cat-file -p` 读树与 blob。commit = `aac4755666d09fdcd70272fcf063c077a639015f`（「feat: update to v3.15.1」），与规格 §0.8 记录的 `aac4755…` 一致。
-- **工作树并发写入提示**：本轮进行期间（02:12:54 / 02:13:25）`packages/llm/llm-pi-ai/src/stream.ts` 与 `packages/llm/llm-pi-ai/tests/convert.spec.ts` 被**其它会话**改动（与近期 HEAD 提交 `f4d90a6f2c fix(llm-pi-ai): land the model-access review D1/D3/D6/D8` 同域）。本轮未触碰这两个文件，且本文引用的所有证据文件均未被改动，故结论不受影响；但重跑本文命令时应注意工作树已非纯净状态。
+- **工作树并发写入提示**：本轮进行期间（02:12:54 / 02:13:25）`packages/llm/llm-pi-ai/src/stream.ts` 与 `packages/llm/llm-pi-ai/tests/convert.spec.ts` 被**其它会话**改动（与近期 HEAD 提交 `“fix(llm-pi-ai): land the model-access review D1/D3/D6/D8” 批次 fix(llm-pi-ai): land the model-access review D1/D3/D6/D8` 同域）。本轮未触碰这两个文件，且本文引用的所有证据文件均未被改动，故结论不受影响；但重跑本文命令时应注意工作树已非纯净状态。
 
 ### P0-1 工具调度拓扑 = 「伪差距」——✅ 前提在源码中成立
 
@@ -370,7 +370,7 @@
 | 2 | 群组审查 §5 闸门判断（「pre-commit 不应加 typecheck」；三处 typecheck 错误落在 agent-team 测试文件） | 本轮未跑 typecheck、未读 `lefthook.yml` | 跑 `pnpm --dir 'E:\Projects\CetusPrism' run typecheck` 复核报错文件；读 `lefthook.yml:5-38`（pre-commit）与 `:52-55`（pre-push）。⚠️ 旁证：本轮 agent-team + tool-agent-team 测试 **167/167 全绿**，与「错误落在 agent-team 测试文件」方向一致 |
 | 3 | 群组审查 P0-2「ZCode 底座保持 unconfigured」 | 本轮未复核 | 读 `packages/preset/agent-preset-registry/src/backend.ts:73,182-207`、`packages/client/ui-agent-preset/src/client/backend-store.ts:161-173`、`builtin-agent-adapter.ts:125-127` |
 | 4 | S4.4.4 字节上限「按展开后目标数计」的正确口径 | 规格 `:242` 措辞可两读，实现按单份计 | 需规格方裁定；若裁定为「单份计」，应在 §4.8 已知边界补记该口径 |
-| 5 | `AgentProfile` 缺失 effort 字段是**有意省略**还是**遗漏** | 规格未说明档案是否应钉默认档位 | 查 S4 提交 `5d87f61543`（`feat(agent-team): add agent profiles, long-lived residency, mode ranges, and team broadcast`）与 `ea8785b21c`（`fix(agent-team): keep the declared profile contract assignable`）的提交说明 / PR 讨论，确认设计意图 |
+| 5 | `AgentProfile` 缺失 effort 字段是**有意省略**还是**遗漏** | 规格未说明档案是否应钉默认档位 | 查 S4 提交 `S4 服务层批次`（`feat(agent-team): add agent profiles, long-lived residency, mode ranges, and team broadcast`）与 `“fix(agent-team): keep the declared profile contract assignable” 修复`（`fix(agent-team): keep the declared profile contract assignable`）的提交说明 / PR 讨论，确认设计意图 |
 | 6 | `allowedBackends` / `allowedPresets` 是否应接目录 | 规格 S4.3.3 明文要求后端目录；preset 目录无明文要求 | 同上，查 S4 提交的评审记录；本轮已按**规格原文**判定 S4.3.3 未实现 |
 | 7 | 客户端设置界面能否渲染「对象数组」volatile 字段 | 本轮只确认「无档案卡片」，未穷举通用表单渲染能力 | 在设置 UI 中定位任意对象数组 volatile 字段（如 `packages/llm/llm-pi-ai/src/config.ts` 的 `models[]`）的既有渲染实现，判断 `profiles[]` 能否复用 |
 | 8 | `maxMembers` 计入 dormant 的回归保护 | 当前无测试 | 新增用例：设 `maxMembers: 1` → release 一个成员 → 再 spawn 期望 `TEAM_MEMBER_LIMIT` |
@@ -381,8 +381,8 @@
 
 | 命令 | 退出码 | 用途 |
 |---|---|---|
-| `git -C 'E:\Projects\CetusPrism' log --oneline -5` / `rev-parse HEAD` / `branch --show-current` | 0 | 确认 `401f3e82bc` / `release/v1.7.3` |
-| `git -C 'E:\Projects\CetusPrism' log --oneline --all --grep='agent-team' -20` | 0 | 定位 S4 提交（S4 主提交 `5d87f61543`、工具层 `2e5d7fc1b6`、后续修复 `ea8785b21c`） |
+| `git -C 'E:\Projects\CetusPrism' log --oneline -5` / `rev-parse HEAD` / `branch --show-current` | 0 | 确认 `“docs(review): record the D2 measurement and its narrower landing” 批次` / `release/v1.7.3` |
+| `git -C 'E:\Projects\CetusPrism' log --oneline --all --grep='agent-team' -20` | 0 | 定位 S4 提交（S4 主提交 `S4 服务层批次`、工具层 `S4 工具层批次`、后续修复 `“fix(agent-team): keep the declared profile contract assignable” 修复`） |
 | `git -C 'E:\Projects\CetusPrism' log --oneline -30 -- packages/experimental/agent-team` | 0 | 同一目的的包维度视图 |
 | `git verify-pack -v <upstream idx>` | 0 | 枚举上游 pack（commit 1 / tree 989 / blob 15321） |
 | `GIT_OBJECT_DIRECTORY=<upstream objects> git --git-dir='E:\Projects\CetusPrism\.git' cat-file -p <commit>:<path>` | 0 | 只读读上游树与 blob（`tools.ts`、`scheduler.ts`、`tool/executor/batch-runner.ts`） |

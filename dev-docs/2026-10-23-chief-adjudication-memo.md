@@ -128,3 +128,44 @@
 
 - `packages/core/agent-loop`、`packages/compaction/compaction-basic`、`packages/llm/llm-pi-ai` 是**共享驱动**，影响所有 DSH 会话。C/D/E 三项若落地，一律按 preset/底座开关隔离，不改共享默认值。
 - 不擅自重启用户正在运行的 App（CetusPrism App 与其后端 node 进程）——400 修复与新 preset 预算都还没加载。
+
+---
+
+## 五、群组第五份审查（回归与覆盖风险）的复核与裁决
+
+输入：`dev-docs/2026-10-23-regression-risk-review.md`（8 条覆盖缺口 + Q2–Q6 必答判断题）。
+
+### 1. 复核出 4 处事实错误（已在原文就地订正，附证据）
+
+| # | 原文 | 事实 | 证据 |
+|---|---|---|---|
+| 1 | 「`convert.spec.ts` 仅 1 条正例、零反例」 | 实为 **2 条正例 + 3 条反例** | `packages/llm/llm-pi-ai/tests/convert.spec.ts:941-951`、`:966-979` 为正例；`:955-958`、`:960-963`、`:984-987` 为反例 |
+| 2 | 「`tool-agent-team/src/index.ts:154,246,281,292`（4 份 JSON-schema enum 副本）」 | 三者分属**不同域**：`:154` 成员状态、`:246` 任务状态、`:281`/`:292` 消息投递状态；**只有 `:154` 复制了成员状态** | 同文件 `enum:` 行逐条核对；该条所依据的 `grep "'provisioning'"` 只命中 `:154` 与 `:134` 的政策散文 |
+| 3 | 「`client-ui-agent-team/TeamAction.tsx:29`（已修）」 | **并未修**，现仍是手抄 union；且与本文档 §二 第 8 条「靠手抄」自相矛盾 | `packages/experimental/client-ui-agent-team/src/client/TeamAction.tsx:29` |
+| 4 | 根治写法 `TeamMemberProjection['phase']`（Q4 与第 8 条各一处） | 派生源写错：`phase` 是**持久相位** `provisioning｜active｜dormant｜failed`，客户端要的是**运行时视图** `running｜inactive｜provisioning｜dormant｜failed`；按 phase 派生会把 `running`/`inactive` 换成 `active`，改坏 UI | `packages/experimental/agent-team/src/types.ts:53` 与 `:131`；`TeamMemberView` 已由 `packages/experimental/agent-team/src/client.ts:7` 导出 |
+
+**裁决**：订正 4 的改法（`type MemberStatus = TeamMemberView['status']`）比文档建议的「加 pin」更根本——去掉手抄后，服务端加枚举值客户端自动跟随，pin 本身就不必要了。按订正后的写法落地。
+
+### 2. 8 条覆盖缺口的处置
+
+| 缺口 | 处置 | 理由 |
+|---|---|---|
+| 1 resume 半途断裂 | **先取证再决定** | 文档自标「未验证（未实测该路径真实行为）」，静态推断不足以立用例 |
+| 2 档案 preset 覆盖 | **留第二轮** | 文档自问「是有意 override 还是漏校验无 pin」——这是**规格问题**，规格没写就不能由用例替它答 |
+| 3 广播半途失败 | **直接落地** | 纯回归守卫，无行为变更 |
+| 4 跨 Team 档案复用 | **直接落地** | `roster.ts` 注释已声明这是设计意图，却零测试 |
+| 5 dormant 恢复往返幂等 | **直接落地** | 纯回归守卫 |
+| 6 sendsDeveloperRole 误判 | **部分落地** | 6a（Responses 协议分支无 pin）成立，已补钉子；6c 的「零反例」不成立（见订正 1）；6b 属模型接入域，另议 |
+| 7 stateVersion 5→6 弃用路径 | **留第二轮** | 跨包（`session-projection`）改动，且框架语义已由「ver 失配 → 弃用 → 全量重放」保证 |
+| 8 MemberStatus 穷尽 pin | **按订正后的写法落地** | 见上 |
+
+### 3. Q2–Q6 的采信
+
+| 问题 | 采信情况 |
+|---|---|
+| Q3 持久化兼容 | **采信**。`stateVersion` 5→6 无需迁移：框架的 ver 失配 → 弃用 → 全量重放就是迁移机制（`packages/session/session-projection/src/index.ts:460` 丢弃行、`:430` floor 归 0、`:515-516` 丢弃行且 baseSeq>0 时抛错让调用方重读全日志）。代价是老会话首次打开多一次全量 fold，性能问题而非正确性问题。**注**：文档写的包路径 `packages/core/session-projection` 不存在，实为 `packages/session/session-projection`；行号无误 |
+| Q4 类型断裂面 | **方法采信，4 处结论订正**。「找副本 → 类型层根治 → tsc 兜底」可复用到任何枚举契约 |
+| Q5 闸门缺口 | **留第二轮**。pre-commit 加 vitest 会拖慢本地提交；pre-push 跑「按受影响包推导的 focused vitest」更合理，但要改 `lefthook.yml`，属工程策略决策 |
+| Q6 基线失败 | **采信题面修正**（「3 条 hero 失败已不存在」与我的独立复核一致），并接下 `invariant.spec.ts` 那条的取证 |
+
+**Q5 的补充判断**：本仓 pre-push 只跑 typecheck，**确实漏了**——`packages/experimental/agent-team/tests/invariant.spec.ts` 因缺依赖导入失败（`@deepseek-ai/dsh-invariants` 未在 agent-team 的 `package.json` 里声明，也没链接进它的 node_modules），而该包的 typecheck 是绿的。这类「测试文件根本跑不起来」的问题 tsc 抓不到。落法应先补依赖，再谈闸门。

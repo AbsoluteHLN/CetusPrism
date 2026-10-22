@@ -963,6 +963,35 @@ describe('mapStopReason / mapUsage', () => {
     }))).toMatchObject({ kind: 'error', failure: { code: 'INVALID_REQUEST' } })
   })
 
+  it('recognizes a role rejection whose wording never names the role', () => {
+    // The gateway behind the reported 400 says only this, so the role name is
+    // absent. Without recognizing it, the operator sees a plain invalid
+    // request and never learns which line repairs it.
+    const rejected = mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: 'HTTP 400: Unexpected message role.',
+    }))
+    expect(rejected).toMatchObject({ kind: 'error', failure: { code: DEVELOPER_ROLE_REJECTED_CODE } })
+    // The wording does not name the role, so the guidance names it as the
+    // likely one rather than as a fact.
+    const message = rejected.kind === 'error' ? rejected.failure.message : ''
+    expect(message).toContain('compat.supportsDeveloperRole')
+    expect(message).not.toContain('this endpoint rejects the `developer` role')
+
+    // A rejected request that never mentions a message role stays a plain
+    // invalid request: the guidance would send the operator to the wrong
+    // switch.
+    expect(mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: 'HTTP 400: invalid input: temperature exceeds maximum allowed value',
+    }))).toMatchObject({ kind: 'error', failure: { code: 'INVALID_REQUEST' } })
+    // A message role that is not refused is not a rejection either.
+    expect(mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: 'HTTP 400: the message role must be user or assistant',
+    }))).toMatchObject({ kind: 'error', failure: { code: 'INVALID_REQUEST' } })
+  })
+
   it.each([
     'other side closed',
     'HTTP2 request did not get a response',
@@ -1022,6 +1051,23 @@ describe('mapStopReason / mapUsage', () => {
       cacheWriteTokens: 2,
     })
     expect(mapUsage(usage(10, 5))).toEqual({ inputTokens: 10, outputTokens: 5, totalTokens: 15 })
+  })
+
+  it('maps the reasoning share of the output when the provider reports it', () => {
+    // pi-ai reports reasoning tokens separately from the output that contains
+    // them. The harness vocabulary has a field for the share, and usage is
+    // published once — a call whose reasoning share is dropped there cannot be
+    // told apart from plain output later.
+    expect(mapUsage({ ...usage(10, 5), reasoning: 3 })).toEqual({
+      inputTokens: 10,
+      outputTokens: 5,
+      totalTokens: 15,
+      reasoningTokens: 3,
+    })
+    // A provider that reports no breakdown leaves the field absent, and a
+    // reported zero is no reasoning to name.
+    expect(mapUsage(usage(10, 5))).toEqual({ inputTokens: 10, outputTokens: 5, totalTokens: 15 })
+    expect(mapUsage({ ...usage(10, 5), reasoning: 0 })).toEqual({ inputTokens: 10, outputTokens: 5, totalTokens: 15 })
   })
 })
 

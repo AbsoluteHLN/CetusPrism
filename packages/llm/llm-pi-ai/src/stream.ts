@@ -28,6 +28,11 @@ export function mapUsage(usage: PiUsage): TokenUsage {
     totalTokens: usage.totalTokens,
     ...usage.cacheRead > 0 ? { cacheReadTokens: usage.cacheRead } : {},
     ...usage.cacheWrite > 0 ? { cacheWriteTokens: usage.cacheWrite } : {},
+    // pi-ai reports the reasoning share of the output separately. Without this
+    // the harness vocabulary has no field for it, and every reasoning call
+    // reports its reasoning tokens as plain output — which no later reader can
+    // tell apart, because usage is published once and never replayed.
+    ...usage.reasoning !== undefined && usage.reasoning > 0 ? { reasoningTokens: usage.reasoning } : {},
   }
 }
 
@@ -140,20 +145,30 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
 }
 
 /**
- * Restate a rejected `developer` role as the configuration change that fixes
- * it.
+ * Restate a rejected message role as the configuration change that fixes it.
  *
  * The provider's own wording names the role but not the switch, so an
  * operator reading only the error sees a rejected request and no way to
  * repair it. The repair is one line on the route, and the endpoint's own
  * detection is what made it necessary, so the guidance names both.
+ *
+ * A gateway that refuses a role without naming it is the harder case: the
+ * harness sends the system prompt as `developer` wherever the endpoint
+ * detection resolves the route as OpenAI, so that is the likely role — but
+ * the wording does not say so, and the guidance must not claim it does.
+ *
  * @param detail - the provider's rejection text.
  * @returns the message with the corrective configuration appended.
  */
 function developerRoleGuidance(detail: string): string {
-  return `${detail} — this endpoint rejects the \`developer\` role, which the reasoning model sends for its`
-    + ' system prompt. Set `compat.supportsDeveloperRole: false` on this provider route (or on the model entry)'
-    + ' so the system prompt travels as `system`.'
+  // The provider named the role: the repair follows from the wording alone.
+  if (/\bdeveloper\b/i.test(detail)) {
+    return `${detail} — this endpoint rejects the \`developer\` role, which the reasoning model sends for its`
+      + ' system prompt. Set `compat.supportsDeveloperRole: false` on this provider route (or on the model entry)'
+      + ' so the system prompt travels as `system`.'
+  }
+  return `${detail} — the endpoint refused a message role. When the system prompt travels as the \`developer\` role,`
+    + ' set `compat.supportsDeveloperRole: false` on this provider route (or on the model entry) so it travels as `system`.'
 }
 
 /**

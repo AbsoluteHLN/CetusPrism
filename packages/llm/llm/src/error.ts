@@ -67,18 +67,33 @@ export const INVALID_CREDENTIAL_CODE = 'INVALID_CREDENTIAL'
 export const DEVELOPER_ROLE_REJECTED_CODE = 'DEVELOPER_ROLE_REJECTED'
 
 /**
- * Recognize the wording a gateway uses when it rejects the `developer` role.
+ * Recognize the wording a gateway uses when it rejects a message role.
  *
- * The providers that refuse it name the role in the rejection itself, so the
- * role name is the reliable signal; the `400` alone is not, because it covers
- * every malformed request alike.
+ * Most providers name the role in the rejection itself, so the role name is
+ * the reliable signal; the `400` alone is not, because it covers every
+ * malformed request alike. Some do not name it: one gateway refuses the
+ * `developer` role with nothing but `Unexpected message role.`, which reaches
+ * the operator as a plain rejected request with no line to repair. For those,
+ * the wording still names a message role as the problem, and that is the
+ * evidence this reads.
+ *
+ * What the signal establishes is a rejected message role, not which role: a
+ * gateway may refuse another one, and the guidance says so as a possibility
+ * rather than a fact.
+ *
  * @param detail - provider error code/type/message text joined into one string.
- * @returns true when the detail identifies a rejected `developer` role.
+ * @returns true when the detail identifies a rejected message role.
  */
 export function isDeveloperRoleRejectedError(detail: string): boolean {
-  if (!/\bdeveloper\b/i.test(detail)) return false
-  return /\brole\b/i.test(detail)
-    || /unsupported|not\s+support|unknown|unrecognized|invalid|unexpected/i.test(detail)
+  // The role named outright: the strongest evidence, and enough on its own.
+  if (/\bdeveloper\b/i.test(detail)) {
+    return /\brole\b/i.test(detail)
+      || /unsupported|not\s+support|unknown|unrecognized|invalid|unexpected/i.test(detail)
+  }
+  // The role not named: a message role the endpoint refused, said in the
+  // gateway's own words.
+  return /\bmessage\s+role\b/i.test(detail)
+    && /unsupported|not\s+support|unknown|unrecognized|invalid|unexpected|rejected|not\s+allowed/i.test(detail)
 }
 
 /** Structured codes and plain phrases that explicitly name a context bound being exceeded. */

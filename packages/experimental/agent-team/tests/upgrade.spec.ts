@@ -410,6 +410,23 @@ describe('Team dormant teammates', () => {
     })).rejects.toMatchObject({ code: 'TEAM_MEMBER_NOT_FOUND' })
   })
 
+  it('counts a dormant teammate against the member limit', async () => {
+    // A long-lived teammate must not be a way around the limit: the roster
+    // row stays, so the slot it holds stays held.
+    const { ctx, lead } = await setup(['hang', 'hang'], { maxMembers: 1 })
+    await spawn(ctx, lead, 'worker')
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+
+    await expect(ctx.agentTeams.spawnTeammate(lead, {
+      name: 'second',
+      description: 'a second teammate',
+      prompt: content('work'),
+      context: 'fresh',
+      provider: 'spawn',
+      signal: SIGNAL,
+    })).rejects.toMatchObject({ code: 'TEAM_MEMBER_LIMIT' })
+  })
+
   it('permits only the Lead to release a teammate', async () => {
     const { ctx, lead } = await setup(['hang'])
     const started = await spawn(ctx, lead, 'worker')
@@ -458,6 +475,26 @@ describe('Team ranges', () => {
       provider: 'fork',
       signal: SIGNAL,
     })).rejects.toMatchObject({ code: 'TEAM_BACKEND_NOT_ALLOWED' })
+  })
+
+  it('rejects an execution backend this deployment does not have, before it takes a name', async () => {
+    // The range says which backends this Team allows; the registry says
+    // which backends this deployment has. A backend that is allowed but
+    // absent used to fail after the member row was written — and a failed
+    // member still holds its name and its slot.
+    const { ctx, lead } = await setup([], { allowedBackends: ['spawn', 'acp'] })
+
+    await expect(ctx.agentTeams.spawnTeammate(lead, {
+      name: 'absent-backend-worker',
+      description: 'a backend this deployment does not have',
+      prompt: content('work'),
+      context: 'fresh',
+      provider: 'acp',
+      signal: SIGNAL,
+    })).rejects.toMatchObject({ code: 'TEAM_BACKEND_NOT_AVAILABLE' })
+
+    expect(durable(lead).members.some(member => member.name === 'absent-backend-worker')).toBe(false)
+    expect(ctx.agentTeams.listMembers(lead).filter(member => member.role === 'teammate')).toHaveLength(0)
   })
 
   it('rejects an agent preset outside the allowed-preset range', async () => {

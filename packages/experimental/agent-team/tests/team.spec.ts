@@ -397,12 +397,16 @@ describe('Team identity and provisioning', () => {
 
   it('records failed provisioning durably, reserves its name, and counts it against the limit', async () => {
     const { ctx, lead } = await setup([], { maxMembers: 1 })
-    await expect(spawn(ctx, lead, 'failed-worker', { provider: 'missing' })).rejects.toThrow()
+    // A real creation failure, not an unknown backend: an unknown backend is
+    // rejected before the member row exists, so it reserves neither a name
+    // nor a slot. This case covers the member that does exist and fails.
+    vi.spyOn(ctx.subagents, 'startContinuable').mockRejectedValueOnce(new Error('spawn backend failed'))
+    await expect(spawn(ctx, lead, 'failed-worker')).rejects.toThrow('spawn backend failed')
 
     expect(ctx.agentTeams.listMembers(lead)[1]).toMatchObject({
       name: 'failed-worker',
       status: 'failed',
-      provider: 'missing',
+      provider: 'spawn',
     })
     await expect(spawn(ctx, lead, 'failed-worker')).rejects.toMatchObject({ code: 'TEAM_MEMBER_NAME_TAKEN' })
     await expect(spawn(ctx, lead, 'other-worker')).rejects.toMatchObject({ code: 'TEAM_MEMBER_LIMIT' })

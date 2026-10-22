@@ -478,6 +478,16 @@ export class TeamRoster {
       backend,
       ...preset === undefined ? {} : { preset },
     })
+    // The range says which backends this Team allows; the registry says
+    // which backends this deployment has. A backend that is allowed but
+    // absent would fail later, after the member row was written — and a
+    // failed member still holds its name and its slot.
+    if (!this.ctx.subagents.list().includes(backend)) {
+      throw new TeamError(
+        `execution backend "${backend}" is not a registered subagent backend`,
+        'TEAM_BACKEND_NOT_AVAILABLE',
+      )
+    }
     if (teamPolicy.allowedModels.length > 0) {
       if (route === undefined) throw new TeamError('a provider/model route from the Team allowed-model list is required', 'TEAM_MODEL_REQUIRED')
       if (!teamPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {

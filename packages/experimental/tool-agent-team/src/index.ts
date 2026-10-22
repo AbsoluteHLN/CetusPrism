@@ -373,7 +373,7 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
       description: 'Create one named, durable teammate. Only the Team Lead may call this tool.'
         + ' Give profile_id to instantiate a declared agent profile: a profile is a deployment-declared reusable identity that can be addressed by id across sessions, and it owns the member name, description, and route, so name and description must be omitted with it.'
         + ' backend is the execution backend that runs the teammate, such as spawn or fork; provider is the LLM provider of its model route, and the two name different things.'
-        + ' preset names the agent preset the member runs under and is limited to the Team allowed-preset range.'
+        + ' preset records the agent preset this member is created under, and is limited to the Team allowed-preset range; the Session that owns the member decides which preset it actually runs under.'
         + (config.modelSelectionSettings
           ? ' provider and model may select one exact route from the Host-authorized list and the Team restriction list. Use list_subagent_models to inspect each model’s advertised reasoning efforts; omit reasoning_effort to use that model’s default. Omit all three to use the Team default when configured, otherwise inherit the Lead route.'
           : ''),
@@ -408,7 +408,7 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
         },
         preset: {
           type: 'string',
-          description: 'Agent preset the member runs under; it must be inside the Team allowed-preset range.',
+          description: 'Agent preset this member is created under, recorded and range-checked by the Team; the owning Session decides which preset it actually runs under. Must be inside the Team allowed-preset range.',
         },
       },
       output: jsonOutput(SPAWN_VALUE_SCHEMA),

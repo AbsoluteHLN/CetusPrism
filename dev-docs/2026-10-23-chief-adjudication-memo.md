@@ -45,14 +45,37 @@
 2. **§4.8 实施结果表补 S4.3.6 一行**（卡片未实现，登记为延后）。这是文档记账，5 分钟。
 3. **补 `maxMembers` 计入 dormant 的测试**。已有行为，缺守卫。
 
-### B. S4.2.6 的规格自相矛盾 —— 需要一个裁决
+### B. S4.2.6 的规格自相矛盾 —— **已裁（2026-10-23 夜，取选项 2）**
 
 规格 §4.2.6 要求「复用路径必须走既有冷恢复投递（`mailbox.ts:254-261,317-331`），不得新开一条绕过持久日志的通道」；实现直调 `ctx.subagents.sendMessage`。§4.8 自己记录了另一种落法。
 
 - 选项 1：改实现走 mailbox（贴合 §4.2.6 的字面，但要多绕一层，且与 §4.8 的记录冲突）
 - 选项 2：改规格 §4.2.6，说明「resume 走 subagent 冷复原，broadcast 走 mailbox」——**这条更贴实现**
 
-**倾向选项 2**：§4.2.6 的原意是「不要新建第二条投递链」，而 `ctx.subagents.sendMessage` 走的是 subagent 自己的持久化通道（`continuation.ts`），不是新链。需确认。
+**裁决：选项 2**，并补一条更硬的约束。§4.2.6 的原意是「不要新建第二条投递链」，而 `ctx.subagents.sendMessage` 走的是 subagent 自己的持久化通道（`continuation.ts`），不是新链；§4.8 的实施结果表也已按这一落法记账。
+
+**但字面照抄会捅出一个更严重的洞**，这是群组第四份审查（`dev-docs/2026-10-23-agent-team-review.md`）提出、Chief 独立复核成立的 P0：
+
+| 事实 | 证据 |
+|---|---|
+| `mailbox.ts` 全文没有 `dormant` | 全文检索无命中 |
+| dormant 成员是合法消息目标 | `roster.ts:101`（`member.phase !== 'active' && !== 'dormant'` 才抛错） |
+| 目标运行时不在线时，单播投递仍会 steer | `mailbox.ts` `dispatchOnce`：目标不在线且持久会话里没有该消息 → 落到 `steerHostSubagentPrompt` |
+| steer 在 activation 缺失时冷复原 | `packages/subagent/subagent/src/continuation.ts:299-301`（`activation === undefined` → `coldResume`） |
+| 规格「显式不做」第 2 条要求 dormant 不被 `send_message` 唤醒 | `dev-docs/2026-10-22-composer-agent-team-spec-v1.zh.md:288-289` |
+
+⇒ **一封 mail 会原地复活已释放的成员**，与规格写明的「显式不做」直接冲突；`Lead` 重启时 `recoverFor`（`mailbox.ts:89-110`）还会批量重投，等于重启即唤醒全部带积压的 dormant 成员。
+
+**事实纠正（Chief 复核）**：群组报告称「三条投递路径都不检查成员相位」不准确。广播路径在目标不在线时 `return false`（`mailbox.ts` `deliverBroadcast` 的 `target === undefined` 分支末句），**不会**冷复原；成立的是**单播路径一条**。
+
+**落地**（本轮已提交）：
+
+1. `mailbox.ts`：单播投递在 steer 之前读目标相位，dormant 直接 `return false`——邮件留在持久队列里，等 `reactivate_teammate` 把它带回来再送达（`recoverFor` 走同一路径，天然衔接）。
+2. `roster.ts` `resume()`：**先**把相位记为 `active`，**再**提交提示；失败回写 `dormant`（`active → dormant` 是合法边，`projection.ts:327-328`）。顺序反过来时，复活的成员在创建瞬间相位仍是 `dormant`，`tryMembership`（`roster.ts:154`）拒绝 → Team 工具从不安装（`tool-agent-team/src/index.ts:736-744` 只挂 `agent/created`）→ 复活的成员没有工具、无法回消息。
+3. 工具层文案：`POLICY` / `send_message` / `reactivate_teammate` / `NO_ACTIVE_PEER_MESSAGE` 四处把「dormant 不被唤醒、邮件等待复活后送达」写清，消除原先「starts or resumes an inactive target」与「does not wake a dormant member」并置的歧义。
+4. 规格 §4.2.6 改写（见 `dev-docs/2026-10-22-composer-agent-team-spec-v1.zh.md`）。
+
+**反向验证**（逐条退回修复，确认用例转红）：撤掉相位判定 → 「does not wake a dormant teammate with mail」转红；撤掉回写 → 「keeps a teammate dormant when its resume fails」转红；把相位事务挪回提示提交之后 → 「installs the Team tools on a reactivated teammate」与「delivers the mail that waited for a dormant teammate」同时转红。
 
 ### C. 压缩预算按路由分层（AgentLoop A2）
 

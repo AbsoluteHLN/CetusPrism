@@ -219,7 +219,7 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 | S4.2.3 | 工具层新增 `reactivate_teammate`；`list_agents`（`tool-agent-team/src/index.ts:365-373`）显示 `dormant` 态与「可复用」标识。 |
 | S4.2.4 | 成员上限语义必须重新定义（`roster.ts:340-342`）：`maxMembers` 是否计入 dormant 成员——**计入**，否则「长期逗留」会绕过限额；但 `dormant` 不占并发槽位（并发池在 `continuation-activation.ts:41-56`，是另一条限额）。 |
 | S4.2.5 | 新增事件 `team/member` 的 `dormant` 相位（不是新事件类型，是同一事件的新相位）；投影 `stateVersion` 递增 **5 → 6**（`projection.ts`，结构变更必须递增）。 |
-| S4.2.6 | 复用路径必须走既有冷恢复投递（`mailbox.ts:254-261,317-331`），不得新开一条绕过持久日志的通道。 |
+| S4.2.6 | 复用路径必须走**既有冷恢复机制**（`subagent/src/continuation.ts` 对 continuable 子 Session 的冷复原，即 `ctx.subagents.sendMessage`），不得新开一条绕过持久日志的通道。**邮箱的普通投递不得冷复原成员**：dormant 成员不是可投递目标，其邮件留在持久队列里，等 `reactivate_teammate` 把它带回来再送达（与 §4「显式不做」第 2 条同义）。<br>2026-10-23 修订：原措辞要求复用路径走 `mailbox.ts` 的冷恢复投递，与「显式不做」第 2 条自相矛盾——投递链若冷复原成员，mail 就会唤醒 dormant 成员。实现原样即违反该条。裁决与取证见 `dev-docs/2026-10-23-chief-adjudication-memo.md` §三.B。 |
 
 ### 4.5 S4.3 模式范围
 
@@ -263,7 +263,7 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 | 子项 | 状态 | 落点 |
 |---|---|---|
 | S4.1 档案 | **已实现** | 新模块 `packages/experimental/agent-team/src/profile.ts`（`AgentProfileRegistry`）；配置项 `profiles`；`TeamMemberSnapshot.profileId` / `TeamMemberView.profileId` / `TeamMemberProjection.profileId`；`spawnTeammate({ profileId })` 走档案取名/描述/底座/路由，冲突报 `TEAM_PROFILE_CONFLICT`，未声明报 `TEAM_PROFILE_UNKNOWN` |
-| S4.2 驻留复用 | **已实现** | `TeamMemberPhase` 增 `dormant`；`roster.release()` / `roster.resume()`（resume 经 `ctx.subagents.sendMessage` 冷复原持久化子 Session）；投影允许 `active → dormant → active`；`stateVersion` 5 → 6 |
+| S4.2 驻留复用 | **已实现**（2026-10-23 补两处） | `TeamMemberPhase` 增 `dormant`；`roster.release()` / `roster.resume()`（resume 经 `ctx.subagents.sendMessage` 冷复原持久化子 Session）；投影允许 `active → dormant → active`；`stateVersion` 5 → 6。**补**：① 单播投递读目标相位，dormant 不冷复原（`mailbox.ts` `dispatchOnce`），dormant 成员的邮件留在持久队列等复活送达；② `resume()` 先记 `active` 再提交提示，失败回写 `dormant`——否则复活的成员在创建瞬间相位仍是 `dormant`，`tryMembership` 拒绝 → Team 工具不安装 |
 | S4.3 模式范围 | **已实现** | 新模块 `src/range.ts`（`checkRanges`）；配置项 `allowedEfforts` / `allowedBackends` / `allowedPresets`；档案自身的 `allowedEfforts` 在 Team 限制之上再收窄；越界分别报 `TEAM_EFFORT_NOT_ALLOWED` / `TEAM_BACKEND_NOT_ALLOWED` / `TEAM_PRESET_NOT_ALLOWED` |
 | S4.4 群聊 | **已实现** | `mailbox.broadcast()`：一条持久广播记录 + 每目标一条投递边；复用既有邮箱链（先落盘、按目标串行、目标去重、冷恢复重投）；上限按展开后目标数计；新增事件 `team/message/broadcast` / `team/message/broadcast-delivered` |
 | 工具层 | **已实现** | `tool-agent-team` 新增 `list_agent_profiles` / `release_teammate` / `reactivate_teammate` / `broadcast_message`；`spawn_teammate` 增 `profile_id` / `preset` / `backend`；`list_agents` 输出带 `dormant` / `resumable` / `profile_id` / `preset` |
@@ -287,6 +287,10 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
    影响所有 DSH 会话，按工程纪律须按 preset/底座开关隔离，不属于本轮范围。
 2. **dormant 成员不会被 `send_message` 唤醒**：消息照常入队并在其复原后送达（与离线成员同语义），
    唤醒动作只有 `reactivate_teammate`（它带一次任务）。
+   **2026-10-23 补记**：这条此前只是登记的边界，实现并未满足——单播投递在目标运行时不在线时会走
+   `steerHostSubagentPrompt`，而它在 activation 缺失时冷复原该成员，等于 mail 唤醒 dormant 成员。
+   现已在投递链读相位拦截，并补了回归用例（`agent-team/tests/upgrade.spec.ts`、
+   `tool-agent-team/tests/tool-team.spec.ts`）。
 3. **`maxMembers` 计入 dormant 成员**（S4.2.4 的口径）：长期逗留不会绕过成员上限，
    但 dormant 不占并发槽位。
 

@@ -8,7 +8,7 @@
  *      materialized by `pnpm deploy --prod --offline`. pnpm 11 verifies the
  *      deploy target's freshly written lockfile against the supply-chain
  *      policies first, and that check fetches every package's metadata and
- *      provenance attestations from registry.npmjs.org — it retries forever
+ *      npm's signed attestations from registry.npmjs.org — it retries forever
  *      when the registry is unreachable, so an offline pack never finishes.
  *      `--trust-lockfile` skips exactly that step. This script asserts the
  *      flag is still on the command line and (with `--probe`) re-runs the

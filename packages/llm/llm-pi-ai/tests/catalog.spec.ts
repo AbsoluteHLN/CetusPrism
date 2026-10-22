@@ -1419,11 +1419,22 @@ describe('the compat floor under a repointed api', () => {
     return new Map(models.map(model => [model.id, model]))
   }
 
-  /** An installed entry that carries a compat block of its own. */
+  /**
+   * An installed entry whose compat block carries a field the anthropic
+   * protocol also reads.
+   *
+   * A block whose every key belongs to one protocol would only prove that
+   * the block was emptied. The leak this guards against is the opposite: a
+   * field the two protocols share keeping the old protocol's value on the
+   * wire, so the fixture has to own one.
+   */
   function installedEntry(): Model<Api> {
-    const catalog = getBuiltinModels('zai') as readonly Model<Api>[]
-    const entry = catalog.find(model => model.api === 'openai-completions' && model.compat !== undefined)
-    if (entry === undefined) throw new Error('zai ships no openai-completions model with a compat block')
+    const catalog = getBuiltinModels('baseten') as readonly Model<Api>[]
+    const entry = catalog.find(model => model.api === 'openai-completions'
+      && (model.compat as { supportsLongCacheRetention?: boolean } | undefined)?.supportsLongCacheRetention === false)
+    if (entry === undefined) {
+      throw new Error('baseten ships no openai-completions model with a compat field the anthropic protocol reads')
+    }
     return entry
   }
 
@@ -1435,29 +1446,36 @@ describe('the compat floor under a repointed api', () => {
     // resolution decided, so the repoint has to answer for them.
     const base = installedEntry()
     const models = modelsOf({
-      zai: { api: 'anthropic-messages', models: [{ id: base.id }] },
-    }, 'zai')
+      baseten: { api: 'anthropic-messages', models: [{ id: base.id }] },
+    }, 'baseten')
 
     const model = models.get(base.id)
     expect(model?.api).toBe('anthropic-messages')
     expect(model?.compat).toEqual({})
+    // The shared field is the one that would have leaked: it kept the old
+    // protocol's value on the wire.
+    expect((model?.compat as { supportsLongCacheRetention?: boolean } | undefined)?.supportsLongCacheRetention)
+      .toBeUndefined()
   })
 
   it('keeps the installed compat when the route leaves the api alone', () => {
     const base = installedEntry()
-    const models = modelsOf({ zai: { models: [{ id: base.id }] } }, 'zai')
+    const models = modelsOf({ baseten: { models: [{ id: base.id }] } }, 'baseten')
 
     expect(models.get(base.id)?.compat).toEqual(base.compat)
+    // The shared field is there — which is exactly what the repoint removes.
+    expect((models.get(base.id)?.compat as { supportsLongCacheRetention?: boolean }).supportsLongCacheRetention)
+      .toBe(false)
   })
 
   it('carries a configured switch onto a repointed model alone', () => {
     const base = installedEntry()
     const models = modelsOf({
-      zai: {
+      baseten: {
         api: 'anthropic-messages',
         models: [{ id: base.id, compat: { supportsTemperature: false } }],
       },
-    }, 'zai')
+    }, 'baseten')
 
     expect(models.get(base.id)?.compat).toEqual({ supportsTemperature: false })
   })

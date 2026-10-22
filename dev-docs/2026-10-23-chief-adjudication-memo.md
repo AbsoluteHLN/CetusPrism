@@ -199,3 +199,73 @@
 **本轮所有验证命令都带 `--config configs/vitest.config.ts`**：仓库没有根 vitest 配置，裸 `vitest run <path>` 既无 alias 表也不带 jsdom setup，会给出误导性的红灯（`window is not defined`、`ResizeObserver is not defined`、「找不到包」）。这与上面闸门判断是同一条事实。
 
 **仍留第二轮**：重写版缺口 3（resume 失败的原因折叠 = 第二轮问题 A）、缺口 4（广播目标顺序的头阻塞语义）、缺口 5（stateVersion 5→6 老会话重放回归，跨包）、零代码收口 ① ②；以及首稿缺口 2（档案 preset 与请求 preset 的优先级 = 第二轮问题 B，规格问题）。
+
+---
+
+## 六、第二轮分歧的裁决（2026-10-23 05:55）
+
+### 1. 意见回收状况
+
+5 条并行意见已派（4 + 1 补充），已落盘 3 份：`dev-docs/2026-10-23-round2-agent-team-opinions.md`（智能体团队架构师，A/B/C 三问）、`dev-docs/2026-10-23-round2-agentloop-opinions.md`（AgentLoop 对齐师，D/E 两问）、`dev-docs/2026-10-23-round2-regression-opinions.md`（回归风险审查员，订正复核 + 闸门裁决）。仍在跑：GLM 档位与 D4/D5/D7 一条；排队：广播头阻塞与 resume 原因折叠一条。
+
+### 2. 三问的裁决（A/B/C）
+
+| 题 | 意见 | 裁决 | 落点 |
+|---|---|---|---|
+| A `resume()` 是否按底层原因拆错误码 | 不拆；补「诊断落账」 | **采信** | `1052319549` |
+| B 档案 preset 与请求 preset 谁赢 | 档案赢、冲突报错 | **采信** | `1052319549` + 规格 S4.1.7 |
+| C `allowedPresets` 是否对账 preset 目录 | 本轮登记为已知边界 | **采信** | 规格「已知边界」第 4 条 + 工具参数描述 |
+
+**A 的承重前提我复核过**：`PERSISTENCE_UNAVAILABLE` 唯一产地是 `requirePersistence()`（`packages/subagent/subagent/src/continuation.ts:533`），唯一调用点是 `startContinuable()`（同文件 `:108`），而 resume 链走 `sendMessage → deliverFollowup → coldResume`，整条链不含 `startContinuable` ⇒ **该码在 resume 路径结构性不可达**，「拆出它」是伪差距。真正可到达的只有 `NOT_RESUMABLE`（`continuation.ts:420,431,453`）与 `CONTINUATION_UNAVAILABLE`（`:540-548`），而两者的处置完全相同（park 回写 + 报因），拆出来的码没有消费者。契约已钉死单一码（`upgrade.spec.ts` 断言 `TEAM_MEMBER_NOT_RESUMABLE`），本轮不动。
+
+**意见书有 2 处行号偏差（结论不变）**：①「档案拥有 name/description/route」在 `packages/experimental/agent-team/src/types.ts:320`（意见书写 `:313-314`）；②「preset 持久落在成员行」指 `types.ts:123-124`（意见书写 `:116-117`，那两行是 `model` / `modelProvider`；档案侧的 preset 在 `types.ts:93-94`，视图侧在 `:106`）；「写入成员行 `roster.ts:536`」正确。
+
+**C 的题面前提要写实**：preset 目录**是存在的**（`packages/preset/agent-preset-registry/src/index.ts:238` 的 `async list()`，类定义 `:89`），不是「没有目录」；真实约束是**跨服务且异步**，而 agent-team 的注入表不含它、`checkRanges` 是同步判定。所以裁决写成「登记为边界」而不是「无从对账」。
+
+### 3. D/E 的裁决：方向采信，本轮不落地
+
+- **D（压缩预算按路由分层）——题面前提已被推翻**：standard preset 早已覆盖 `thresholdRatio 0.9 / headroomTokens 8192`（`packages/bundle/web-app/presets/standard.patch.yml:88-99`），并有双向锁定测试（`packages/bundle/web-app/tests/compaction-budget.spec.ts:58-92`，实测 2 passed / 退出码 0）。真正还吃服务默认的只剩 `ptc.patch.yml:74-75` 一处。⇒ **不按路由补 `modelPolicies`**（那是为不存在的问题加第二份需要同步的表），也**本轮不补 ptc**：ptc 面是否有真实流量未验证，且这是新功能面，不在「关掉审查点名的缺口」的范围内。条件：确认 ptc 面有流量后，只补那一处，外加一条「生产 patch 挂 compaction-basic 必须显式预算」的装配测试。
+- **E（软告警层）——方向采信（独立插件包、阈值照上游 3/3、预算告警默认关、`packages/core/agent-loop` 源码零改动），落地不在本轮**：它要新建一个可组合件包并决定挂到哪些 preset，属于新增共享面，需要产品侧拍板预算。另外题面漏了「上游预算告警默认关」这一半（`model-anomaly.ts:70-73`），照单全收会让每 turn 注入量不可控。
+
+### 4. 回归风险审查员第二轮的三点修正（复核结论）
+
+① 我此前记的 convert.spec.ts 反例数**少记一条**：实为 2 正例 + 4 反例（第 4 条在 `:988-992`，`developer_message` 措辞 → `INVALID_REQUEST`）；方向无碍。
+② 「三域枚举」的量词修正成立：与成员状态同域的只有 `packages/experimental/tool-agent-team/src/index.ts:154` 一处；同文件 `:136` 的 `ACTIVE_WAIT_STATUSES: ReadonlySet<TeamMemberView['status']>` 是正确范本。
+③ 「TeamAction.tsx:29 已修」的措辞应读作「手抄未去掉」而非「完全没修」——`dormant` 缺失这个编译错误确实已修，手抄这一层是 `3eaaf48d6d` 才去掉。
+④ 派生源订正成立且是最重要的一条（`TeamMemberPhase` ≠ `TeamMemberView['status']`）。
+
+**新风险的归因更正**：意见书报的「`packages/llm/llm` 整包存在 1/5 概率抖动」需要更正——05:02 那次红的确是我跑的，但失败用例是 `packages/llm/llm-deepseek/tests/runtime.spec.ts > recovers in one replacement request when the provider lists dozens of missing file ids`，**超时 5000ms**；用路径过滤 `packages/llm/llm` 时前缀误匹配进了 `llm-deepseek`。该文件单独跑 158/158 全绿（7.8s），全仓体检里同一个用例也超时 ⇒ 是**并行负载下的超时**，不是 llm 整包抖动。归因写错会让闸门决策建在假前提上。
+
+### 5. 第六份审查（文档与规范合规）的 3 条违规：已全部关闭
+
+| 违规 | 处置 | 提交 |
+|---|---|---|
+| V1 配对哈希失步 + 中文目录落后 | 中文目录补齐 4 个新字段与 `AgentProfile` 接口块、两处 Source 行号订正、哈希重录 | `587f4700fd` |
+| V2 `agent-team/src/index.ts:74` 的 unknown 断言 | 去掉断言，声明与运行时对齐（`allowedEfforts` 放宽为 `string[]`，只读承诺留在 view） | `587f4700fd` |
+| V3 对照文档行号/结论漂移 | GLM 重试预算 2→10、`retry-policy.ts` 行号、三处源码行号订正 | `2d9d0d4b4b` |
+
+**V1 的真因比审查员写的更深一层**：审查员说「只需重录哈希」，实际重录后闸门仍红（`docs/config-catalog.md ↔ .zh.md` 代码块 #33 分叉）——英文目录已被重生成，中文目录整体落后（缺 4 个字段 + 整个 `AgentProfile` 接口块 + 2 处过期 Source 行号）。生成器 `scripts/gen-config-catalog.ts:18` **只写英文**，中文侧是手工维护，只能手工补齐。
+
+### 6. 全仓测试体检（仓库真实配置，1906 个文件）
+
+```
+Test Files  89 failed | 1800 passed | 17 skipped (1906)
+Tests 249 failed | 38445 passed | 1 expected fail | 200 skipped (38895)
+Duration 1777.22s
+```
+
+**结论：无一落在我改过的包里。** 本轮 13 笔提交共碰 14 个文件（agent-team 的 `roster.ts` / `team.spec.ts` / `upgrade.spec.ts` / README×3、tool-agent-team 的 `src/index.ts`、client-ui-agent-team 的 `TeamAction.tsx`、llm 的 `invariant.spec.ts`、llm-pi-ai 的 `catalog.spec.ts`），与 89 个失败文件零交集。失败集中在三类 Windows 环境限制：**符号链接权限**（`packages/workspace/workspace`、`packages/api/workspace-files`、`packages/fs/fs-sandbox` 等的 symlink 用例）、**子进程/超时**（`packages/util/native-command/tests/file-applications-windows.spec.ts`、`scripts/oxlint-contract.spec.ts`）、**发布产物不存在**（`scripts/check-workspace-constraints.spec.ts` 的 14 条「published payload」用例，连 auto-review、ui-sidebar 等我没碰的包同样红）。
+
+唯一与 llm 相关的失败文件是 `packages/llm/llm-deepseek/tests/runtime.spec.ts`，该包最后改动在 `eb61b2e8b8`（17 笔提交之前），单独跑 158/158 全绿 ⇒ 负载超时，非本轮引入。
+
+### 7. pre-push focused vitest 闸门：采纳设计，落地排在抖动修复之后
+
+两份意见（第五份审查的「闸门判断」小节 + 回归风险审查员本轮 §四）指向同一件事：**pre-push 应当跑受影响包的 focused vitest，且必须钉 `--config configs/vitest.config.ts`**（仓库没有根 vitest 配置，裸跑既无 alias 表也无 jsdom setup，会造出「代码坏了」的假红灯）。形态采信回归风险审查员的版本：包级粒度、由变更文件推导包根、5 分钟上限且超时降级为告警、vitest 退出码非 0 则阻断；**不加进 pre-commit**（与「本地快、CI 全量」纪律一致）。
+**前置条件**：先把上面那条超时用例的判定修掉，否则闸门会间歇性假红灯。这条留到下一轮，本轮不落地。
+
+### 8. 仍然开着的清单
+
+- **缺口 7**：stateVersion 5→6 老会话 JSONL 重放冒烟（跨包 `packages/session/session-projection`）——两份意见都点名，仍未做。
+- **广播目标顺序的头阻塞语义**（`mailbox.ts` 广播准入首个失败即返回 false）——补充意见还在排队。
+- **park 吞 journal 失败**（`roster.ts` 的 park catch 只 warn）：会让成员停在 active 而无 runtime，下一次 resume 报 `TEAM_MEMBER_NOT_FOUND`，是误导性码。本轮登记不动。
+- **GLM 推理档位是否声明**、**S4.3.6 设置区四级卡片**、**S4 设置区档案卡片**：待用户决定。

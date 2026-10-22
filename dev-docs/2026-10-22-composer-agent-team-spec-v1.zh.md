@@ -209,6 +209,7 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 | S4.1.4 | 档案可**按 id 跨会话寻址**（这正是「存智能体信息的配置环境」的落点），成员快照新增 `profileId` 引用（`types.ts:64-78`）。 |
 | S4.1.5 | 成员名规则改为「档案已定义的名字」语义：**同一 Team 内名字唯一**（含失败成员，失败成员仍占用名字与名额——这是仓库既有契约，`team.spec.ts` 有用例钉住）。解除的是「跨 Team 的一次性占用」：档案是部署声明，可在任何 Team 再次实例化；同一 Team 内的复用走 S4.2 的 resume，而不是再起一个同名成员。 |
 | S4.1.6 | 设置区新增档案卡片，读改路径复用既有 settings form 范式（参考 `packages/client/ui-settings-subagent/src/client/team-model-restriction-card-controller.ts`）。**本轮未实现（延后）**：档案的读写落点已由 S4.1.2 的 profile patch 满足，UI 卡片是可选的便利面，不阻塞其余三项。 |
+| S4.1.7 | **档案字段与请求冲突的统一口径：档案声明的值优先，冲突即报 `TEAM_PROFILE_CONFLICT`，不做静默覆盖。** name 与 backend 一直如此（`roster.ts` 的档案冲突检查块）；`preset` 曾是全函数唯一的例外——请求 preset 静默覆盖档案 preset，同一 `profile_id` 因此可以被请求改写出另一种身份，与「同一档案按 id 跨会话寻址」（S4.1.4）的前提相抵触。2026-10-23 补齐为同一口径：**档案赢，冲突报错**。<br>**范围字段不适用此口径**：`allowedEfforts` 是「档案给范围、请求在范围内选」（档案范围在 Team 范围之上再收窄），与单值身份字段（name / backend / preset）不是一回事，不要套用。 |
 
 ### 4.4 S4.2 长期驻留与复用
 
@@ -262,8 +263,8 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 
 | 子项 | 状态 | 落点 |
 |---|---|---|
-| S4.1 档案 | **已实现** | 新模块 `packages/experimental/agent-team/src/profile.ts`（`AgentProfileRegistry`）；配置项 `profiles`；`TeamMemberSnapshot.profileId` / `TeamMemberView.profileId` / `TeamMemberProjection.profileId`；`spawnTeammate({ profileId })` 走档案取名/描述/底座/路由，冲突报 `TEAM_PROFILE_CONFLICT`，未声明报 `TEAM_PROFILE_UNKNOWN` |
-| S4.2 驻留复用 | **已实现**（2026-10-23 补两处） | `TeamMemberPhase` 增 `dormant`；`roster.release()` / `roster.resume()`（resume 经 `ctx.subagents.sendMessage` 冷复原持久化子 Session）；投影允许 `active → dormant → active`；`stateVersion` 5 → 6。**补**：① 单播投递读目标相位，dormant 不冷复原（`mailbox.ts` `dispatchOnce`），dormant 成员的邮件留在持久队列等复活送达；② `resume()` 先记 `active` 再提交提示，失败回写 `dormant`——否则复活的成员在创建瞬间相位仍是 `dormant`，`tryMembership` 拒绝 → Team 工具不安装 |
+| S4.1 档案 | **已实现**（2026-10-23 补一处） | 新模块 `packages/experimental/agent-team/src/profile.ts`（`AgentProfileRegistry`）；配置项 `profiles`；`TeamMemberSnapshot.profileId` / `TeamMemberView.profileId` / `TeamMemberProjection.profileId`；`spawnTeammate({ profileId })` 走档案取名/描述/底座/路由，冲突报 `TEAM_PROFILE_CONFLICT`，未声明报 `TEAM_PROFILE_UNKNOWN`。**补**：档案字段的冲突口径补齐到 `preset`（见 S4.1.7）——档案 preset 优先，请求带不同 preset 报 `TEAM_PROFILE_CONFLICT`；此前请求静默覆盖档案，同一 `profile_id` 可被请求改写出另一种身份 |
+| S4.2 驻留复用 | **已实现**（2026-10-23 补三处） | `TeamMemberPhase` 增 `dormant`；`roster.release()` / `roster.resume()`（resume 经 `ctx.subagents.sendMessage` 冷复原持久化子 Session）；投影允许 `active → dormant → active`；`stateVersion` 5 → 6。**补**：① 单播投递读目标相位，dormant 不冷复原（`mailbox.ts` `dispatchOnce`），dormant 成员的邮件留在持久队列等复活送达；② `resume()` 先记 `active` 再提交提示，失败回写 `dormant`——否则复活的成员在创建瞬间相位仍是 `dormant`，`tryMembership` 拒绝 → Team 工具不安装；③ resume 失败把失败原因写进成员行的 `error` 字段（此前只回写相位，原因只活在当次工具结果里，会话重启后无据可查），后续 resume 成功会清掉这条过期原因 |
 | S4.3 模式范围 | **已实现**（2026-10-23 补一处） | 新模块 `src/range.ts`（`checkRanges`）；配置项 `allowedEfforts` / `allowedBackends` / `allowedPresets`；档案自身的 `allowedEfforts` 在 Team 限制之上再收窄；越界分别报 `TEAM_EFFORT_NOT_ALLOWED` / `TEAM_BACKEND_NOT_ALLOWED` / `TEAM_PRESET_NOT_ALLOWED`。**补**：`allowedBackends` 的取值还要过一遍「实际存在的后端目录」（`ctx.subagents.list()`，`roster.ts`），不在目录里的后端在**成员行创建之前**就被拒（`TEAM_BACKEND_NOT_AVAILABLE`）——此前它会先落一条 `provisioning` 成员行，再因 provider 找不到而失败成 `failed`，**失败成员照样占名字与名额** |
 | S4.3.6 设置区四级卡片 | **延后** | 控制器仍停在 provider/model 两级（`packages/client/ui-settings-subagent/src/client/team-model-restriction-card-controller.ts`），未扩到「provider/model/档位/后端」四级。Team 侧的范围机制（`allowedEfforts` / `allowedBackends`）本身已实现并有守卫，卡片是可选便利面 |
 | S4.4 群聊 | **已实现** | `mailbox.broadcast()`：一条持久广播记录 + 每目标一条投递边；复用既有邮箱链（先落盘、按目标串行、目标去重、冷恢复重投）；上限按展开后目标数计；新增事件 `team/message/broadcast` / `team/message/broadcast-delivered` |
@@ -297,6 +298,18 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
    **2026-10-23 补记**：这条此前只是登记的边界——实现确实计入（`release()` 只改相位、成员行保留，
    `roster.ts` 的 `state.members.length` 仍计入它），但**没有测试钉住**；现已补回归用例
    （`agent-team/tests/upgrade.spec.ts`「counts a dormant teammate against the member limit」）。
+4. **`allowedPresets` 不与部署的 preset 目录对账**：Team 侧的 `allowedPresets` 是**自声明集合**，
+   取值不与部署里真实存在的 preset 目录比对，因此写错的 preset id 会被**静默记录且不生效**
+   （与边界 1 同源：preset 只被记录与校验，不被施加）。
+   **2026-10-23 裁决：本轮不加目录校验**，理由有二——① 失真等级不对等：`allowedBackends` 拼错会走完
+   provisioning 硬失败、失败成员占名字占名额（S4.3.3 的目录校验正是为此而立），而 preset 拼错的后果
+   只是「成员行记了一个不生效的 id」，子会话实际跑继承预设；② 对账成本不匹配：preset 目录在另一个服务
+   `AgentPresetRegistry`（`list()` 是异步），而 agent-team 的注入表不含它、`checkRanges` 是同步判定，
+   要对账就得给实验包新开硬注入（装载顺序耦合）或者把校验异步穿透到 spawn 主链路。
+   **配套**：`spawn_teammate` 的 `preset` 参数描述已补「须为部署声明过的 preset id」，避免模型自由编 id；
+   Team 工具面目前没有「列出部署 preset」的入口（`list_agent_profiles` 只列档案），这一点一并记明。
+   **未来触发条件**：若 preset 变为按成员施加（那需要动全仓共享的 subagent 层），目录对账即升格为必须项，
+   须与施加点同轮落地。
 
 ---
 

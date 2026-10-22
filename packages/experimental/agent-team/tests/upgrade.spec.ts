@@ -11,7 +11,7 @@ import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import SubagentService from '@deepseek-ai/dsh-subagent'
 import * as SubagentFork from '@deepseek-ai/dsh-subagent-fork-in-process'
 import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
-import { MockAdapter, textResponse } from '../../../core/agent-loop/tests/mock-adapter.ts'
+import { MockAdapter } from '../../../core/agent-loop/tests/mock-adapter.ts'
 import TeamService, { TeamId } from '../src/index.ts'
 import { teamProjectionDefinition } from '../src/projection.ts'
 import { TestSessionQuery } from './test-session-query.ts'
@@ -76,10 +76,6 @@ function spawn(
     provider: options.provider ?? (context === 'fork' ? 'fork' : 'spawn'),
     signal: SIGNAL,
   })
-}
-
-async function waitNoAgent(ctx: Context, id: SessionId): Promise<void> {
-  await vi.waitFor(() => { expect(ctx.agents.get(id)).toBeUndefined() }, { timeout: 5_000 })
 }
 
 async function waitRunning(ctx: Context, id: SessionId): Promise<Agent> {

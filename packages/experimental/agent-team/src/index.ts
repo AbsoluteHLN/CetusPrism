@@ -68,7 +68,10 @@ const agentProfileSchema = z.object({
   backend: z.string(),
   provider: z.string(),
   model: z.string(),
-  allowedEfforts: z.array(z.string()),
+  // The declared contract is a readonly list of effort ids, so the parsed
+  // shape must carry one too: a mutable array would not satisfy
+  // `AgentProfile` under `exactOptionalPropertyTypes`.
+  allowedEfforts: z.array(z.string()) as unknown as z<readonly string[]>,
   preset: z.string(),
 })
 

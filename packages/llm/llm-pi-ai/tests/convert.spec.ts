@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import type { AttachmentStore, ImageAttachmentRef, ImageRequestTarget, RequestImageAttachment } from '@deepseek-ai/dsh-attachment'
-import { createToolResultMessage, createUserMessage, ToolCallId, CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, createMessage } from '@deepseek-ai/dsh-llm'
+import { createToolResultMessage, createUserMessage, ToolCallId, CONTEXT_WINDOW_EXCEEDED_CODE, DEVELOPER_ROLE_REJECTED_CODE, EMPTY_RESPONSE_CODE, createMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { AssistantMessage, AssistantMessageEvent, Usage } from '@earendil-works/pi-ai'
 import { transformMessages } from '@earendil-works/pi-ai/api/transform-messages'
@@ -936,6 +936,31 @@ describe('mapStopReason / mapUsage', () => {
       stopReason: 'error',
       errorMessage: 'vector length limit exceeded',
     }))).toMatchObject({ kind: 'error', failure: { code: 'PI_AI_ERROR' } })
+  })
+
+  it('separates a rejected developer role from every other rejected request', () => {
+    // The gateway rejects the request as malformed, so it arrives as a plain
+    // 400 — but only this one has a configuration line that repairs it.
+    const rejected = mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: "HTTP 400: unsupported role 'developer' for this endpoint",
+    }))
+    expect(rejected).toMatchObject({ kind: 'error', failure: { code: DEVELOPER_ROLE_REJECTED_CODE } })
+    // The message must name the switch: the provider's wording names the role
+    // but not the configuration that changes it.
+    expect(rejected.kind === 'error' ? rejected.failure.message : '').toContain('compat.supportsDeveloperRole')
+
+    // A rejected request that never mentions the role stays a plain invalid
+    // request: the guidance would send the operator to the wrong switch.
+    expect(mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: 'HTTP 400: invalid input: temperature exceeds maximum allowed value',
+    }))).toMatchObject({ kind: 'error', failure: { code: 'INVALID_REQUEST' } })
+    // A `developer` word with no rejection wording is not a role rejection.
+    expect(mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: 'HTTP 400: developer mode is enabled for this key',
+    }))).toMatchObject({ kind: 'error', failure: { code: 'INVALID_REQUEST' } })
   })
 
   it.each([

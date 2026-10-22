@@ -50,6 +50,37 @@ export const EMPTY_RESPONSE_CODE = 'EMPTY_RESPONSE'
  */
 export const INVALID_CREDENTIAL_CODE = 'INVALID_CREDENTIAL'
 
+/**
+ * Canonical provider-neutral code for a request an OpenAI-compatible gateway
+ * rejected because it does not accept the `developer` role.
+ *
+ * pi-ai sends the system prompt as `developer` to a reasoning model whenever
+ * its endpoint detection resolves the base URL as OpenAI — which is what an
+ * unrecognized private URL resolves to. Most OpenAI-compatible gateways accept
+ * only `system`, and the resulting `400` is otherwise indistinguishable from
+ * any other rejected request, so the one configuration line that fixes it
+ * (`compat.supportsDeveloperRole: false`) is invisible to the operator.
+ *
+ * The failure is terminal rather than transient: resending the same body
+ * cannot succeed, so it stays out of the default retryable set.
+ */
+export const DEVELOPER_ROLE_REJECTED_CODE = 'DEVELOPER_ROLE_REJECTED'
+
+/**
+ * Recognize the wording a gateway uses when it rejects the `developer` role.
+ *
+ * The providers that refuse it name the role in the rejection itself, so the
+ * role name is the reliable signal; the `400` alone is not, because it covers
+ * every malformed request alike.
+ * @param detail - provider error code/type/message text joined into one string.
+ * @returns true when the detail identifies a rejected `developer` role.
+ */
+export function isDeveloperRoleRejectedError(detail: string): boolean {
+  if (!/\bdeveloper\b/i.test(detail)) return false
+  return /\brole\b/i.test(detail)
+    || /unsupported|not\s+support|unknown|unrecognized|invalid|unexpected/i.test(detail)
+}
+
 /** Structured codes and plain phrases that explicitly name a context bound being exceeded. */
 const STRUCTURED_CONTEXT_OVERFLOW = new RegExp(
   String.raw`(?:^|[^a-z0-9])context[\s_-](?:length|window)[\s_-]`

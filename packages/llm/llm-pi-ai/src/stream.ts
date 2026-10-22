@@ -9,7 +9,7 @@
  */
 
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
+import { CONTEXT_WINDOW_EXCEEDED_CODE, DEVELOPER_ROLE_REJECTED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isDeveloperRoleRejectedError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import type { FinishReason, StreamChunk, TokenUsage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow'
 import type { AssistantMessage, AssistantMessageEvent, Usage as PiUsage } from '@earendil-works/pi-ai'
@@ -43,6 +43,11 @@ function classifyPiAiError(message: string): string {
   if (/\b(?:401|403)\b/.test(message)) return 'AUTH'
   if (isQuotaExceededError(message)) return QUOTA_EXCEEDED_CODE
   if (/\b429\b|rate.?limit/i.test(message)) return 'RATE_LIMIT'
+  // A gateway that refuses the `developer` role rejects the request as a
+  // malformed one, so it arrives here as a plain `400`. Classifying it apart
+  // from every other rejected request is what lets the operator see which
+  // configuration line fixes it.
+  if (isDeveloperRoleRejectedError(message)) return DEVELOPER_ROLE_REJECTED_CODE
   // A rejected request body (gateway or provider size cap): resending the
   // same request cannot succeed, so it is invalid, not transient.
   if (/\b413\b|failed to buffer the request body:\s*length limit exceeded|payload too large|request body too large/i.test(message)) return 'INVALID_REQUEST'
@@ -122,9 +127,33 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
     }
     case 'error': {
       const text = message.errorMessage ?? 'pi-ai stream error'
-      return { kind: 'error', failure: { message: text, code: classifyPiAiError(text) } }
+      const code = classifyPiAiError(text)
+      return {
+        kind: 'error',
+        failure: {
+          message: code === DEVELOPER_ROLE_REJECTED_CODE ? developerRoleGuidance(text) : text,
+          code,
+        },
+      }
     }
   }
+}
+
+/**
+ * Restate a rejected `developer` role as the configuration change that fixes
+ * it.
+ *
+ * The provider's own wording names the role but not the switch, so an
+ * operator reading only the error sees a rejected request and no way to
+ * repair it. The repair is one line on the route, and the endpoint's own
+ * detection is what made it necessary, so the guidance names both.
+ * @param detail - the provider's rejection text.
+ * @returns the message with the corrective configuration appended.
+ */
+function developerRoleGuidance(detail: string): string {
+  return `${detail} — this endpoint rejects the \`developer\` role, which the reasoning model sends for its`
+    + ' system prompt. Set `compat.supportsDeveloperRole: false` on this provider route (or on the model entry)'
+    + ' so the system prompt travels as `system`.'
 }
 
 /**

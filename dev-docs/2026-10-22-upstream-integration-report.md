@@ -208,3 +208,73 @@ llm-deepseek-account 新包、plugin-market/secret-mask UI、HTTPS web listener�
 ## 8. 提交
 
 本轮所有改动由**父会话统一提交一次**（此前约定：子任务/父会话不各自提交）。
+
+---
+
+## 9. 2026-10-22 12:38 安装态复核与运行时取证
+
+本节记录同日第二轮复核：上一轮只做到「安装态替换 `dsh-tool-subagent` 两个文件 +
+源码级回归」，本轮把运行实例、安装态产物与闸门结果一并取证。
+
+### 9.1 运行实例
+
+| 项 | 取值 |
+|---|---|
+| 桌面壳 | `CetusPrism.exe` pid 25436，启动于 2026-10-22 11:17:43（`D:\Cetus\CetusPrism\CetusPrism.exe`） |
+| 后端 | `node.exe` pid 60788，`entry.mjs --port 14400 --no-open` |
+| 监听 | 127.0.0.1:14400、127.0.0.1:9230 |
+| dsh home | `D:\Cetus\dshconfig`（`.credentials.yaml` 607 B，2026-10-21 21:29:22） |
+
+### 9.2 用户报的问题（新建会话 → `list_subagent_models` 重复注册）：根因修复已在安装态生效
+
+- 安装态 `dsh-tool-subagent/lib/index.js`（39,257 B，**2026-10-22 03:16:22**）与
+  `lib/list-models.js`（9,014 B，**03:16:22**）**两个入口都**含
+  `Symbol.for("dsh.tool-subagent.discovery.scope-states")`（index.js:173 / list-models.js:45）
+  与 `contributors` 合并逻辑（index.js:187/255-263、list-models.js:59/127-135）——
+  即两个入口共享同一份 scope 状态，同一 scope 内的第二个注册者只贡献策略，不再重复注册。
+- `lib/model-selection-settings.js`（2,845 B，2026-10-21 16:26:28）在位；
+  `desktop-experimental.patch.yml`（2026-10-22 03:30:56）把 `modelSelectionSettings` 打开，
+  即「根因已修、开关回开」，不是绕过。
+- 源码级回归（本次实跑，exit 0）：
+  `packages/subagent/tool-subagent` + `packages/experimental/tool-agent-team`
+  → **9 文件 / 191 用例全绿**，含 `list-models.spec.ts` 里新增的
+  「同一 scope 双注册合并、第一个退出工具仍存活、最后一个退出才释放」回归用例。
+- 边界：以上是**产物与源码层**的证据。桌面 GUI 里点「新建会话」的实际点击路径
+  本轮无法自动执行（无桌面自动化工具），因此**未做真机端到端确认**，详见 §9.6。
+
+### 9.3 安装态仍未同步的部分
+
+- **8 个上游回移 + vendor/cordis 的 effect 归属修复仍只在仓库侧**。安装态 runtime 由
+  2026-10-21 21:46 的安装包生成，2026-10-22 03:16 只热替换了 `dsh-tool-subagent` 两个文件；
+  `dsh-experimental-tool-agent-team/lib/index.js` 仍是 2026-10-21 16:26:28 的旧构建。
+  补齐需要一次完整打包（离线 + 会覆盖 `E:\dependency-cache\cetusprism\dist`）并重启 App。
+- **QQ 通道未通**：`D:\Cetus\dshconfig\bot-companion-host.json` 里 `qq-connector` 每分钟
+  `connect close`，历史记录显示 NapCat onebot 端口 6705 45s 内没起来。需要手机扫码 + 处理 168 安全风险。
+
+### 9.4 本轮提交
+
+`d436d131ee` — `chore(runtime): pin the Node floor to the tested matrix and refresh the Engram Go requirement`
+
+- node engines 下限对齐 CI 实测矩阵（`.github/workflows/node-addon-system.yml` 跑
+  24.22.1 / 22.23.4 / 26.12.1），根包与 5 个 `native/system/packages/*` 统一声明
+  `^22.23.4 || >=24.22.1`；共享依赖仓里无任何依赖要求更高（扫描 `node_modules/.pnpm` 最高只到 `>=20`）。
+- `docs/user/guide/mcp-memory.md` / `.zh.md`：Engram v1.20.0 的 Go 要求改为 1.26.10+（或 1.27.3+）。
+- 钩子：pre-commit（third-party notices / whitespace / vendor manifest guard）全过；
+  pre-push typecheck 38.60s 通过；推送 `1c4ce3fa42..d436d131ee release/v1.7.3`（exit 0）。
+
+### 9.5 node-compat 闸门：4 passed / 2 failed（两条均为环境基线）
+
+| 闸门 | 结果 | 判定 |
+|---|---|---|
+| dsh source-launch smoke | PASS (13.15s) | — |
+| typecheck | PASS (31.27s) | — |
+| Vitest jsdom smoke | **FAIL** | 环境基线：`scripts/vitest-environment.compat.spec.ts` 报 `ReferenceError: ResizeObserver is not defined`（jsdom 未提供该全局），与本轮改动无关 |
+| profile resolution smoke | **FAIL** | 环境基线：`packages/boot/app-boot/tests/profile-resolution.spec.ts` 报 `EPERM ... symlink`（Windows 未开开发者模式，无法建符号链接） |
+
+### 9.6 仍未验证
+
+- **桌面端 GUI 里点「新建会话」**：本会话无桌面自动化工具（`computer_*` 不可用），
+  无法自动点按；替代证据是 §9.2 的安装态产物核验与 191 例回归。
+- **QQ 通道**：需用户手机扫码 + 处理 168 安全风险。
+- **模型探针真实档位**：需要模型凭据。
+- **8 个回移 + cordis 的安装态运行时代码**：需一次完整打包 + 重启窗口。

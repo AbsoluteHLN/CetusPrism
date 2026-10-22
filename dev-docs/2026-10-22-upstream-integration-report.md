@@ -278,3 +278,128 @@ llm-deepseek-account 新包、plugin-market/secret-mask UI、HTTPS web listener�
 - **QQ 通道**：需用户手机扫码 + 处理 168 安全风险。
 - **模型探针真实档位**：需要模型凭据。
 - **8 个回移 + cordis 的安装态运行时代码**：需一次完整打包 + 重启窗口。
+
+---
+
+## 10. 2026-10-22 13:20 完整离线重打包与产物验收
+
+§9.3 记录的「安装态缺 8 个回移 + cordis effect 修复」在本节闭环到**可安装产物**层面：
+离线重编译 shell、刷新工作区产物、重新装配 runtime 并封装 NSIS 安装包，离线闸门与产物验收均通过。
+**安装动作本身（覆盖安装 + 重启 App）仍需用户给窗口**；本节只交付已验证的安装包。
+
+### 10.1 打包前备份（未删除任何既有产物）
+
+| 项 | 值 |
+|---|---|
+| 备份目录 | `E:\dependency-cache\cetusprism\backup\installer-20261021-2146\` |
+| 旧安装包 | `CetusPrism-v1.7.3-setup.exe` 86,699,977 B，sha256 `1a253ae5cc648dc822fcba14adadc51a8f04292c94efe88e3b93f9fb45c9219a` |
+| 旧 blockmap | 90,095 B，sha256 `e75d08d431b79c3e2f3e036c41c1f0121ad54287dbe6430c7230c7ac6105f83e` |
+
+两个哈希与 §7 记录一致，确认备份的就是当前 canonical 产物。
+
+### 10.2 第一轮打包：闸门失败，命中两个真实缺陷
+
+装配本身成功（`pack-tauri` exit 0、`make-installer` exit 0），但 `scripts/check-offline-pack.mjs`
+**exit 1**：
+
+```
+- dev path literal "e:\dependency-cache" x270
+- dynamic CRT import "VCRUNTIME140.dll"        (target machine would need the VC++ x64 redistributable)
+- dynamic CRT import "VCRUNTIME140_1.dll"
+```
+
+根因：装配时复用了 `E:\dependency-cache\cargo\targets\cetusprism\release\CetusPrism.exe`
+（2026-10-21 16:25:31）。该 exe 早于 `c669f0d0bf`（2026-10-22 03:47:52）落到
+`apps/electron/scripts/build-shell.mjs` 的两个强制开关：
+
+- `--remap-path-prefix=E:\dependency-cache=cargo-cache`——Rust 把 `file!()` 烘进 `.rdata` 的
+  panic 定位串，`strip = "symbols"` 去不掉，只有 remap 能改写；
+- `-C target-feature=+crt-static`——静态链接 MSVC CRT，目标机无需安装 VC++ x64 运行库。
+
+`build-shell.mjs` 的注释写死了这两个开关的实测效果（"measured: 270 `E:\dependency-cache` hits"、
+"`VCRUNTIME140.dll` / `VCRUNTIME140_1.dll` in the import table disappear"），与闸门实测逐字吻合。
+
+**由此得到一个关于线上版本的结论**：当前已安装的 v1.7.3（2026-10-21 21:46 的安装包）用的
+就是这个 exe，即**已安装版本带着 270 处构建机路径字面量和对 VC++ 运行库的动态依赖**。
+这不是本次引入的缺陷，而是「开关落地前出的包」，本节把新包补齐。
+
+### 10.3 第二轮：重编 shell + 刷新工作区产物
+
+| 步骤 | 命令 | 结果 |
+|---|---|---|
+| 重编 shell | `node apps/electron/scripts/build-shell.mjs` | exit 0，4m45s，exe 4,640,768 → 4,763,648 B |
+| 刷新产物 | `pnpm run build:lib`（host + client 两个 face） | exit 0 |
+| 装配 runtime | `node apps/electron/scripts/pack-tauri.mjs` | exit 0，14,379 文件；deploy 全离线（downloaded 0 / reused 615） |
+| 封装安装包 | `node apps/electron/scripts/make-installer.mjs` | exit 0 |
+
+新 shell 的导入表从 **24 项降到 15 项**：`VCRUNTIME140.dll`、`VCRUNTIME140_1.dll` 与
+`api-ms-win-crt-*` 全部消失（静态 CRT 生效）；闸门二进制扫描无 FAIL 行（路径字面量清零）。
+
+`build:lib` 还修掉一个真实问题：`packages/client/ui-chat/lib/client.js` 此前是
+**2026-10-21 16:24:04** 的旧构建，而 `src/client/locale.ts` 已在 2026-10-22 03:21 改过——
+即「本轮已停止的回合提示」与 locale 改名**从未进入过产物**，旧安装包自然也不含。刷新后已包含。
+
+### 10.4 离线闸门：exit 0
+
+```
+check-offline-pack: imported DLLs (15): …（无 vcruntime140*、无 api-ms-win-crt-*）
+check-offline-pack: artifact size: 4763648 bytes
+  warn: documented exception "e:\projects\cetusprism\apps\electron\src-tauri" x1（已登记例外）
+  warn: runtime: the shipped tool-subagent runtime carries the one-registration-per-scope discovery fix
+PASS: the pack chain is offline-safe and the shell carries no forbidden path or CRT dependency
+GATE_EXIT=0
+```
+
+### 10.5 产物验收：两套判据全绿
+
+**判据 A（强）**：按各包 `package.json` 的 `files` glob 取出「应当随包发布」的文件集合，
+逐文件比对仓库产物与打包产物的 sha256——11 个包、22 个文件全部同哈希、零异常
+（`client/ui-dockkit` 不在 backend runtime 闭包内，见下）。
+
+**判据 B（辅）**：在打包产物整包范围内搜「只有修复后代码才出现」的区分性特征，11 条全中：
+
+| 包 | 标记 | 含义 |
+|---|---|---|
+| `dsh-api-gateway` | `on("message"` | mux 心跳：任何帧都算存活（旧版只认 pong） |
+| `dsh-hmr` | `disposed` | close 之后的 watcher error 不再上报 |
+| `dsh-credentials-local` | `reportWatcherError` | 凭据 watcher 错误处理函数 |
+| `dsh-skill-filesystem` | `handleWatcherError` | skills watcher 错误处理函数 |
+| `dsh-session-title-llm` | `still return a short best-effort title` | session-title 首行截取系统提示 |
+| `dsh-client-ui-chat` | `message.failure.interrupted`（旧 key `message.accountStopped` 已消失） | 停止回合提示与 locale 改名 |
+| `dsh-client-ui-sidebar-right` | `overflow:clip` | 折叠右栏溢出裁剪（CSS 已内联进产物） |
+| `dsh-tool-subagent` | `dsh.tool-subagent.discovery.scope-states` | 根因修复：进程级 scope 状态注册表（两个入口都命中） |
+| `dsh-experimental-tool-agent-team` | `teamDiscoveryPolicy` | Team 只贡献策略、不再重复注册 |
+| `cordis` | `effectOwners` | cordis effect 归属修复 |
+
+`client/ui-dockkit` 未出现在 backend runtime 闭包里：它是仅前端包，且 `c669f0d0bf` 对
+`DockSurface.tsx` 的改动**只有 JSDoc 注释**，无运行时行为，故不影响产物正确性。
+
+### 10.6 两条判据陷阱（留给下一次复查的人）
+
+1. **不能用新旧共有的标识符做判据**。第一轮用 `missedHeartbeats` 判 api-gateway 的心跳回移，
+   但旧代码本来就有这个 Map——于是**陈旧产物被判成通过**。判据必须是修复后才出现的东西。
+2. **打包器会内联「单次使用的 const」**。`const dispose = f(); return dispose` 会被打成
+   `return f()`，所以 session-projection 的回移不能用 `return dispose` 判；它的判据落在
+   「`onChanged` 站点形态」上：修复前是 `return () => void dispose()`（会包一层、丢掉 promise），
+   修复后被内联成 `return this.ctx.effect(...)`。据此复核后确认**该回移本来就在产物里**，
+   第一轮的「产物陈旧」判断是判据错误，不是构建缺陷。
+
+### 10.7 新安装包
+
+| 项 | 值 |
+|---|---|
+| 路径 | `E:\dependency-cache\cetusprism\dist\CetusPrism-v1.7.3-setup.exe` |
+| 大小 | 86,705,473 B |
+| sha256 | `b70152a51b9b7cd8153626d60f134b2f47058e13faaccd41f55b4a24f7a06a8c` |
+| blockmap | 90,046 B，sha256 `2801bfad5811a11f3260124dc824f72f9f5b239519e825215897cbb652cf18cb` |
+| 旧包（备份） | sha256 `1a253ae5cc648dc822fcba14adadc51a8f04292c94efe88e3b93f9fb45c9219a` |
+
+### 10.8 上游差异与仍未验证
+
+- **上游差异**：`official/master` 领先本 fork **22,394** 个提交（fork 独有 103 个），
+  全量回移不现实，延续「逐条挑选上游修复回移」路线；本节 8 个回移即该路线的一次执行。
+- **仍未验证**：
+  - 桌面 GUI 里点「新建会话」——本会话无桌面自动化工具，未做真机端到端确认；
+  - 新安装包尚未安装到 `D:\Cetus\CetusPrism`（需用户给重启窗口），§9.2 的安装态核验结论
+    仍只对 2026-10-22 03:16 的热替换版本成立；
+  - QQ 通道需手机扫码 + 处理 168 安全风险；模型探针真实档位需模型凭据。

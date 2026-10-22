@@ -31,6 +31,10 @@ interface TeamMemberSnapshot {
   readonly modelProvider?: string
   /** Exact model-advertised reasoning effort selected for this member. */
   readonly reasoningEffort?: string
+  /** Declared profile this member was instantiated from, when it came from one. */
+  readonly profileId?: string
+  /** Agent preset this member runs under, when the Team policy names one. */
+  readonly preset?: string
   readonly context: 'fresh' | 'fork'
   readonly phase: TeamMemberPhase
   readonly error?: string
@@ -109,6 +113,10 @@ interface TeamMemberProjection {
   readonly model?: string
   readonly modelProvider?: string
   readonly reasoningEffort?: string
+  /** Declared profile this member was instantiated from, when it came from one. */
+  readonly profileId?: string
+  /** Agent preset this member runs under, when the Team policy names one. */
+  readonly preset?: string
   readonly error?: string
 }
 ```

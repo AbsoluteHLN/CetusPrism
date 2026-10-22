@@ -12,17 +12,26 @@ import { TeamJournal } from './journal.ts'
 import { TeamRuntimeLifecycle } from './lifecycle.ts'
 import { TeamMailbox } from './mailbox.ts'
 import { teamProjectionDefinition } from './projection.ts'
+import { AgentProfileRegistry } from './profile.ts'
+import type { TeamRanges } from './range.ts'
 import { TeamRoster } from './roster.ts'
 import type { TeamMembership } from './roster.ts'
 import { TeamTaskBoard } from './task-board.ts'
 import { TeamId, TeamTaskId } from './types.ts'
 import type {
+  AgentProfile,
+  AgentProfileView,
+  BroadcastTeamMessageRequest,
+  BroadcastTeamMessageResult,
   Config,
   CreateTeamTaskRequest,
+  ReleaseTeammateRequest,
+  ResumeTeammateRequest,
   SendTeamMessageRequest,
   SendTeamMessageResult,
   SpawnTeammateRequest,
   SpawnTeammateResult,
+  TeammateLifecycleResult,
   TeamMemberView,
   TeamTaskView,
   TeamWaitResult,
@@ -51,6 +60,34 @@ const modelRouteSchema = z.object({
   provider: z.string().required(),
   model: z.string().required(),
 })
+
+const agentProfileSchema = z.object({
+  id: z.string().required(),
+  name: z.string().required(),
+  description: z.string().required(),
+  backend: z.string(),
+  provider: z.string(),
+  model: z.string(),
+  allowedEfforts: z.array(z.string()),
+  preset: z.string(),
+})
+
+/**
+ * Normalize one declared list of exact names.
+ * @param values - configured names.
+ * @param field - diagnostic field name.
+ * @returns trimmed non-empty names.
+ */
+function normalizeNames(values: readonly string[], field: string): string[] {
+  if (values.some(value => typeof value !== 'string')) {
+    throw new TeamError(`Team ${field} entries must be strings`, 'TEAM_INVALID_CONFIG')
+  }
+  const names = values.map(value => value.trim())
+  if (names.some(name => name.length === 0)) {
+    throw new TeamError(`Team ${field} entries must be non-empty`, 'TEAM_INVALID_CONFIG')
+  }
+  return names
+}
 
 /** Validate one positive safe-integer deployment limit. */
 function positiveLimit(name: string, value: number): number {
@@ -122,12 +159,25 @@ export class TeamService extends Service {
     disposalTimeoutMs: z.number().step(1).min(1).default(DEFAULT_DISPOSAL_TIMEOUT_MS),
     allowedModels: z.array(modelRouteSchema).default([]).volatile(),
     defaultModel: z.union([z.const(undefined), modelRouteSchema]).volatile(),
+    profiles: z.array(agentProfileSchema).default([]).volatile(),
+    allowedEfforts: z.array(z.string()).default([]).volatile(),
+    allowedBackends: z.array(z.string()).default([]).volatile(),
+    allowedPresets: z.array(z.string()).default([]).volatile(),
   })
 
   /** Validated deployment limits used by every Team operation. */
-  private readonly config: Required<Omit<Config, 'defaultModel' | 'allowedModels'>> & {
+  private readonly config: {
+    maxMembers: number
+    maxTasks: number
+    maxPendingMessagesPerMember: number
+    maxMessageBytes: number
+    disposalTimeoutMs: number
     allowedModels: Volatile<TeamModelSelection[]> | TeamModelSelection[]
     defaultModel: Volatile<TeamModelSelection | undefined> | TeamModelSelection | undefined
+    profiles: Volatile<AgentProfile[]> | AgentProfile[]
+    allowedEfforts: Volatile<string[]> | string[]
+    allowedBackends: Volatile<string[]> | string[]
+    allowedPresets: Volatile<string[]> | string[]
   }
 
   private readonly activity: TeamActivity
@@ -136,6 +186,10 @@ export class TeamService extends Service {
   private readonly roster: TeamRoster
   private readonly mailbox: TeamMailbox
   private readonly tasks: TeamTaskBoard
+  /** The declaration the current profile registry was built from. */
+  private profileCache: readonly AgentProfile[] | undefined
+  /** The registry rebuilt whenever the declaration changed. */
+  private profileRegistryCache = new AgentProfileRegistry()
 
   constructor(ctx: Context, config: Config = {}) {
     super(ctx, 'agentTeams')
@@ -153,6 +207,10 @@ export class TeamService extends Service {
       ),
       allowedModels: config.allowedModels ?? [],
       defaultModel: config.defaultModel,
+      profiles: config.profiles ?? [],
+      allowedEfforts: config.allowedEfforts ?? [],
+      allowedBackends: config.allowedBackends ?? [],
+      allowedPresets: config.allowedPresets ?? [],
     }
 
     this.modelPolicy()
@@ -166,6 +224,8 @@ export class TeamService extends Service {
       this.config.maxMembers,
       () => this.modelPolicy(),
       () => currentHostModelPolicy(ctx),
+      () => this.profileRegistry(),
+      () => this.ranges(),
     )
     this.mailbox = new TeamMailbox(
       ctx,
@@ -240,6 +300,45 @@ export class TeamService extends Service {
   }
 
   /**
+   * List the deployment's declared agent profiles.
+   *
+   * A profile is the reusable identity of a teammate: it names the member,
+   * says what it is for, and pins the route and ranges it may run under.
+   * @returns the declared profiles in declaration order.
+   */
+  profiles(): AgentProfileView[] {
+    return this.profileRegistry().list()
+  }
+
+  /**
+   * Read the Team's three range ceilings.
+   *
+   * Each list is a set of exact names; an empty list means the Team places no
+   * ceiling of that kind.
+   * @returns the Team's effort, backend, and preset ceilings.
+   */
+  ranges(): TeamRanges {
+    return {
+      allowedEfforts: normalizeNames(readConfigValue(this.config.allowedEfforts, []), 'allowed-effort'),
+      allowedBackends: normalizeNames(readConfigValue(this.config.allowedBackends, []), 'allowed-backend'),
+      allowedPresets: normalizeNames(readConfigValue(this.config.allowedPresets, []), 'allowed-preset'),
+    }
+  }
+
+  /**
+   * Read the declared profiles, rebuilding the registry when the declaration changed.
+   * @returns the profile registry.
+   */
+  private profileRegistry(): AgentProfileRegistry {
+    const declared = readConfigValue(this.config.profiles, [])
+    if (this.profileCache === undefined || this.profileCache !== declared) {
+      this.profileCache = declared
+      this.profileRegistryCache = new AgentProfileRegistry(declared)
+    }
+    return this.profileRegistryCache
+  }
+
+  /**
    * Create one named, continuable direct child of the Team Lead.
    * @param caller - exact live Lead Agent.
    * @param request - immutable name, description, prompt, context mode, provider, and cancellation.
@@ -250,6 +349,29 @@ export class TeamService extends Service {
   }
 
   /**
+   * Release one resident teammate into its dormant state.
+   *
+   * The durable member row stays, so the same identity can be brought back by
+   * a later resume instead of being spawned again.
+   * @param caller - exact live Lead Agent.
+   * @param request - teammate name and cancellation.
+   * @returns the dormant roster row.
+   */
+  async releaseTeammate(caller: Agent, request: ReleaseTeammateRequest): Promise<TeammateLifecycleResult> {
+    return await this.roster.release(caller, request)
+  }
+
+  /**
+   * Bring one dormant teammate back and give it its next task.
+   * @param caller - exact live Lead Agent.
+   * @param request - teammate name, prompt, and cancellation.
+   * @returns the active roster row.
+   */
+  async resumeTeammate(caller: Agent, request: ResumeTeammateRequest): Promise<TeammateLifecycleResult> {
+    return await this.roster.resume(caller, request)
+  }
+
+  /**
    * Queue one durable peer message, then attempt immediate delivery.
    * @param caller - exact live sending Team member.
    * @param request - target name, content, and pre-queue cancellation.
@@ -257,6 +379,22 @@ export class TeamService extends Service {
    */
   async sendMessage(caller: Agent, request: SendTeamMessageRequest): Promise<SendTeamMessageResult> {
     return await this.mailbox.send(caller, request)
+  }
+
+  /**
+   * Queue one durable broadcast, then attempt immediate delivery.
+   *
+   * One durable record addresses several members at once; every target keeps
+   * its own delivery edge and its own pending-message ceiling.
+   * @param caller - exact live sending Team member.
+   * @param request - target names, content, and pre-queue cancellation.
+   * @returns durable broadcast identity, its targets, and the delivery observation.
+   */
+  async broadcastMessage(
+    caller: Agent,
+    request: BroadcastTeamMessageRequest,
+  ): Promise<BroadcastTeamMessageResult> {
+    return await this.mailbox.broadcast(caller, request)
   }
 
   /**

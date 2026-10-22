@@ -3,6 +3,14 @@
 import { TeamError } from './error.ts'
 
 /**
+ * Shape of a model-facing teammate name: lower-kebab-case.
+ *
+ * The same shape names an agent profile, because a profile's name is the
+ * member name its instances take.
+ */
+export const MEMBER_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u
+
+/**
  * Normalize one required human-authored string.
  * @param value - raw input value.
  * @param field - diagnostic field name.

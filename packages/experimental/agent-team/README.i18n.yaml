@@ -24,8 +24,20 @@
   en: d4ca2d34069945d5
   zh: a5f322790acbdfab
 /deepseek-ai-dsh-experimental-agent-team/use-this-package/teammates:
-  en: 5a314d1f80ecd31b
-  zh: c34e6a93dd1e2045
+  en: 1a11407b9d7ad669
+  zh: 033482792f18397c
+/deepseek-ai-dsh-experimental-agent-team/use-this-package/agent-profiles:
+  en: b1f3b6d076fe6fe9
+  zh: 5b62d925f065d89f
+/deepseek-ai-dsh-experimental-agent-team/use-this-package/dormancy-and-reuse:
+  en: 5f8df4ddf6261f46
+  zh: 0e2858e0938894aa
+/deepseek-ai-dsh-experimental-agent-team/use-this-package/ranges:
+  en: 9ac6957b3ef2598c
+  zh: 22bedf296ba9f252
+/deepseek-ai-dsh-experimental-agent-team/use-this-package/group-messages:
+  en: ad883b22fb7d9552
+  zh: aabd74376f6488fe
 /deepseek-ai-dsh-experimental-agent-team/use-this-package/messages-between-teammates:
   en: 2c45b2c18c8317e7
   zh: d4ab2259f976b19d
@@ -45,8 +57,8 @@
   en: 21dcefc8d5c257a6
   zh: ed41bf537388aad1
 /deepseek-ai-dsh-experimental-agent-team/understand-the-implementation/source-map:
-  en: 4e4189d2009a4e42
-  zh: 0ccbf29cf78f10af
+  en: 08d95e78613d2fe4
+  zh: eca6919d30b35231
 /deepseek-ai-dsh-experimental-agent-team/understand-the-implementation/team-identity-and-roster:
   en: 85f97723e45e43de
   zh: def66721e21339cc
@@ -60,8 +72,8 @@
   en: 3becd36b407aac95
   zh: c9e4895ee59696bb
 /deepseek-ai-dsh-experimental-agent-team/understand-the-implementation/durability-model:
-  en: 72717f01a98c6563
-  zh: f8460266e4b771fb
+  en: def1a083e67ff8fd
+  zh: 373beee773acf84d
 /deepseek-ai-dsh-experimental-agent-team/understand-the-implementation/disposal:
   en: 3ae69e3b7905cffe
   zh: 0fb159101f6d646b

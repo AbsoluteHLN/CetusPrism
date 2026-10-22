@@ -14,12 +14,15 @@ import type { TeamJournal } from './journal.ts'
 import type { TeamRuntimeLifecycle } from './lifecycle.ts'
 import { readPersistedSession } from './persisted.ts'
 import type { TeamRoster } from './roster.ts'
-import { resolveActiveMember } from './roster.ts'
+import { resolveReachableMember } from './roster.ts'
 import { messageAccepted } from './session-message.ts'
 import { TeamId, TeamMessageId } from './types.ts'
 import type {
+  BroadcastTeamMessageRequest,
+  BroadcastTeamMessageResult,
   SendTeamMessageRequest,
   SendTeamMessageResult,
+  TeamBroadcastSnapshot,
   TeamMessageSnapshot,
 } from './types.ts'
 
@@ -95,6 +98,16 @@ export class TeamMailbox {
       signal.throwIfAborted()
       await this.tryDispatch(membership.root, message, signal)
     }
+    // A broadcast that reached this member but was never recorded waits in the
+    // same durable queue, so the cold recovery retries it the same way.
+    const broadcasts = state.broadcasts.filter(candidate =>
+      candidate.targetIds.includes(agent.id)
+      && !state.broadcastDelivered.some(edge =>
+        edge.messageId === candidate.id && edge.targetId === agent.id))
+    for (const broadcast of broadcasts) {
+      signal.throwIfAborted()
+      await this.tryDispatchBroadcast(membership.root, broadcast, signal)
+    }
   }
 
   /**
@@ -117,7 +130,7 @@ export class TeamMailbox {
     const queued = await this.journal.transact(root.id, async () => {
       request.signal.throwIfAborted()
       const state = this.journal.state(root)
-      const target = resolveActiveMember(root, state, request.target)
+      const target = resolveReachableMember(root, state, request.target)
       if (target.id === caller.id) throw new TeamError('a Team member cannot message itself', 'TEAM_SELF_MESSAGE')
       const pendingForTarget = state.messages.filter(candidate =>
         candidate.targetId === target.id && !state.delivered.includes(candidate.id)).length
@@ -150,7 +163,291 @@ export class TeamMailbox {
     return { messageId: queued.message.id, status: accepted ? 'accepted' : 'queued' }
   }
 
-  /** Attempt one queued message exactly once in this process at a time. */
+  /**
+   * Queue one durable broadcast, then attempt immediate delivery.
+   *
+   * A broadcast is one durable record with many targets: the content is
+   * stored once, and every target keeps its own delivery edge, exactly as a
+   * single-target message does.
+   * @param caller - exact live sending Team member.
+   * @param request - target names, content, and pre-queue cancellation.
+   * @returns durable broadcast identity, its targets, and the delivery observation.
+   */
+  async broadcast(caller: Agent, request: BroadcastTeamMessageRequest): Promise<BroadcastTeamMessageResult> {
+    if (this.lifecycle.disposed) throw new TeamError('Agent Teams service is disposing', 'TEAM_DISPOSED')
+    const operation = this.broadcastAdmitted(caller, {
+      ...request,
+      signal: AbortSignal.any([request.signal, this.lifecycle.signal]),
+    })
+    return await this.trackDispatch(operation)
+  }
+
+  /**
+   * Queue and dispatch one broadcast admitted before the disposal cutoff.
+   * @param caller - exact live sending Team member.
+   * @param request - target names, content, and cancellation.
+   * @returns durable broadcast identity, its targets, and the delivery observation.
+   */
+  private async broadcastAdmitted(
+    caller: Agent,
+    request: BroadcastTeamMessageRequest,
+  ): Promise<BroadcastTeamMessageResult> {
+    const membership = this.roster.membership(caller)
+    request.signal.throwIfAborted()
+    const root = membership.root
+    const content = structuredClone(request.content)
+    const queued = await this.journal.transact(root.id, async () => {
+      request.signal.throwIfAborted()
+      const state = this.journal.state(root)
+      const targetIds: SessionId[] = []
+      for (const name of request.targets) {
+        const target = resolveReachableMember(root, state, name)
+        if (target.id === caller.id) {
+          throw new TeamError('a Team member cannot message itself', 'TEAM_SELF_MESSAGE')
+        }
+        if (!targetIds.includes(target.id)) targetIds.push(target.id)
+      }
+      if (targetIds.length === 0) {
+        throw new TeamError('a broadcast needs at least one target', 'TEAM_INVALID_ARGUMENT')
+      }
+      // The pending ceiling counts the expanded target set: a broadcast that
+      // reaches ten members costs each of them one pending slot.
+      for (const targetId of targetIds) {
+        const pending = state.broadcasts.filter(candidate =>
+          candidate.targetIds.includes(targetId)
+          && !state.broadcastDelivered.some(edge =>
+            edge.messageId === candidate.id && edge.targetId === targetId)).length
+        if (pending >= this.maxPendingMessagesPerMember) {
+          throw new TeamError(
+            `teammate has ${pending} pending messages`,
+            'TEAM_MAILBOX_FULL',
+          )
+        }
+      }
+      const broadcast: TeamBroadcastSnapshot = {
+        id: TeamMessageId(`team-broadcast-${randomUUID()}`),
+        senderId: caller.id,
+        senderName: membership.name,
+        targetIds,
+        content,
+      }
+      if (Buffer.byteLength(JSON.stringify(this.broadcastContent(broadcast)), 'utf8') > this.maxMessageBytes) {
+        throw new TeamError(`team broadcast exceeds ${this.maxMessageBytes} bytes`, 'TEAM_MESSAGE_TOO_LARGE')
+      }
+      await this.journal.appendAndFlush(root, 'team/message/broadcast', {
+        version: 1,
+        teamId: TeamId(root.id),
+        broadcast,
+      })
+      // Register dispatch before releasing the root transaction so concurrent
+      // senders enter the target-local queue in durable mailbox order.
+      return { broadcast, dispatch: this.tryDispatchBroadcast(root, broadcast, request.signal) }
+    })
+    const accepted = await queued.dispatch
+    return {
+      messageId: queued.broadcast.id,
+      targetIds: queued.broadcast.targetIds,
+      status: accepted ? 'accepted' : 'queued',
+    }
+  }
+
+  /**
+   * Attempt one queued broadcast exactly once in this process at a time.
+   * @param root - exact live Team Lead.
+   * @param broadcast - durable broadcast record.
+   * @param signal - delivery cancellation.
+   * @returns whether every target recorded the broadcast.
+   */
+  private tryDispatchBroadcast(
+    root: Agent,
+    broadcast: TeamBroadcastSnapshot,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    if (this.lifecycle.disposed) return Promise.resolve(false)
+    if (this.inFlightMessages.has(broadcast.id)) return Promise.resolve(false)
+    this.inFlightMessages.add(broadcast.id)
+    const operation = this.trackDispatch(
+      this.dispatchBroadcastAdmitted(
+        root,
+        broadcast,
+        AbortSignal.any([signal, this.lifecycle.signal]),
+      ),
+    )
+    const forget = (): void => {
+      this.inFlightMessages.delete(broadcast.id)
+    }
+    void operation.then(forget, forget)
+    return operation
+  }
+
+  /**
+   * Deliver one broadcast to every target in target-local queue order.
+   * @param root - exact live Team Lead.
+   * @param broadcast - durable broadcast record.
+   * @param signal - delivery cancellation.
+   * @returns whether every target recorded the broadcast.
+   */
+  private async dispatchBroadcastAdmitted(
+    root: Agent,
+    broadcast: TeamBroadcastSnapshot,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    for (const targetId of broadcast.targetIds) {
+      signal.throwIfAborted()
+      const delivered = await this.serializeDispatch(
+        targetId,
+        () => this.dispatchBroadcastThrough(root, broadcast, targetId, signal),
+      )
+      if (!delivered) return false
+    }
+    return true
+  }
+
+  /**
+   * Deliver every pending broadcast for one target in durable queue order.
+   * @param root - exact live Team Lead.
+   * @param broadcast - durable broadcast record.
+   * @param targetId - one target of that broadcast.
+   * @param signal - delivery cancellation.
+   * @returns whether the target recorded this broadcast.
+   */
+  private async dispatchBroadcastThrough(
+    root: Agent,
+    broadcast: TeamBroadcastSnapshot,
+    targetId: SessionId,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    const state = this.journal.state(root)
+    const pending = state.broadcasts.filter(candidate =>
+      candidate.targetIds.includes(targetId)
+      && !state.broadcastDelivered.some(edge =>
+        edge.messageId === candidate.id && edge.targetId === targetId))
+    const requested = pending.findIndex(candidate => candidate.id === broadcast.id)
+    if (requested < 0) {
+      return state.broadcastDelivered.some(edge =>
+        edge.messageId === broadcast.id && edge.targetId === targetId)
+    }
+    for (const candidate of pending.slice(0, requested + 1)) {
+      const ownsInFlight = !this.inFlightMessages.has(candidate.id)
+      if (ownsInFlight) this.inFlightMessages.add(candidate.id)
+      try {
+        if (!await this.deliverBroadcast(root, candidate, targetId, signal)) return false
+      } finally {
+        if (ownsInFlight) this.inFlightMessages.delete(candidate.id)
+      }
+    }
+    return true
+  }
+
+  /**
+   * Attempt one broadcast delivery to one target.
+   * @param root - exact live Team Lead.
+   * @param broadcast - durable broadcast record.
+   * @param targetId - one target of that broadcast.
+   * @param signal - delivery cancellation.
+   * @returns whether the target recorded the broadcast.
+   */
+  private async deliverBroadcast(
+    root: Agent,
+    broadcast: TeamBroadcastSnapshot,
+    targetId: SessionId,
+    signal: AbortSignal,
+  ): Promise<boolean> {
+    try {
+      const target = targetId === root.id ? root : this.ctx.agents.get(targetId)
+      if (target !== undefined && this.targetRecorded(target.session, broadcast.id)) {
+        return await this.checkpointBroadcastDelivered(root, target.session, broadcast.id, targetId)
+      }
+      const source = {
+        kind: 'team-message' as const,
+        teamId: TeamId(root.id),
+        messageId: broadcast.id,
+        senderId: broadcast.senderId,
+        senderName: broadcast.senderName,
+      }
+      const content = this.broadcastContent(broadcast)
+      if (targetId === root.id) {
+        root.steer(createUserMessage({ content, source }))
+        return await this.checkpointBroadcastDelivered(root, root.session, broadcast.id, targetId)
+      }
+      if (target === undefined) {
+        const recorded = await this.persistedTargetRecorded(targetId, broadcast.id, signal)
+        if (recorded === undefined) return false
+        if (recorded) {
+          await this.markBroadcastDelivered(root, broadcast.id, targetId)
+          return true
+        }
+        return false
+      }
+      await steerHostSubagentPrompt(this.ctx.subagents, root, targetId, content, source, signal)
+      return await this.checkpointBroadcastDelivered(root, target.session, broadcast.id, targetId)
+    } catch (error: unknown) {
+      this.ctx.logger.warn(`team broadcast "${broadcast.id}" remains queued: ${errorMessage(error)}`)
+      return false
+    }
+  }
+
+  /**
+   * Flush one live target receipt before the Lead records its broadcast edge.
+   * @param root - exact live Team Lead.
+   * @param target - target Session that received the broadcast.
+   * @param messageId - durable broadcast identity.
+   * @param targetId - target Session identity.
+   * @returns whether the broadcast was recorded for that target.
+   */
+  private async checkpointBroadcastDelivered(
+    root: Agent,
+    target: Session,
+    messageId: TeamMessageId,
+    targetId: SessionId,
+  ): Promise<boolean> {
+    await this.ctx.sessions.flush(target)
+    if (!this.targetRecorded(target, messageId)) return false
+    await this.markBroadcastDelivered(root, messageId, targetId)
+    return true
+  }
+
+  /**
+   * Record one broadcast delivery edge unless it already exists.
+   * @param root - exact live Team Lead.
+   * @param messageId - durable broadcast identity.
+   * @param targetId - target Session identity.
+   */
+  private async markBroadcastDelivered(root: Agent, messageId: TeamMessageId, targetId: SessionId): Promise<void> {
+    await this.journal.transact(root.id, async () => {
+      const state = this.journal.state(root)
+      if (state.broadcastDelivered.some(edge =>
+        edge.messageId === messageId && edge.targetId === targetId)) return
+      const broadcast = state.broadcasts.find(candidate => candidate.id === messageId)
+      if (broadcast === undefined || !broadcast.targetIds.includes(targetId)) return
+      await this.journal.appendAndFlush(root, 'team/message/broadcast-delivered', {
+        version: 1,
+        teamId: TeamId(root.id),
+        messageId,
+        targetId,
+      })
+    })
+  }
+
+  /**
+   * Frame broadcast content with its sender for the receiving model.
+   * @param broadcast - durable broadcast record.
+   * @returns the framed content blocks.
+   */
+  private broadcastContent(broadcast: TeamBroadcastSnapshot): ContentBlock[] {
+    return [
+      { type: 'text', text: `Team broadcast ${broadcast.id} from ${broadcast.senderName}:` },
+      ...structuredClone(broadcast.content),
+    ]
+  }
+
+  /**
+   * Attempt one queued message exactly once in this process at a time.
+   * @param root - exact live Team Lead.
+   * @param message - durable message record.
+   * @param signal - delivery cancellation.
+   * @returns whether the target recorded the message.
+   */
   private tryDispatch(root: Agent, message: TeamMessageSnapshot, signal: AbortSignal): Promise<boolean> {
     if (this.lifecycle.disposed) return Promise.resolve(false)
     if (this.inFlightMessages.has(message.id)) return Promise.resolve(false)
@@ -186,15 +483,14 @@ export class TeamMailbox {
     message: TeamMessageSnapshot,
     signal: AbortSignal,
   ): Promise<boolean> {
-    return await this.serializeDispatch(message, () => this.dispatchThrough(root, message, signal))
+    return await this.serializeDispatch(message.targetId, () => this.dispatchThrough(root, message, signal))
   }
 
   /** Serialize delivery admission for one durable target in queued order. */
   private async serializeDispatch(
-    message: TeamMessageSnapshot,
+    targetId: SessionId,
     operation: () => Promise<boolean>,
   ): Promise<boolean> {
-    const targetId = message.targetId
     const prior = this.dispatchTails.get(targetId) ?? Promise.resolve()
     /* v8 ignore next -- dispatch tails absorb rejection, so the recovery callback is a fail-safe backstop. */
     const run = prior.then(operation, operation)

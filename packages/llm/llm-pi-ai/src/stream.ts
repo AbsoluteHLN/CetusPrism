@@ -9,7 +9,7 @@
  */
 
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { CONTEXT_WINDOW_EXCEEDED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
+import { CONTEXT_WINDOW_EXCEEDED_CODE, DEVELOPER_ROLE_REJECTED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isDeveloperRoleRejectedError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE, REASONING_EFFORT_REJECTED_CODE } from '@deepseek-ai/dsh-llm'
 import type { FinishReason, StreamChunk, TokenUsage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow'
 import type { AssistantMessage, AssistantMessageEvent, Usage as PiUsage } from '@earendil-works/pi-ai'
@@ -28,6 +28,11 @@ export function mapUsage(usage: PiUsage): TokenUsage {
     totalTokens: usage.totalTokens,
     ...usage.cacheRead > 0 ? { cacheReadTokens: usage.cacheRead } : {},
     ...usage.cacheWrite > 0 ? { cacheWriteTokens: usage.cacheWrite } : {},
+    // pi-ai reports the reasoning share of the output separately. Without this
+    // the harness vocabulary has no field for it, and every reasoning call
+    // reports its reasoning tokens as plain output — which no later reader can
+    // tell apart, because usage is published once and never replayed.
+    ...usage.reasoning !== undefined && usage.reasoning > 0 ? { reasoningTokens: usage.reasoning } : {},
   }
 }
 
@@ -39,15 +44,82 @@ export function mapUsage(usage: PiUsage): TokenUsage {
 // wrapper a bare `terminated`, so we are left pattern-matching terse words here.
 // If pi-ai ever forwards the original Error (or a fetch/dispatcher hook that lets
 // us capture the cause ourselves), classify on `code`/`cause` instead of text.
+/**
+ * The phrase a gateway uses when the reasoning effort is what it refuses.
+ */
+const EFFORT_PHRASE = /\breasoning[ _-]effort\b/i
+
+/**
+ * Wording that refuses outright: the gateway states the effort is not one it
+ * takes, in any order around the phrase.
+ */
+const EFFORT_REFUSAL = /\b(?:unexpected|unsupported|not\s+supported|unknown|unrecognized|not\s+allowed)\b/i
+
+/**
+ * The levels a route declares, as a gateway would name them.
+ *
+ * A gateway that enumerates the levels it takes has already refused the one
+ * that was sent, whatever words it wraps the list in — "must be low, high,
+ * xhigh, max" is the phrasing a private gateway used, and it carries no
+ * refusal word at all.
+ */
+const EFFORT_LEVEL = /\b(?:minimal|low|medium|high|xhigh|max)\b/i
+
+/** How far from the phrase the evidence may sit, in characters. */
+const EFFORT_WINDOW = 48
+
+/**
+ * Whether the text refuses the reasoning effort that was sent.
+ *
+ * Two ways to read a refusal, and only two:
+ *
+ * - The gateway refuses it outright, naming the effort and saying it does
+ *   not take it.
+ * - The gateway enumerates the levels it takes, which refuses the level
+ *   that was sent whatever introduces the list.
+ *
+ * The evidence has to sit next to the phrase. A rejected request's body
+ * carries its own machine code — `invalid_request_error` on most gateways —
+ * and a word from that code must not be read as a refusal of the effort.
+ *
+ * @param message - the provider's error text.
+ * @returns true when the text refuses a reasoning effort.
+ */
+function refusesReasoningEffort(message: string): boolean {
+  const match = EFFORT_PHRASE.exec(message)
+  if (match === null) return false
+  const start = Math.max(0, match.index - EFFORT_WINDOW)
+  const window = message.slice(start, match.index + match[0].length + EFFORT_WINDOW)
+  return EFFORT_REFUSAL.test(window) || EFFORT_LEVEL.test(window)
+}
+
 function classifyPiAiError(message: string): string {
   if (/\b(?:401|403)\b/.test(message)) return 'AUTH'
+  // pi-ai's own wording when a route reaches its provider without a key. The
+  // outcome is terminal either way; the code is what tells the operator that a
+  // credential is missing rather than the request being bad.
+  if (/no api key for provider/i.test(message)) return 'MISSING_CREDENTIAL'
   if (isQuotaExceededError(message)) return QUOTA_EXCEEDED_CODE
   if (/\b429\b|rate.?limit/i.test(message)) return 'RATE_LIMIT'
+  // A gateway that refuses the `developer` role rejects the request as a
+  // malformed one, so it arrives here as a plain `400`. Classifying it apart
+  // from every other rejected request is what lets the operator see which
+  // configuration line fixes it.
+  if (isDeveloperRoleRejectedError(message)) return DEVELOPER_ROLE_REJECTED_CODE
+  // A gateway that refuses the reasoning effort names the level it got and
+  // the set it takes. The request is well formed and the model is willing —
+  // the route's own effort declaration is what the endpoint rejected, so the
+  // code is what tells the operator which field to change.
+  if (refusesReasoningEffort(message)) return REASONING_EFFORT_REJECTED_CODE
   // A rejected request body (gateway or provider size cap): resending the
   // same request cannot succeed, so it is invalid, not transient.
   if (/\b413\b|failed to buffer the request body:\s*length limit exceeded|payload too large|request body too large/i.test(message)) return 'INVALID_REQUEST'
   if (/\b400\b|invalid.?request/i.test(message)) return 'INVALID_REQUEST'
   if (/\b5\d\d\b/.test(message)) return 'SERVER'
+  // 408 is the endpoint stating it gave up waiting for the request: the
+  // request may still be running there, so it is transient rather than
+  // rejected, and the retry budget is what answers it.
+  if (/\b408\b/.test(message)) return 'TIMEOUT'
   if (/\btime(?:d)?\s*out\b|timeout/i.test(message)) return 'TIMEOUT'
   // A stream truncated before the provider's terminal event: each pi-ai provider
   // throws its own wording when the wire closes mid-response without a terminal
@@ -122,9 +194,62 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
     }
     case 'error': {
       const text = message.errorMessage ?? 'pi-ai stream error'
-      return { kind: 'error', failure: { message: text, code: classifyPiAiError(text) } }
+      const code = classifyPiAiError(text)
+      return {
+        kind: 'error',
+        failure: {
+          message: code === DEVELOPER_ROLE_REJECTED_CODE
+            ? developerRoleGuidance(text)
+            : code === REASONING_EFFORT_REJECTED_CODE ? reasoningEffortGuidance(text) : text,
+          code,
+        },
+      }
     }
   }
+}
+
+/**
+ * Restate a rejected message role as the configuration change that fixes it.
+ *
+ * The provider's own wording names the role but not the switch, so an
+ * operator reading only the error sees a rejected request and no way to
+ * repair it. The repair is one line on the route, and the endpoint's own
+ * detection is what made it necessary, so the guidance names both.
+ *
+ * A gateway that refuses a role without naming it is the harder case: the
+ * harness sends the system prompt as `developer` wherever the endpoint
+ * detection resolves the route as OpenAI, so that is the likely role — but
+ * the wording does not say so, and the guidance must not claim it does.
+ *
+ * @param detail - the provider's rejection text.
+ * @returns the message with the corrective configuration appended.
+ */
+function developerRoleGuidance(detail: string): string {
+  // The provider named the role: the repair follows from the wording alone.
+  if (/\bdeveloper\b/i.test(detail)) {
+    return `${detail} — this endpoint rejects the \`developer\` role, which the reasoning model sends for its`
+      + ' system prompt. Set `compat.supportsDeveloperRole: false` on this provider route (or on the model entry)'
+      + ' so the system prompt travels as `system`.'
+  }
+  return `${detail} — the endpoint refused a message role. When the system prompt travels as the \`developer\` role,`
+    + ' set `compat.supportsDeveloperRole: false` on this provider route (or on the model entry) so it travels as `system`.'
+}
+
+/**
+ * Restate a refused reasoning effort as the configuration change that fixes it.
+ *
+ * The endpoint names the level it got and the levels it takes, so the
+ * operator already knows the fact; what the wording does not say is which
+ * configuration line decides that level. The route's `reasoningEfforts`
+ * declaration does, and it is where the fix belongs — an effort the endpoint
+ * rejects is a level the route should not be sending.
+ *
+ * @param detail - the provider's rejection text.
+ * @returns the message with the corrective configuration appended.
+ */
+function reasoningEffortGuidance(detail: string): string {
+  return `${detail} — the endpoint refused this reasoning effort. The route's \`reasoningEfforts\` declaration lists`
+    + ' the levels pi-ai sends; set it to the levels this endpoint accepts.'
 }
 
 /**

@@ -211,6 +211,14 @@ export interface ResolvedPiAiProviderProfile
   /** Per-model failures reported before attempting a request. */
   modelErrors: ReadonlyMap<string, string>
   /**
+   * Configuration risks that do not stop the route from serving.
+   *
+   * Each names a combination that fails at request time unless the deployment
+   * changes something, so a configuration surface can show it while the route
+   * stays usable.
+   */
+  warnings: readonly string[]
+  /**
    * Per-request output caps this profile explicitly configured, by model id.
    * The seam materializes one only into a request that names no cap of its
    * own, so a catalog capability must not appear here.
@@ -502,6 +510,7 @@ export function resolveProfiles(
       ...rest.thinkingBudgets === undefined ? {} : { thinkingBudgets: { ...rest.thinkingBudgets } },
       configuredMaxTokens: catalog?.configuredMaxTokens ?? new Map(),
       modelErrors: catalog?.modelErrors ?? new Map(),
+      warnings: catalog?.warnings ?? [],
       ...piProvider === undefined ? {} : { piProvider },
       ...catalogError === undefined ? {} : { catalogError },
     })

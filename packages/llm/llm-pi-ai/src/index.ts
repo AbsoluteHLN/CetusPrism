@@ -127,7 +127,13 @@ function directoryEntries(
 ): LlmConfigurableProvider[] {
   const catalog = new Set(catalogProviderIds())
   const entries = new Map<string, LlmConfigurableProvider>()
-  const declare = (provider: string, displayName: string, error?: string): void => {
+  const declare = (
+    provider: string,
+    displayName: string,
+    error?: string,
+    warnings?: readonly string[],
+    modelErrors?: readonly string[],
+  ): void => {
     entries.set(provider, {
       provider,
       displayName,
@@ -138,10 +144,18 @@ function directoryEntries(
       // route is still one pi-ai knows.
       declared: !catalog.has(provider),
       ...error === undefined ? {} : { error },
+      ...warnings === undefined || warnings.length === 0 ? {} : { warnings: [...warnings] },
+      ...modelErrors === undefined || modelErrors.length === 0 ? {} : { modelErrors: [...modelErrors] },
     })
   }
   for (const provider of catalog) declare(provider, provider)
-  for (const [provider, profile] of profiles) declare(provider, profile.displayName, profile.catalogError)
+  for (const [provider, profile] of profiles) {
+    const modelErrors = [...profile.modelErrors.values()]
+    // The route-level diagnostic is the first model diagnostic whenever there
+    // is one, so the list carries the rest and the two never repeat a line.
+    const remaining = modelErrors[0] === profile.catalogError ? modelErrors.slice(1) : modelErrors
+    declare(provider, profile.displayName, profile.catalogError, profile.warnings, remaining)
+  }
   return [...entries.values()]
 }
 

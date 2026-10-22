@@ -1,8 +1,15 @@
 // Throwaway auditor: verify every junction inside the packed backend runtime
 // resolves within the packed tree. Run: node scripts/audit-junctions.mjs
 import { readdirSync, readlinkSync, existsSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const root = 'E:/dependency-cache/cetusprism/dist/win-unpacked/resources/app/backend/runtime'
+// Same landing spot as pack-tauri.mjs / make-installer.mjs: the Windows
+// payload closure lives in the dependency cache, not in the project tree.
+const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
+const distDir = process.env.CETUS_DIST_DIR
+  ?? (process.platform === 'win32' ? 'E:/dependency-cache/cetusprism/dist' : join(repoRoot, 'apps', 'electron', 'dist'))
+const root = resolve(join(distDir, 'win-unpacked', 'resources', 'app', 'backend', 'runtime'))
 const p = root + '/node_modules'
 const out = []
 let n = 0

@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /**
- * The two conversation-adjacent surfaces: the new-session chip naming the
- * next session's preset, and the session header's read-only label. The split
- * is the host's rule — a session's history is produced under its preset's
- * tools, so the choice is only ever offered before one starts.
+ * The two conversation-adjacent surfaces: the composer chip naming the
+ * session's preset, and the session header's read-only label. The split is
+ * the host's rule — a session's history is produced under its preset's tools,
+ * so the header only reports what a session already runs.
  */
 
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
@@ -39,8 +39,6 @@ const SEAT_READY: AgentPresetSeatState = {
   introduce: false,
 }
 
-const useSessionRetainInfo = <Selected,>(selector: (value: undefined) => Selected): Selected => selector(undefined)
-
 /** The runtime's own `{name}` substitution, so a test reads the shown text. */
 function translate(key: keyof typeof en, params?: Record<string, unknown>): string {
   const template = en[key]
@@ -49,10 +47,16 @@ function translate(key: keyof typeof en, params?: Record<string, unknown>): stri
     : template.replace(/\{(\w+)\}/g, (match, name: string) => name in params ? String(params[name]) : match)
 }
 
+/** A Session the main view retains: the composer seat's own precondition. */
+const RETAINED: { id: string; retainInfo: SessionRetainInfo | undefined } = {
+  id: 's1',
+  retainInfo: { referenceCount: 1, retainedBy: { mainView: 1 } },
+}
+
 function renderSeat(
   state: Partial<AgentPresetSeatState> = {},
   select: () => Promise<string | undefined> = () => Promise.resolve(undefined),
-  session?: { id: string; retainInfo: SessionRetainInfo | undefined },
+  session: { id: string; retainInfo: SessionRetainInfo | undefined } = RETAINED,
 ) {
   const store = createSnapshotStore<AgentPresetSeatState>({ ...SEAT_READY, ...state })
   const actions = {
@@ -65,11 +69,12 @@ function renderSeat(
   }
   const props = {
     ...actions,
-    sessionId: session === undefined ? undefined : SessionId(session.id),
+    sessionId: SessionId(session.id),
     useAgentPresetSeat: bindSnapshotSelector(store),
-    useSessionRetainInfo: session === undefined
-      ? useSessionRetainInfo
-      : <Selected,>(selector: (value: SessionRetainInfo | undefined) => Selected) => selector(session.retainInfo),
+    useSessionRetainInfo: <Selected,>(
+      _sessionId: SessionId,
+      selector: (value: SessionRetainInfo | undefined) => Selected,
+    ) => selector(session.retainInfo),
     t: translate,
   } as AgentPresetSeatProps
   render(<AgentPresetSeat {...props} />)
@@ -96,7 +101,7 @@ function renderLabel(
   return { load, view }
 }
 
-describe('the new-session chip', () => {
+describe('the composer chip', () => {
   it('offers Standard, PTC, Minimal, Creator and custom presets', () => {
     const actions = renderSeat({ options: [
       { id: 'standard' }, { id: 'ptc' }, { id: 'minimal' }, { id: 'cordis' }, { id: 'mine' },

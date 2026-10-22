@@ -76,11 +76,21 @@ const CONFIG = {
 const TITLE_PROVIDER = SessionTitleProviderId('test-title-provider')
 let nextSession = 0
 
-function request(ctx: Context, signal = new AbortController().signal): SessionTitleProviderRequest {
+function request(
+  ctx: Context,
+  signal = new AbortController().signal,
+  headerMaxTokens?: number,
+): SessionTitleProviderRequest {
   const session = ctx.sessions.create(SessionId(`title-call-${++nextSession}`))
   session.append('turn/start', {
     turn: 1,
   })
+  if (headerMaxTokens !== undefined) {
+    session.append('request/header', {
+      header: { config: { provider: 'current-route', model: 'current-model', maxTokens: headerMaxTokens } },
+      reason: 'initial',
+    })
+  }
   const first = session.append('user/message', createUserMessage({
     content: [{ type: 'text', text: 'first prompt' }],
     source: { kind: 'user' },
@@ -159,6 +169,7 @@ describe('generateSessionTitleWithLlm', () => {
     })
     expect(options.system).toContain('5 words')
     expect(options.system).toContain('10 CJK characters')
+    expect(options.system).toContain('still return a short best-effort title')
     const prompt = options.messages[0]?.content[0]
     expect(prompt?.type === 'text' && prompt.text).toContain('first prompt')
     expect(prompt?.type === 'text' && prompt.text).toContain('第二个问题')
@@ -171,6 +182,38 @@ describe('generateSessionTitleWithLlm', () => {
         messages: options.messages,
         maxTokens: 32,
       })
+  })
+
+  it('bounds the dispatched output cap by a smaller cap the session request recorded', async () => {
+    const { ctx, adapter } = await withScript(SCRIPT)
+    const providerRequest = request(ctx, undefined, 8)
+
+    await expect(generateSessionTitleWithLlm(
+      ctx,
+      resolveSessionTitleLlmConfig(CONFIG),
+      providerRequest,
+      providerRequest.messages,
+      TITLE_PROVIDER,
+    )).resolves.toMatchObject({ title: '五个字标题' })
+
+    expect(adapter.requests[0]?.maxTokens).toBe(8)
+    expect(providerRequest.session.snapshotEvents()
+      .findLast(event => event.type === 'session/title-llm-request')?.data.maxTokens).toBe(8)
+  })
+
+  it('keeps the configured output cap when the session request recorded a larger one', async () => {
+    const { ctx, adapter } = await withScript(SCRIPT)
+    const providerRequest = request(ctx, undefined, 4_096)
+
+    await expect(generateSessionTitleWithLlm(
+      ctx,
+      resolveSessionTitleLlmConfig(CONFIG),
+      providerRequest,
+      providerRequest.messages,
+      TITLE_PROVIDER,
+    )).resolves.toMatchObject({ title: '五个字标题' })
+
+    expect(adapter.requests[0]?.maxTokens).toBe(32)
   })
 
   it('uses paired explicit overrides and bounds the final framed input before model dispatch', async () => {
@@ -278,6 +321,31 @@ describe('generateSessionTitleWithLlm', () => {
       providerRequest.messages,
       TITLE_PROVIDER,
     )).rejects.toThrow(error)
+  })
+
+  it('takes the title from the first non-empty output line without wrapping emphasis', async () => {
+    const cases: [readonly string[], string][] = [
+      [['**Continuing Previous', ' Session**\n\nThe only message is "continue".'], 'Continuing Previous Session'],
+      [['\n  *Greeting*  \n'], 'Greeting'],
+      [['**a** and **b**\nnote'], '**a** and **b**'],
+      [['Use **bold** for emphasis'], 'Use **bold** for emphasis'],
+      [['****'], '****'],
+    ]
+    for (const [deltas, title] of cases) {
+      const { ctx } = await withScript([
+        { type: 'block-start', index: 0, blockType: 'text' },
+        ...deltas.map((text): StreamChunk => ({ type: 'text-delta', index: 0, text })),
+        { type: 'finish', reason: { kind: 'stop' } },
+      ])
+      const providerRequest = request(ctx)
+      await expect(generateSessionTitleWithLlm(
+        ctx,
+        resolveSessionTitleLlmConfig(CONFIG),
+        providerRequest,
+        providerRequest.messages,
+        TITLE_PROVIDER,
+      )).resolves.toMatchObject({ title })
+    }
   })
 
   it('rejects tool-call blocks and a successful response with no text', async () => {

@@ -9,7 +9,7 @@ import type {
   SaveImageAttachment,
   StoredImageAttachment,
 } from '@deepseek-ai/dsh-attachment'
-import LlmRuntime, { createToolResultMessage, createUserMessage, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, ReasoningEffortId, userAgent } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { createToolResultMessage, createUserMessage, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, ReasoningEffortId, resolveRetryPolicy, userAgent } from '@deepseek-ai/dsh-llm'
 import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
@@ -379,6 +379,7 @@ describe('PiAiAdapter provider routing', () => {
   it.each([
     [401, 'AUTH'],
     [400, 'INVALID_REQUEST'],
+    [408, 'TIMEOUT'],
     [429, 'RATE_LIMIT'],
     [500, 'SERVER'],
   ] as const)('maps HTTP %s failures to %s', async (status, code) => {
@@ -387,6 +388,102 @@ describe('PiAiAdapter provider routing', () => {
     const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
     expect(result.finish).toMatchObject({ kind: 'error', failure: { code } })
     expect(server.paths).toEqual(['/chat/completions'])
+  })
+
+  it('names the effort declaration when the endpoint refuses a reasoning effort', async () => {
+    // The wording an OpenAI-compatible gateway uses when the level it was
+    // sent is not one it takes. Measured against a private gateway serving
+    // Qwen: "Unexpected reasoning effort high. Supported types are xhigh
+    // (default), medium, and low." The request is well formed and the model
+    // is willing, so the route's own effort declaration is what the endpoint
+    // rejected — and that is the line the guidance has to name.
+    const server = await mockServer([{
+      status: 400,
+      body: JSON.stringify({
+        error: { message: 'Unexpected reasoning effort high. Supported types are xhigh (default), medium, and low.' },
+      }),
+    }])
+    const ctx = await harness(server.url)
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+
+    expect(result.finish).toMatchObject({
+      kind: 'error',
+      failure: {
+        code: 'REASONING_EFFORT_REJECTED',
+        message: expect.stringContaining('reasoningEfforts'),
+      },
+    })
+    expect(server.paths).toEqual(['/chat/completions'])
+  })
+
+  it('recognizes a refusal that only enumerates the levels the endpoint takes', async () => {
+    // The other wording the same gateway family uses: it names the levels it
+    // takes and refuses the one that was sent, without any refusal word.
+    // Measured against the gateway behind the deployment's DeepSeek route.
+    const server = await mockServer([{
+      status: 400,
+      body: JSON.stringify({ error: { message: 'reasoning_effort must be low, high, xhigh, max' } }),
+    }])
+    const ctx = await harness(server.url)
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+
+    expect(result.finish).toMatchObject({
+      kind: 'error',
+      failure: {
+        code: 'REASONING_EFFORT_REJECTED',
+        message: expect.stringContaining('reasoningEfforts'),
+      },
+    })
+  })
+
+  it('does not read the machine code of a rejected request as a refusal of the effort', async () => {
+    // Every rejected request carries its own code, and that code says
+    // "invalid" about the request — not about the effort. Reading it as a
+    // refusal would point the operator at the route's declaration when the
+    // body is the thing that is wrong, so the refusal words are the ones a
+    // gateway uses about the effort itself.
+    const server = await mockServer([{
+      status: 400,
+      body: JSON.stringify({
+        error: { type: 'invalid_request_error', message: 'invalid reasoning effort given' },
+      }),
+    }])
+    const ctx = await harness(server.url)
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+
+    expect(result.finish).toMatchObject({
+      kind: 'error',
+      failure: { code: 'INVALID_REQUEST' },
+    })
+  })
+
+  it.each([
+    [400, 'model does not support parameter "foo" (reference 408)', 'INVALID_REQUEST'],
+    [500, 'upstream reported error 408 while failing', 'SERVER'],
+  ] as const)('reads the status of a %s failure, not the numbers in its body', async (status, message, code) => {
+    // The status the endpoint answered with is what the failure is. A number
+    // that happens to appear in the body is not a status, so a 400 naming 408
+    // is the rejected request it is, and a 5xx naming 408 is the server
+    // failure it is — neither is the timeout a bare 408 would be.
+    const server = await mockServer([{ status, body: JSON.stringify({ error: { message } }) }])
+    const ctx = await harness(server.url)
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+
+    expect(result.finish).toMatchObject({ kind: 'error', failure: { code } })
+  })
+
+  it('retries a timeout and never a refusal the route can fix', () => {
+    // The classification decides whether the request is sent again, so the
+    // two facts are stated together: a timeout is transient and the retry
+    // budget answers it, while a refusal of the route's own effort or role
+    // declaration is terminal — resending the same request cannot succeed,
+    // and the fix is a configuration line, not another attempt.
+    const policy = resolveRetryPolicy(undefined, 'llm-pi-ai')
+    if (policy.mode !== 'normal') throw new Error('the default policy is the normal one')
+
+    expect(policy.retryableCodes).toContain('TIMEOUT')
+    expect(policy.retryableCodes).not.toContain('REASONING_EFFORT_REJECTED')
+    expect(policy.retryableCodes).not.toContain('DEVELOPER_ROLE_REJECTED')
   })
 
   it('uses the resolved catalog context window for usage-based overflow detection', async () => {

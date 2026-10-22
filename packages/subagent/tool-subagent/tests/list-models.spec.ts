@@ -121,11 +121,31 @@ describe('list_subagent_models', () => {
     expect(text(result)).toContain('`llm` service is unavailable')
   })
 
-  it('rejects two discovery-owning instances in one tool scope', async () => {
-    const ctx = await setupListTool()
-    expect(() => {
-      registerListSubagentModels(ctx, { routes: [{ provider: 'alpha', model: 'fast' }] })
-    }).toThrow('tool "list_subagent_models" is already registered')
+  it('merges two discovery-owning instances in one scope and releases the tool with the last owner', async () => {
+    const ctx = new Context()
+    await ctx.plugin(LlmRuntime)
+    await ctx.plugin(SystemPrompt)
+    await ctx.plugin(ToolRuntime)
+    const releaseFirst = registerListSubagentModels(ctx, { routes: [{ provider: 'alpha', model: 'fast' }] })
+    // The second owner contributes its policy: the scope keeps one registration
+    // and answers with the routes both owners allow.
+    const releaseSecond = registerListSubagentModels(ctx, {
+      routes: [{ provider: 'alpha', model: 'fast' }, { provider: 'beta', model: 'fast' }],
+    })
+    expect(ctx.tools.get('list_subagent_models')).toBeDefined()
+    ctx.llm.registerAdapter(['alpha', 'beta'], new CatalogAdapter())
+    const narrowed = await call(ctx, { provider: 'beta' })
+    expect(narrowed.isError).toBe(true)
+    expect(text(narrowed)).toContain('is not allowed for this Session')
+    // The first owner leaves: the surviving owner's policy still governs.
+    releaseFirst()
+    expect(ctx.tools.get('list_subagent_models')).toBeDefined()
+    const kept = await call(ctx, { provider: 'beta' })
+    expect(kept.isError).toBe(false)
+    expect(text(kept)).toBe('beta/fast — Fast: Focused work.')
+    // The last owner leaves: the scope releases the registration.
+    releaseSecond()
+    expect(ctx.tools.get('list_subagent_models')).toBeUndefined()
   })
 
   it('lists registered providers and follows live registration changes', async () => {

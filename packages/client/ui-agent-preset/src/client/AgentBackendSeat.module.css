@@ -1,0 +1,81 @@
+/* Execution-backend chip in the composer tool row, beside the agent-preset
+   chip. Geometry mirrors AgentPresetSeat so the row reads as one line of
+   controls. */
+
+/* The Menu anchor wrapper between the row and this chip: its flex
+   auto-minimum would hold the full label width and the row could never
+   compress the chip. The explicit floor keeps the icon and the chevron
+   readable once the label has ellipsized away to nothing. */
+.menuAnchor {
+  min-width: 54px;
+  max-width: 100%;
+}
+
+.seat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  max-width: min(100%, 200px);
+  min-height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.seat:not(:disabled):hover,
+.seat[aria-expanded='true'] {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.seat:disabled {
+  cursor: default;
+  color: var(--dsw-alias-label-quaternary);
+}
+
+.seatIcon {
+  flex: none;
+  color: var(--dsw-alias-label-primary);
+}
+
+.seatLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  flex: none;
+  color: var(--dsw-alias-label-caption);
+}
+
+/* Menu rows carry the backend name over its state: the name alone never said
+   whether the backend could start a session, which is why the state is
+   published with it. */
+.item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 280px;
+}
+
+.itemName {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.itemDesc {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-caption);
+  white-space: normal;
+}

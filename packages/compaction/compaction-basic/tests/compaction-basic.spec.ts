@@ -325,6 +325,21 @@ describe('compact configuration and defaults', () => {
     expect(Object.isFrozen(resolved)).toBe(true)
   })
 
+  it('states the budget the service defaults give each window size', () => {
+    // The pressure shape is configuration, so a changed default would move the
+    // point at which a conversation is compacted without anything failing.
+    // These numbers are the fixture: a change to either is a visible change.
+    const policy = resolveTargetPolicy(resolveConfig({}), { provider: MODEL, model: MODEL })
+    const thresholdOf = (contextWindow: number): number =>
+      resolveCompactSpec(policy, contextWindow, 32_768).thresholdTokens
+
+    // The flat 64K headroom is a large share of a small window: on 128K it
+    // leaves the model under a quarter of its context before compaction.
+    expect(thresholdOf(128_000)).toBe(29_696)
+    expect(thresholdOf(200_000)).toBe(101_696)
+    expect(thresholdOf(262_144)).toBe(163_840)
+  })
+
   it('defaults summary generation to headroom and preserves explicit caps', () => {
     const target = { provider: MODEL, model: MODEL }
     expect(resolveConfig({ headroomTokens: 16_384 }).maxTokens).toBe(16_384)

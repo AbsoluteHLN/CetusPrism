@@ -1,12 +1,12 @@
 /**
- * The agent-preset chip on the new-session screen, beside the workspace
- * picker.
+ * The agent-preset chip in the composer tool row, beside the permission
+ * control and the execution-backend chip.
  *
- * It lives here rather than in the composer because the choice is only
- * available before a conversation starts: once a turn has run, the session's
- * history was produced under that preset's tools and the host refuses to swap
- * them. A control that spends most of its life disabled belongs on the screen
- * where it still works.
+ * The choice is the Session's composition: the standard mode and the other
+ * declared presets. A running session keeps the composition it began with (the
+ * Host refuses to adopt an existing session under a different preset), so the
+ * chip reports what the Session runs and offers the switch the Host will
+ * accept; a refusal is announced instead of silently ignored.
  *
  * The menu opens on the staged choice, which starts as the deployment default.
  * Picking stages; the choice reaches a session when one becomes current.
@@ -18,13 +18,13 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import {
   IconAgentPresetOutlineRegular, IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-// Type-only: pulls the ui-conversation SlotMap merge (the hero seat).
+// Type-only: pulls the ui-conversation SlotMap merge (the composer seat).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { AgentPresetSeatState } from './seat-store.ts'
 import { presetDisplayText } from './locales.ts'
 import css from './AgentPresetSeat.module.css'
 
-/** Registration-side business face for the hero chip. */
+/** Registration-side business face for the composer chip. */
 export interface AgentPresetSeatInjected {
   hooks: {
     /** Seat snapshot bound by the renderer as useAgentPresetSeat. */
@@ -66,12 +66,12 @@ function introStaggerMs(count: number): number {
 
 /** Full component props. */
 export type AgentPresetSeatProps =
-  PropsRuntime<'conversation.hero.agentPreset'>
+  PropsRuntime<'conversation.input.agentPreset'>
   & PropsLocale<'settings.agentPreset'>
   & InjectFace<AgentPresetSeatInjected>
 
 /**
- * Render the new-session agent-preset chip.
+ * Render the composer agent-preset chip.
  * @param props - composed slot props.
  * @returns The chip and any pending selection refusal, or null outside the main view.
  */
@@ -79,8 +79,10 @@ export function AgentPresetSeat({
   sessionId, useSessionRetainInfo, load, select, dismissRefusal, introduced, useAgentPresetSeat, t,
 }: AgentPresetSeatProps) {
   const state = useAgentPresetSeat(snapshot => snapshot)
-  const main = useSessionRetainInfo(info => sessionId === undefined
-    || (info?.retainedBy.mainView ?? 0) > 0)
+  // The seat is session-scoped, so the Session always exists here; the chip
+  // still hides itself in a view that does not retain that Session (a
+  // background or detached session), exactly as the new-session chip did.
+  const main = useSessionRetainInfo(sessionId, info => (info?.retainedBy.mainView ?? 0) > 0)
   const [open, setOpen] = useState(false)
   // The seq keys the banner, so picking the same broken preset twice replays
   // it rather than leaving the first one silently in place.
@@ -195,10 +197,10 @@ export function AgentPresetSeat({
           text={t('switchRefused', { name: presetDisplayText(toast.error.preset, t).name, reason: toast.error.reason })}
           icon={<IconWarningOutlineRegular />}
           holdMs={REFUSAL_HOLD_MS}
-          // The composer card, which is the content column this chip sits
-          // above rather than inside — hence a page query, not `closest`.
-          // Absent, the banner centers on the window, which is off-center
-          // whenever the sidebar is open.
+          // The composer card, which now holds this chip, so the banner
+          // anchors to the card rather than to the chip's own row. Absent,
+          // the banner centers on the window, which is off-center whenever
+          // the sidebar is open.
           anchor={document.querySelector<HTMLElement>('[data-composer-card]')}
           onDone={() => { dismissRefusal(toast.error) }}
         />

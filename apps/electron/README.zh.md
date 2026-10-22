@@ -102,6 +102,8 @@ CetusPrism-<version>-setup.exe  (Windows output: E:/dependency-cache/cetusprism/
 
 整条链路不触碰网络：Rust 工具链与 cargo crate 缓存位于依赖缓存中（`CARGO_HOME`/`RUSTUP_HOME` 可覆盖钉死的 `E:/dependency-cache` 位置），后端宿主是普通 Node 可执行文件（`BACKEND_NODE_EXE` 可覆盖默认钉死的 node-v24.18.0-win-x64 副本，即随包的 `backend/node.exe`），NSIS 打包经 electron-builder 以 `--prepackaged` 运行。`pack-tauri.mjs` 复制 release 可执行文件（图标与版本元数据在编译期嵌入，因此不再运行 rcedit），以 hoisted pnpm deploy 把 CLI 闭包直接部署到 `resources/app/backend/runtime/`，执行 heal（见下文），并裁剪非 win32-x64 原生预编译产物与 LibreOffice kit。`CARGO_TARGET_DIR` 可重定向 Rust 目标树；`CETUS_DIST_DIR` 可重定向组装产物与安装器的输出位置：Windows 上两者默认落在 `E:/dependency-cache/cetusprism/dist`，约 500MB 的产物因此不进项目树；其他宿主保留 `apps/electron/dist`。
 
+`build-shell.mjs` 固定 release 外壳的 `RUSTFLAGS`：`-C target-feature=+crt-static` 静态链接 MSVC CRT，目标机因此不需要装 VC++ x64 运行库；`--remap-path-prefix=E:\dependency-cache=cargo-cache` 在 Rust 把 crate 源码路径烘进 panic 定位串之前改写构建机的绝对路径。在仓库根运行 `node scripts/check-offline-pack.mjs` 是这两条性质的离线闸门：它检查打包脚本是否仍带离线开关、产物二进制是否残留禁止路径、导入表里是否还有动态 CRT。
+
 ## 构建与打包（Linux .deb）
 
 ```sh
@@ -129,8 +131,11 @@ node scripts/build-deb.mjs
 
 ```sh
 pnpm --filter @deepseek-ai/dsh deploy --prod --offline \
-  --node-linker=hoisted --config.inject-workspace-packages=true <runtime-dir>
+  --node-linker=hoisted --config.inject-workspace-packages=true \
+  --trust-lockfile <runtime-dir>
 ```
+
+`--trust-lockfile` 是离线 deploy 的必需项。否则 pnpm 11 会先针对 deploy 目标目录里新写出的 lockfile 校验供应链策略，而该校验要从 `registry.npmjs.org` 拉取每个包的元数据与 provenance attestations——registry 不可达时无限重试，deploy 永远跑不完。该校验缓存以 lockfile 的路径为键，因此换一个产物落点就会失效。
 
 `--node-linker=hoisted` 产生单一扁平、完全物化的 `node_modules`，没有 junction，因此复制或归档该树不会切断解析。对工作区根应用的非 legacy deploy 必须加 `--config.inject-workspace-packages=true`：它把闭包依赖的工作区包（vendor cosmokit/schemastery、原生 landlock 桩）物化为 `node_modules` 内的真实目录，而不是留回仓库的链接。缺少它时 legacy `--deploy --legacy` 隔离布局会被拒绝（`ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE`）；而 `--legacy` 与 `--node-linker=hoisted` 组合则完全不安装 `node_modules`。
 

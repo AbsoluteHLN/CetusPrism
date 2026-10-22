@@ -189,8 +189,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'conversation.hero.workspace': { kind: 'single'; scope: 'root'; owner: EmptyWorkspaceOwnerProps }
     /** Brand mark shown before the blank-session headline. */
     'conversation.hero.brand.mark': { kind: 'single'; scope: 'root'; owner: HeroBrandMarkOwnerProps }
-    /** Agent-preset control staged for a New Session. */
-    'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe'; owner: HeroAgentPresetOwnerProps }
     /** Full-width entries above the composer card. */
     'conversation.input.dock': { kind: 'list'; scope: 'session'; owner: InputZone }
     /** Floating entries rendered inside the resident composer card. */
@@ -218,6 +216,20 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     /** Current-session computer-use delivery toggle inside the composer tool row. */
     'conversation.input.computerDelivery': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
     /**
+     * Agent-preset control inside the composer tool row: which composition
+     * (the standard mode and the other declared presets) this Session runs.
+     * The preset is chosen here; the default for new Sessions stays in the
+     * settings section, so one field never has two editing surfaces.
+     */
+    'conversation.input.agentPreset': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
+    /**
+     * Execution-backend control inside the composer tool row: which runtime
+     * (DSH, Pi, ZCode) executes this Session. The backend catalog is a
+     * deployment fact, so one catalog serves every surface and a backend
+     * without an installed runtime stays visible and is refused by the Host.
+     */
+    'conversation.input.agentBackend': { kind: 'single'; scope: 'session'; owner: InputControlOwnerProps }
+    /**
      * Model selector inside the composer tool row. When expanded controls cannot
      * share a line, the row sets --dsh-composer-model-text-display to none and
      * --dsh-composer-model-icon-display to block for an occupant's compact display.
@@ -237,7 +249,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
         'conversation.input.dock': { kind: 'list'; scope: 'session' }
         'conversation.hero.brand.mark': { kind: 'single'; scope: 'root' }
         'conversation.hero.workspace': { kind: 'single'; scope: 'root' }
-        'conversation.hero.agentPreset': { kind: 'single'; scope: 'session-maybe' }
       }
       inject: ConversationInjected
       locale: 'conversation'
@@ -270,12 +281,6 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     /** Input actions are absent without a current Session. */
     inputActions: InputActions | undefined
   }
-}
-
-/** Owner share of the Hero agent-preset control. */
-export interface HeroAgentPresetOwnerProps {
-  /** Marker field: the occupant owns its roster and staged selection. */
-  children?: never
 }
 
 /** Header actions derive their state from standard Session props. */
@@ -432,6 +437,7 @@ export type ComposerBarProps =
     | 'conversation.input.attachments' | 'conversation.input.overlay'
     | 'conversation.input.permission' | 'conversation.input.computerDelivery'
     | 'conversation.input.left' | 'conversation.input.plan'
+    | 'conversation.input.agentPreset' | 'conversation.input.agentBackend'
     | 'conversation.input.right' | 'conversation.input.model' | 'conversation.input.activity'
     | 'conversation.composer.dock'
   >

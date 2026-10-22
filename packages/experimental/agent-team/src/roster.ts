@@ -13,23 +13,31 @@ import { errorMessage, TeamError } from './error.ts'
 import type { TeamJournal } from './journal.ts'
 import type { TeamRuntimeLifecycle } from './lifecycle.ts'
 import { readPersistedSession } from './persisted.ts'
+import { AgentProfileRegistry } from './profile.ts'
 import type { TeamState } from './projection.ts'
+import { checkRanges } from './range.ts'
+import type { TeamRanges } from './range.ts'
 import { messageAccepted } from './session-message.ts'
 import { TeamId } from './types.ts'
 import type {
+  AgentProfile,
+  ReleaseTeammateRequest,
+  ResumeTeammateRequest,
   SpawnTeammateRequest,
   SpawnTeammateResult,
+  TeammateLifecycleResult,
   TeamAgentRoute,
   TeamMemberSnapshot,
   TeamMemberView,
   TeamModelSelection,
 } from './types.ts'
-import { requiredText } from './validation.ts'
+import { MEMBER_NAME, requiredText } from './validation.ts'
 
 type ResolvedTeamAgentRoute = Required<Pick<TeamAgentRoute, 'provider' | 'model'>>
   & Pick<TeamAgentRoute, 'reasoningEffort'>
 
-const MEMBER_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u
+/** No Team-specific ceiling of any kind. */
+const EMPTY_RANGES: TeamRanges = { allowedEfforts: [], allowedBackends: [], allowedPresets: [] }
 
 /** Caller identity inside one implicit Team. */
 export interface TeamMembership {
@@ -70,6 +78,32 @@ export function resolveActiveMember(
   return { id: member.id, name }
 }
 
+/**
+ * Resolve one reachable Team member by model-facing name, including the Lead pseudo-row.
+ *
+ * A reachable member is one that still exists as a durable identity: an
+ * active member, or a dormant one whose runtime was released but whose
+ * identity is kept for a later resume. A dormant member is a valid message
+ * target — the message queues and arrives when the member comes back.
+ * @param root - exact live Team Lead.
+ * @param state - current Team state.
+ * @param rawName - candidate member name.
+ * @returns resolved durable id and normalized name.
+ */
+export function resolveReachableMember(
+  root: Agent,
+  state: TeamState,
+  rawName: string,
+): { id: SessionId; name: string } {
+  const name = rawName.trim()
+  if (name === 'lead') return { id: root.id, name }
+  const member = state.members.find(candidate => candidate.name === name)
+  if (member === undefined || (member.phase !== 'active' && member.phase !== 'dormant')) {
+    throw new TeamError(`teammate "${name}" not found`, 'TEAM_MEMBER_NOT_FOUND')
+  }
+  return { id: member.id, name }
+}
+
 /** Owns Team identities and the lifecycle of rostered continuable children. */
 export class TeamRoster {
   private readonly inFlightCreations = new Set<Promise<unknown>>()
@@ -87,6 +121,8 @@ export class TeamRoster {
     private readonly maxMembers: number,
     private readonly modelPolicy: () => TeamModelPolicy = () => ({ allowedModels: [] }),
     private readonly hostModelPolicy: () => HostModelPolicy | undefined = () => undefined,
+    private readonly profileRegistry: () => AgentProfileRegistry = () => new AgentProfileRegistry(),
+    private readonly ranges: () => TeamRanges = () => EMPTY_RANGES,
   ) {}
 
   /**
@@ -171,13 +207,20 @@ export class TeamRoster {
           ? 'failed'
           : member.phase === 'provisioning'
             ? 'provisioning'
-            : availability(live),
+            : member.phase === 'dormant'
+              ? 'dormant'
+              : availability(live),
         description: member.description,
         provider: member.provider,
         context: member.context,
         ...model === undefined ? {} : { model },
         ...modelProvider === undefined ? {} : { modelProvider },
         ...reasoningEffort === undefined ? {} : { reasoningEffort },
+        ...member.profileId === undefined ? {} : { profileId: member.profileId },
+        ...member.preset === undefined ? {} : { preset: member.preset },
+        // A dormant member keeps its durable identity and can be brought back
+        // by a resume; the row says so instead of looking simply inactive.
+        ...member.phase === 'dormant' ? { resumable: true } : {},
         diagnostics: member.error === undefined ? [] : [member.error],
       })
     }
@@ -240,6 +283,139 @@ export class TeamRoster {
   }
 
   /**
+   * Release one resident teammate into its dormant state.
+   *
+   * The durable member row stays, so the same identity — and the same profile
+   * behind it — can be brought back later instead of being spawned again.
+   * @param caller - exact live Lead Agent.
+   * @param request - teammate name and cancellation.
+   * @returns the dormant member row.
+   */
+  async release(caller: Agent, request: ReleaseTeammateRequest): Promise<TeammateLifecycleResult> {
+    const membership = this.membership(caller)
+    if (membership.role !== 'lead') {
+      throw new TeamError('only the Team Lead can release teammates', 'TEAM_LEAD_REQUIRED')
+    }
+    const signal = AbortSignal.any([request.signal, this.lifecycle.signal])
+    signal.throwIfAborted()
+    const root = membership.root
+    const member = this.namedMember(root, request.name)
+    if (member.phase !== 'active') {
+      throw new TeamError(`teammate "${request.name}" is not an active member`, 'TEAM_MEMBER_NOT_FOUND')
+    }
+    await this.stopTeammates(root, [member.id])
+    const dormant = await this.journal.transact(root.id, async () => {
+      signal.throwIfAborted()
+      const current = this.journal.state(root).members.find(candidate => candidate.id === member.id)
+      if (current === undefined || current.phase !== 'active') {
+        throw new TeamError(`teammate "${request.name}" is not an active member`, 'TEAM_MEMBER_NOT_FOUND')
+      }
+      const settled: TeamMemberSnapshot = { ...current, phase: 'dormant' }
+      await this.journal.appendAndFlush(root, 'team/member', {
+        version: 2,
+        teamId: TeamId(root.id),
+        member: settled,
+      })
+      return settled
+    })
+    return { member: this.memberView(dormant) }
+  }
+
+  /**
+   * Bring one dormant teammate back and give it its next task.
+   *
+   * The durable child Session is cold-resumed from persistence, so the member
+   * keeps its identity and its history; only its runtime was released.
+   * @param caller - exact live Lead Agent.
+   * @param request - teammate name, prompt, and cancellation.
+   * @returns the active member row.
+   */
+  async resume(caller: Agent, request: ResumeTeammateRequest): Promise<TeammateLifecycleResult> {
+    const membership = this.membership(caller)
+    if (membership.role !== 'lead') {
+      throw new TeamError('only the Team Lead can resume teammates', 'TEAM_LEAD_REQUIRED')
+    }
+    const signal = AbortSignal.any([request.signal, this.lifecycle.signal])
+    signal.throwIfAborted()
+    const root = membership.root
+    const member = this.namedMember(root, request.name)
+    if (member.phase !== 'dormant') {
+      throw new TeamError(`teammate "${request.name}" is not a dormant member`, 'TEAM_MEMBER_NOT_FOUND')
+    }
+    // The member becomes active before its turn is submitted. The child
+    // Agent is created while the prompt is on its way, and a member the
+    // roster still calls dormant is not a Team member at that moment — so it
+    // would come back without the tools that let it answer.
+    const active = await this.journal.transact(root.id, async () => {
+      signal.throwIfAborted()
+      const current = this.journal.state(root).members.find(candidate => candidate.id === member.id)
+      if (current === undefined || current.phase !== 'dormant') {
+        throw new TeamError(`teammate "${request.name}" is not a dormant member`, 'TEAM_MEMBER_NOT_FOUND')
+      }
+      // The member runs again, so the failure of an earlier resume no longer
+      // describes it: the stale reason is dropped instead of carried along.
+      const { error: _staleFailure, ...withoutFailure } = current
+      const settled: TeamMemberSnapshot = { ...withoutFailure, phase: 'active' }
+      await this.journal.appendAndFlush(root, 'team/member', {
+        version: 2,
+        teamId: TeamId(root.id),
+        member: settled,
+      })
+      return settled
+    })
+    // The subagent service cold-resumes an absent continuable child from
+    // persistence and submits this turn to it.
+    try {
+      await this.ctx.subagents.sendMessage(caller, member.id, request.prompt, { signal })
+    } catch (error: unknown) {
+      // The member runs nothing, so it goes back to the phase it was
+      // released into: an active member without a runtime is a member no
+      // later resume can bring back. The reason travels with the row, so the
+      // failure is still on record once this call is gone.
+      await this.park(root, member.id, errorMessage(error))
+      throw new TeamError(
+        `teammate "${request.name}" cannot be resumed: ${errorMessage(error)}`,
+        'TEAM_MEMBER_NOT_RESUMABLE',
+        { cause: error },
+      )
+    }
+    return { member: this.memberView(active) }
+  }
+
+  /**
+   * Put one member back into the phase it was released into.
+   *
+   * A resume that fails leaves the member running nothing, and the phase
+   * the roster carries has to say so: an active member without a runtime is
+   * a member no later resume can bring back.
+   * @param root - exact live Team Lead.
+   * @param memberId - the member identity.
+   * @param reason - why the member was parked, recorded on the member row.
+   */
+  private async park(root: Agent, memberId: SessionId, reason?: string): Promise<void> {
+    try {
+      await this.journal.transact(root.id, async () => {
+        const current = this.journal.state(root).members.find(candidate => candidate.id === memberId)
+        if (current === undefined || current.phase !== 'active') return
+        const settled: TeamMemberSnapshot = {
+          ...current,
+          phase: 'dormant',
+          ...reason === undefined ? {} : { error: reason },
+        }
+        await this.journal.appendAndFlush(root, 'team/member', {
+          version: 2,
+          teamId: TeamId(root.id),
+          member: settled,
+        })
+      })
+    } catch (error: unknown) {
+      this.ctx.logger.warn(
+        `team member "${memberId}" could not be parked after a failed resume: ${errorMessage(error)}`,
+      )
+    }
+  }
+
+  /**
    * Group exact live roster children by their current Lead for runtime teardown.
    * @returns each live Lead and the roster child ids currently in the Agent registry.
    */
@@ -279,11 +455,58 @@ export class TeamRoster {
     const signal = AbortSignal.any([request.signal, this.lifecycle.signal])
     signal.throwIfAborted()
     const root = membership.root
-    const name = this.memberName(request.name)
-    const description = requiredText(request.description, 'description', 200)
-    const backend = requiredText(request.provider, 'provider', 200)
+    const profile = request.profileId === undefined ? undefined : this.profileRegistry().resolve(request.profileId)
+    if (profile !== undefined) {
+      if (request.name !== undefined && request.name !== profile.name) {
+        throw new TeamError(
+          `teammate name conflicts with the declared profile "${profile.id}"`,
+          'TEAM_PROFILE_CONFLICT',
+        )
+      }
+      if (request.provider !== undefined && profile.backend !== undefined && request.provider !== profile.backend) {
+        throw new TeamError(
+          `execution backend conflicts with the declared profile "${profile.id}"`,
+          'TEAM_PROFILE_CONFLICT',
+        )
+      }
+      if (request.preset !== undefined && profile.preset !== undefined && request.preset !== profile.preset) {
+        throw new TeamError(
+          `preset conflicts with the declared profile "${profile.id}"`,
+          'TEAM_PROFILE_CONFLICT',
+        )
+      }
+    }
+    const name = this.memberName(profile?.name ?? request.name ?? '')
+    const description = requiredText(profile?.description ?? request.description ?? '', 'description', 200)
+    const backend = requiredText(profile?.backend ?? request.provider ?? '', 'provider', 200)
+    // The preset is part of the member identity, so it follows the same rule
+    // as the name and the backend: one profile id has to instantiate one
+    // identity, and the declared profile wins over the request.
+    const preset = profile?.preset ?? request.preset
     const teamPolicy = this.modelPolicy()
-    const route = this.resolveModelRoute(root, request, teamPolicy)
+    const route = this.resolveModelRoute(root, request, teamPolicy, profile)
+    if (profile?.allowedEfforts !== undefined && profile.allowedEfforts.length > 0
+      && route?.reasoningEffort !== undefined && !profile.allowedEfforts.includes(route.reasoningEffort)) {
+      throw new TeamError(
+        `reasoning effort "${route.reasoningEffort}" is outside the profile "${profile.id}" allowed-effort range`,
+        'TEAM_EFFORT_NOT_ALLOWED',
+      )
+    }
+    checkRanges(this.ranges(), {
+      ...route?.reasoningEffort === undefined ? {} : { effort: route.reasoningEffort },
+      backend,
+      ...preset === undefined ? {} : { preset },
+    })
+    // The range says which backends this Team allows; the registry says
+    // which backends this deployment has. A backend that is allowed but
+    // absent would fail later, after the member row was written — and a
+    // failed member still holds its name and its slot.
+    if (!this.ctx.subagents.list().includes(backend)) {
+      throw new TeamError(
+        `execution backend "${backend}" is not a registered subagent backend`,
+        'TEAM_BACKEND_NOT_AVAILABLE',
+      )
+    }
     if (teamPolicy.allowedModels.length > 0) {
       if (route === undefined) throw new TeamError('a provider/model route from the Team allowed-model list is required', 'TEAM_MODEL_REQUIRED')
       if (!teamPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
@@ -328,12 +551,18 @@ export class TeamRoster {
         modelProvider: route.provider,
         ...route.reasoningEffort === undefined ? {} : { reasoningEffort: route.reasoningEffort },
       },
+      ...profile === undefined ? {} : { profileId: profile.id },
+      ...preset === undefined ? {} : { preset },
       context: request.context,
       phase: 'provisioning',
     }
 
     await this.journal.transact(root.id, async () => {
       const state = this.journal.state(root)
+      // A member name stays reserved inside its Team, failed instances
+      // included: the name is the profile's identity, and one Team may hold
+      // one instance of it. Reusing a profile in another Team is how the same
+      // identity gets instantiated again.
       if (state.members.some(member => member.name === name)) {
         throw new TeamError(`teammate name "${name}" was already used in this Team`, 'TEAM_MEMBER_NAME_TAKEN')
       }
@@ -347,7 +576,7 @@ export class TeamRoster {
     try {
       started = await this.ctx.subagents.startContinuable({
         childId,
-        provider: request.provider,
+        provider: backend,
         label: description,
         request: {
           prompt: request.prompt,
@@ -408,8 +637,32 @@ export class TeamRoster {
   }
 
   /** Resolve the child LLM route without confusing it with the subagent backend. */
-  private resolveModelRoute(root: Agent, request: SpawnTeammateRequest, teamPolicy: TeamModelPolicy): ResolvedTeamAgentRoute | undefined {
+  private resolveModelRoute(
+    root: Agent,
+    request: SpawnTeammateRequest,
+    teamPolicy: TeamModelPolicy,
+    profile?: AgentProfile,
+  ): ResolvedTeamAgentRoute | undefined {
     const leadOptions = parentAgentOptionsForDelegation(root)
+    // A declared profile pins the route; a request may only narrow it with the
+    // same provider and model.
+    if (profile?.provider !== undefined && profile.model !== undefined) {
+      const requestedProvider = request.agentOptions?.provider?.trim()
+      const requestedModel = request.agentOptions?.model?.trim()
+      if ((requestedProvider !== undefined && requestedProvider !== profile.provider)
+        || (requestedModel !== undefined && requestedModel !== profile.model)) {
+        throw new TeamError(
+          `model route conflicts with the declared profile "${profile.id}"`,
+          'TEAM_PROFILE_CONFLICT',
+        )
+      }
+      const effort = request.agentOptions?.reasoningEffort?.trim()
+      return {
+        provider: profile.provider,
+        model: profile.model,
+        ...effort === undefined || effort.length === 0 ? {} : { reasoningEffort: effort },
+      }
+    }
     if (request.agentOptions !== undefined) {
       const requestedProvider = request.agentOptions.provider?.trim()
       const requestedModel = request.agentOptions.model?.trim()
@@ -540,7 +793,7 @@ export class TeamRoster {
   }
 
   /** Build one runtime member row after successful creation. */
-  private memberView(member: TeamMemberSnapshot & { readonly phase: 'active' }): TeamMemberView {
+  private memberView(member: TeamMemberSnapshot): TeamMemberView {
     const live = this.ctx.agents.get(member.id)
     const model = live?.options.model ?? member.model
     const modelProvider = live?.options.provider ?? member.modelProvider
@@ -549,13 +802,16 @@ export class TeamRoster {
       id: member.id,
       name: member.name,
       role: 'teammate',
-      status: availability(live),
+      status: member.phase === 'dormant' ? 'dormant' : availability(live),
       description: member.description,
       provider: member.provider,
       context: member.context,
       ...model === undefined ? {} : { model },
       ...modelProvider === undefined ? {} : { modelProvider },
       ...reasoningEffort === undefined ? {} : { reasoningEffort },
+      ...member.profileId === undefined ? {} : { profileId: member.profileId },
+      ...member.preset === undefined ? {} : { preset: member.preset },
+      ...member.phase === 'dormant' ? { resumable: true } : {},
       diagnostics: [],
     }
   }
@@ -571,6 +827,21 @@ export class TeamRoster {
     return value
   }
 
+  /**
+   * Resolve one durable member row by its model-facing name.
+   * @param root - exact live Team Lead.
+   * @param rawName - candidate member name.
+   * @returns the durable member row.
+   */
+  private namedMember(root: Agent, rawName: string): TeamMemberSnapshot {
+    const name = rawName.trim()
+    const member = this.journal.state(root).members.find(candidate => candidate.name === name)
+    if (member === undefined) {
+      throw new TeamError(`teammate "${name}" not found`, 'TEAM_MEMBER_NOT_FOUND')
+    }
+    return member
+  }
+
   /** Append one terminal provisioning edge unless recovery already settled it. */
   private async settleProvisioning(
     root: Agent,
@@ -582,7 +853,7 @@ export class TeamRoster {
       if (current === undefined) {
         throw new TeamError(`provisioned teammate "${terminal.id}" disappeared`, 'TEAM_PROVISIONING_CONFLICT')
       }
-      if (current.phase !== 'provisioning') return current.phase
+      if (current.phase !== 'provisioning') return current.phase === 'active' ? 'active' : 'failed'
       await this.journal.appendAndFlush(root, 'team/member', {
         version: 2,
         teamId: TeamId(root.id),

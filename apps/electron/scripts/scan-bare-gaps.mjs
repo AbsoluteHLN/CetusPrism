@@ -2,9 +2,15 @@
 // that the deploy tree cannot resolve. Run: node scripts/scan-bare-gaps.mjs
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { builtinModules } from 'node:module'
-import { join, dirname } from 'node:path'
+import { join, dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const runtimeRoot = 'E:/dependency-cache/cetusprism/dist/win-unpacked/resources/app/backend/runtime'
+// Same landing spot as pack-tauri.mjs / make-installer.mjs: the Windows
+// payload closure lives in the dependency cache, not in the project tree.
+const repoRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))))
+const distDir = process.env.CETUS_DIST_DIR
+  ?? (process.platform === 'win32' ? 'E:/dependency-cache/cetusprism/dist' : join(repoRoot, 'apps', 'electron', 'dist'))
+const runtimeRoot = resolve(join(distDir, 'win-unpacked', 'resources', 'app', 'backend', 'runtime'))
 const nm = join(runtimeRoot, 'node_modules')
 const builtins = new Set([...builtinModules, 'node:inspector'])
 

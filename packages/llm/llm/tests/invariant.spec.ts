@@ -117,7 +117,12 @@ describe('adapters-updated invariants', () => {
     }
     const ctx = await setup()
     await ctx.plugin(BrokenLlm)
-    expect(() => ctx.llm.registerAdapter(['ghost'], new NoopAdapter()))
+    // The registry notification is non-vetoing: a listener that throws is
+    // contained and logged, so the commit it announces still lands. The
+    // violation is therefore observed on the event itself, not on the call
+    // that emitted it.
+    ctx.llm.registerAdapter(['ghost'], new NoopAdapter())
+    expect(() => { ctx.emit('llm/adapters-updated') })
       .toThrow(/no readable registration/)
   })
 })

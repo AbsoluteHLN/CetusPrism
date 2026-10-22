@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
@@ -8,10 +11,12 @@ import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
+import { anthropicMessagesApi } from '@earendil-works/pi-ai/api/anthropic-messages.lazy'
 import { AssistantMessageEventStream } from '@earendil-works/pi-ai/utils/event-stream'
 import { normalizeContext } from '@earendil-works/pi-ai/utils/transcript'
 import type { Api, Model, OpenAICompletionsCompat, Provider } from '@earendil-works/pi-ai'
 import { resolveProfiles } from '../src/config.ts'
+import { CASE_INSENSITIVE_NON_OPENAI_HOST, RECOGNIZED_NON_OPENAI_HOSTS } from '../src/catalog.ts'
 import { createModels, createProvider, getSupportedThinkingLevels } from '../src/models.ts'
 import { buildProvider, supportedProtocols } from '../src/provider.ts'
 import { assemble } from './assemble.ts'
@@ -392,7 +397,7 @@ describe('hand-declared providers', () => {
     const result = await assemble(ctx, { provider: 'local-llm', model: 'qwen3', messages: [] })
     expect(result.finish).toMatchObject({
       kind: 'error',
-      failure: { message: 'No API key for provider: local-llm' },
+      failure: { message: 'No API key for provider: local-llm', code: 'MISSING_CREDENTIAL' },
     })
     expect(server.requests).toHaveLength(0)
   })
@@ -1040,6 +1045,136 @@ describe('compat switches', () => {
     expect(request.messages.map(message => message.role)).toEqual(['system'])
   })
 
+  it('warns about a reasoning model whose endpoint would receive the developer role', () => {
+    // The combination that produced the reported 400: a reasoning model on a
+    // gateway pi-ai cannot identify, with nothing saying which role to use.
+    const warned = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test/v1',
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    expect(warned?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
+    // A warning must not make the route unserviceable: the endpoint may well
+    // accept the role, and refusing the route would be the worse failure.
+    expect(warned?.piProvider).toBeDefined()
+
+    // The switch answers the question, so the warning goes away.
+    const answered = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test/v1',
+        compat: { supportsDeveloperRole: false },
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    expect(answered?.warnings).toEqual([])
+
+    // A model that does not reason never sends the role.
+    const plain = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test/v1',
+        models: [{ id: 'acme-plain' }],
+      },
+    }).get('acme-gateway')
+    expect(plain?.warnings).toEqual([])
+
+    // A vendor pi-ai recognizes keeps the `system` role on its own.
+    const known = resolveProfiles({
+      deepseek: { models: [{ id: 'deepseek-flash', reasoningEfforts: { off: null, high: 'high' } }] },
+    }).get('deepseek')
+    expect(known?.warnings).toEqual([])
+  })
+
+  it('warns about the developer role on a Responses route too', () => {
+    // The Responses protocols detect nothing from the endpoint, so the role
+    // travels to a private gateway whatever its URL says: the same warning a
+    // Chat Completions route earns must reach this protocol as well.
+    const warned = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-responses',
+        baseURL: 'https://acme.test/v1',
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    expect(warned?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
+
+    // The switch answers the question on this protocol too, so the warning goes.
+    const answered = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-responses',
+        baseURL: 'https://acme.test/v1',
+        compat: { supportsDeveloperRole: false },
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    expect(answered?.warnings).toEqual([])
+
+    // A model that does not reason never sends the role, on this protocol too.
+    const plain = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-responses',
+        baseURL: 'https://acme.test/v1',
+        models: [{ id: 'acme-plain' }],
+      },
+    }).get('acme-gateway')
+    expect(plain?.warnings).toEqual([])
+
+    // The same shape on Chat Completions warns as well: the two protocols
+    // reach the one warning, and neither of them is left unpinned.
+    const completions = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test/v1',
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    expect(completions?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
+  })
+
+  it('keeps the warning off a route the installed catalog vouches for', () => {
+    // pi-ai's catalog was built against these endpoints, so the role travels
+    // there by construction. A shipped route is not a risk, however many of its
+    // models reason — and warning about it would tell an operator to change
+    // a route that is already right.
+    const shipped = resolveProfiles({ 'openai-codex': {} }).get('openai-codex')
+    expect(shipped?.warnings).toEqual([])
+
+    // Spelling the endpoint out is the same endpoint, and it is the API the
+    // role was written for.
+    const spelled = resolveProfiles({
+      openai: {
+        baseURL: 'https://api.openai.com/v1',
+        models: [{ id: 'gpt-5.5', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('openai')
+    expect(spelled?.warnings).toEqual([])
+  })
+
+  it('names every affected model in one warning', () => {
+    // The surface shows the route, not the model: one sentence per model would
+    // bury the one fact the operator needs.
+    const warned = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test/v1',
+        models: [
+          { id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } },
+          { id: 'acme-think-2', reasoningEfforts: { off: null, high: 'high' } },
+          { id: 'acme-plain' },
+        ],
+      },
+    }).get('acme-gateway')
+
+    expect(warned?.warnings).toHaveLength(1)
+    expect(warned?.warnings[0]).toContain('"acme-think"')
+    expect(warned?.warnings[0]).toContain('"acme-think-2"')
+    // A model that does not reason never sends the role, so it is not named.
+    expect(warned?.warnings[0]).not.toContain('acme-plain')
+  })
+
   it('refuses a valueless compat key rather than writing null over the catalog', () => {
     // schemastery passes a YAML bare key through as null. Carried forward it
     // would replace the installed entry's value, and pi-ai's `??` would then
@@ -1251,4 +1386,317 @@ describe('configurable-provider directory', () => {
       declared: false,
     })
   })
+
+  it('carries a configuration risk onto the directory entry that names the route', async () => {
+    // The reported 400 in its configuration-time form: a reasoning model on a
+    // gateway pi-ai cannot identify, with nothing saying which role to use.
+    // The directory is what a configuration surface reads, so the risk has to
+    // travel there — otherwise the operator only learns of it from a request
+    // that failed.
+    const ctx = await harness(gateway('https://acme.test/v1', {
+      models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+    }))
+
+    const entry = ctx.llm.listConfigurableProviders().find(row => row.provider === 'acme-gateway')
+    expect(entry?.warnings?.join('\n')).toContain('compat.supportsDeveloperRole')
+    // A risk does not take the route out of service.
+    expect(entry?.error).toBeUndefined()
+  })
+
+  it('drops a configuration risk the deployment has already answered', async () => {
+    const ctx = await harness(gateway('https://acme.test/v1', {
+      compat: { supportsDeveloperRole: false },
+      models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+    }))
+
+    const entry = ctx.llm.listConfigurableProviders().find(row => row.provider === 'acme-gateway')
+    expect(entry?.warnings).toBeUndefined()
+  })
+
+  it('carries every route diagnostic to the directory', async () => {
+    // A diagnostic with no exit is a diagnostic the operator never sees. The
+    // route-level failure, the per-model failures and the risks all reach the
+    // configuration surface through this one listing.
+    const ctx = await harness(gateway('https://acme.test/v1', {
+      models: [
+        { id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } },
+        { id: 'acme-broken-1', reasoningEfforts: { off: null } },
+        { id: 'acme-broken-2', reasoningEfforts: { off: null } },
+      ],
+    }))
+
+    const entry = ctx.llm.listConfigurableProviders().find(row => row.provider === 'acme-gateway')
+    // The route-level failure names the first model that could not resolve.
+    expect(entry?.error).toContain('acme-broken-1')
+    // The rest travel beside it, and the two never repeat a line.
+    expect(entry?.modelErrors).toHaveLength(1)
+    expect(entry?.modelErrors?.[0]).toContain('acme-broken-2')
+    // The risk travels too, and the route still serves the models that did
+    // resolve.
+    expect(entry?.warnings?.join('\n')).toContain('compat.supportsDeveloperRole')
+    expect(ctx.llm.listProviders().map(provider => provider.id)).toContain('acme-gateway')
+  })
+
+  it('warns for the OpenRouter models pi-ai serves as OpenAI', () => {
+    // OpenRouter answers per model, not per route: it keeps `system` for most
+    // of its catalog, but the `anthropic/` and `openai/` models it serves as
+    // OpenAI itself take the role OpenAI sends. A mirror that answered per
+    // route would miss exactly these.
+    const warned = resolveProfiles({
+      openrouter: {
+        api: 'openai-completions',
+        baseURL: 'https://openrouter.ai/api/v1',
+        models: [{ id: 'openai/gpt-5', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('openrouter')
+    expect(warned?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
+
+    // The rest of its catalog keeps the `system` role, and says nothing.
+    const plain = resolveProfiles({
+      openrouter: {
+        api: 'openai-completions',
+        baseURL: 'https://openrouter.ai/api/v1',
+        models: [{ id: 'mistralai/mistral-large', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('openrouter')
+    expect(plain?.warnings).toEqual([])
+  })
 })
+
+describe('the compat floor under a repointed api', () => {
+  /** The materialized models of one route, keyed by id. */
+  function modelsOf(providers: Record<string, LlmPiAi.PiAiProviderProfile>, route: string): Map<string, Model<Api>> {
+    const models = resolveProfiles(providers).get(route)?.piProvider?.getModels() ?? []
+    return new Map(models.map(model => [model.id, model]))
+  }
+
+  /**
+   * An installed entry whose compat block carries a field the anthropic
+   * protocol also reads.
+   *
+   * A block whose every key belongs to one protocol would only prove that
+   * the block was emptied. The leak this guards against is the opposite: a
+   * field the two protocols share keeping the old protocol's value on the
+   * wire, so the fixture has to own one.
+   */
+  function installedEntry(): Model<Api> {
+    const catalog = getBuiltinModels('baseten') as readonly Model<Api>[]
+    const entry = catalog.find(model => model.api === 'openai-completions'
+      && (model.compat as { supportsLongCacheRetention?: boolean } | undefined)?.supportsLongCacheRetention === false)
+    if (entry === undefined) {
+      throw new Error('baseten ships no openai-completions model with a compat field the anthropic protocol reads')
+    }
+    return entry
+  }
+
+  it('drops the installed compat when a route repoints the api', () => {
+    // The installed block describes the protocol its entry speaks. A route
+    // that repoints the api speaks another one, and the fields the two
+    // protocols share would keep the old protocol's values on the wire —
+    // the model literal's `...base` spread carries them there whatever the
+    // resolution decided, so the repoint has to answer for them.
+    const base = installedEntry()
+    const models = modelsOf({
+      baseten: { api: 'anthropic-messages', models: [{ id: base.id }] },
+    }, 'baseten')
+
+    const model = models.get(base.id)
+    expect(model?.api).toBe('anthropic-messages')
+    expect(model?.compat).toEqual({})
+    // The shared field is the one that would have leaked: it kept the old
+    // protocol's value on the wire.
+    expect((model?.compat as { supportsLongCacheRetention?: boolean } | undefined)?.supportsLongCacheRetention)
+      .toBeUndefined()
+  })
+
+  it('keeps the installed compat when the route leaves the api alone', () => {
+    const base = installedEntry()
+    const models = modelsOf({ baseten: { models: [{ id: base.id }] } }, 'baseten')
+
+    expect(models.get(base.id)?.compat).toEqual(base.compat)
+    // The shared field is there — which is exactly what the repoint removes.
+    expect((models.get(base.id)?.compat as { supportsLongCacheRetention?: boolean }).supportsLongCacheRetention)
+      .toBe(false)
+  })
+
+  it('carries a configured switch onto a repointed model alone', () => {
+    const base = installedEntry()
+    const models = modelsOf({
+      baseten: {
+        api: 'anthropic-messages',
+        models: [{ id: base.id, compat: { supportsTemperature: false } }],
+      },
+    }, 'baseten')
+
+    expect(models.get(base.id)?.compat).toEqual({ supportsTemperature: false })
+  })
+
+  it('keeps each installed model\'s own protocol when the route names none', () => {
+    // A catalog that disagrees with itself has no single protocol to serve,
+    // so a route that names none resolves every model against the protocol
+    // its own entry speaks. Nothing is repointed here, so nothing loses the
+    // compat its entry carries.
+    const models = modelsOf({
+      'cloudflare-ai-gateway': {
+        models: [{ id: 'claude-haiku-4.5' }, { id: 'workers-ai/@cf/google/gemma-4-26b-a4b-it' }],
+      },
+    }, 'cloudflare-ai-gateway')
+
+    expect(models.get('claude-haiku-4.5')?.api).toBe('anthropic-messages')
+    expect(models.get('workers-ai/@cf/google/gemma-4-26b-a4b-it')?.api).toBe('openai-completions')
+    expect(models.get('claude-haiku-4.5')?.compat).toEqual({ sendSessionAffinityHeaders: true })
+  })
+
+  it('keeps the old protocol\'s session affinity off a repointed request', async () => {
+    // The catalog block names a field the anthropic protocol also reads, so
+    // the leak is visible on the wire and not only in the resolved model: the
+    // header the block asks for would travel with the request, naming a
+    // session the endpoint never learned about.
+    const server = await mockServer([{ body: '{}' }])
+    const base = installedEntry()
+    const models = modelsOf({
+      baseten: { api: 'anthropic-messages', baseURL: server.url, models: [{ id: base.id }] },
+    }, 'baseten')
+    const model = models.get(base.id)
+    if (model === undefined) throw new Error('the repointed model did not resolve')
+
+    anthropicProvider(model).stream(model, normalizeContext({ messages: [] }), {
+      apiKey: 'test-key',
+      sessionId: 'session-1',
+    })
+    await server.requestReceived
+
+    expect(server.headers[0]?.['x-session-affinity']).toBeUndefined()
+  })
+
+  it('sends the session affinity an installed block asks for', async () => {
+    // The control for the case above: a model whose own block carries the
+    // switch does carry the header, so that assertion is about the repoint
+    // and not about the header never being sent.
+    const server = await mockServer([{ body: '{}' }])
+    const models = modelsOf({
+      'cloudflare-ai-gateway': {
+        api: 'anthropic-messages',
+        baseURL: server.url,
+        models: [{ id: 'claude-haiku-4.5' }],
+      },
+    }, 'cloudflare-ai-gateway')
+    const model = models.get('claude-haiku-4.5')
+    if (model === undefined) throw new Error('the anthropic model did not resolve')
+
+    anthropicProvider(model).stream(model, normalizeContext({ messages: [] }), {
+      apiKey: 'test-key',
+      sessionId: 'session-1',
+    })
+    await server.requestReceived
+
+    expect(server.headers[0]?.['x-session-affinity']).toBe('session-1')
+  })
+})
+
+describe('the developer-role risk against the endpoint pi-ai reads', () => {
+  /** The one warning a route carrying a reasoning model on a gateway raises. */
+  function warningsFor(baseURL: string): readonly string[] {
+    const route = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL,
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    return route?.warnings ?? []
+  }
+
+  it('warns for a vendor host written in another case', () => {
+    // pi-ai compares the endpoint case-sensitively, so `API.Z.AI` is not the
+    // vendor it looks like: pi-ai resolves it as OpenAI and sends the
+    // `developer` role. A mirror matching case-insensitively would read it
+    // as the vendor's own endpoint and keep the warning to itself.
+    expect(warningsFor('https://API.Z.AI/v1').join('\n')).toContain('compat.supportsDeveloperRole')
+  })
+
+  it('says nothing for the vendor host spelled as pi-ai spells it', () => {
+    expect(warningsFor('https://api.z.ai/v1')).toEqual([])
+  })
+
+  it('says nothing for the one host pi-ai reads case-insensitively', () => {
+    // DeepSeek's host is the one comparison pi-ai lowercases, so an endpoint
+    // naming it in any case is still DeepSeek's — and keeps the `system` role.
+    expect(warningsFor('https://API.DEEPSEEK.COM/v1')).toEqual([])
+  })
+
+  it.each(RECOGNIZED_NON_OPENAI_HOSTS)('warns for %s spelled in another case, as pi-ai does', (host) => {
+    // Every host in the mirror is compared case-sensitively, the way pi-ai
+    // compares it, so a host written in another case is an endpoint pi-ai
+    // does not recognize: it resolves as OpenAI and sends `developer`, which
+    // is exactly the mismatch this warning exists to name.
+    expect(warningsFor(`https://${host}/v1`)).toEqual([])
+    expect(warningsFor(`https://${host.toUpperCase()}/v1`).join('\n')).toContain('compat.supportsDeveloperRole')
+  })
+
+  it('says nothing for an OpenAI endpoint spelled in another case', () => {
+    // The OpenAI family is matched case-insensitively, the opposite of the
+    // vendor list. The asymmetry is safe — both lists exempt an endpoint
+    // from the warning — but it is a rule of its own, so it is stated here.
+    expect(warningsFor('https://API.OPENAI.COM/v1')).toEqual([])
+  })
+
+  it('mirrors the vendor detection the installed pi-ai ships', () => {
+    // The mirror exists because pi-ai decides the role itself, so it has to
+    // follow pi-ai. A vendor host pi-ai learns about later would leave the
+    // mirror quietly out of step, and the two failures point opposite ways: a
+    // host missing from the mirror warns where pi-ai sends `system`, and a
+    // host the mirror adds silences a risk that is real. Reading the
+    // vendor's own list is what makes both visible.
+    const vendor = vendorDetection()
+
+    // The vendor names a host once per rule that reads it, so the lists are
+    // compared as sets: what matters is which hosts it recognizes, not how
+    // many rules happen to mention each.
+    expect([...new Set(vendor.caseSensitive)].sort()).toEqual([...RECOGNIZED_NON_OPENAI_HOSTS].sort())
+    expect(vendor.caseInsensitive).toEqual([CASE_INSENSITIVE_NON_OPENAI_HOST])
+  })
+})
+
+/**
+ * The provider that speaks the Anthropic Messages protocol.
+ *
+ * The request goes out through the same provider this package builds, so the
+ * wire shape under test is the one a deployment sends.
+ * @param model - the resolved model the request names.
+ * @returns a provider bound to that model.
+ */
+function anthropicProvider(model: Model<Api>): Provider {
+  return createProvider({
+    id: model.provider,
+    name: model.provider,
+    models: [model],
+    auth: { apiKey: { name: 'Test', resolve: () => Promise.resolve({ auth: {}, source: 'Test' }) } },
+    api: anthropicMessagesApi(),
+  })
+}
+
+/**
+ * The installed pi-ai's own host detection, read from its source.
+ *
+ * The lists are read out of the vendor's code rather than restated here, so
+ * the guard follows an upgrade: a host pi-ai gains is a host the mirror must
+ * gain, and the comparison fails until it does.
+ */
+function vendorDetection(): { caseSensitive: string[]; caseInsensitive: string[] } {
+  const entry = fileURLToPath(import.meta.resolve('@earendil-works/pi-ai/providers/all'))
+  const source = readFileSync(resolve(dirname(entry), '..', 'api', 'openai-completions.js'), 'utf8')
+  const start = source.indexOf('function detectCompat(')
+  const end = source.indexOf('\nfunction getCompat(', start)
+  if (start < 0 || end < 0) {
+    throw new Error('the installed pi-ai no longer exposes detectCompat beside getCompat')
+  }
+  const body = source.slice(start, end)
+  const hosts = (pattern: RegExp): string[] => [...body.matchAll(pattern)]
+    .map(match => match[1])
+    .filter((host): host is string => host !== undefined)
+  return {
+    caseSensitive: hosts(/baseUrl\.includes\("([^"]+)"\)/g),
+    caseInsensitive: hosts(/baseUrl\.toLowerCase\(\)\.includes\("([^"]+)"\)/g),
+  }
+}

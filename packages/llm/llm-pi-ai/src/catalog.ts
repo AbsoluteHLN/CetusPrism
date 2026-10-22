@@ -662,6 +662,87 @@ function invalid(provider: string, detail: string): never {
 }
 
 /**
+ * Vendors whose OpenAI-compatible endpoint pi-ai recognizes by name.
+ *
+ * pi-ai decides the `developer` role from its baseURL detection: a recognized
+ * non-OpenAI vendor keeps `system`, while an **unrecognized** URL resolves as
+ * OpenAI and keeps `developer`. A custom gateway therefore gets the role
+ * OpenAI accepts, which most OpenAI-compatible gateways reject.
+ *
+ * The matching is case-sensitive, as pi-ai's own detection is: a base URL
+ * written `https://API.Z.AI/v1` is not the endpoint pi-ai looks for, so pi-ai
+ * resolves it as OpenAI and sends `developer`. Matching it here as the vendor
+ * would hide the very mismatch this list exists to expose. The one host
+ * pi-ai lowercases is listed apart.
+ *
+ * Exported so a drift guard can compare this mirror against the installed
+ * pi-ai's own detection: a vendor host pi-ai learns about later would
+ * otherwise leave the mirror silently out of step.
+ */
+export const RECOGNIZED_NON_OPENAI_HOSTS: readonly string[] = [
+  'api.z.ai', 'open.bigmodel.cn', 'api.together.ai', 'api.together.xyz',
+  'api.moonshot.', 'openrouter.ai', 'api.cloudflare.com', 'gateway.ai.cloudflare.com',
+  'integrate.api.nvidia.com', 'api.ant-ling.com', 'cerebras.ai', 'api.x.ai',
+  'chutes.ai', 'opencode.ai',
+]
+
+/**
+ * The one host pi-ai matches case-insensitively.
+ *
+ * Every other host comparison in its detection is case-sensitive; DeepSeek's
+ * is not, so a base URL naming it in any case is still DeepSeek's.
+ *
+ * Exported beside {@link RECOGNIZED_NON_OPENAI_HOSTS} for the same drift
+ * guard.
+ */
+export const CASE_INSENSITIVE_NON_OPENAI_HOST = 'deepseek.com'
+
+/**
+ * Provider ids pi-ai resolves to a non-OpenAI vendor by name alone.
+ *
+ * These name the installed catalog's own routes, so a route named after one of
+ * them keeps the `system` role whatever URL it points at.
+ */
+const NON_OPENAI_PROVIDER_IDS: readonly string[] = [
+  'zai', 'zai-coding-cn', 'together', 'moonshotai', 'moonshotai-cn',
+  'openrouter', 'cloudflare-workers-ai', 'cloudflare-ai-gateway', 'nvidia',
+  'ant-ling', 'cerebras', 'xai', 'opencode', 'deepseek',
+]
+
+/**
+ * Whether pi-ai would send the `developer` role to this endpoint.
+ *
+ * This mirrors pi-ai's own `detectCompat` rule for the Chat Completions
+ * protocol: a route pi-ai recognizes as a non-OpenAI vendor keeps `system`,
+ * and every other route — including one whose URL it cannot identify —
+ * resolves as OpenAI and keeps `developer`. The Responses protocols apply no
+ * such detection, so they send `developer` wherever nothing says otherwise.
+ *
+ * One vendor answers per model rather than per route: OpenRouter keeps
+ * `system` for most of its catalog, but serves the `anthropic/` and `openai/`
+ * models as OpenAI itself, and those take the role OpenAI sends.
+ * @param provider - the route key.
+ * @param modelId - the model id the request names.
+ * @param baseUrl - the endpoint the route serves.
+ * @param api - the model's resolved wire protocol.
+ * @returns true when pi-ai would send the `developer` role.
+ */
+function sendsDeveloperRole(provider: string, modelId: string, baseUrl: string, api: string): boolean {
+  // The Responses protocols read the switch from the model alone; nothing is
+  // detected from the endpoint.
+  if (api !== 'openai-completions') return true
+  if (provider === 'openrouter' || baseUrl.includes('openrouter.ai')) {
+    return modelId.startsWith('anthropic/') || modelId.startsWith('openai/')
+  }
+  if (NON_OPENAI_PROVIDER_IDS.includes(provider)) return false
+  // Case-sensitive, as pi-ai's own detection is: a host written in another
+  // case is an endpoint pi-ai does not recognize, and it resolves as OpenAI.
+  if (RECOGNIZED_NON_OPENAI_HOSTS.some(host => baseUrl.includes(host))) return false
+  if (baseUrl.toLowerCase().includes(CASE_INSENSITIVE_NON_OPENAI_HOST)) return false
+  return true
+}
+
+/**
  * The one wire protocol a catalog route's shipped models agree on. This is what
  * lets a deployment add a model the installed catalog has not caught up with —
  * a provider's newest release — without restating the protocol its siblings
@@ -760,6 +841,97 @@ function resolveModelReasoning(
 type ModelCompat = OpenAICompletionsCompat | OpenAIResponsesCompat | AnthropicMessagesCompat | BedrockCompat | MistralConversationsCompat
 
 /**
+ * Endpoints that serve OpenAI's own API surface.
+ *
+ * The `developer` role exists because these APIs accept it, so a route pointing
+ * at one has no risk to repair — including a deployment that spelled the
+ * endpoint out instead of leaving the installed catalog's own.
+ */
+const OPENAI_FAMILY_HOSTS: readonly string[] = [
+  'api.openai.com', 'chatgpt.com', 'openai.azure.com',
+  'cognitiveservices.azure.com', 'azure-api.net',
+]
+
+/**
+ * Whether one model's system prompt would travel as the `developer` role to
+ * an endpoint that may reject it.
+ *
+ * The role reaches the wire only for a reasoning model, and only where the
+ * endpoint detection resolves the route as OpenAI — which an unrecognized
+ * private gateway does. The result is a `400` whose repair is one
+ * configuration line, so the route says so now rather than at the first
+ * request.
+ *
+ * Two things keep a route out of that risk, and neither is a setting:
+ *
+ * - The endpoint the installed catalog names. pi-ai's catalog was built against
+ *   that endpoint, so the role travels there by construction; only an endpoint
+ *   the deployment chose can be the one that rejects it.
+ * - An endpoint serving OpenAI's own API surface, which is what the role was
+ *   written for.
+ *
+ * @param provider - the route key, for diagnostics.
+ * @param entry - the configured model entry.
+ * @param baseUrl - the endpoint the model serves.
+ * @param reasoning - whether the model reasons.
+ * @param api - the model's resolved wire protocol.
+ * @param route - the route-level switches, when any.
+ * @param catalogEndpoint - whether the endpoint came from the installed catalog.
+ * @returns true when the model would need a switch it does not have.
+ */
+function developerRoleRisk(
+  provider: string,
+  entry: PiAiModelProfile,
+  baseUrl: string,
+  reasoning: boolean,
+  api: string,
+  route: PiAiCompatProfile | undefined,
+  catalogEndpoint: boolean,
+): boolean {
+  if (!reasoning) return false
+  if (compatGate(api)?.supportsDeveloperRole !== 'offer') return false
+  // An explicit switch, at either level, is the deployment answering the
+  // question this check asks; silence is what it cannot answer.
+  const declared = configuredCompatEntries(route).find(([field]) => field === 'supportsDeveloperRole')
+    ?? configuredCompatEntries(entry.compat).find(([field]) => field === 'supportsDeveloperRole')
+  if (declared !== undefined) return false
+  if (!sendsDeveloperRole(provider, entry.id, baseUrl, api)) return false
+  if (catalogEndpoint) return false
+  const lower = baseUrl.toLowerCase()
+  if (OPENAI_FAMILY_HOSTS.some(host => lower.includes(host))) return false
+  return true
+}
+
+/**
+ * The one warning a route carries when its models would send the `developer`
+ * role to an endpoint that may reject it.
+ *
+ * One warning per route, not one per model: the route is what a configuration
+ * surface shows, and a list of eight near-identical sentences buries the one
+ * fact the operator needs. The affected models are named inside it.
+ *
+ * This is a warning rather than a refusal: the endpoint may well accept the
+ * role, and a deployment that knows its gateway does should be able to keep
+ * the route as it is. Refusing the route would turn a repairable request into
+ * an unserviceable one, which is a worse failure than the one it prevents.
+ *
+ * @param provider - the route key.
+ * @param modelIds - the affected models, in configuration order.
+ * @returns the route-level diagnostic.
+ */
+function developerRoleWarning(provider: string, modelIds: readonly string[]): string {
+  const one = modelIds.length === 1
+  const models = one
+    ? `model "${modelIds[0]}"`
+    : `models ${modelIds.map(id => `"${id}"`).join(', ')}`
+  return `llm-pi-ai: provider "${provider}" ${models} ${one ? 'is a' : 'are'} reasoning model`
+    + `${one ? '' : 's'} on an endpoint pi-ai resolves as OpenAI, so ${one ? 'its' : 'their'} system prompt`
+    + `${one ? '' : 's'} travel${one ? 's' : ''} as the \`developer\` role, which most OpenAI-compatible`
+    + ' gateways reject with a 400. Set `compat.supportsDeveloperRole: false` on this route'
+    + ` or on the model entr${one ? 'y' : 'ies'} so ${one ? 'it' : 'they'} travel as \`system\`.`
+}
+
+/**
  * Resolve one model's compat block from the profile's switches.
  *
  * A model switch wins over the route switch field by field; whatever neither
@@ -799,14 +971,23 @@ function resolveModelCompat(
     }
     configured[field] = value
   }
-  if (Object.keys(configured).length === 0) return {}
   // The installed entry's compat matches the entry's OWN api — a route-level
   // `api` repoint (an anthropic catalog served through an OpenAI-compatible
   // gateway) leaves `base.compat` in the other protocol's shape, so it is
   // inherited only while the resolved api still is the entry's. A repointed
   // model starts from pi-ai's baseURL-derived detection instead, which is
   // what a protocol change means for every other compat field too.
-  const inherited = base?.api === api ? base.compat : undefined
+  const repointed = base !== undefined && base.api !== api
+  if (Object.keys(configured).length === 0) {
+    // A repoint has to answer for the compat the model literal's `...base`
+    // spread would otherwise carry onto the wire: the installed block
+    // describes the protocol the model no longer speaks, and the fields the
+    // two protocols share would silently keep the old protocol's values.
+    // An empty block is not "no compat" to pi-ai — it merges over the
+    // baseURL-derived detection, which is exactly the intended floor.
+    return repointed ? { compat: {} as ModelCompat } : {}
+  }
+  const inherited = repointed ? undefined : base?.compat
   return { compat: { ...inherited, ...configured } as ModelCompat }
 }
 
@@ -816,6 +997,15 @@ export interface RouteCatalog {
   models: readonly Model<Api>[]
   /** Models that cannot be resolved, retained as diagnostics during stored-config reads. */
   modelErrors: ReadonlyMap<string, string>
+  /**
+   * Configuration risks that do not stop the route from serving.
+   *
+   * A warning names a combination that will fail at request time unless the
+   * deployment changes something. Refusing the route instead would turn a
+   * repairable request into an unserviceable one, so the route stays and the
+   * reason travels with it.
+   */
+  warnings: readonly string[]
   /**
    * Per-request output caps this profile explicitly configured, by model id.
    *
@@ -892,6 +1082,11 @@ export function resolveRouteModels(
   assertOfferedCompatFields(provider, 'route', request.compat)
   const seen = new Set<string>()
   const configuredMaxTokens = new Map<string, number>()
+  const warnings: string[] = []
+  // The endpoint the installed catalog names is the one pi-ai's catalog was
+  // built against; only an endpoint the deployment chose can reject the role.
+  const catalogEndpoint = request.baseURL === undefined
+  const roleRiskModels: string[] = []
   const resolveEntry = (entry: PiAiModelProfile): Model<Api> => {
     assertOfferedCompatFields(provider, `model "${entry.id}"`, entry.compat)
     if (entry.id.length === 0) invalid(provider, 'has a model with an empty id')
@@ -922,6 +1117,13 @@ export function resolveRouteModels(
     // Only a value the profile named is a deployment choice; the catalog's is
     // the model's capability and stays out of request defaults.
     if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, entry.maxTokens)
+    const reasoning = resolveModelReasoning(provider, entry, base)
+    // Resolved before the risk is recorded: a model whose compat cannot be
+    // resolved never reaches the wire, so it is not one the route risks.
+    const compat = resolveModelCompat(provider, entry, request.compat, base, api)
+    if (developerRoleRisk(provider, entry, baseUrl, reasoning.reasoning, api, request.compat, catalogEndpoint)) {
+      roleRiskModels.push(entry.id)
+    }
     return {
       // The installed entry lays the floor, and the fields below override it.
       // Enumerating instead would silently drop every `Model` field this
@@ -938,8 +1140,8 @@ export function resolveRouteModels(
       cost: base?.cost ?? NO_COST,
       contextWindow,
       maxTokens,
-      ...resolveModelReasoning(provider, entry, base),
-      ...resolveModelCompat(provider, entry, request.compat, base, api),
+      ...reasoning,
+      ...compat,
     }
   }
   const models: Model<Api>[] = []
@@ -954,6 +1156,10 @@ export function resolveRouteModels(
     }
     models.push(model)
   }
+  // One warning per route, naming the models it concerns: a configuration
+  // surface shows the route, and a sentence per model would bury the one fact
+  // the operator needs.
+  if (roleRiskModels.length > 0) warnings.push(developerRoleWarning(provider, roleRiskModels))
   // A later duplicate invalidates the id, including an earlier resolved entry.
   const serviceableModels = models.filter(model => !modelErrors.has(model.id))
   // Per field, not per block: a route may default a switch its completions
@@ -966,5 +1172,5 @@ export function resolveRouteModels(
     invalid(provider, `sets compat "${field}", but no model on the route speaks a protocol that takes it;`
       + ` it exists on ${takers.join(', ')}`)
   }
-  return { models: serviceableModels, configuredMaxTokens, modelErrors }
+  return { models: serviceableModels, configuredMaxTokens, modelErrors, warnings }
 }

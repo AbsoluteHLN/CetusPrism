@@ -414,12 +414,38 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
           const error = row.entry.error === undefined
             ? null
             : <p role="alert" className={styles['error']}>{row.entry.error}</p>
+          // A risk is not a failure: the route still answers, so the surface
+          // names the combination that would break it and leaves the route
+          // usable meanwhile.
+          const warnings = row.entry.warnings === undefined || row.entry.warnings.length === 0
+            ? null
+            : (
+              <ul className={styles['warnings']}>
+                {[...new Set(row.entry.warnings)].map(warning => (
+                  <li key={warning} className={styles['warning']}>{`${t('configRisk')}: ${warning}`}</li>
+                ))}
+              </ul>
+            )
+          // A model that cannot be resolved does not take the route out of
+          // service: the route serves the models that did resolve, so these
+          // name what to repair rather than reporting the route as failed.
+          const modelErrors = row.entry.modelErrors === undefined || row.entry.modelErrors.length === 0
+            ? null
+            : (
+              <ul className={styles['modelErrors']}>
+                {row.entry.modelErrors.map(modelError => (
+                  <li key={modelError} className={styles['error']}>{modelError}</li>
+                ))}
+              </ul>
+            )
           if (needsSetup(row, anyUsable) && !dismissedSetup.has(row.entry.provider)) {
             // First-run posture: the provider exists but has no key — the
             // setup card IS its presence on the page, until the user closes it.
             return (
               <li key={row.entry.provider} className={styles['setupCard']}>
                 {error}
+                {warnings}
+                {modelErrors}
                 {renderProviderEditor({
                   target,
                   namespace,
@@ -509,6 +535,8 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                 </span>
               </div>
               {error}
+              {warnings}
+              {modelErrors}
               {renderSlot(
                 'settings.models.provider-card',
                 { provider: row.entry, configured: row.configured, keyConfigured: keyConfiguredOf(row) },

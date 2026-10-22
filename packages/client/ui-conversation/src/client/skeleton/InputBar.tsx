@@ -477,6 +477,9 @@ export const InputBar = memo(function InputBar({
             />
             <div className={css.modes}>
               {sessionId === undefined ? null : renderSlot('conversation.input.permission', { locked })}
+              {sessionId === undefined ? null : renderSlot('conversation.input.computerDelivery', { locked })}
+              {sessionId === undefined ? null : renderSlot('conversation.input.agentPreset', { locked })}
+              {sessionId === undefined ? null : renderSlot('conversation.input.agentBackend', { locked })}
               {sessionId === undefined ? null : renderSlot('conversation.input.plan', { locked })}
             </div>
             {input === undefined || sessionId === undefined

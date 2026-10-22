@@ -844,6 +844,14 @@ export interface Config {
   readonly allowedModels?: Volatile<TeamModelSelection[]> | TeamModelSelection[]
   /** Optional default route, which must also appear in the Team allowlist. */
   readonly defaultModel?: Volatile<TeamModelSelection | undefined> | TeamModelSelection
+  /** Declared agent profiles, the reusable identities a Team may instantiate. */
+  readonly profiles?: Volatile<AgentProfile[]> | AgentProfile[]
+  /** Reasoning-effort ids a member may run under. Empty means no Team-specific ceiling. */
+  readonly allowedEfforts?: Volatile<string[]> | string[]
+  /** Execution backends a member may run under. Empty means no Team-specific ceiling. */
+  readonly allowedBackends?: Volatile<string[]> | string[]
+  /** Agent presets a member may run under. Empty means no Team-specific ceiling. */
+  readonly allowedPresets?: Volatile<string[]> | string[]
 }
 
 /** Provider/model pair allowed for a Team member runtime. */
@@ -853,11 +861,45 @@ export interface TeamModelSelection {
   /** Model id interpreted by that provider. */
   readonly model: string
 }
+
+/**
+ * One declared agent profile: the reusable identity of a teammate.
+ *
+ * A profile is a deployment fact, not a session fact. It names the member,
+ * says what it does, and pins the route and the ranges it may run under, so
+ * the same identity can be instantiated again in a later session instead of
+ * living only in one Lead's log.
+ */
+export interface AgentProfile {
+  /** Stable profile identity, addressable across sessions. */
+  readonly id: string
+  /** Member name a profile instance takes in its Team. */
+  readonly name: string
+  /** What the member is for. */
+  readonly description: string
+  /** Continuable subagent backend, such as `spawn` or `fork`. */
+  readonly backend?: string
+  /** LLM provider the member runs on. */
+  readonly provider?: string
+  /** Model id interpreted by that provider. */
+  readonly model?: string
+  /**
+   * Exact model-advertised effort ids the profile may use.
+   *
+   * The declared list is mutable, like every other configured list in this
+   * package: the array the deployment hands over is the array that is read,
+   * and the service copies it before it stores or returns it. The readonly
+   * list lives on the view, which is what a caller receives.
+   */
+  readonly allowedEfforts?: string[]
+  /** Agent preset the member runs under. */
+  readonly preset?: string
+}
 ```
 
 Depends on: `Volatile` (`@deepseek-ai/cordis`)
 
-Source: [`packages/experimental/agent-team/src/types.ts:184`](../packages/experimental/agent-team/src/types.ts)
+Source: [`packages/experimental/agent-team/src/types.ts:281`](../packages/experimental/agent-team/src/types.ts)
 
 <a id="deepseek-aidsh-experimental-api-speech-to-text"></a>
 
@@ -1885,7 +1927,7 @@ export type PiAiThinkingTokenBudgetField = NonNullable<OpenAICompletionsCompat['
 
 Depends on: `Api` (`@earendil-works/pi-ai`) · `CacheRetention` (`@earendil-works/pi-ai`) · `Model` (`@earendil-works/pi-ai`) · `ModelThinkingLevel` (`@earendil-works/pi-ai`) · `OpenAICompletionsCompat` (`@earendil-works/pi-ai`) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts) · `ThinkingBudgets` (`@earendil-works/pi-ai`) · `Transport` (`@earendil-works/pi-ai`) · `Volatile` (`@deepseek-ai/cordis`)
 
-Source: [`packages/llm/llm-pi-ai/src/config.ts:222`](../packages/llm/llm-pi-ai/src/config.ts)
+Source: [`packages/llm/llm-pi-ai/src/config.ts:230`](../packages/llm/llm-pi-ai/src/config.ts)
 
 <a id="deepseek-aidsh-llm-replay"></a>
 

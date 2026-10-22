@@ -3,6 +3,7 @@
 import { mkdir, readFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
+import { parseBuiltinAgentBackend, type BuiltinAgentBackendId } from './backend.ts'
 
 /** The first wire-compatible built-in agent protocol revision. */
 export const BUILTIN_AGENT_PROTOCOL_VERSION = 1
@@ -37,6 +38,8 @@ export interface BuiltinAgentConfig {
   readonly schemaVersion: 1
   readonly release: typeof BUILTIN_AGENT_RELEASE
   readonly installDirectory: string
+  /** Default backend for a newly created Session; omitted legacy files mean DSH. */
+  readonly defaultBackend?: BuiltinAgentBackendId
   readonly agents: readonly BuiltinAgentDeclaration[]
 }
 
@@ -112,6 +115,7 @@ export function validateBuiltinAgentConfig(value: unknown): BuiltinAgentConfig {
     schemaVersion: 1,
     release: BUILTIN_AGENT_RELEASE,
     installDirectory: nonEmptyString(value.installDirectory, 'installDirectory'),
+    ...(value.defaultBackend === undefined ? {} : { defaultBackend: parseBuiltinAgentBackend(value.defaultBackend) }),
     agents,
   }
 }
@@ -134,7 +138,7 @@ export class BuiltinAgentConfigStore {
    * @returns an empty configuration without creating files.
    */
   defaultConfig(): BuiltinAgentConfig {
-    return { schemaVersion: 1, release: BUILTIN_AGENT_RELEASE, installDirectory: dirname(this.configPath), agents: [] }
+    return { schemaVersion: 1, release: BUILTIN_AGENT_RELEASE, installDirectory: dirname(this.configPath), defaultBackend: 'dsh', agents: [] }
   }
 
   /**

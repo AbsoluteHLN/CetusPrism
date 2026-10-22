@@ -6,7 +6,10 @@ import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { SessionEvent, SessionEventMap, SessionId } from '@deepseek-ai/dsh-session'
 import type { ProjectionDefinition } from '@deepseek-ai/dsh-session-projection'
 import type {
+  TeamBroadcastDelivery,
+  TeamBroadcastSnapshot,
   TeamId,
+  TeamMemberPhase,
   TeamMemberProjection,
   TeamMemberSnapshot,
   TeamMessageId,
@@ -72,8 +75,10 @@ const teamMemberSnapshotShape = {
   model: z.string().min(1).optional(),
   modelProvider: z.string().min(1).optional(),
   reasoningEffort: z.string().min(1).optional(),
+  profileId: z.string().min(1).optional(),
+  preset: z.string().min(1).optional(),
   context: z.enum(['fresh', 'fork']),
-  phase: z.enum(['provisioning', 'active', 'failed']),
+  phase: z.enum(['provisioning', 'active', 'dormant', 'failed']),
   error: z.string().optional(),
 }
 
@@ -140,6 +145,27 @@ const teamMessageDeliveredEventSchema = z.object({
   targetId: sessionIdSchema,
 }).strict() as z.ZodType<SessionEventMap['team/message/delivered']>
 
+const teamBroadcastSnapshotSchema = z.object({
+  id: teamMessageIdSchema,
+  senderId: sessionIdSchema,
+  senderName: z.string(),
+  targetIds: z.array(sessionIdSchema).min(1),
+  content: z.array(contentBlockSchema),
+}).strict() as z.ZodType<TeamBroadcastSnapshot>
+
+const teamBroadcastEventSchema = z.object({
+  version: z.literal(1),
+  teamId: teamIdSchema,
+  broadcast: teamBroadcastSnapshotSchema,
+}).strict() as z.ZodType<SessionEventMap['team/message/broadcast']>
+
+const teamBroadcastDeliveredEventSchema = z.object({
+  version: z.literal(1),
+  teamId: teamIdSchema,
+  messageId: teamMessageIdSchema,
+  targetId: sessionIdSchema,
+}).strict() as z.ZodType<SessionEventMap['team/message/broadcast-delivered']>
+
 /**
  * Current Team state selected by durable Team identity. Every applied Team
  * event produces a new state object and replaces only the collection it
@@ -151,6 +177,10 @@ export interface TeamState {
   readonly tasks: readonly TeamTaskSnapshot[]
   readonly messages: readonly TeamMessageSnapshot[]
   readonly delivered: readonly TeamMessageId[]
+  /** Durable broadcasts, each with its own per-target delivery edges. */
+  readonly broadcasts: readonly TeamBroadcastSnapshot[]
+  /** Target-specific delivery edges of durable broadcasts. */
+  readonly broadcastDelivered: readonly TeamBroadcastDelivery[]
   readonly nextTaskNumber: number
 }
 
@@ -166,6 +196,8 @@ export function emptyTeamState(rootId: SessionId): TeamProjectionState {
     tasks: [],
     messages: [],
     delivered: [],
+    broadcasts: [],
+    broadcastDelivered: [],
     nextTaskNumber: 1,
   }
 }
@@ -187,6 +219,11 @@ const teamProjectionEntrySchema = z.object({
   tasks: z.array(teamTaskSnapshotSchema),
   messages: z.array(teamMessageSnapshotSchema),
   delivered: z.array(teamMessageIdSchema),
+  broadcasts: z.array(teamBroadcastSnapshotSchema),
+  broadcastDelivered: z.array(z.object({
+    messageId: teamMessageIdSchema,
+    targetId: sessionIdSchema,
+  }).strict()),
   nextTaskNumber: positiveSafeInteger,
   failure: z.string().optional(),
 }).strict() as z.ZodType<TeamProjectionState>
@@ -197,6 +234,8 @@ export type TeamEventType =
   | 'team/task'
   | 'team/message/queued'
   | 'team/message/delivered'
+  | 'team/message/broadcast'
+  | 'team/message/broadcast-delivered'
 
 /** One event owned by the Team domain. */
 type TeamSessionEvent = SessionEvent<TeamEventType>
@@ -211,6 +250,8 @@ export function isTeamEvent(event: SessionEvent): event is TeamSessionEvent {
     || event.type === 'team/task'
     || event.type === 'team/message/queued'
     || event.type === 'team/message/delivered'
+    || event.type === 'team/message/broadcast'
+    || event.type === 'team/message/broadcast-delivered'
 }
 
 /** Decode one persisted Team value and retain the schema failure as its cause. */
@@ -233,6 +274,10 @@ function parseCurrentTeamEvent(event: TeamSessionEvent): TeamSessionEvent {
       return { ...event, data: parsePersisted(event.type, teamMessageQueuedEventSchema, event.data) }
     case 'team/message/delivered':
       return { ...event, data: parsePersisted(event.type, teamMessageDeliveredEventSchema, event.data) }
+    case 'team/message/broadcast':
+      return { ...event, data: parsePersisted(event.type, teamBroadcastEventSchema, event.data) }
+    case 'team/message/broadcast-delivered':
+      return { ...event, data: parsePersisted(event.type, teamBroadcastDeliveredEventSchema, event.data) }
     /* v8 ignore next 2 -- TeamEventType is closed and every member is handled above. */
     default:
       return event
@@ -247,7 +292,9 @@ function applyProjectionEvent(state: TeamProjectionState, event: SessionEvent): 
     if (selector.teamId !== state.id) return state
     const supportedVersion = event.type === 'team/member'
       ? selector.version === 2 || selector.version === 3
-      : selector.version === 2
+      : event.type === 'team/message/broadcast' || event.type === 'team/message/broadcast-delivered'
+        ? selector.version === 1
+        : selector.version === 2
     if (!supportedVersion) {
       throw new Error(`unsupported Agent Teams event version ${String(selector.version)}`)
     }
@@ -263,6 +310,23 @@ function replaceAt<T>(items: readonly T[], index: number, item: T): T[] {
   if (index < 0) next.push(item)
   else next[index] = item
   return next
+}
+
+/**
+ * Durable teammate phase edges the projection accepts.
+ *
+ * A member is created provisioning and reaches active; releasing it parks it
+ * in dormant, and a resume brings it back to active. A failed member is
+ * terminal.
+ * @param from - the phase the member is in.
+ * @param to - the phase the member claims.
+ * @returns whether that edge is a legal transition.
+ */
+function isMemberTransition(from: TeamMemberPhase, to: TeamMemberPhase): boolean {
+  if (from === 'provisioning') return to === 'active' || to === 'dormant' || to === 'failed'
+  if (from === 'active') return to === 'dormant'
+  if (from === 'dormant') return to === 'active'
+  return false
 }
 
 function applyCurrentTeamEvent(state: TeamProjectionState, event: TeamSessionEvent): TeamProjectionState {
@@ -281,7 +345,7 @@ function applyCurrentTeamEvent(state: TeamProjectionState, event: TeamSessionEve
         if (prior.name !== member.name || prior.provider !== member.provider || prior.context !== member.context) {
           throw new Error(`teammate "${member.id}" changed immutable identity fields`)
         }
-        if (prior.phase !== 'provisioning' || member.phase === 'provisioning') {
+        if (!isMemberTransition(prior.phase, member.phase)) {
           throw new Error(`teammate "${member.name}" has an invalid ${prior.phase} -> ${member.phase} transition`)
         }
       }
@@ -323,6 +387,36 @@ function applyCurrentTeamEvent(state: TeamProjectionState, event: TeamSessionEve
       if (state.delivered.includes(event.data.messageId)) throw new Error(`team message "${event.data.messageId}" was delivered twice`)
       return { ...state, delivered: [...state.delivered, event.data.messageId] }
     }
+    case 'team/message/broadcast': {
+      const broadcast = event.data.broadcast
+      if (state.broadcasts.some(candidate => candidate.id === broadcast.id)) {
+        throw new Error(`team broadcast "${broadcast.id}" was queued twice`)
+      }
+      if (broadcast.targetIds.length === 0) {
+        throw new Error(`team broadcast "${broadcast.id}" has no target`)
+      }
+      return { ...state, broadcasts: [...state.broadcasts, broadcast] }
+    }
+    case 'team/message/broadcast-delivered': {
+      const broadcast = state.broadcasts.find(candidate => candidate.id === event.data.messageId)
+      if (broadcast === undefined) {
+        throw new Error(`team broadcast "${event.data.messageId}" was delivered before queueing`)
+      }
+      if (!broadcast.targetIds.includes(event.data.targetId)) {
+        throw new Error(`team broadcast "${event.data.messageId}" target changed`)
+      }
+      if (state.broadcastDelivered.some(edge =>
+        edge.messageId === event.data.messageId && edge.targetId === event.data.targetId)) {
+        throw new Error(`team broadcast "${event.data.messageId}" was delivered twice to the same target`)
+      }
+      return {
+        ...state,
+        broadcastDelivered: [...state.broadcastDelivered, {
+          messageId: event.data.messageId,
+          targetId: event.data.targetId,
+        }],
+      }
+    }
     /* v8 ignore next 2 -- TeamEventType is closed and every member is handled above. */
     default:
       return state
@@ -333,10 +427,12 @@ const teamMemberProjectionSchema = z.object({
   id: sessionIdSchema,
   name: z.string(),
   role: z.enum(['lead', 'teammate']),
-  phase: z.enum(['provisioning', 'active', 'failed']),
+  phase: z.enum(['provisioning', 'active', 'dormant', 'failed']),
   model: z.string().min(1).optional(),
   modelProvider: z.string().min(1).optional(),
   reasoningEffort: z.string().min(1).optional(),
+  profileId: z.string().min(1).optional(),
+  preset: z.string().min(1).optional(),
   error: z.string().optional(),
 }).strict() as z.ZodType<TeamMemberProjection>
 
@@ -374,6 +470,8 @@ function buildTeamProjection(state: TeamProjectionState): TeamProjection {
       ...member.model === undefined ? {} : { model: member.model },
       ...member.modelProvider === undefined ? {} : { modelProvider: member.modelProvider },
       ...member.reasoningEffort === undefined ? {} : { reasoningEffort: member.reasoningEffort },
+      ...member.profileId === undefined ? {} : { profileId: member.profileId },
+      ...member.preset === undefined ? {} : { preset: member.preset },
       ...member.error === undefined ? {} : { error: member.error },
     })
   }
@@ -412,7 +510,7 @@ export function teamProjectionView(state: TeamProjectionState): TeamProjection {
 /** Team projection selected by the projected Session identity; the wire view carries durable roster and task state only. */
 export const teamProjectionDefinition = {
   key: 'agentTeam',
-  stateVersion: 5,
+  stateVersion: 6,
   stateSchema: teamProjectionEntrySchema,
   init: header => emptyTeamState(header.id),
   apply: applyProjectionEvent,

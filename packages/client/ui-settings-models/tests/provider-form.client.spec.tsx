@@ -837,6 +837,175 @@ describe('provider rows', () => {
     // must not have its routes labelled either way.
     expect(screen.queryByText(en.customTag)).toBeNull()
   })
+
+  it('shows a configuration risk beside the route it concerns', async () => {
+    const risk = 'llm-pi-ai: provider "openai" model "gpt-5" is a reasoning model on an endpoint'
+      + ' pi-ai resolves as OpenAI ... set `compat.supportsDeveloperRole: false`'
+    const scripted = scriptedFace({ providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
+    scripted.face.llm.listConfigurableProviders = vi.fn(() => Promise.resolve(ok([{
+      provider: 'openai',
+      displayName: 'openai',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: ['providers', 'openai'],
+      warnings: [risk],
+    }]))) as never
+    const controller = new ModelsSettingsStore(
+      ctxWith(scripted.face), settingsSchema, new SettingsDescribeMirror(ctxWith(scripted.face)))
+    await controller.load()
+    render(<ModelsSection
+      controller={controller}
+      useSnapshot={bindSnapshotSelector(controller.store)}
+      operations={operationsWith(scripted.face)}
+      schema={settingsSchema}
+      t={t}
+      renderSlot={() => null}
+    />)
+
+    const row = screen.getByText('openai').closest('li')
+    if (row === null) throw new Error('no row for openai')
+    expect(row.textContent).toContain(risk)
+    // A risk reads as a risk, not as the failure an error would be.
+    expect(row.textContent).toContain(en.configRisk)
+  })
+
+  it('shows a per-model failure beside the route that still serves', async () => {
+    // The model that cannot resolve does not take the route out of service,
+    // so the failure reads as one model's, not as the route's.
+    const modelError = 'llm-pi-ai: provider "openai" model "gpt-4o" reasoningEfforts offers no level beyond "off"'
+    const scripted = scriptedFace({ providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
+    scripted.face.llm.listConfigurableProviders = vi.fn(() => Promise.resolve(ok([{
+      provider: 'openai',
+      displayName: 'openai',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: ['providers', 'openai'],
+      modelErrors: [modelError],
+    }]))) as never
+    const controller = new ModelsSettingsStore(
+      ctxWith(scripted.face), settingsSchema, new SettingsDescribeMirror(ctxWith(scripted.face)))
+    await controller.load()
+    render(<ModelsSection
+      controller={controller}
+      useSnapshot={bindSnapshotSelector(controller.store)}
+      operations={operationsWith(scripted.face)}
+      schema={settingsSchema}
+      t={t}
+      renderSlot={() => null}
+    />)
+
+    const row = screen.getByText('openai').closest('li')
+    if (row === null) throw new Error('no row for openai')
+    expect(row.textContent).toContain(modelError)
+  })
+
+  it('shows every diagnostic a route carries at once', async () => {
+    // A route can carry all three kinds at the same time: a route-level
+    // failure, a risk, and a per-model failure. Rendering them as
+    // alternatives would hide the two an operator cannot otherwise reach
+    // behind the one that took the route's attention — a diagnostic with
+    // no exit is a diagnostic nobody sees.
+    const failure = 'llm-pi-ai: provider "openai" model "gpt-4" contextWindow must be a positive integer'
+    const risk = 'llm-pi-ai: provider "openai" model "gpt-5" is a reasoning model on an endpoint'
+      + ' pi-ai resolves as OpenAI ... set `compat.supportsDeveloperRole: false`'
+    const modelError = 'llm-pi-ai: provider "openai" model "gpt-4o" reasoningEfforts offers no level beyond "off"'
+    const scripted = scriptedFace({ providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
+    scripted.face.llm.listConfigurableProviders = vi.fn(() => Promise.resolve(ok([{
+      provider: 'openai',
+      displayName: 'openai',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: ['providers', 'openai'],
+      error: failure,
+      warnings: [risk],
+      modelErrors: [modelError],
+    }]))) as never
+    const controller = new ModelsSettingsStore(
+      ctxWith(scripted.face), settingsSchema, new SettingsDescribeMirror(ctxWith(scripted.face)))
+    await controller.load()
+    render(<ModelsSection
+      controller={controller}
+      useSnapshot={bindSnapshotSelector(controller.store)}
+      operations={operationsWith(scripted.face)}
+      schema={settingsSchema}
+      t={t}
+      renderSlot={() => null}
+    />)
+
+    const row = screen.getByText('openai').closest('li')
+    if (row === null) throw new Error('no row for openai')
+    expect(row.textContent).toContain(failure)
+    expect(row.textContent).toContain(risk)
+    expect(row.textContent).toContain(modelError)
+  })
+
+  it('shows the same diagnostics on the setup card', async () => {
+    // The setup card is the route's whole presence on the page until the user
+    // closes it, so a diagnostic that renders only on an ordinary row would
+    // have no exit at all in the first-run posture. This route has no
+    // settings address and is not registered, which is what opens the card.
+    const failure = 'llm-pi-ai: provider "openai" model "gpt-4" contextWindow must be a positive integer'
+    const risk = 'llm-pi-ai: provider "openai" model "gpt-5" is a reasoning model on an endpoint'
+      + ' pi-ai resolves as OpenAI ... set `compat.supportsDeveloperRole: false`'
+    const modelError = 'llm-pi-ai: provider "openai" model "gpt-4o" reasoningEfforts offers no level beyond "off"'
+    const scripted = scriptedFace({ providers: {} })
+    scripted.face.llm.listProviders = vi.fn(() => Promise.resolve(ok([])))
+    scripted.face.llm.listConfigurableProviders = vi.fn(() => Promise.resolve(ok([{
+      provider: 'openai',
+      displayName: 'openai',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: [],
+      error: failure,
+      warnings: [risk],
+      modelErrors: [modelError],
+    }]))) as never
+    const controller = new ModelsSettingsStore(
+      ctxWith(scripted.face), settingsSchema, new SettingsDescribeMirror(ctxWith(scripted.face)))
+    await controller.load()
+    render(<ModelsSection
+      controller={controller}
+      useSnapshot={bindSnapshotSelector(controller.store)}
+      operations={operationsWith(scripted.face)}
+      schema={settingsSchema}
+      t={t}
+      renderSlot={() => null}
+    />)
+
+    // The route-level failure is the anchor: it is the one line the setup
+    // card carries alone.
+    const card = screen.getByText(failure).closest('li')
+    if (card === null) throw new Error('no setup card for openai')
+    expect(card.textContent).toContain(risk)
+    expect(card.textContent).toContain(modelError)
+  })
+
+  it('shows a repeated risk once', async () => {
+    // Two layers can carry the same risk — the route and the model — and the
+    // route's card lists both. One line says it once: a risk repeated on the
+    // same card reads as two risks.
+    const risk = 'llm-pi-ai: provider "openai" model "gpt-5" is a reasoning model on an endpoint'
+      + ' pi-ai resolves as OpenAI ... set `compat.supportsDeveloperRole: false`'
+    const scripted = scriptedFace({ providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
+    scripted.face.llm.listConfigurableProviders = vi.fn(() => Promise.resolve(ok([{
+      provider: 'openai',
+      displayName: 'openai',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: ['providers', 'openai'],
+      warnings: [risk, risk],
+    }]))) as never
+    const controller = new ModelsSettingsStore(
+      ctxWith(scripted.face), settingsSchema, new SettingsDescribeMirror(ctxWith(scripted.face)))
+    await controller.load()
+    render(<ModelsSection
+      controller={controller}
+      useSnapshot={bindSnapshotSelector(controller.store)}
+      operations={operationsWith(scripted.face)}
+      schema={settingsSchema}
+      t={t}
+      renderSlot={() => null}
+    />)
+
+    const row = screen.getByText('openai').closest('li')
+    if (row === null) throw new Error('no row for openai')
+    expect(row.textContent?.split(risk).length ?? 0).toBe(2)
+  })
 })
 
 describe('hand-declared providers', () => {

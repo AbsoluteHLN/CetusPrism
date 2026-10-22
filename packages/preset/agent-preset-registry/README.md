@@ -13,6 +13,14 @@ The built-in agent protocol is introduced in v1.7.0-beta.1 through the exported 
 
 `resolveBuiltinAgent` and `prepareBuiltinAgent` provide a native, single-use lifecycle over `ctx.agents`. The caller supplies the provider/model route and may request a preset; a requested preset requires a mounted registry. Execution returns the Session events and turn endings observed until the whole Agent is idle, including errors and cancellation. It does not attribute those events to one message or equate idleness with success. Always dispose the prepared handle. Disabled declarations, external drivers, protocol mismatches, and application-version ranges that cannot be evaluated are rejected before creation. The [GLM composition guide](../../../docs/user/guide/glm-harness.md) describes a separate opt-in native strategy; no settings UI automatically invokes this helper.
 
+## Execution backends
+
+A backend owns the Agent lifecycle, the request scheduling and the tool execution. It is a separate dimension from the preset, which owns the prompt, the tool set and the runtime constraints, and from the model, which owns the provider, model and effort routing.
+
+`AgentPresetRegistry.registerBackend()` is the one entry an external runtime uses. The adapter answers a probe — version, source, and whether CetusPrism can speak to it — and nothing else: CetusPrism stores no credential, private configuration or runtime file for it. The `backends` Remote publishes the catalog, DSH first, with each backend's version, availability and capabilities. DSH is always present and always ready; Pi and ZCode stay visible as unconfigured until an adapter registers, because the reason they cannot start a session is what the composer has to explain.
+
+The composer chip lists the three backends. A backend that cannot start a session is refused with the reason the host published, rather than silently falling back to DSH.
+
 ## Summary
 
 Choose an Agent’s tools, prompt sections and skills through declarative presets. One process can run several compositions. Failed definitions remain visible, while existing Agents retain the composition they already use.
@@ -103,6 +111,7 @@ Existing Agents retain their plugins and prompts. New Agents build their prefixe
 <a id="known-limitations-and-deferred-work"></a>
 
 - Presets are not security sandboxes: YAML and plugins can execute Host code. A user override replaces the complete child list and does not automatically merge future changes to the builtin list. Old revision implementations are not retained across process restarts.
+- Sessions bind to DSH in this build. The session-level backend binding — choosing a registered external runtime for the next session and recording it in the session log — is not part of it, so such a pick is refused explicitly instead of being recorded where nothing would honour it.
 
 <a id="dev-note"></a>
 ### Dev Note

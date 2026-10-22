@@ -32,6 +32,15 @@
       config:
         freshProvider: spawn
         forkProvider: fork
+        # 2026-10-22：由 false 恢复为 true。
+        # 2026-10-21 临时关闭的原因：委派工具与 Team 都往同一个 Agent scope 注册
+        # `list_subagent_models`，第二次注册抛 `tool "list_subagent_models" is already
+        # registered in this scope`，顶层会话直接建不出来。
+        # 现在改为「每个 scope 只注册一次、多个贡献者的策略取交集」
+        # （packages/subagent/tool-subagent/src/list-models.ts），根因被修掉，
+        # 不再靠关开关绕开，Team 成员仍可按需指定 provider/model。
+        # 前提：打包产物里的 tool-subagent 运行时代码必须带这份修复；
+        # scripts/check-offline-pack.mjs 的 runtime 检查会在产物与源码不同步时拦下。
         modelSelectionSettings: true
 
     - id: ui-agent-team

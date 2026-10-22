@@ -197,7 +197,7 @@ describe('Agent Teams projection events', () => {
       session.header,
       SessionLogOffset(0),
     )
-    expect(restored.checkpoint['agentTeam']?.ver).toBe(5)
+    expect(restored.checkpoint['agentTeam']?.ver).toBe(teamProjectionDefinition.stateVersion)
     expect(teamProjectionDefinition.stateSchema.parse(restored.checkpoint['agentTeam']?.val).members[0])
       .toMatchObject({ modelProvider: 'mock', reasoningEffort: 'high' })
     expect(routed.data.version).toBe(3)

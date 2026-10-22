@@ -13,6 +13,14 @@ v1.7.0-beta.1 通过导出的 `BuiltinAgentConfigStore` 与校验函数引入内
 
 `resolveBuiltinAgent` 和 `prepareBuiltinAgent` 通过 `ctx.agents` 提供原生、单次使用的生命周期。调用方提供 provider/model 路由，可选用预设；显式指定预设时必须挂载注册表。执行结果返回整个 Agent 空闲前观察到的 Session 事件和轮次结束记录，包括错误与取消，不把这些事件归因于单条消息，也不把空闲视为成功。调用方必须释放句柄。禁用声明、外部驱动、协议不匹配和无法判定的应用版本范围会在创建前被拒绝。[GLM 组合指南](../../../docs/user/guide/glm-harness.zh.md)介绍独立启用的原生策略；设置界面不会自动调用此辅助函数。
 
+## 执行底座
+
+底座负责 Agent 生命周期、请求调度和工具执行。它与 preset（负责提示词、工具组合和运行约束）、与模型（负责 provider、model 和 effort 路由）是彼此独立的维度。
+
+`AgentPresetRegistry.registerBackend()` 是外部运行时唯一的接入入口。适配器只需回答一次探测（版本、来源、CetusPrism 能否与之通信），CetusPrism 不为其保存任何凭据、私有配置或运行时文件。`backends` 远程方法发布目录，以 DSH 开头，列出每个底座的版本、可用状态与能力。DSH 始终存在且始终可用；Pi 与 ZCode 在适配器注册之前保持可见的「未配置」状态——它们无法启动会话的原因，正是 composer 需要说明的内容。
+
+Composer 的底座入口列出这三个底座。无法启动会话的底座会以 Host 发布的原因拒绝，而不是静默回退到 DSH。
+
 ## 概述
 
 通过声明式 preset 选择 Agent 的工具、提示词和技能。同一进程可以运行多种组合。配置失败会显示在列表中；现有 Agent 保留已经使用的组合。
@@ -103,6 +111,7 @@ preset 的服务提供方及其消费方必须共享同一个 `cordis:group` 隔
 <a id="known-limitations-and-deferred-work"></a>
 
 - preset 不是安全沙箱：YAML 及插件可以执行 Host 代码。用户覆盖替换完整子插件列表，不自动合并内置列表的未来更新。进程退出后不保存旧代际的插件实现。
+- 本版本的会话绑定到 DSH。会话级底座绑定——为新会话选择已注册的外部运行时并记入会话日志——不在本版本范围内，因此这类选择会被明确拒绝，而不是记录到无人兑现的位置。
 
 <a id="dev-note"></a>
 ### 开发备注

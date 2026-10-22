@@ -9,18 +9,32 @@ import type { Agent } from '@deepseek-ai/dsh-agent'
 // Type-only: the optional `settings` service this registry keeps off the generated pages.
 import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-tools'
-import type { AgentPresetDocument, AgentPresetRoster } from './types.ts'
+import type { AgentBackendCatalog, AgentPresetDocument, AgentPresetRoster } from './types.ts'
 import { entryListProblem, type PresetDefinition } from './definition.ts'
 import type { AgentPreset, Config } from './preset.ts'
 import { agentPresetProjectionDefinition } from './session.ts'
 import { auditRows, leakedServices, mountPreset, serviceForMount, type PresetMount } from './mount.ts'
 import { activeCompositionModules, definitionComposition, mountedCompositionRows, type AgentPresetComposition, type AgentPresetInspection } from './composition-inventory.ts'
+import { BuiltinAgentBackendRegistry, type BuiltinAgentBackendProvider } from './backend.ts'
 
 export { agentPresetProjectionDefinition } from './session.ts'
 export { entryListProblem, type PresetDefinition } from './definition.ts'
 export { auditRows, leakedServices, livePresetMounts, type PresetMount, type RowAudit } from './mount.ts'
 export type { AgentPresetInspection } from './composition-inventory.ts'
 export type { AgentPreset, Config } from './preset.ts'
+export {
+  builtinAgentBackendCatalog,
+  BuiltinAgentBackendRegistry,
+  BuiltinAgentBackendSelectionError,
+  parseBuiltinAgentBackend,
+  resolveBuiltinAgentBackend,
+  type BuiltinAgentBackendAvailability,
+  type BuiltinAgentBackendCapabilities,
+  type BuiltinAgentBackendDescriptor,
+  type BuiltinAgentBackendId,
+  type BuiltinAgentBackendProbe,
+  type BuiltinAgentBackendProvider,
+} from './backend.ts'
 export {
   BUILTIN_AGENT_PROTOCOL_VERSION,
   BUILTIN_AGENT_RELEASE,
@@ -83,6 +97,8 @@ export class AgentPresetRegistry extends TypertRemoteService {
   private readonly generations = new Map<ScopeKey, Generation>()
   private readonly bindings = new WeakMap<ScopeKey, Binding>()
   private readonly switches = new Map<string, Promise<unknown>>()
+  /** Execution backends: DSH plus every registered external runtime. */
+  private readonly backends = new BuiltinAgentBackendRegistry()
 
   constructor(ctx: Context, public config: Config) {
     super(ctx, 'agentPresets')
@@ -96,6 +112,28 @@ export class AgentPresetRegistry extends TypertRemoteService {
 
   /** Default preset for a subsequently created session. */
   get defaultId(): string { return this.config.selectedDefault.get() ?? this.config.default }
+
+  /**
+   * Register an installed runtime as an execution backend.
+   *
+   * This is the one entry an external runtime uses: the adapter answers a
+   * probe, and CetusPrism keeps no credential, private configuration or
+   * runtime file for it.
+   * @param provider - the adapter that owns the runtime.
+   * @returns a disposer that removes this registration.
+   */
+  registerBackend(provider: BuiltinAgentBackendProvider): () => void {
+    return this.backends.register(provider)
+  }
+
+  /**
+   * Read the execution backends this deployment offers.
+   * @returns DSH first, then every external backend with its current state.
+   */
+  @Remote('backends')
+  remoteExportBackends(): AgentBackendCatalog {
+    return this.backends.wireCatalog()
+  }
 
   /** Register and eagerly load a definition; activation failure remains visible in the roster.
    * @param definition Parsed configuration supplied by the declaring plugin.

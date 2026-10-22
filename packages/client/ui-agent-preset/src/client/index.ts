@@ -1,16 +1,17 @@
 /**
  * Agent-preset surface plugin, browser half — three surfaces over one roster:
- * a chip on the new-session screen for the session about to start, a
- * read-only label in the session header, and a settings section that lists
- * the roster (selection, the new-task default, a read-only view of each
- * declared composition, and the way into Creator mode).
+ * a chip in the composer tool row for the session at hand, a read-only label
+ * in the session header, and a settings section that lists the roster
+ * (selection, the new-task default, a read-only view of each declared
+ * composition, and the way into Creator mode).
  *
  * A running session keeps the composition it began with (the host refuses to
  * adopt an existing session under a different preset). That is what splits
- * the choice from the display: the hero chip is before-the-fact, while the
- * header only reports what a session already runs. The default preset is
- * edited where the roster is visible — the settings section's "make default"
- * — so General settings carries no duplicate control for the same field.
+ * the choice from the display: the composer chip offers the switch the Host
+ * will still accept, while the header only reports what a session already
+ * runs. The default preset is edited where the roster is visible — the
+ * settings section's "make default" — so General settings carries no
+ * duplicate control for the same field.
  *
  * PTC and Minimal stay offered everywhere the roster renders; the Developer
  * tools preference governs developer views, never preset availability.
@@ -39,6 +40,9 @@ import { AgentPresetSeat } from './AgentPresetSeat.tsx'
 import type { AgentPresetSeatInjected } from './AgentPresetSeat.tsx'
 import { AgentPresetSection } from './AgentPresetSection.tsx'
 import type { AgentPresetSectionInjected } from './AgentPresetSection.tsx'
+import { AgentBackendSeat } from './AgentBackendSeat.tsx'
+import type { AgentBackendSeatInjected } from './AgentBackendSeat.tsx'
+import { AgentBackendSeatController } from './backend-store.ts'
 import { AgentPresetSeatController, type AgentPresetStage } from './seat-store.ts'
 import { AgentPresetSectionController } from './section-store.ts'
 import { en, zh, type AgentPresetSettingsKey } from './locales.ts'
@@ -54,6 +58,9 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 export type { AgentPresetLabelInjected, AgentPresetLabelProps } from './AgentPresetLabel.tsx'
 export type { AgentPresetSeatInjected, AgentPresetSeatProps } from './AgentPresetSeat.tsx'
 export type { AgentPresetSectionInjected, AgentPresetSectionProps } from './AgentPresetSection.tsx'
+export type { AgentBackendSeatInjected, AgentBackendSeatProps } from './AgentBackendSeat.tsx'
+export type { AgentBackendOption, AgentBackendSeatState } from './backend-store.ts'
+export { DEFAULT_AGENT_BACKEND, backendOptions, readBackendCatalog } from './backend-store.ts'
 export type { AgentPresetSeatState } from './seat-store.ts'
 export type { AgentPresetSectionState, PresetView } from './section-store.ts'
 export type { AgentPresetOption, AgentPresetSettingsState } from './settings-store.ts'
@@ -65,7 +72,7 @@ export const inject = [
 ]
 
 /**
- * Mount the roster surfaces: hero chip, session-header label, settings section.
+ * Mount the roster surfaces: composer chips, session-header label, settings section.
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
@@ -101,6 +108,9 @@ export function apply(ctx: ClientContext): void {
     return seat
   }
   const section = new AgentPresetSectionController(ctx)
+  // The execution-backend catalog is a deployment fact, not a session fact: one
+  // controller serves every surface, and a reconnect re-reads it.
+  const backends = new AgentBackendSeatController(ctx)
   const mainBlankSeat = (): AgentPresetSeatController | undefined => {
     const summary = Object.values(ctx.sessions.list.getSnapshot().byId)
       .find((session) => {
@@ -123,6 +133,7 @@ export function apply(ctx: ClientContext): void {
       if (section.store.getSnapshot().status !== 'idle') void section.load()
       void unboundSeat.load()
       for (const seat of seats.values) void seat.load()
+      void backends.load()
     }
     const disposers = [
       ctx.remote.$on('settings/document-updated', (ns) => {
@@ -168,10 +179,20 @@ export function apply(ctx: ClientContext): void {
     scope.effect(() => {
       creatorDraft = startCreatorDraft
       const chip = scope.slots.register({
-        name: 'conversation.hero.agentPreset',
+        name: 'conversation.input.agentPreset',
         locale: 'settings.agentPreset',
         inject: seatInjected,
       }, AgentPresetSeat)
+      const backendChip = scope.slots.register({
+        name: 'conversation.input.agentBackend',
+        locale: 'settings.agentPreset',
+        inject: (): AgentBackendSeatInjected => ({
+          hooks: { agentBackendSeat: backends.store },
+          load: () => backends.load(),
+          select: (id: string) => backends.select(id),
+          dismissRefusal: () => { backends.dismissRefusal() },
+        }),
+      }, AgentBackendSeat)
       const label = scope.slots.register({
         name: 'conversation.session.header.actions',
         id: 'agent-preset',
@@ -183,9 +204,10 @@ export function apply(ctx: ClientContext): void {
       return () => {
         creatorDraft = undefined
         chip()
+        backendChip()
         label()
       }
-    }, 'ui-agent-preset: new-session chip and header label')
+    }, 'ui-agent-preset: composer chips and header label')
 
     scope.slots.inject('plugins.add.actions', () => scope.slots.register({
       name: 'plugins.add.actions',

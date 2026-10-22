@@ -24,6 +24,67 @@ export interface AgentPresetRoster {
   readonly presets: readonly AgentPresetRow[]
 }
 
+/**
+ * How an execution backend routes models.
+ *
+ * `cetus` means CetusPrism assembles the provider, model and effort itself.
+ * `external-runtime` means the backend owns that choice, so CetusPrism's model
+ * catalog does not describe it.
+ */
+export type AgentBackendModelRouting = 'cetus' | 'external-runtime'
+
+/** What an execution backend can do, as a client reads it. */
+export interface AgentBackendCapabilities {
+  /** Whether a running turn can be cancelled. */
+  readonly cancel: boolean
+  /** Whether a finished session can be resumed. */
+  readonly resume: boolean
+  /** Whether the backend runs its own tools. */
+  readonly tools: boolean
+  /** Which side owns the provider, model and effort routing. */
+  readonly modelRouting: AgentBackendModelRouting
+}
+
+/**
+ * Whether an execution backend can start a session.
+ *
+ * `ready` means it can. `unconfigured` means the deployment installed no
+ * runtime for it. `incompatible` means a runtime answered but does not match
+ * the protocol version CetusPrism speaks.
+ */
+export type AgentBackendAvailability = 'ready' | 'unconfigured' | 'incompatible'
+
+/**
+ * One execution backend as a client reads it.
+ *
+ * A backend owns the Agent lifecycle, the request scheduling and the tool
+ * execution. It is a separate dimension from the preset, which owns the
+ * prompt, the tool set and the runtime constraints, and from the model, which
+ * owns the provider, model and effort routing.
+ */
+export interface AgentBackendRow {
+  /** Stable backend identity. */
+  readonly id: 'dsh' | 'pi' | 'zcode'
+  /** Display name of the backend. */
+  readonly name: string
+  /** Installed runtime version, or `unconfigured` when no runtime answered. */
+  readonly version: string
+  /** Where the backend runs: CetusPrism itself, or an installed external runtime. */
+  readonly source: string
+  /** Whether this backend can start a session. */
+  readonly availability: AgentBackendAvailability
+  /** Why this backend cannot start a session; absent when it can. */
+  readonly reason?: string
+  /** What this backend can do. */
+  readonly capabilities: AgentBackendCapabilities
+}
+
+/** The execution backends one deployment offers. */
+export interface AgentBackendCatalog {
+  /** Every backend, DSH first. */
+  readonly backends: readonly AgentBackendRow[]
+}
+
 /** One preset's declared composition, rendered for reading. */
 export interface AgentPresetDocument {
   /** The preset the composition belongs to. */

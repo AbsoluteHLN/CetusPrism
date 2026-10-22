@@ -1,4 +1,4 @@
-import { describe, expect, expectTypeOf, it } from 'vitest'
+import { describe, expect, expectTypeOf, it, onTestFinished } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import { bindScopeParent, carrierKeyOf, createScope, isScopeCarrier, scopeChainOf, scopeOf, scopeParentOf, scopeTarget } from '@deepseek-ai/dsh-scope'
 import type { Scope, Scoped } from '@deepseek-ai/dsh-scope'
@@ -86,6 +86,38 @@ describe('createScope', () => {
     })
     await dispose()
     expect(order).toEqual(['inner', 'scope', 'outer'])
+  })
+
+  it('moves scope cleanup to a composite on another fiber', async () => {
+    const ctx = new Context()
+    const release = Promise.withResolvers<undefined>()
+    onTestFinished(async () => {
+      release.resolve(undefined)
+      await ctx.fiber.dispose()
+    })
+    let originCtx!: Context
+    const origin = await ctx.plugin((inner: Context) => { originCtx = inner })
+    const scope = createScope(originCtx, { name: 'cross-fiber' })
+    const order: string[] = []
+    scope.ctx.effect(() => () => { order.push('scope') })
+    const draining = Promise.withResolvers<undefined>()
+    const owner = await ctx.plugin((inner: Context) => {
+      inner.effect(function* () {
+        yield scope.rawDispose
+        yield async () => {
+          draining.resolve(undefined)
+          await release.promise
+          order.push('drained')
+        }
+      })
+    })
+    const disposal = owner.dispose()
+    await draining.promise
+    await origin.dispose()
+    expect(order).toEqual([])
+    release.resolve(undefined)
+    await disposal
+    expect(order).toEqual(['drained', 'scope'])
   })
 })
 

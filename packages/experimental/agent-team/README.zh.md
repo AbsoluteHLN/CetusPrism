@@ -74,9 +74,27 @@ Team 的 `allowedModels` 为空时，不增加 Team 专属的路由限制。为�
 
 请 Lead 创建 teammate：给它一个唯一的小写名字（例如 `reviewer`）并描述其职责。teammate 可以 fresh 启动（不携带 Lead 对话的任何记忆），也可以作为 fork 启动（继承 Lead 已完成的轮次）；创建请求决定用哪种。teammate 名字是永久的——即使创建失败的 teammate 也保留其名字，任何名字都不会被复用。
 
-roster 显示每个成员的职责（`lead` 或 `teammate`）与当前状态：`running`、`inactive`（当前没有执行轮次，包括已加载和仅存储的成员）、`provisioning` 或 `failed`。未加载的成员会在唤醒后收到其消息。
+roster 显示每个成员的职责（`lead` 或 `teammate`）与当前状态：`running`、`inactive`（当前没有执行轮次，包括已加载和仅存储的成员）、`provisioning`、`dormant` 或 `failed`。未加载的成员会在唤醒后收到其消息。
 
 只有 Lead 可以创建 teammate 或中断它们。
+
+### 智能体档案
+
+部署可以声明具名的智能体档案——可复用的身份，而不是一次性名字。档案携带 `id`、它使用的成员 `name`、它的职责、运行底座、可选的模型路由、可选的推理档位集合，以及可选的 Agent 预设。
+
+档案是部署事实而不是会话事实：同一个档案可以在任何 Team 里实例化，实例会记录它来自哪个档案，因此之后的会话可以按 id 寻址这个身份，而不必重新发现它。请求未声明的档案会以 `TEAM_PROFILE_UNKNOWN` 拒绝；同时指定档案又给出不同的成员名、底座或模型路由，会以 `TEAM_PROFILE_CONFLICT` 拒绝，而不是悄悄二选一。
+
+### 驻留与复用
+
+Lead 可以释放一个在驻 teammate：运行时被停掉，但持久成员记录仍在，其状态变为 `dormant`——这是独立的状态，而不是「inactive」的同义词：这个身份还在，仍然可复用。resume 会从持久化的子 Session 冷复原并提交新任务，因此成员保留自己的身份与历史；无法复原的成员会报告原因，而不是悄悄从头开始。
+
+### 模式范围
+
+Team 可以给成员加三道彼此独立的限制：可用的推理档位、可运行的执行底座、可运行的 Agent 预设。每道限制都是精确名字的集合——绝不做区间——空集合表示 Team 不设该限制。越界请求会以指明具体取值的类型化错误拒绝。档案自身的档位集合会在 Team 限制之上进一步收窄；模型公布的档位与 Host 授权的模型列表仍各自独立生效。
+
+### 群聊
+
+一个成员可以一次 addressed 多个成员。一条持久广播记录只保存一份内容并列出所有目标；每个目标各自保留投递边、各自的去重、各自的待投递额度，per-target 上限按展开后的目标数逐个计费。已送达但未被记录的广播与普通消息一样留在同一条持久队列里，并以同样的方式重投。给自己广播会被拒绝，没有目标的广播也会被拒绝。
 
 ### teammate 之间的消息
 
@@ -131,6 +149,8 @@ Lead 可以停止 teammate 的当前轮次，而不会删除其排队的消息�
 | [`src/roster.ts`](src/roster.ts) | Team 身份、成员关系解析、provisioning 与 roster 拆除 |
 | [`src/mailbox.ts`](src/mailbox.ts) | 持久队列、目标本地投递、确认与恢复 |
 | [`src/task-board.ts`](src/task-board.ts) | 任务 CAS 命令、DAG 校验与派生视图 |
+| [`src/profile.ts`](src/profile.ts) | 声明的智能体档案：Team 可实例化的可复用身份 |
+| [`src/range.ts`](src/range.ts) | 成员的档位、底座与预设必须落入的三道独立限制 |
 | [`src/journal.ts`](src/journal.ts) | 串行化的 Lead 日志事务与提交通知 |
 | [`src/projection.ts`](src/projection.ts) | 解码并校验 Team 事件、发布 `agentTeam` 客户端视图的严格回放投影 |
 | [`src/task-view.ts`](src/task-view.ts) | 任务板与客户端视图共用的纯任务派生：就绪状态、owner 名称与写入范围重叠 |
@@ -139,7 +159,7 @@ Lead 可以停止 teammate 的当前轮次，而不会删除其排队的消息�
 
 ### Team 身份与 roster
 
-每个普通运行时 root 都是一个隐式 Team 的 Lead，其 `TeamId` 等于 `SessionId`；不存在创建事件，持久状态从第一条成员、消息或任务记录开始。`spawnTeammate()` 先追加并 flush 一条 `provisioning` 成员记录，再要求配置的提供方创建预留 child；提供方失败会追加一条持久的 `failed` 成员。fresh child 不携带 Lead 历史；fork child 只捕获一次 Lead 的已完成 turn 前缀。恢复把未终结的 provisioning 记录对照 child 独立持久化的会话进行对账：直接 parent 与 continuable descriptor 匹配、且初始用户消息已记录则产生 `active`，其他任何情况都产生 `failed`。如果恢复在同进程竞争中先完成，creator 会接受终态，或报告 `TEAM_PROVISIONING_CONFLICT` 并 drain 该 child。名字由第一条 provisioning 记录保留，且永不复用。
+每个普通运行时 root 都是一个隐式 Team 的 Lead，其 `TeamId` 等于 `SessionId`；不存在创建事件，持久状态从第一条成员、消息或任务记录开始。`spawnTeammate()` 会把请求的执行后端与本部署已注册的后端目录比对，不存在的后端在写下任何东西之前就以 `TEAM_BACKEND_NOT_AVAILABLE` 拒绝；否则它先追加并 flush 一条 `provisioning` 成员记录，再要求配置的提供方创建预留 child，提供方失败会追加一条持久的 `failed` 成员——该失败成员仍然占着名字，也仍然计入 `maxMembers`。fresh child 不携带 Lead 历史；fork child 只捕获一次 Lead 的已完成 turn 前缀。恢复把未终结的 provisioning 记录对照 child 独立持久化的会话进行对账：直接 parent 与 continuable descriptor 匹配、且初始用户消息已记录则产生 `active`，其他任何情况都产生 `failed`。如果恢复在同进程竞争中先完成，creator 会接受终态，或报告 `TEAM_PROVISIONING_CONFLICT` 并 drain 该 child。名字由第一条 provisioning 记录保留，且永不复用。
 
 ### 持久 mailbox
 
@@ -157,7 +177,7 @@ Lead 可以停止 teammate 的当前轮次，而不会删除其排队的消息�
 
 ### 持久性模型
 
-Team 事件追加到精确的 live Lead 会话，并在操作报告成功或唤醒等待者之前 flush。`team/member`、`team/task`、`team/message/queued` 与 `team/message/delivered` 仅存在于日志：它们从不进入会话表面，因此派生模型历史不受协作记录影响。顺序与时间由会话事件的 `seq` 与 `time` 负责，快照不重复保存。
+Team 事件追加到精确的 live Lead 会话，并在操作报告成功或唤醒等待者之前 flush。`team/member`、`team/task`、`team/message/queued`、`team/message/delivered`、`team/message/broadcast` 与 `team/message/broadcast-delivered` 仅存在于日志：它们从不进入会话表面，因此派生模型历史不受协作记录影响。顺序与时间由会话事件的 `seq` 与 `time` 负责，快照不重复保存。
 
 原生 V4 Team 事件及检查点准入会拒绝退役的 `tool-result` 内容，防止它进入邮箱状态。当前写入方保持 `team/member` 的载荷版本为 2，并可加入可选的 `modelProvider` 与 `reasoningEffort` 字段。Team 投影也会读取先前合并版本写入的 v3 成员事件，并在内存中归一化，不重写日志。当前读取方因此可恢复这些历史；不保证旧版本读取含有新可选字段的记录。其他历史 Session 格式转换仍由 Session 迁移负责。
 

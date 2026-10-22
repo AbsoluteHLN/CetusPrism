@@ -74,9 +74,27 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 Ask the Lead to create a teammate: give it a unique lowercase name such as `reviewer` and describe its job. A teammate starts fresh with no memory of the Lead's conversation, or as a fork that inherits the Lead's completed turns; the creation request chooses which. Teammate names are permanent — even a teammate whose creation failed keeps its name, and no name is ever reused.
 
-The roster shows every member with its role (`lead` or `teammate`) and current status: `running`, `inactive` (no turn is executing, whether loaded or stored), `provisioning`, or `failed`. A member that is not loaded receives its messages when it wakes.
+The roster shows every member with its role (`lead` or `teammate`) and current status: `running`, `inactive` (no turn is executing, whether loaded or stored), `provisioning`, `dormant`, or `failed`. A member that is not loaded receives its messages when it wakes.
 
 Only the Lead can create teammates or interrupt them.
+
+### Agent profiles
+
+A deployment can declare named agent profiles — reusable identities rather than one-shot names. A profile carries an `id`, the member `name` it takes, what it is for, the backend it runs under, an optional model route, optional reasoning-effort ids it may use, and an optional agent preset.
+
+A profile is a deployment fact, not a session fact: the same profile can be instantiated in any Team, and the instance records the profile it came from, so a later session can address the identity by id instead of rediscovering it. Asking for a profile that is not declared is refused with `TEAM_PROFILE_UNKNOWN`; asking for one while naming a different member name, backend, or model route is refused with `TEAM_PROFILE_CONFLICT` rather than silently preferring one of the two.
+
+### Dormancy and reuse
+
+The Lead can release a resident teammate. Its runtime is stopped, but its durable member record stays and its status becomes `dormant`, which is a state of its own rather than a synonym for "inactive": the identity is still there and still reusable. A resume cold-resumes the persisted child Session and submits the new task, so the member keeps its identity and its history; a member that cannot be resumed reports why instead of silently starting over.
+
+### Ranges
+
+A Team can place three independent ceilings on its members: the reasoning efforts they may use, the execution backends they may run under, and the agent presets they may run under. Every ceiling is a set of exact names — never an interval — and an empty set means the Team places no ceiling of that kind. A request outside a ceiling is refused with a typed error naming the offending value. A profile's own effort list narrows the Team ceiling further; the model-advertised efforts and the Host-authorized model list still apply on their own.
+
+### Group messages
+
+A member can address several members at once. One durable broadcast record holds the content once and names every target; each target keeps its own delivery edge, its own de-duplication, and its own pending-message allowance, and the per-target ceiling is charged per expanded target. A broadcast that reached a member but was never recorded waits in the same durable queue as an ordinary message and is retried the same way. Broadcasting to yourself is refused, and a broadcast with no target is refused.
 
 ### Messages between teammates
 
@@ -131,6 +149,8 @@ The [Agent Teams Agent Note](../../../.agents/notes/implemented/feature/2026-08-
 | [`src/roster.ts`](src/roster.ts) | Team identity, membership resolution, provisioning, and roster teardown |
 | [`src/mailbox.ts`](src/mailbox.ts) | Durable queue, target-local dispatch, acknowledgement, and recovery |
 | [`src/task-board.ts`](src/task-board.ts) | Task CAS commands, DAG validation, and derived views |
+| [`src/profile.ts`](src/profile.ts) | Declared agent profiles: the reusable identities a Team may instantiate |
+| [`src/range.ts`](src/range.ts) | The three independent ceilings a member's effort, backend, and preset must fall inside |
 | [`src/journal.ts`](src/journal.ts) | Serialized Lead-log transactions and commit notification |
 | [`src/projection.ts`](src/projection.ts) | Strict replay projection that decodes and validates Team events and publishes the `agentTeam` client view |
 | [`src/task-view.ts`](src/task-view.ts) | Pure task readiness, owner-name, and write-overlap derivation shared by the task board and the client view |
@@ -139,7 +159,7 @@ The [Agent Teams Agent Note](../../../.agents/notes/implemented/feature/2026-08-
 
 ### Team identity and roster
 
-Every ordinary runtime root is the implicit Lead of a Team whose `TeamId` equals its `SessionId`; there is no creation event, and durable state begins with the first member, message, or task record. `spawnTeammate()` first appends and flushes a `provisioning` member record, then asks the configured provider to create the reserved child; a provider failure appends a durable `failed` member. A fresh child starts with no Lead history; a fork child captures the Lead's completed-turn prefix once. Recovery reconciles an unterminated provisioning record against the child's independently persisted Session: a matching direct-parent and continuable descriptor plus a recorded initial user message produces `active`, and anything else produces `failed`. If recovery wins a same-process race, the creator accepts the terminal state or reports `TEAM_PROVISIONING_CONFLICT` and drains the child. Names are reserved by the first provisioning record and never reused.
+Every ordinary runtime root is the implicit Lead of a Team whose `TeamId` equals its `SessionId`; there is no creation event, and durable state begins with the first member, message, or task record. `spawnTeammate()` checks the requested execution backend against the backends this deployment has registered and refuses one that is absent with `TEAM_BACKEND_NOT_AVAILABLE` before it writes anything down; otherwise it appends and flushes a `provisioning` member record, then asks the configured provider to create the reserved child, and a provider failure appends a durable `failed` member — which still holds its name and still counts against `maxMembers`. A fresh child starts with no Lead history; a fork child captures the Lead's completed-turn prefix once. Recovery reconciles an unterminated provisioning record against the child's independently persisted Session: a matching direct-parent and continuable descriptor plus a recorded initial user message produces `active`, and anything else produces `failed`. If recovery wins a same-process race, the creator accepts the terminal state or reports `TEAM_PROVISIONING_CONFLICT` and drains the child. Names are reserved by the first provisioning record and never reused.
 
 ### Durable mailbox
 
@@ -157,7 +177,7 @@ Tasks are complete versioned snapshots; every mutation carries `expectedRevision
 
 ### Durability model
 
-Team events are appended to the exact live Lead Session and flushed before the operation reports success or wakes waiters. `team/member`, `team/task`, `team/message/queued`, and `team/message/delivered` are log-only: they never enter the conversation surface, so derived model history is untouched by coordination records. Session event `seq` and `time` own ordering and timing; snapshots do not duplicate them.
+Team events are appended to the exact live Lead Session and flushed before the operation reports success or wakes waiters. `team/member`, `team/task`, `team/message/queued`, `team/message/delivered`, `team/message/broadcast`, and `team/message/broadcast-delivered` are log-only: they never enter the conversation surface, so derived model history is untouched by coordination records. Session event `seq` and `time` own ordering and timing; snapshots do not duplicate them.
 
 Native V4 Team event and checkpoint admission reject retired `tool-result` content before it can enter mailbox state. Current writers keep `team/member` at payload version 2 and may include optional `modelProvider` and `reasoningEffort` fields. The Team projection also accepts version 3 member events written by an earlier merged build and normalizes them in memory without rewriting the log. This supports current readers of those histories; older builds are not guaranteed to read records containing the optional fields. Other historical Session-format conversion remains the responsibility of Session migrations.
 

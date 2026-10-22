@@ -500,6 +500,24 @@ interface LlmConfigurableProvider {
   declared?: boolean
   /** Configuration diagnostic for repair; unaffected models may remain serviceable. */
   error?: string
+  /**
+   * Configuration risks that leave the route serviceable.
+   *
+   * Each names a combination that fails at request time unless the
+   * deployment changes something. A configuration surface shows these beside
+   * the route it concerns, so the operator sees the risk while the route
+   * still works.
+   */
+  warnings?: readonly string[]
+  /**
+   * Per-model failures this route reports.
+   *
+   * Each names the model it concerns and what to repair. A model that cannot
+   * be resolved does not take the route out of service — the route serves the
+   * models that did resolve — so a configuration surface shows these beside
+   * the route rather than as the route's failure.
+   */
+  modelErrors?: readonly string[]
 }
 ```
 

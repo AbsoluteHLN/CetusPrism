@@ -305,7 +305,8 @@ export class SessionProjectionRegistry extends Service {
         this.listeners.delete(listener)
       }
     }, 'sessionProjections.onChanged()')
-    return () => void dispose()
+    // oxlint-disable-next-line typescript/no-misused-promises -- synchronous cleanup; keep the Cordis disposer so effects can adopt it.
+    return dispose
   }
 
   /**

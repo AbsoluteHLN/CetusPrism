@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { assertServiceable, Config, resolveProfiles, type Options } from '../src/config.ts'
+import { assertServiceable, Config, DEFAULT_MAX_TOKENS, resolveProfiles, type Options } from '../src/config.ts'
 
 /** Validate one hand-declared route, with the caller's fields layered onto it. */
 const routeWith = (profile: Record<string, unknown>): (() => unknown) =>
@@ -82,6 +82,18 @@ describe('modality schema boundary', () => {
     const absent = configWith({})() as Materialized
     expect(absent.providers['acme-gateway']?.models?.[0]?.input).toEqual([])
     expect(absent.providers['acme-gateway']?.defaultInput).toEqual(['text'])
+  })
+})
+
+describe('the output capability a model without a size gets', () => {
+  it('assumes the 32K output cap the compaction budgets are built on', () => {
+    // A model neither configuration nor the catalog sizes is given this
+    // output cap, and the shipped preset's compaction budget leaves aside
+    // exactly this much before it compacts. Changing the cap moves the point
+    // at which a conversation is compacted, so the preset's numbers have to
+    // be re-derived with it — which is why the number is stated here rather
+    // than only assumed by the budget that reads it.
+    expect(DEFAULT_MAX_TOKENS).toBe(32_768)
   })
 })
 

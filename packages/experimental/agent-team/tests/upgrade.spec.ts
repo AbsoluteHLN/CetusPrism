@@ -12,7 +12,7 @@ import SubagentService from '@deepseek-ai/dsh-subagent'
 import * as SubagentFork from '@deepseek-ai/dsh-subagent-fork-in-process'
 import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import { MockAdapter } from '../../../core/agent-loop/tests/mock-adapter.ts'
-import TeamService, { TeamId } from '../src/index.ts'
+import TeamService, { TeamId, TeamMessageId } from '../src/index.ts'
 import { teamProjectionDefinition } from '../src/projection.ts'
 import { TestSessionQuery } from './test-session-query.ts'
 
@@ -32,6 +32,30 @@ function durable(agent: Agent) {
   for (const event of agent.session.snapshotEvents()) projected = teamProjectionDefinition.apply(projected, event)
   if (projected.failure !== undefined) throw new Error(projected.failure)
   return projected
+}
+
+/** Count the durable deliveries one member received for one Team message identity. */
+function deliveries(agent: Agent, messageId: TeamMessageId): number {
+  let count = 0
+  for (const event of agent.session.snapshotEvents()) {
+    if (event.type !== 'agent/inbox/spliced') continue
+    for (const inserted of event.data.inserted) {
+      if (inserted.source.kind === 'team-message' && inserted.source.messageId === messageId) count += 1
+    }
+  }
+  return count
+}
+
+/** Count the prompts one member received that carry the given text. */
+function prompts(agent: Agent, text: string): number {
+  let count = 0
+  for (const event of agent.session.snapshotEvents()) {
+    if (event.type !== 'agent/inbox/spliced') continue
+    for (const inserted of event.data.inserted) {
+      if (inserted.content.some(block => block.type === 'text' && block.text.includes(text))) count += 1
+    }
+  }
+  return count
 }
 
 async function setup(
@@ -287,6 +311,44 @@ describe('Team agent profiles', () => {
       signal: SIGNAL,
     })).rejects.toMatchObject({ code: 'TEAM_INVALID_ARGUMENT' })
   })
+
+  it('instantiates one declared profile again in another Team', async () => {
+    // Pins the profile contract of roster.spawnAdmitted: a declared profile is
+    // a reusable identity, the member name it reserves belongs to one Team
+    // only, and each Team keeps its own roster rows.
+    const { ctx, lead } = await setup(['hang', 'hang'], {
+      profiles: [{ id: 'reviewer', name: 'reviewer', description: 'reviews changes', backend: 'spawn' }],
+    })
+    const otherLead = await ctx.agentLoop.create(SessionId('lead-other'), { provider: 'mock', model: 'mock' })
+
+    const first = await ctx.agentTeams.spawnTeammate(lead, {
+      profileId: 'reviewer',
+      prompt: content('review the diff'),
+      context: 'fresh',
+      signal: SIGNAL,
+    })
+    const second = await ctx.agentTeams.spawnTeammate(otherLead, {
+      profileId: 'reviewer',
+      prompt: content('review the diff'),
+      context: 'fresh',
+      signal: SIGNAL,
+    })
+
+    // Both member rows record the profile they were instantiated from, and
+    // they are two distinct instances of it.
+    expect(first.member.profileId).toBe('reviewer')
+    expect(second.member.profileId).toBe('reviewer')
+    expect(second.member.id).not.toBe(first.member.id)
+    // The reserved member name lives in the Team that took it, so the other
+    // Team may hold the same name.
+    expect(durable(lead).members.map(member => member.name)).toEqual(['reviewer'])
+    expect(durable(otherLead).members.map(member => member.name)).toEqual(['reviewer'])
+    // Neither Team sees the other's row.
+    expect(durable(lead).members.map(member => member.id)).toEqual([first.member.id])
+    expect(durable(otherLead).members.map(member => member.id)).toEqual([second.member.id])
+    expect(ctx.agentTeams.listMembers(lead).map(member => member.id)).toEqual([lead.id, first.member.id])
+    expect(ctx.agentTeams.listMembers(otherLead).map(member => member.id)).toEqual([otherLead.id, second.member.id])
+  })
 })
 
 describe('Team dormant teammates', () => {
@@ -446,6 +508,40 @@ describe('Team dormant teammates', () => {
       prompt: content('continue the review'),
       signal: SIGNAL,
     })).rejects.toMatchObject({ code: 'TEAM_LEAD_REQUIRED' })
+  })
+
+  it('round-trips release and resume, delivering one prompt per resume', async () => {
+    // Pins roster.resume: a released member comes back with the identity it
+    // was released from, and every resume hands it exactly one prompt.
+    const { ctx, lead } = await setup(['hang', 'hang', 'hang'])
+    const started = await spawn(ctx, lead, 'worker')
+    await waitRunning(ctx, started.member.id)
+
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+    await ctx.agentTeams.resumeTeammate(lead, {
+      name: 'worker',
+      prompt: content('first resume'),
+      signal: SIGNAL,
+    })
+    const resumed = await waitRunning(ctx, started.member.id)
+
+    expect(durable(lead).members.find(member => member.name === 'worker')?.phase).toBe('active')
+    expect(prompts(resumed, 'first resume')).toBe(1)
+
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+    expect(durable(lead).members.find(member => member.name === 'worker')?.phase).toBe('dormant')
+    await ctx.agentTeams.resumeTeammate(lead, {
+      name: 'worker',
+      prompt: content('second resume'),
+      signal: SIGNAL,
+    })
+    const resumedAgain = await waitRunning(ctx, started.member.id)
+
+    expect(durable(lead).members.find(member => member.name === 'worker')?.phase).toBe('active')
+    // The second resume delivers its own prompt, and the first one is not
+    // delivered a second time.
+    expect(prompts(resumedAgain, 'second resume')).toBe(1)
+    expect(prompts(resumedAgain, 'first resume')).toBe(1)
   })
 })
 
@@ -687,6 +783,51 @@ describe('Team broadcast', () => {
     })
 
     expect(broadcast.status).toBe('queued')
+  })
+
+  it('keeps the delivered edge and re-delivers only the failed target', async () => {
+    // Pins the partial-failure contract of one broadcast: the target that
+    // received it keeps its delivery edge, the target that did not stays
+    // pending, and the recovery that follows re-delivers to that target only.
+    const { ctx, lead } = await setup(['hang', 'hang', 'hang'])
+    const alpha = await spawn(ctx, lead, 'alpha')
+    const beta = await spawn(ctx, lead, 'beta')
+    const alphaAgent = await waitRunning(ctx, alpha.member.id)
+    await waitRunning(ctx, beta.member.id)
+    // A released teammate keeps its identity but has no runtime left, so the
+    // broadcast cannot reach it.
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'beta', signal: SIGNAL })
+
+    const broadcast = await ctx.agentTeams.broadcastMessage(lead, {
+      targets: ['alpha', 'beta'],
+      content: content('status please'),
+      signal: SIGNAL,
+    })
+
+    // The delivery stopped at the released target: the broadcast still owes
+    // that target a delivery, and the target that received it keeps its edge.
+    expect(broadcast.status).toBe('queued')
+    expect(durable(lead).broadcasts.find(candidate => candidate.id === broadcast.messageId)?.targetIds)
+      .toEqual([alpha.member.id, beta.member.id])
+    expect(durable(lead).broadcastDelivered.map(edge => edge.targetId)).toEqual([alpha.member.id])
+    expect(deliveries(alphaAgent, broadcast.messageId)).toBe(1)
+
+    // The resume cold-resumes the released member, and the recovery that
+    // follows it retries the pending broadcast for that target only.
+    await ctx.agentTeams.resumeTeammate(lead, {
+      name: 'beta',
+      prompt: content('continue the review'),
+      signal: SIGNAL,
+    })
+    const betaAgent = await waitRunning(ctx, beta.member.id)
+
+    await vi.waitFor(() => {
+      expect(durable(lead).broadcastDelivered.map(edge => edge.targetId))
+        .toEqual([alpha.member.id, beta.member.id])
+    }, { timeout: 2_000 })
+    // The target that already received it is not delivered to a second time.
+    expect(deliveries(alphaAgent, broadcast.messageId)).toBe(1)
+    expect(deliveries(betaAgent, broadcast.messageId)).toBe(1)
   })
 })
 

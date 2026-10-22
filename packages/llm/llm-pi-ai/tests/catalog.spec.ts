@@ -1083,6 +1083,47 @@ describe('compat switches', () => {
     expect(known?.warnings).toEqual([])
   })
 
+  it('keeps the warning off a route the installed catalog vouches for', () => {
+    // pi-ai's catalog was built against these endpoints, so the role travels
+    // there by construction. A shipped route is not a risk, however many of its
+    // models reason — and warning about it would tell an operator to change
+    // a route that is already right.
+    const shipped = resolveProfiles({ 'openai-codex': {} }).get('openai-codex')
+    expect(shipped?.warnings).toEqual([])
+
+    // Spelling the endpoint out is the same endpoint, and it is the API the
+    // role was written for.
+    const spelled = resolveProfiles({
+      openai: {
+        baseURL: 'https://api.openai.com/v1',
+        models: [{ id: 'gpt-5.5', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('openai')
+    expect(spelled?.warnings).toEqual([])
+  })
+
+  it('names every affected model in one warning', () => {
+    // The surface shows the route, not the model: one sentence per model would
+    // bury the one fact the operator needs.
+    const warned = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test/v1',
+        models: [
+          { id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } },
+          { id: 'acme-think-2', reasoningEfforts: { off: null, high: 'high' } },
+          { id: 'acme-plain' },
+        ],
+      },
+    }).get('acme-gateway')
+
+    expect(warned?.warnings).toHaveLength(1)
+    expect(warned?.warnings[0]).toContain('"acme-think"')
+    expect(warned?.warnings[0]).toContain('"acme-think-2"')
+    // A model that does not reason never sends the role, so it is not named.
+    expect(warned?.warnings[0]).not.toContain('acme-plain')
+  })
+
   it('refuses a valueless compat key rather than writing null over the catalog', () => {
     // schemastery passes a YAML bare key through as null. Carried forward it
     // would replace the installed entry's value, and pi-ai's `??` would then
@@ -1293,5 +1334,31 @@ describe('configurable-provider directory', () => {
       settingsPath: ['providers', 'openai-codex'],
       declared: false,
     })
+  })
+
+  it('carries a configuration risk onto the directory entry that names the route', async () => {
+    // The reported 400 in its configuration-time form: a reasoning model on a
+    // gateway pi-ai cannot identify, with nothing saying which role to use.
+    // The directory is what a configuration surface reads, so the risk has to
+    // travel there — otherwise the operator only learns of it from a request
+    // that failed.
+    const ctx = await harness(gateway('https://acme.test/v1', {
+      models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+    }))
+
+    const entry = ctx.llm.listConfigurableProviders().find(row => row.provider === 'acme-gateway')
+    expect(entry?.warnings?.join('\n')).toContain('compat.supportsDeveloperRole')
+    // A risk does not take the route out of service.
+    expect(entry?.error).toBeUndefined()
+  })
+
+  it('drops a configuration risk the deployment has already answered', async () => {
+    const ctx = await harness(gateway('https://acme.test/v1', {
+      compat: { supportsDeveloperRole: false },
+      models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+    }))
+
+    const entry = ctx.llm.listConfigurableProviders().find(row => row.provider === 'acme-gateway')
+    expect(entry?.warnings).toBeUndefined()
   })
 })

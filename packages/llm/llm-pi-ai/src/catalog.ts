@@ -810,8 +810,20 @@ function resolveModelReasoning(
 type ModelCompat = OpenAICompletionsCompat | OpenAIResponsesCompat | AnthropicMessagesCompat | BedrockCompat | MistralConversationsCompat
 
 /**
- * Report a route that would send the `developer` role to an endpoint that
- * rejects it.
+ * Endpoints that serve OpenAI's own API surface.
+ *
+ * The `developer` role exists because these APIs accept it, so a route pointing
+ * at one has no risk to repair — including a deployment that spelled the
+ * endpoint out instead of leaving the installed catalog's own.
+ */
+const OPENAI_FAMILY_HOSTS: readonly string[] = [
+  'api.openai.com', 'chatgpt.com', 'openai.azure.com',
+  'cognitiveservices.azure.com', 'azure-api.net',
+]
+
+/**
+ * Whether one model's system prompt would travel as the `developer` role to
+ * an endpoint that may reject it.
  *
  * The role reaches the wire only for a reasoning model, and only where the
  * endpoint detection resolves the route as OpenAI — which an unrecognized
@@ -819,10 +831,13 @@ type ModelCompat = OpenAICompletionsCompat | OpenAIResponsesCompat | AnthropicMe
  * configuration line, so the route says so now rather than at the first
  * request.
  *
- * This is a warning rather than a refusal: the endpoint may well accept the
- * role, and a deployment that knows its gateway does should be able to keep
- * the route as it is. Refusing the route would turn a repairable request into
- * an unserviceable one, which is a worse failure than the one it prevents.
+ * Two things keep a route out of that risk, and neither is a setting:
+ *
+ * - The endpoint the installed catalog names. pi-ai's catalog was built against
+ *   that endpoint, so the role travels there by construction; only an endpoint
+ *   the deployment chose can be the one that rejects it.
+ * - An endpoint serving OpenAI's own API surface, which is what the role was
+ *   written for.
  *
  * @param provider - the route key, for diagnostics.
  * @param entry - the configured model entry.
@@ -830,28 +845,59 @@ type ModelCompat = OpenAICompletionsCompat | OpenAIResponsesCompat | AnthropicMe
  * @param reasoning - whether the model reasons.
  * @param api - the model's resolved wire protocol.
  * @param route - the route-level switches, when any.
- * @returns the diagnostic when the route needs the switch, otherwise undefined.
+ * @param catalogEndpoint - whether the endpoint came from the installed catalog.
+ * @returns true when the model would need a switch it does not have.
  */
-function developerRoleWarning(
+function developerRoleRisk(
   provider: string,
   entry: PiAiModelProfile,
   baseUrl: string,
   reasoning: boolean,
   api: string,
   route: PiAiCompatProfile | undefined,
-): string | undefined {
-  if (!reasoning) return undefined
-  if (compatGate(api)?.supportsDeveloperRole !== 'offer') return undefined
+  catalogEndpoint: boolean,
+): boolean {
+  if (!reasoning) return false
+  if (compatGate(api)?.supportsDeveloperRole !== 'offer') return false
   // An explicit switch, at either level, is the deployment answering the
   // question this check asks; silence is what it cannot answer.
   const declared = configuredCompatEntries(route).find(([field]) => field === 'supportsDeveloperRole')
     ?? configuredCompatEntries(entry.compat).find(([field]) => field === 'supportsDeveloperRole')
-  if (declared !== undefined) return undefined
-  if (!sendsDeveloperRole(provider, baseUrl, api)) return undefined
-  return `llm-pi-ai: provider "${provider}" model "${entry.id}" is a reasoning model on an endpoint pi-ai`
-    + ' resolves as OpenAI, so its system prompt travels as the `developer` role, which most'
-    + ' OpenAI-compatible gateways reject with a 400. Set `compat.supportsDeveloperRole: false` on this'
-    + ' route or on the model entry so it travels as `system`.'
+  if (declared !== undefined) return false
+  if (!sendsDeveloperRole(provider, baseUrl, api)) return false
+  if (catalogEndpoint) return false
+  const lower = baseUrl.toLowerCase()
+  if (OPENAI_FAMILY_HOSTS.some(host => lower.includes(host))) return false
+  return true
+}
+
+/**
+ * The one warning a route carries when its models would send the `developer`
+ * role to an endpoint that may reject it.
+ *
+ * One warning per route, not one per model: the route is what a configuration
+ * surface shows, and a list of eight near-identical sentences buries the one
+ * fact the operator needs. The affected models are named inside it.
+ *
+ * This is a warning rather than a refusal: the endpoint may well accept the
+ * role, and a deployment that knows its gateway does should be able to keep
+ * the route as it is. Refusing the route would turn a repairable request into
+ * an unserviceable one, which is a worse failure than the one it prevents.
+ *
+ * @param provider - the route key.
+ * @param modelIds - the affected models, in configuration order.
+ * @returns the route-level diagnostic.
+ */
+function developerRoleWarning(provider: string, modelIds: readonly string[]): string {
+  const one = modelIds.length === 1
+  const models = one
+    ? `model "${modelIds[0]}"`
+    : `models ${modelIds.map(id => `"${id}"`).join(', ')}`
+  return `llm-pi-ai: provider "${provider}" ${models} ${one ? 'is a' : 'are'} reasoning model`
+    + `${one ? '' : 's'} on an endpoint pi-ai resolves as OpenAI, so ${one ? 'its' : 'their'} system prompt`
+    + `${one ? '' : 's'} travel${one ? 's' : ''} as the \`developer\` role, which most OpenAI-compatible`
+    + ' gateways reject with a 400. Set `compat.supportsDeveloperRole: false` on this route'
+    + ` or on the model entr${one ? 'y' : 'ies'} so ${one ? 'it' : 'they'} travel as \`system\`.`
 }
 
 /**
@@ -997,6 +1043,10 @@ export function resolveRouteModels(
   const seen = new Set<string>()
   const configuredMaxTokens = new Map<string, number>()
   const warnings: string[] = []
+  // The endpoint the installed catalog names is the one pi-ai's catalog was
+  // built against; only an endpoint the deployment chose can reject the role.
+  const catalogEndpoint = request.baseURL === undefined
+  const roleRiskModels: string[] = []
   const resolveEntry = (entry: PiAiModelProfile): Model<Api> => {
     assertOfferedCompatFields(provider, `model "${entry.id}"`, entry.compat)
     if (entry.id.length === 0) invalid(provider, 'has a model with an empty id')
@@ -1028,8 +1078,12 @@ export function resolveRouteModels(
     // the model's capability and stays out of request defaults.
     if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, entry.maxTokens)
     const reasoning = resolveModelReasoning(provider, entry, base)
-    const warning = developerRoleWarning(provider, entry, baseUrl, reasoning.reasoning, api, request.compat)
-    if (warning !== undefined) warnings.push(warning)
+    // Resolved before the risk is recorded: a model whose compat cannot be
+    // resolved never reaches the wire, so it is not one the route risks.
+    const compat = resolveModelCompat(provider, entry, request.compat, base, api)
+    if (developerRoleRisk(provider, entry, baseUrl, reasoning.reasoning, api, request.compat, catalogEndpoint)) {
+      roleRiskModels.push(entry.id)
+    }
     return {
       // The installed entry lays the floor, and the fields below override it.
       // Enumerating instead would silently drop every `Model` field this
@@ -1047,7 +1101,7 @@ export function resolveRouteModels(
       contextWindow,
       maxTokens,
       ...reasoning,
-      ...resolveModelCompat(provider, entry, request.compat, base, api),
+      ...compat,
     }
   }
   const models: Model<Api>[] = []
@@ -1062,6 +1116,10 @@ export function resolveRouteModels(
     }
     models.push(model)
   }
+  // One warning per route, naming the models it concerns: a configuration
+  // surface shows the route, and a sentence per model would bury the one fact
+  // the operator needs.
+  if (roleRiskModels.length > 0) warnings.push(developerRoleWarning(provider, roleRiskModels))
   // A later duplicate invalidates the id, including an earlier resolved entry.
   const serviceableModels = models.filter(model => !modelErrors.has(model.id))
   // Per field, not per block: a route may default a switch its completions

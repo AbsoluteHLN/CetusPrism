@@ -31,6 +31,14 @@ export interface ProviderDirectoryEntry {
   readonly active: boolean
   readonly declared?: boolean
   readonly error?: string
+  /**
+   * Configuration risks that leave the route serviceable.
+   *
+   * Unlike {@link error}, a warning names a combination that fails at request
+   * time unless the deployment changes something — the route still answers
+   * meanwhile, so the surface shows the risk beside the route it concerns.
+   */
+  readonly warnings?: readonly string[]
 }
 
 /**
@@ -53,6 +61,7 @@ export function joinProviderDirectory(
     active: active.has(entry.provider),
     ...entry.declared === undefined ? {} : { declared: entry.declared },
     ...entry.error === undefined ? {} : { error: entry.error },
+    ...entry.warnings === undefined || entry.warnings.length === 0 ? {} : { warnings: [...entry.warnings] },
   }))
   for (const provider of registered) {
     if (declared.has(provider.id)) continue

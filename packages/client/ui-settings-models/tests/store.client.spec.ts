@@ -16,6 +16,16 @@ it.each([false, true])('retains configuration diagnostics when the route is acti
   }])
 })
 
+it('carries configuration risks onto the row they concern', () => {
+  expect(joinProviderDirectory([], [{
+    provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'],
+    warnings: ['the route needs a switch before its first request'],
+  }])).toEqual([{
+    provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'],
+    active: false, warnings: ['the route needs a switch before its first request'],
+  }])
+})
+
 it('places account and official before third-party providers', () => {
   const providers = ['custom', 'deepseek-official', 'deepseek-account', 'openai']
   const directory = providers.map(provider => ({

@@ -127,7 +127,7 @@ function directoryEntries(
 ): LlmConfigurableProvider[] {
   const catalog = new Set(catalogProviderIds())
   const entries = new Map<string, LlmConfigurableProvider>()
-  const declare = (provider: string, displayName: string, error?: string): void => {
+  const declare = (provider: string, displayName: string, error?: string, warnings?: readonly string[]): void => {
     entries.set(provider, {
       provider,
       displayName,
@@ -138,10 +138,13 @@ function directoryEntries(
       // route is still one pi-ai knows.
       declared: !catalog.has(provider),
       ...error === undefined ? {} : { error },
+      ...warnings === undefined || warnings.length === 0 ? {} : { warnings: [...warnings] },
     })
   }
   for (const provider of catalog) declare(provider, provider)
-  for (const [provider, profile] of profiles) declare(provider, profile.displayName, profile.catalogError)
+  for (const [provider, profile] of profiles) {
+    declare(provider, profile.displayName, profile.catalogError, profile.warnings)
+  }
   return [...entries.values()]
 }
 

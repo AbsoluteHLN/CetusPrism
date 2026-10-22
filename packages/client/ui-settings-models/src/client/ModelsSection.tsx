@@ -414,12 +414,25 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
           const error = row.entry.error === undefined
             ? null
             : <p role="alert" className={styles['error']}>{row.entry.error}</p>
+          // A risk is not a failure: the route still answers, so the surface
+          // names the combination that would break it and leaves the route
+          // usable meanwhile.
+          const warnings = row.entry.warnings === undefined || row.entry.warnings.length === 0
+            ? null
+            : (
+              <ul className={styles['warnings']}>
+                {[...new Set(row.entry.warnings)].map(warning => (
+                  <li key={warning} className={styles['warning']}>{`${t('configRisk')}: ${warning}`}</li>
+                ))}
+              </ul>
+            )
           if (needsSetup(row, anyUsable) && !dismissedSetup.has(row.entry.provider)) {
             // First-run posture: the provider exists but has no key — the
             // setup card IS its presence on the page, until the user closes it.
             return (
               <li key={row.entry.provider} className={styles['setupCard']}>
                 {error}
+                {warnings}
                 {renderProviderEditor({
                   target,
                   namespace,
@@ -509,6 +522,7 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                 </span>
               </div>
               {error}
+              {warnings}
               {renderSlot(
                 'settings.models.provider-card',
                 { provider: row.entry, configured: row.configured, keyConfigured: keyConfiguredOf(row) },

@@ -1040,6 +1040,49 @@ describe('compat switches', () => {
     expect(request.messages.map(message => message.role)).toEqual(['system'])
   })
 
+  it('warns about a reasoning model whose endpoint would receive the developer role', () => {
+    // The combination that produced the reported 400: a reasoning model on a
+    // gateway pi-ai cannot identify, with nothing saying which role to use.
+    const warned = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test/v1',
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    expect(warned?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
+    // A warning must not make the route unserviceable: the endpoint may well
+    // accept the role, and refusing the route would be the worse failure.
+    expect(warned?.piProvider).toBeDefined()
+
+    // The switch answers the question, so the warning goes away.
+    const answered = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test/v1',
+        compat: { supportsDeveloperRole: false },
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    expect(answered?.warnings).toEqual([])
+
+    // A model that does not reason never sends the role.
+    const plain = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test/v1',
+        models: [{ id: 'acme-plain' }],
+      },
+    }).get('acme-gateway')
+    expect(plain?.warnings).toEqual([])
+
+    // A vendor pi-ai recognizes keeps the `system` role on its own.
+    const known = resolveProfiles({
+      deepseek: { models: [{ id: 'deepseek-flash', reasoningEfforts: { off: null, high: 'high' } }] },
+    }).get('deepseek')
+    expect(known?.warnings).toEqual([])
+  })
+
   it('refuses a valueless compat key rather than writing null over the catalog', () => {
     // schemastery passes a YAML bare key through as null. Carried forward it
     // would replace the installed entry's value, and pi-ai's `??` would then

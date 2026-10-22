@@ -662,6 +662,56 @@ function invalid(provider: string, detail: string): never {
 }
 
 /**
+ * Vendors whose OpenAI-compatible endpoint pi-ai recognizes by name.
+ *
+ * pi-ai decides the `developer` role from its baseURL detection: a recognized
+ * non-OpenAI vendor keeps `system`, while an **unrecognized** URL resolves as
+ * OpenAI and keeps `developer`. A custom gateway therefore gets the role
+ * OpenAI accepts, which most OpenAI-compatible gateways reject.
+ */
+const RECOGNIZED_NON_OPENAI_HOSTS: readonly string[] = [
+  'api.z.ai', 'open.bigmodel.cn', 'api.together.ai', 'api.together.xyz',
+  'api.moonshot.', 'openrouter.ai', 'api.cloudflare.com', 'gateway.ai.cloudflare.com',
+  'integrate.api.nvidia.com', 'api.ant-ling.com', 'cerebras.ai', 'api.x.ai',
+  'chutes.ai', 'deepseek.com', 'opencode.ai',
+]
+
+/**
+ * Provider ids pi-ai resolves to a non-OpenAI vendor by name alone.
+ *
+ * These name the installed catalog's own routes, so a route named after one of
+ * them keeps the `system` role whatever URL it points at.
+ */
+const NON_OPENAI_PROVIDER_IDS: readonly string[] = [
+  'zai', 'zai-coding-cn', 'together', 'moonshotai', 'moonshotai-cn',
+  'openrouter', 'cloudflare-workers-ai', 'cloudflare-ai-gateway', 'nvidia',
+  'ant-ling', 'cerebras', 'xai', 'opencode', 'deepseek',
+]
+
+/**
+ * Whether pi-ai would send the `developer` role to this endpoint.
+ *
+ * This mirrors pi-ai's own `detectCompat` rule for the Chat Completions
+ * protocol: a route pi-ai recognizes as a non-OpenAI vendor keeps `system`,
+ * and every other route — including one whose URL it cannot identify —
+ * resolves as OpenAI and keeps `developer`. The Responses protocols apply no
+ * such detection, so they send `developer` wherever nothing says otherwise.
+ * @param provider - the route key.
+ * @param baseUrl - the endpoint the route serves.
+ * @param api - the model's resolved wire protocol.
+ * @returns true when pi-ai would send the `developer` role.
+ */
+function sendsDeveloperRole(provider: string, baseUrl: string, api: string): boolean {
+  // The Responses protocols read the switch from the model alone; nothing is
+  // detected from the endpoint.
+  if (api !== 'openai-completions') return true
+  if (NON_OPENAI_PROVIDER_IDS.includes(provider)) return false
+  const lower = baseUrl.toLowerCase()
+  if (RECOGNIZED_NON_OPENAI_HOSTS.some(host => lower.includes(host))) return false
+  return true
+}
+
+/**
  * The one wire protocol a catalog route's shipped models agree on. This is what
  * lets a deployment add a model the installed catalog has not caught up with —
  * a provider's newest release — without restating the protocol its siblings
@@ -760,6 +810,51 @@ function resolveModelReasoning(
 type ModelCompat = OpenAICompletionsCompat | OpenAIResponsesCompat | AnthropicMessagesCompat | BedrockCompat | MistralConversationsCompat
 
 /**
+ * Report a route that would send the `developer` role to an endpoint that
+ * rejects it.
+ *
+ * The role reaches the wire only for a reasoning model, and only where the
+ * endpoint detection resolves the route as OpenAI — which an unrecognized
+ * private gateway does. The result is a `400` whose repair is one
+ * configuration line, so the route says so now rather than at the first
+ * request.
+ *
+ * This is a warning rather than a refusal: the endpoint may well accept the
+ * role, and a deployment that knows its gateway does should be able to keep
+ * the route as it is. Refusing the route would turn a repairable request into
+ * an unserviceable one, which is a worse failure than the one it prevents.
+ *
+ * @param provider - the route key, for diagnostics.
+ * @param entry - the configured model entry.
+ * @param baseUrl - the endpoint the model serves.
+ * @param reasoning - whether the model reasons.
+ * @param api - the model's resolved wire protocol.
+ * @param route - the route-level switches, when any.
+ * @returns the diagnostic when the route needs the switch, otherwise undefined.
+ */
+function developerRoleWarning(
+  provider: string,
+  entry: PiAiModelProfile,
+  baseUrl: string,
+  reasoning: boolean,
+  api: string,
+  route: PiAiCompatProfile | undefined,
+): string | undefined {
+  if (!reasoning) return undefined
+  if (compatGate(api)?.supportsDeveloperRole !== 'offer') return undefined
+  // An explicit switch, at either level, is the deployment answering the
+  // question this check asks; silence is what it cannot answer.
+  const declared = configuredCompatEntries(route).find(([field]) => field === 'supportsDeveloperRole')
+    ?? configuredCompatEntries(entry.compat).find(([field]) => field === 'supportsDeveloperRole')
+  if (declared !== undefined) return undefined
+  if (!sendsDeveloperRole(provider, baseUrl, api)) return undefined
+  return `llm-pi-ai: provider "${provider}" model "${entry.id}" is a reasoning model on an endpoint pi-ai`
+    + ' resolves as OpenAI, so its system prompt travels as the `developer` role, which most'
+    + ' OpenAI-compatible gateways reject with a 400. Set `compat.supportsDeveloperRole: false` on this'
+    + ' route or on the model entry so it travels as `system`.'
+}
+
+/**
  * Resolve one model's compat block from the profile's switches.
  *
  * A model switch wins over the route switch field by field; whatever neither
@@ -816,6 +911,15 @@ export interface RouteCatalog {
   models: readonly Model<Api>[]
   /** Models that cannot be resolved, retained as diagnostics during stored-config reads. */
   modelErrors: ReadonlyMap<string, string>
+  /**
+   * Configuration risks that do not stop the route from serving.
+   *
+   * A warning names a combination that will fail at request time unless the
+   * deployment changes something. Refusing the route instead would turn a
+   * repairable request into an unserviceable one, so the route stays and the
+   * reason travels with it.
+   */
+  warnings: readonly string[]
   /**
    * Per-request output caps this profile explicitly configured, by model id.
    *
@@ -892,6 +996,7 @@ export function resolveRouteModels(
   assertOfferedCompatFields(provider, 'route', request.compat)
   const seen = new Set<string>()
   const configuredMaxTokens = new Map<string, number>()
+  const warnings: string[] = []
   const resolveEntry = (entry: PiAiModelProfile): Model<Api> => {
     assertOfferedCompatFields(provider, `model "${entry.id}"`, entry.compat)
     if (entry.id.length === 0) invalid(provider, 'has a model with an empty id')
@@ -922,6 +1027,9 @@ export function resolveRouteModels(
     // Only a value the profile named is a deployment choice; the catalog's is
     // the model's capability and stays out of request defaults.
     if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, entry.maxTokens)
+    const reasoning = resolveModelReasoning(provider, entry, base)
+    const warning = developerRoleWarning(provider, entry, baseUrl, reasoning.reasoning, api, request.compat)
+    if (warning !== undefined) warnings.push(warning)
     return {
       // The installed entry lays the floor, and the fields below override it.
       // Enumerating instead would silently drop every `Model` field this
@@ -938,7 +1046,7 @@ export function resolveRouteModels(
       cost: base?.cost ?? NO_COST,
       contextWindow,
       maxTokens,
-      ...resolveModelReasoning(provider, entry, base),
+      ...reasoning,
       ...resolveModelCompat(provider, entry, request.compat, base, api),
     }
   }
@@ -966,5 +1074,5 @@ export function resolveRouteModels(
     invalid(provider, `sets compat "${field}", but no model on the route speaks a protocol that takes it;`
       + ` it exists on ${takers.join(', ')}`)
   }
-  return { models: serviceableModels, configuredMaxTokens, modelErrors }
+  return { models: serviceableModels, configuredMaxTokens, modelErrors, warnings }
 }

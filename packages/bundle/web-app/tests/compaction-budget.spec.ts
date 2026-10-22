@@ -56,3 +56,25 @@ it('gives the model its window instead of a flat reserve', () => {
   expect(thresholdOf(200_000)).toBe(159_040)
   expect(thresholdOf(262_144)).toBe(221_184)
 })
+
+it('gives the GLM composition the same shaped budget', () => {
+  // The example ships its own copy of the same two settings, so it needs its
+  // own guard: a copy that drifted would leave the documented example on a
+  // budget nobody tested.
+  const entries = loadCordisYaml(
+    readFileSync(
+      new URL('../../../../apps/cli/config/examples/glm-harness/cordis.yml', import.meta.url),
+      'utf8',
+    ),
+  ) as { id: string; config?: unknown }[]
+  const engine = entries.find(entry => entry.id === 'compaction-basic')
+  if (engine === undefined) throw new Error('the GLM composition mounts no compaction engine')
+
+  const config = resolveConfig(engine.config as BasicCompactionConfig)
+  const policy = resolveTargetPolicy(config, { provider: 'any', model: 'any' })
+  const thresholdOf = (contextWindow: number): number =>
+    resolveCompactSpec(policy, contextWindow, 32_768).thresholdTokens
+
+  expect(thresholdOf(128_000)).toBe(87_040)
+  expect(thresholdOf(200_000)).toBe(159_040)
+})

@@ -18,7 +18,7 @@ pnpm dsh --profile headless --patch apps/cli/config/examples/glm-harness/cordis.
 
 The default reasoning level is `high`. Edit the overlay's provider capability list and default selection together when choosing a different supported level. Existing provider settings remain owned by the Models settings and the normal profile configuration editor; this example's explicit configuration takes precedence while the overlay is active. Agent Team's independent allowed-model list must use the `glm-harness` provider route, never `spawn` or `fork`.
 
-The composition compacts at 90% of the model's context window and keeps one modest reserve for the summary call, so a long task still holds the context the model can use. The service-wide default reserves a flat 64K tokens instead, which on a 128K window starts the compaction under a quarter of the window.
+The composition compacts when the context window is down to the model's own output reserve plus an 8K summary headroom, so a long task still holds the context the model can use. The service-wide default reserves a flat 64K tokens instead, which on a 128K window starts the compaction under a quarter of the window.
 
 ## Compatibility and rollback
 

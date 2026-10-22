@@ -88,10 +88,13 @@
               - id: compaction-basic
                 name: '@deepseek-ai/dsh-compaction-basic'
                 config:
-                  # Pressure shape: compact at 90% of the window with one
-                  # modest reserve for the summary call, instead of the flat
-                  # 64K headroom. On a 128K window that headroom left the
-                  # model under a quarter of its context before compaction.
+                  # Pressure shape: compact when the window is down to the
+                  # model's own output reserve plus an 8K summary headroom,
+                  # instead of the flat 64K headroom. With a 32K output
+                  # reserve that starts compaction at ~87K tokens on a 128K
+                  # window — 68% of it — where the flat reserve left the
+                  # model ~30K. The 0.9 ratio is the ceiling for a window
+                  # whose output reserve is small.
                   thresholdRatio: 0.9
                   headroomTokens: 8192
               - id: command-compact

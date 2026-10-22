@@ -696,15 +696,23 @@ const NON_OPENAI_PROVIDER_IDS: readonly string[] = [
  * and every other route — including one whose URL it cannot identify —
  * resolves as OpenAI and keeps `developer`. The Responses protocols apply no
  * such detection, so they send `developer` wherever nothing says otherwise.
+ *
+ * One vendor answers per model rather than per route: OpenRouter keeps
+ * `system` for most of its catalog, but serves the `anthropic/` and `openai/`
+ * models as OpenAI itself, and those take the role OpenAI sends.
  * @param provider - the route key.
+ * @param modelId - the model id the request names.
  * @param baseUrl - the endpoint the route serves.
  * @param api - the model's resolved wire protocol.
  * @returns true when pi-ai would send the `developer` role.
  */
-function sendsDeveloperRole(provider: string, baseUrl: string, api: string): boolean {
+function sendsDeveloperRole(provider: string, modelId: string, baseUrl: string, api: string): boolean {
   // The Responses protocols read the switch from the model alone; nothing is
   // detected from the endpoint.
   if (api !== 'openai-completions') return true
+  if (provider === 'openrouter' || baseUrl.toLowerCase().includes('openrouter.ai')) {
+    return modelId.startsWith('anthropic/') || modelId.startsWith('openai/')
+  }
   if (NON_OPENAI_PROVIDER_IDS.includes(provider)) return false
   const lower = baseUrl.toLowerCase()
   if (RECOGNIZED_NON_OPENAI_HOSTS.some(host => lower.includes(host))) return false
@@ -864,7 +872,7 @@ function developerRoleRisk(
   const declared = configuredCompatEntries(route).find(([field]) => field === 'supportsDeveloperRole')
     ?? configuredCompatEntries(entry.compat).find(([field]) => field === 'supportsDeveloperRole')
   if (declared !== undefined) return false
-  if (!sendsDeveloperRole(provider, baseUrl, api)) return false
+  if (!sendsDeveloperRole(provider, entry.id, baseUrl, api)) return false
   if (catalogEndpoint) return false
   const lower = baseUrl.toLowerCase()
   if (OPENAI_FAMILY_HOSTS.some(host => lower.includes(host))) return false

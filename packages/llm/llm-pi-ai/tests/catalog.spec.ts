@@ -1361,4 +1361,53 @@ describe('configurable-provider directory', () => {
     const entry = ctx.llm.listConfigurableProviders().find(row => row.provider === 'acme-gateway')
     expect(entry?.warnings).toBeUndefined()
   })
+
+  it('carries every route diagnostic to the directory', async () => {
+    // A diagnostic with no exit is a diagnostic the operator never sees. The
+    // route-level failure, the per-model failures and the risks all reach the
+    // configuration surface through this one listing.
+    const ctx = await harness(gateway('https://acme.test/v1', {
+      models: [
+        { id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } },
+        { id: 'acme-broken-1', reasoningEfforts: { off: null } },
+        { id: 'acme-broken-2', reasoningEfforts: { off: null } },
+      ],
+    }))
+
+    const entry = ctx.llm.listConfigurableProviders().find(row => row.provider === 'acme-gateway')
+    // The route-level failure names the first model that could not resolve.
+    expect(entry?.error).toContain('acme-broken-1')
+    // The rest travel beside it, and the two never repeat a line.
+    expect(entry?.modelErrors).toHaveLength(1)
+    expect(entry?.modelErrors?.[0]).toContain('acme-broken-2')
+    // The risk travels too, and the route still serves the models that did
+    // resolve.
+    expect(entry?.warnings?.join('\n')).toContain('compat.supportsDeveloperRole')
+    expect(ctx.llm.listProviders().map(provider => provider.id)).toContain('acme-gateway')
+  })
+
+  it('warns for the OpenRouter models pi-ai serves as OpenAI', () => {
+    // OpenRouter answers per model, not per route: it keeps `system` for most
+    // of its catalog, but the `anthropic/` and `openai/` models it serves as
+    // OpenAI itself take the role OpenAI sends. A mirror that answered per
+    // route would miss exactly these.
+    const warned = resolveProfiles({
+      openrouter: {
+        api: 'openai-completions',
+        baseURL: 'https://openrouter.ai/api/v1',
+        models: [{ id: 'openai/gpt-5', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('openrouter')
+    expect(warned?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
+
+    // The rest of its catalog keeps the `system` role, and says nothing.
+    const plain = resolveProfiles({
+      openrouter: {
+        api: 'openai-completions',
+        baseURL: 'https://openrouter.ai/api/v1',
+        models: [{ id: 'mistralai/mistral-large', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('openrouter')
+    expect(plain?.warnings).toEqual([])
+  })
 })

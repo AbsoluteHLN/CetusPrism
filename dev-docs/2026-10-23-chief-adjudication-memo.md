@@ -173,3 +173,16 @@
 `packages/experimental/agent-team/tests/invariant.spec.ts` **在仓库真实命令下是跑得起来的**：`vitest run --config configs/vitest.config.ts` → 2 passed，退出码 0。alias 表由 `configs/vitest.shared.ts:17-35` 从 `configs/tsconfig.base.json` 的 paths 折出，`@deepseek-ai/dsh-invariants` 在其中有映射；**只有漏掉 `--config configs/vitest.config.ts` 时 alias 表才缺失**，那时它会以「找不到包」红。仓库的真实测试命令是 `pnpm run test` → `vitest run --config configs/vitest.config.ts`（`package.json:56`）。
 
 ⇒ **这不是代码缺陷，是调用姿势的问题。** 因此审查建议的落法（pre-push 追加「按受影响包推导的 focused vitest」）方向对，但**闸门必须连配置一起钉住**：只写 `vitest run <path>` 而不钉 `--config`，闸门自己会造出「代码坏了」的假红灯——typecheck 绿、真实用例也绿，只有闸门红。
+
+### 4. 本轮落地（已提交）
+
+| 项 | 提交 | 验证 |
+|---|---|---|
+| 缺口 8（按订正后的写法） | `3eaaf48d6d` | `packages/experimental/client-ui-agent-team` 33/33，退出码 0 |
+| 缺口 6a（Responses 协议分支） | `8cf1ddc4e7` | `packages/llm/llm-pi-ai/tests/catalog.spec.ts` 104/104；变异 `sendsDeveloperRole` 的短路 → 新用例转红、其余 103 条仍绿 |
+| 缺口 3 / 4 / 5 | `4f13403e6e` | `packages/experimental/agent-team` + `tool-agent-team` 共 8 个文件 176/176，退出码 0 |
+| `packages/llm/llm` 基线红灯（Q6 第 1 项） | `b3a7d59646` | 整包 52 个文件 1296/1296，退出码 0——**该包此前是红的** |
+
+**本轮所有验证命令都带 `--config configs/vitest.config.ts`**：仓库没有根 vitest 配置，裸 `vitest run <path>` 既无 alias 表也不带 jsdom setup，会给出误导性的红灯（`window is not defined`、`ResizeObserver is not defined`、「找不到包」）。这与上面 Q5 的补充判断是同一条事实。
+
+**仍留第二轮**：缺口 1（resume 半途断裂，文档自标未验证）、缺口 2（档案 preset 与请求 preset 的优先级——规格问题）、缺口 7（stateVersion 5→6 弃用路径，跨包）。

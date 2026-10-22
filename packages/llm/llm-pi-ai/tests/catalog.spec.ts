@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime, { createUserMessage, ReasoningEffortId } from '@deepseek-ai/dsh-llm'
@@ -8,10 +11,12 @@ import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
 import type { ContextFormed } from '@deepseek-ai/dsh-llm'
 import { getBuiltinModels } from '@earendil-works/pi-ai/providers/all'
+import { anthropicMessagesApi } from '@earendil-works/pi-ai/api/anthropic-messages.lazy'
 import { AssistantMessageEventStream } from '@earendil-works/pi-ai/utils/event-stream'
 import { normalizeContext } from '@earendil-works/pi-ai/utils/transcript'
 import type { Api, Model, OpenAICompletionsCompat, Provider } from '@earendil-works/pi-ai'
 import { resolveProfiles } from '../src/config.ts'
+import { CASE_INSENSITIVE_NON_OPENAI_HOST, RECOGNIZED_NON_OPENAI_HOSTS } from '../src/catalog.ts'
 import { createModels, createProvider, getSupportedThinkingLevels } from '../src/models.ts'
 import { buildProvider, supportedProtocols } from '../src/provider.ts'
 import { assemble } from './assemble.ts'
@@ -1479,6 +1484,68 @@ describe('the compat floor under a repointed api', () => {
 
     expect(models.get(base.id)?.compat).toEqual({ supportsTemperature: false })
   })
+
+  it('keeps each installed model\'s own protocol when the route names none', () => {
+    // A catalog that disagrees with itself has no single protocol to serve,
+    // so a route that names none resolves every model against the protocol
+    // its own entry speaks. Nothing is repointed here, so nothing loses the
+    // compat its entry carries.
+    const models = modelsOf({
+      'cloudflare-ai-gateway': {
+        models: [{ id: 'claude-haiku-4.5' }, { id: 'workers-ai/@cf/google/gemma-4-26b-a4b-it' }],
+      },
+    }, 'cloudflare-ai-gateway')
+
+    expect(models.get('claude-haiku-4.5')?.api).toBe('anthropic-messages')
+    expect(models.get('workers-ai/@cf/google/gemma-4-26b-a4b-it')?.api).toBe('openai-completions')
+    expect(models.get('claude-haiku-4.5')?.compat).toEqual({ sendSessionAffinityHeaders: true })
+  })
+
+  it('keeps the old protocol\'s session affinity off a repointed request', async () => {
+    // The catalog block names a field the anthropic protocol also reads, so
+    // the leak is visible on the wire and not only in the resolved model: the
+    // header the block asks for would travel with the request, naming a
+    // session the endpoint never learned about.
+    const server = await mockServer([{ body: '{}' }])
+    const base = installedEntry()
+    const models = modelsOf({
+      baseten: { api: 'anthropic-messages', baseURL: server.url, models: [{ id: base.id }] },
+    }, 'baseten')
+    const model = models.get(base.id)
+    if (model === undefined) throw new Error('the repointed model did not resolve')
+
+    anthropicProvider(model).stream(model, normalizeContext({ messages: [] }), {
+      apiKey: 'test-key',
+      sessionId: 'session-1',
+    })
+    await server.requestReceived
+
+    expect(server.headers[0]?.['x-session-affinity']).toBeUndefined()
+  })
+
+  it('sends the session affinity an installed block asks for', async () => {
+    // The control for the case above: a model whose own block carries the
+    // switch does carry the header, so that assertion is about the repoint
+    // and not about the header never being sent.
+    const server = await mockServer([{ body: '{}' }])
+    const models = modelsOf({
+      'cloudflare-ai-gateway': {
+        api: 'anthropic-messages',
+        baseURL: server.url,
+        models: [{ id: 'claude-haiku-4.5' }],
+      },
+    }, 'cloudflare-ai-gateway')
+    const model = models.get('claude-haiku-4.5')
+    if (model === undefined) throw new Error('the anthropic model did not resolve')
+
+    anthropicProvider(model).stream(model, normalizeContext({ messages: [] }), {
+      apiKey: 'test-key',
+      sessionId: 'session-1',
+    })
+    await server.requestReceived
+
+    expect(server.headers[0]?.['x-session-affinity']).toBe('session-1')
+  })
 })
 
 describe('the developer-role risk against the endpoint pi-ai reads', () => {
@@ -1511,4 +1578,79 @@ describe('the developer-role risk against the endpoint pi-ai reads', () => {
     // naming it in any case is still DeepSeek's — and keeps the `system` role.
     expect(warningsFor('https://API.DEEPSEEK.COM/v1')).toEqual([])
   })
+
+  it.each(RECOGNIZED_NON_OPENAI_HOSTS)('warns for %s spelled in another case, as pi-ai does', (host) => {
+    // Every host in the mirror is compared case-sensitively, the way pi-ai
+    // compares it, so a host written in another case is an endpoint pi-ai
+    // does not recognize: it resolves as OpenAI and sends `developer`, which
+    // is exactly the mismatch this warning exists to name.
+    expect(warningsFor(`https://${host}/v1`)).toEqual([])
+    expect(warningsFor(`https://${host.toUpperCase()}/v1`).join('\n')).toContain('compat.supportsDeveloperRole')
+  })
+
+  it('says nothing for an OpenAI endpoint spelled in another case', () => {
+    // The OpenAI family is matched case-insensitively, the opposite of the
+    // vendor list. The asymmetry is safe — both lists exempt an endpoint
+    // from the warning — but it is a rule of its own, so it is stated here.
+    expect(warningsFor('https://API.OPENAI.COM/v1')).toEqual([])
+  })
+
+  it('mirrors the vendor detection the installed pi-ai ships', () => {
+    // The mirror exists because pi-ai decides the role itself, so it has to
+    // follow pi-ai. A vendor host pi-ai learns about later would leave the
+    // mirror quietly out of step, and the two failures point opposite ways: a
+    // host missing from the mirror warns where pi-ai sends `system`, and a
+    // host the mirror adds silences a risk that is real. Reading the
+    // vendor's own list is what makes both visible.
+    const vendor = vendorDetection()
+
+    // The vendor names a host once per rule that reads it, so the lists are
+    // compared as sets: what matters is which hosts it recognizes, not how
+    // many rules happen to mention each.
+    expect([...new Set(vendor.caseSensitive)].sort()).toEqual([...RECOGNIZED_NON_OPENAI_HOSTS].sort())
+    expect(vendor.caseInsensitive).toEqual([CASE_INSENSITIVE_NON_OPENAI_HOST])
+  })
 })
+
+/**
+ * The provider that speaks the Anthropic Messages protocol.
+ *
+ * The request goes out through the same provider this package builds, so the
+ * wire shape under test is the one a deployment sends.
+ * @param model - the resolved model the request names.
+ * @returns a provider bound to that model.
+ */
+function anthropicProvider(model: Model<Api>): Provider {
+  return createProvider({
+    id: model.provider,
+    name: model.provider,
+    models: [model],
+    auth: { apiKey: { name: 'Test', resolve: () => Promise.resolve({ auth: {}, source: 'Test' }) } },
+    api: anthropicMessagesApi(),
+  })
+}
+
+/**
+ * The installed pi-ai's own host detection, read from its source.
+ *
+ * The lists are read out of the vendor's code rather than restated here, so
+ * the guard follows an upgrade: a host pi-ai gains is a host the mirror must
+ * gain, and the comparison fails until it does.
+ */
+function vendorDetection(): { caseSensitive: string[]; caseInsensitive: string[] } {
+  const entry = fileURLToPath(import.meta.resolve('@earendil-works/pi-ai/providers/all'))
+  const source = readFileSync(resolve(dirname(entry), '..', 'api', 'openai-completions.js'), 'utf8')
+  const start = source.indexOf('function detectCompat(')
+  const end = source.indexOf('\nfunction getCompat(', start)
+  if (start < 0 || end < 0) {
+    throw new Error('the installed pi-ai no longer exposes detectCompat beside getCompat')
+  }
+  const body = source.slice(start, end)
+  const hosts = (pattern: RegExp): string[] => [...body.matchAll(pattern)]
+    .map(match => match[1])
+    .filter((host): host is string => host !== undefined)
+  return {
+    caseSensitive: hosts(/baseUrl\.includes\("([^"]+)"\)/g),
+    caseInsensitive: hosts(/baseUrl\.toLowerCase\(\)\.includes\("([^"]+)"\)/g),
+  }
+}

@@ -674,8 +674,12 @@ function invalid(provider: string, detail: string): never {
  * resolves it as OpenAI and sends `developer`. Matching it here as the vendor
  * would hide the very mismatch this list exists to expose. The one host
  * pi-ai lowercases is listed apart.
+ *
+ * Exported so a drift guard can compare this mirror against the installed
+ * pi-ai's own detection: a vendor host pi-ai learns about later would
+ * otherwise leave the mirror silently out of step.
  */
-const RECOGNIZED_NON_OPENAI_HOSTS: readonly string[] = [
+export const RECOGNIZED_NON_OPENAI_HOSTS: readonly string[] = [
   'api.z.ai', 'open.bigmodel.cn', 'api.together.ai', 'api.together.xyz',
   'api.moonshot.', 'openrouter.ai', 'api.cloudflare.com', 'gateway.ai.cloudflare.com',
   'integrate.api.nvidia.com', 'api.ant-ling.com', 'cerebras.ai', 'api.x.ai',
@@ -687,8 +691,11 @@ const RECOGNIZED_NON_OPENAI_HOSTS: readonly string[] = [
  *
  * Every other host comparison in its detection is case-sensitive; DeepSeek's
  * is not, so a base URL naming it in any case is still DeepSeek's.
+ *
+ * Exported beside {@link RECOGNIZED_NON_OPENAI_HOSTS} for the same drift
+ * guard.
  */
-const CASE_INSENSITIVE_NON_OPENAI_HOST = 'deepseek.com'
+export const CASE_INSENSITIVE_NON_OPENAI_HOST = 'deepseek.com'
 
 /**
  * Provider ids pi-ai resolves to a non-OpenAI vendor by name alone.

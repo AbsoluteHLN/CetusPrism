@@ -36,6 +36,12 @@
 - 复现：老网关（one-api/旧 vLLM 系）+ 手声明路由 → `max_completion_tokens` 或 `stream_options`/`reasoning_effort` 被 400 拒绝，分类 INVALID_REQUEST（`stream.ts:53-54`）终态、无修复指引。
 - 影响：与 csu 事故同根（URL 无法自证），每个 quirk 都要一次线上 400 才暴露。
 - 修法：① 配置期告警扩展至 `maxTokensField`（与 developer-role 同路径，不阻断路由）；② `stream.ts:53-54` 增加 `stream_options`/`reasoning_effort` 拒认措辞的分类并附 `compat.*` 指引（1-2 文件）。
+- **实测取证（2026-10-23，csu 私有网关 `api.chat.csu.edu.cn/v1`）**：逐变体实测（脚本 `koutput/probe-gateway-wire-fields.mjs`，凭据只报长度）：
+  - `max_completion_tokens` → DeepSeek/GLM/Qwen **全部 200**；
+  - `stream_options: {include_usage:true}` → 全部 **200**；
+  - `reasoning_effort: high` → DeepSeek **200**，GLM **200**，Qwen **400**，措辞 `Unexpected reasoning effort high. Supported types are xhigh (default), medium, and low.`。
+  - 结论：**① 不成立**。「URL 无法自证」不足以判定 `maxTokensField` / `stream_options` 有风险——真实网关普遍两种都接受；按此扩展会对每个私有网关普遍告警，正是上轮「逐模型刷 8 条预警」的同类错误。配置能力本就存在（`compat.maxTokensField`，`config.ts:272`），缺的是「怎么知道该设」的依据，那只能来自实测。
+  - **② 已修（本次）**：新增 `REASONING_EFFORT_REJECTED`（`llm/src/error.ts`）与分类/指引（`llm-pi-ai/src/stream.ts`）。措辞识别要求同时出现 `reasoning effort` 与拒绝类词（unsupported/not support/unknown/unrecognized/invalid/unexpected/not allowed），且排在 400 兜底之前；终态（不在默认重试集）。回归：`tests/adapter.spec.ts` 的 `it('names the effort declaration when the endpoint refuses a reasoning effort')`，用真实样本措辞。
 
 ### D3【低】`sendsDeveloperRole` 大小写敏感性偏离 vendor → 漏发预警告
 - 证据：仓库对全部 host 做 `lower.includes`（`catalog.ts:709-710`）；vendor 仅 deepseek.com 小写化，其余 host 大小写敏感（vendor:1222-1232）。baseURL 写作 `https://API.Z.AI/v1` 时 vendor 视为未识别 → 发 `developer`；仓库判 false → 不告警。
@@ -71,7 +77,7 @@
 | 编号 | 状态 | 落点 |
 |---|---|---|
 | D1 api 重指残留 `base.compat` | ✅ 已修（本次） | `catalog.ts` `resolveModelCompat` + 3 条回归 |
-| D2 compat 告警只覆盖 developer role | ⏸ 未做 | 单独成批，需真实网关拒认措辞样本 |
+| D2 compat 告警只覆盖 developer role | ⚠️ 部分落地（实测后收缩） | ② 运行时分类已修（`REASONING_EFFORT_REJECTED`）；① 配置期扩展经实测证伪，不做 |
 | D3 大小写敏感偏离 vendor | ✅ 已修（本次） | `catalog.ts` `sendsDeveloperRole` + 3 条回归 |
 | D4 OpenRouter 模型 id 前缀 | ✅ 已修（`9a785a2f4f`） | `catalog.ts` + 1 条回归 |
 | D5 pi-ai 链路 Retry-After 丢失 | ⏸ 未做 | 根因在上游（pi-ai 压平 Error 链） |
@@ -91,6 +97,6 @@
 
 ## 未验证项与验证方法
 
-- 各网关对 `stream_options`/`reasoning_effort`/`max_completion_tokens` 的实际拒认措辞（D2 分类词汇需真实样本；可用本地 mock 网关复现，参照 `tests/adapter.spec.ts` 的 http endpoint 手法）。
+- 各网关对 `stream_options`/`reasoning_effort`/`max_completion_tokens` 的实际拒认措辞（D2 分类词汇需真实样本；可用本地 mock 网关复现，参照 `tests/adapter.spec.ts` 的 http endpoint 手法）。**→ 已取证（csu 网关，见 D2 条目）；`reasoning_effort` 的真实样本已入分类器，其余网关（one-api/旧 vLLM 系）仍无样本。**
 - D7 的 UI 侧实际行为（需在 Models 页对已配置路由改 baseURL 后点「获取模型」复测）。
 - 复现 profile 单测可仿 `tests/catalog.spec.ts:1046-1108`（warnings 断言）与 `tests/compat-upgrade.spec.ts`（compat 合并）。

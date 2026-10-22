@@ -117,7 +117,7 @@
 | 重试预算模型 | 「单次尝试收敛为 1」+「无上限哨兵（0）」：`apps/zcode-cli/packages/adapters/src/model/retry-budget.ts:11-15,37-47,59-62` | 无对应 sentinel 语义 |
 | malformed tool call | 先 repair，再转**模型可见错误输出**：`model-anomaly-fallbacks.md:17` | **本仓无对应实现** |
 | loop 续跑 | — | `agent/request-error` waterfall 收到 `kind:'retry'` 则 continue：`packages/core/agent-loop/src/agent.ts:494-509` |
-| GLM 实际取值 | — | GLM 覆盖显式压到 `maxRetries: 2`：`apps/cli/config/examples/glm-harness/cordis.yml:28-30` |
+| GLM 实际取值 | — | GLM 覆盖对齐上游预算 `maxRetries: 10`：`apps/cli/config/examples/glm-harness/cordis.yml:34`（上游 10，本仓默认 5） |
 
 **差异影响**：语义等价部分＝「provider 指示的等待时间可覆盖本地退避」。差异＝默认 5 vs 10、退避上限常量不同、
 缺 malformed tool call repair 路径。
@@ -140,9 +140,9 @@
 | 1 | **ZCode 底座没有 loop** | 上游真实 runtime ↔ 本仓 `backend.ts:182-207` / `backend-store.ts:166-173` / `builtin-agent-adapter.ts:125-127` | 用户当前**无法进入任何「ZCode 模式」**；所谓 ZCode 模式实为 DSH + persona |
 | 2 | **并行调度语义不同** | 上游 `scheduler.ts:60-83` + `batch-runner.ts:70-71` ↔ 本仓 `tool-calls.ts:89-100,199-213` | 有依赖/副作用顺序要求的调用可能并行发起，**行为级差异** |
 | 3 | **压缩预算与时机不同** | 上游 `policy.ts:6-14` + `turn-loop.ts:77-114` ↔ 本仓 `compaction-basic/src/config.ts:20,23`、`index.ts:158-160,190-194` | 长程任务接近上下文上限时的行为不同 |
-| 4 | **默认重试次数不同** | 上游 10（`model-anomaly-fallbacks.md:31`）↔ 本仓 5（`retry-policy.ts:40-41`）；GLM 覆盖压到 2 | 瞬态失败下任务完成率不同 |
+| 4 | **默认重试次数不同** | 上游 10（`model-anomaly-fallbacks.md:31`）↔ 本仓 5（`retry-policy.ts:14`）；GLM 覆盖已对齐上游的 10（`apps/cli/config/examples/glm-harness/cordis.yml:34`） | 瞬态失败下任务完成率不同 |
 | 5 | **缺软告警机制** | 上游 `model-anomaly-fallbacks.md:16-17,43-60` ↔ 本仓无 | 缺模型自纠偏层 |
-| 6 | **system prompt 契约未落地且两份 persona 不一致** | 上游 `system-prompt-contract.md:27-72` + `cli-prefix.ts:8` ↔ 本仓 `standard.patch.yml:196-203` vs `cordis.yml:38-50` | 模型行为基线与上游不同，且两份提示词会继续漂移 |
+| 6 | **system prompt 契约未落地且两份 persona 不一致** | 上游 `system-prompt-contract.md:27-72` + `cli-prefix.ts:8` ↔ 本仓 `standard.patch.yml:202-207` vs `cordis.yml:56-66` | 模型行为基线与上游不同，且两份提示词会继续漂移 |
 | 7 | **role 词表与 provider 目录模型不同** | 上游 `message-history.ts:27-37` + `model-config.ts` ↔ 本仓 `message.ts:158` + `llm-pi-ai/src/catalog.ts` | 逐条对照需显式映射表 |
 | 8 | **上游基线已过期** | 3.15.1 ↔ 3.16.2（`spec-v2:21`） | 对齐对象本身在漂移 |
 

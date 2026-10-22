@@ -18,6 +18,8 @@ pnpm dsh --profile headless --patch apps/cli/config/examples/glm-harness/cordis.
 
 默认推理档位为 `high`。选择其他受支持档位时，应一起调整覆盖配置中的提供商能力列表和默认选择。已有提供商设置仍由模型设置页和正常 profile 配置编辑器管理；启用本示例时，其显式配置优先。Agent Team 的独立允许模型列表必须使用 `glm-harness` 提供商路由，不能填 `spawn` 或 `fork`。
 
+本组合在模型上下文窗口的 90% 处触发压缩，并为摘要调用保留一小段余量，使长任务仍能保有模型尚可使用的上下文。服务级默认则固定预留 64K token——在 128K 窗口上，这会让压缩在不足四分之一窗口的位置就开始。
+
 ## 兼容性与回滚
 
 [覆盖配置](../../../apps/cli/config/examples/glm-harness/cordis.yml)使用已有插件，不改变 Agent、Session 或 LLM wire 接口。稳定指导通过正常系统消息进入日志，工具结果和提供商回放元数据走已有会话路径。本示例适用于 `headless`，不会更改 Web 组合。

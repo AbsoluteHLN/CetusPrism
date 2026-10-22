@@ -87,6 +87,13 @@
             config:
               - id: compaction-basic
                 name: '@deepseek-ai/dsh-compaction-basic'
+                config:
+                  # Pressure shape: compact at 90% of the window with one
+                  # modest reserve for the summary call, instead of the flat
+                  # 64K headroom. On a 128K window that headroom left the
+                  # model under a quarter of its context before compaction.
+                  thresholdRatio: 0.9
+                  headroomTokens: 8192
               - id: command-compact
                 name: '@deepseek-ai/dsh-command-compact'
               - id: tool-result-pruner

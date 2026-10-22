@@ -39,6 +39,16 @@
     model: !!js process.env.CETUS_GLM_MODEL
     reasoningEffort: high
 
+- id: compaction-basic
+  name: "@deepseek-ai/dsh-compaction-basic"
+  config:
+    # Compact at 90% of the window with one modest reserve for the summary
+    # call, instead of the flat 64K headroom. On a 200K window that headroom
+    # started the compaction at ~102K tokens, a third below the upstream
+    # budget, and on a 128K window it started at ~30K.
+    thresholdRatio: 0.9
+    headroomTokens: 8192
+
 - id: system-prompt
   config:
     personaPrefix: |-

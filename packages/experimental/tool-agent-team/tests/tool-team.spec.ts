@@ -397,6 +397,30 @@ describe('dsh-tool-team', () => {
     expect(member.status).not.toBe('dormant')
   }, 20_000)
 
+  it('installs the Team tools on a reactivated teammate', async () => {
+    const { ctx, lead } = await setup(['hang', 'hang', 'hang'])
+    const spawned = await execute(ctx, lead, 'spawn_teammate', {
+      name: 'reviewer', description: 'review changes', prompt: 'stay available',
+    })
+    expect(spawned.isError, text(spawned)).toBe(false)
+    const childId = spawnedChildId(ctx, lead, spawned)
+    await waitRunning(ctx, childId)
+
+    await execute(ctx, lead, 'release_teammate', { name: 'reviewer' })
+    await waitNoAgent(ctx, childId)
+    const reactivated = await execute(ctx, lead, 'reactivate_teammate', {
+      name: 'reviewer', prompt: 'continue the review',
+    })
+    expect(reactivated.isError, text(reactivated)).toBe(false)
+
+    // The member is a Team member again, so it carries the Team tools: a
+    // revived member that cannot answer is a member nobody can use.
+    const child = await waitRunning(ctx, childId)
+    const memberAssembly = await assembly(ctx, child)
+    expect(memberAssembly.tools.map(schema => schema.name).filter(name => TOOL_NAMES.includes(name)).sort())
+      .toEqual(TOOL_NAMES)
+  }, 20_000)
+
   it('delivers one broadcast to several members at once', async () => {
     const { ctx, lead } = await setup(['hang', 'hang'])
     const first = await execute(ctx, lead, 'spawn_teammate', {
@@ -693,7 +717,7 @@ describe('dsh-tool-team', () => {
       timedOut: false,
       noProgress: {
         reason: 'no-active-peer',
-        message: 'No other Team member is running or provisioning. wait_agent cannot make progress or wake inactive teammates. Re-list with list_agents and team_task_list, then use send_message to wake each required inactive teammate before waiting again.',
+        message: 'No other Team member is running or provisioning. wait_agent cannot make progress or wake inactive teammates. Re-list with list_agents and team_task_list, then use send_message to wake each required inactive teammate before waiting again. A dormant teammate needs reactivate_teammate, not send_message: its mail waits until it is back.',
       },
     })
     for (const timeout_ms of [9_999, 3_600_001, Number.MAX_SAFE_INTEGER + 1]) {

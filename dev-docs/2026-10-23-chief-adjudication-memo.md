@@ -165,7 +165,11 @@
 |---|---|
 | Q3 持久化兼容 | **采信**。`stateVersion` 5→6 无需迁移：框架的 ver 失配 → 弃用 → 全量重放就是迁移机制（`packages/session/session-projection/src/index.ts:460` 丢弃行、`:430` floor 归 0、`:515-516` 丢弃行且 baseSeq>0 时抛错让调用方重读全日志）。代价是老会话首次打开多一次全量 fold，性能问题而非正确性问题。**注**：文档写的包路径 `packages/core/session-projection` 不存在，实为 `packages/session/session-projection`；行号无误 |
 | Q4 类型断裂面 | **方法采信，4 处结论订正**。「找副本 → 类型层根治 → tsc 兜底」可复用到任何枚举契约 |
-| Q5 闸门缺口 | **留第二轮**。pre-commit 加 vitest 会拖慢本地提交；pre-push 跑「按受影响包推导的 focused vitest」更合理，但要改 `lefthook.yml`，属工程策略决策 |
+| Q5 闸门缺口 | **留第二轮**。pre-commit 加 vitest 会拖慢本地提交；pre-push 跑「按受影响包推导的 focused vitest」更合理，但要改 `lefthook.yml`，属工程策略决策。**前提是闸门连 `--config configs/vitest.config.ts` 一起钉住**（见下） |
 | Q6 基线失败 | **采信题面修正**（「3 条 hero 失败已不存在」与我的独立复核一致），并接下 `invariant.spec.ts` 那条的取证 |
 
-**Q5 的补充判断**：本仓 pre-push 只跑 typecheck，**确实漏了**——`packages/experimental/agent-team/tests/invariant.spec.ts` 因缺依赖导入失败（`@deepseek-ai/dsh-invariants` 未在 agent-team 的 `package.json` 里声明，也没链接进它的 node_modules），而该包的 typecheck 是绿的。这类「测试文件根本跑不起来」的问题 tsc 抓不到。落法应先补依赖，再谈闸门。
+**Q5 的补充判断**：pre-commit 与 pre-push **都不跑 vitest**（pre-push 只有 `pnpm run typecheck`），这条成立。但审查举的那个例子不成立，且它的教训比它的结论更重要。
+
+`packages/experimental/agent-team/tests/invariant.spec.ts` **在仓库真实命令下是跑得起来的**：`vitest run --config configs/vitest.config.ts` → 2 passed，退出码 0。alias 表由 `configs/vitest.shared.ts:17-35` 从 `configs/tsconfig.base.json` 的 paths 折出，`@deepseek-ai/dsh-invariants` 在其中有映射；**只有漏掉 `--config configs/vitest.config.ts` 时 alias 表才缺失**，那时它会以「找不到包」红。仓库的真实测试命令是 `pnpm run test` → `vitest run --config configs/vitest.config.ts`（`package.json:56`）。
+
+⇒ **这不是代码缺陷，是调用姿势的问题。** 因此审查建议的落法（pre-push 追加「按受影响包推导的 focused vitest」）方向对，但**闸门必须连配置一起钉住**：只写 `vitest run <path>` 而不钉 `--config`，闸门自己会造出「代码坏了」的假红灯——typecheck 绿、真实用例也绿，只有闸门红。

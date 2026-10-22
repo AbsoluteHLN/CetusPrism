@@ -668,13 +668,27 @@ function invalid(provider: string, detail: string): never {
  * non-OpenAI vendor keeps `system`, while an **unrecognized** URL resolves as
  * OpenAI and keeps `developer`. A custom gateway therefore gets the role
  * OpenAI accepts, which most OpenAI-compatible gateways reject.
+ *
+ * The matching is case-sensitive, as pi-ai's own detection is: a base URL
+ * written `https://API.Z.AI/v1` is not the endpoint pi-ai looks for, so pi-ai
+ * resolves it as OpenAI and sends `developer`. Matching it here as the vendor
+ * would hide the very mismatch this list exists to expose. The one host
+ * pi-ai lowercases is listed apart.
  */
 const RECOGNIZED_NON_OPENAI_HOSTS: readonly string[] = [
   'api.z.ai', 'open.bigmodel.cn', 'api.together.ai', 'api.together.xyz',
   'api.moonshot.', 'openrouter.ai', 'api.cloudflare.com', 'gateway.ai.cloudflare.com',
   'integrate.api.nvidia.com', 'api.ant-ling.com', 'cerebras.ai', 'api.x.ai',
-  'chutes.ai', 'deepseek.com', 'opencode.ai',
+  'chutes.ai', 'opencode.ai',
 ]
+
+/**
+ * The one host pi-ai matches case-insensitively.
+ *
+ * Every other host comparison in its detection is case-sensitive; DeepSeek's
+ * is not, so a base URL naming it in any case is still DeepSeek's.
+ */
+const CASE_INSENSITIVE_NON_OPENAI_HOST = 'deepseek.com'
 
 /**
  * Provider ids pi-ai resolves to a non-OpenAI vendor by name alone.
@@ -710,12 +724,14 @@ function sendsDeveloperRole(provider: string, modelId: string, baseUrl: string, 
   // The Responses protocols read the switch from the model alone; nothing is
   // detected from the endpoint.
   if (api !== 'openai-completions') return true
-  if (provider === 'openrouter' || baseUrl.toLowerCase().includes('openrouter.ai')) {
+  if (provider === 'openrouter' || baseUrl.includes('openrouter.ai')) {
     return modelId.startsWith('anthropic/') || modelId.startsWith('openai/')
   }
   if (NON_OPENAI_PROVIDER_IDS.includes(provider)) return false
-  const lower = baseUrl.toLowerCase()
-  if (RECOGNIZED_NON_OPENAI_HOSTS.some(host => lower.includes(host))) return false
+  // Case-sensitive, as pi-ai's own detection is: a host written in another
+  // case is an endpoint pi-ai does not recognize, and it resolves as OpenAI.
+  if (RECOGNIZED_NON_OPENAI_HOSTS.some(host => baseUrl.includes(host))) return false
+  if (baseUrl.toLowerCase().includes(CASE_INSENSITIVE_NON_OPENAI_HOST)) return false
   return true
 }
 
@@ -948,14 +964,23 @@ function resolveModelCompat(
     }
     configured[field] = value
   }
-  if (Object.keys(configured).length === 0) return {}
   // The installed entry's compat matches the entry's OWN api — a route-level
   // `api` repoint (an anthropic catalog served through an OpenAI-compatible
   // gateway) leaves `base.compat` in the other protocol's shape, so it is
   // inherited only while the resolved api still is the entry's. A repointed
   // model starts from pi-ai's baseURL-derived detection instead, which is
   // what a protocol change means for every other compat field too.
-  const inherited = base?.api === api ? base.compat : undefined
+  const repointed = base !== undefined && base.api !== api
+  if (Object.keys(configured).length === 0) {
+    // A repoint has to answer for the compat the model literal's `...base`
+    // spread would otherwise carry onto the wire: the installed block
+    // describes the protocol the model no longer speaks, and the fields the
+    // two protocols share would silently keep the old protocol's values.
+    // An empty block is not "no compat" to pi-ai — it merges over the
+    // baseURL-derived detection, which is exactly the intended floor.
+    return repointed ? { compat: {} as ModelCompat } : {}
+  }
+  const inherited = repointed ? undefined : base?.compat
   return { compat: { ...inherited, ...configured } as ModelCompat }
 }
 

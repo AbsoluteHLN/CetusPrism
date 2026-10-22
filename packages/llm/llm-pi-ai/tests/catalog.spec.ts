@@ -392,7 +392,7 @@ describe('hand-declared providers', () => {
     const result = await assemble(ctx, { provider: 'local-llm', model: 'qwen3', messages: [] })
     expect(result.finish).toMatchObject({
       kind: 'error',
-      failure: { message: 'No API key for provider: local-llm' },
+      failure: { message: 'No API key for provider: local-llm', code: 'MISSING_CREDENTIAL' },
     })
     expect(server.requests).toHaveLength(0)
   })
@@ -1409,5 +1409,88 @@ describe('configurable-provider directory', () => {
       },
     }).get('openrouter')
     expect(plain?.warnings).toEqual([])
+  })
+})
+
+describe('the compat floor under a repointed api', () => {
+  /** The materialized models of one route, keyed by id. */
+  function modelsOf(providers: Record<string, LlmPiAi.PiAiProviderProfile>, route: string): Map<string, Model<Api>> {
+    const models = resolveProfiles(providers).get(route)?.piProvider?.getModels() ?? []
+    return new Map(models.map(model => [model.id, model]))
+  }
+
+  /** An installed entry that carries a compat block of its own. */
+  function installedEntry(): Model<Api> {
+    const catalog = getBuiltinModels('zai') as readonly Model<Api>[]
+    const entry = catalog.find(model => model.api === 'openai-completions' && model.compat !== undefined)
+    if (entry === undefined) throw new Error('zai ships no openai-completions model with a compat block')
+    return entry
+  }
+
+  it('drops the installed compat when a route repoints the api', () => {
+    // The installed block describes the protocol its entry speaks. A route
+    // that repoints the api speaks another one, and the fields the two
+    // protocols share would keep the old protocol's values on the wire —
+    // the model literal's `...base` spread carries them there whatever the
+    // resolution decided, so the repoint has to answer for them.
+    const base = installedEntry()
+    const models = modelsOf({
+      zai: { api: 'anthropic-messages', models: [{ id: base.id }] },
+    }, 'zai')
+
+    const model = models.get(base.id)
+    expect(model?.api).toBe('anthropic-messages')
+    expect(model?.compat).toEqual({})
+  })
+
+  it('keeps the installed compat when the route leaves the api alone', () => {
+    const base = installedEntry()
+    const models = modelsOf({ zai: { models: [{ id: base.id }] } }, 'zai')
+
+    expect(models.get(base.id)?.compat).toEqual(base.compat)
+  })
+
+  it('carries a configured switch onto a repointed model alone', () => {
+    const base = installedEntry()
+    const models = modelsOf({
+      zai: {
+        api: 'anthropic-messages',
+        models: [{ id: base.id, compat: { supportsTemperature: false } }],
+      },
+    }, 'zai')
+
+    expect(models.get(base.id)?.compat).toEqual({ supportsTemperature: false })
+  })
+})
+
+describe('the developer-role risk against the endpoint pi-ai reads', () => {
+  /** The one warning a route carrying a reasoning model on a gateway raises. */
+  function warningsFor(baseURL: string): readonly string[] {
+    const route = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL,
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    return route?.warnings ?? []
+  }
+
+  it('warns for a vendor host written in another case', () => {
+    // pi-ai compares the endpoint case-sensitively, so `API.Z.AI` is not the
+    // vendor it looks like: pi-ai resolves it as OpenAI and sends the
+    // `developer` role. A mirror matching case-insensitively would read it
+    // as the vendor's own endpoint and keep the warning to itself.
+    expect(warningsFor('https://API.Z.AI/v1').join('\n')).toContain('compat.supportsDeveloperRole')
+  })
+
+  it('says nothing for the vendor host spelled as pi-ai spells it', () => {
+    expect(warningsFor('https://api.z.ai/v1')).toEqual([])
+  })
+
+  it('says nothing for the one host pi-ai reads case-insensitively', () => {
+    // DeepSeek's host is the one comparison pi-ai lowercases, so an endpoint
+    // naming it in any case is still DeepSeek's — and keeps the `system` role.
+    expect(warningsFor('https://API.DEEPSEEK.COM/v1')).toEqual([])
   })
 })

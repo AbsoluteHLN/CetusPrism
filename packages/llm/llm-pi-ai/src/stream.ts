@@ -46,6 +46,10 @@ export function mapUsage(usage: PiUsage): TokenUsage {
 // us capture the cause ourselves), classify on `code`/`cause` instead of text.
 function classifyPiAiError(message: string): string {
   if (/\b(?:401|403)\b/.test(message)) return 'AUTH'
+  // pi-ai's own wording when a route reaches its provider without a key. The
+  // outcome is terminal either way; the code is what tells the operator that a
+  // credential is missing rather than the request being bad.
+  if (/no api key for provider/i.test(message)) return 'MISSING_CREDENTIAL'
   if (isQuotaExceededError(message)) return QUOTA_EXCEEDED_CODE
   if (/\b429\b|rate.?limit/i.test(message)) return 'RATE_LIMIT'
   // A gateway that refuses the `developer` role rejects the request as a
@@ -58,6 +62,10 @@ function classifyPiAiError(message: string): string {
   if (/\b413\b|failed to buffer the request body:\s*length limit exceeded|payload too large|request body too large/i.test(message)) return 'INVALID_REQUEST'
   if (/\b400\b|invalid.?request/i.test(message)) return 'INVALID_REQUEST'
   if (/\b5\d\d\b/.test(message)) return 'SERVER'
+  // 408 is the endpoint stating it gave up waiting for the request: the
+  // request may still be running there, so it is transient rather than
+  // rejected, and the retry budget is what answers it.
+  if (/\b408\b/.test(message)) return 'TIMEOUT'
   if (/\btime(?:d)?\s*out\b|timeout/i.test(message)) return 'TIMEOUT'
   // A stream truncated before the provider's terminal event: each pi-ai provider
   // throws its own wording when the wire closes mid-response without a terminal

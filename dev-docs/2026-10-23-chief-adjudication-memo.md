@@ -135,40 +135,51 @@
 
 输入：`dev-docs/2026-10-23-regression-risk-review.md`（8 条覆盖缺口 + Q2–Q6 必答判断题）。
 
-### 1. 复核出 4 处事实错误（已在原文就地订正，附证据）
+### 1. 首稿的 4 处事实错误（已在首稿就地订正；后被作者重写取代）
+
+首稿（提交 `7e195235cf`）有 4 处结论与源码不符，我已就地订正并附证据：
 
 | # | 原文 | 事实 | 证据 |
 |---|---|---|---|
 | 1 | 「`convert.spec.ts` 仅 1 条正例、零反例」 | 实为 **2 条正例 + 3 条反例** | `packages/llm/llm-pi-ai/tests/convert.spec.ts:941-951`、`:966-979` 为正例；`:955-958`、`:960-963`、`:984-987` 为反例 |
 | 2 | 「`tool-agent-team/src/index.ts:154,246,281,292`（4 份 JSON-schema enum 副本）」 | 三者分属**不同域**：`:154` 成员状态、`:246` 任务状态、`:281`/`:292` 消息投递状态；**只有 `:154` 复制了成员状态** | 同文件 `enum:` 行逐条核对；该条所依据的 `grep "'provisioning'"` 只命中 `:154` 与 `:134` 的政策散文 |
-| 3 | 「`client-ui-agent-team/TeamAction.tsx:29`（已修）」 | **并未修**，现仍是手抄 union；且与本文档 §二 第 8 条「靠手抄」自相矛盾 | `packages/experimental/client-ui-agent-team/src/client/TeamAction.tsx:29` |
-| 4 | 根治写法 `TeamMemberProjection['phase']`（Q4 与第 8 条各一处） | 派生源写错：`phase` 是**持久相位** `provisioning｜active｜dormant｜failed`，客户端要的是**运行时视图** `running｜inactive｜provisioning｜dormant｜failed`；按 phase 派生会把 `running`/`inactive` 换成 `active`，改坏 UI | `packages/experimental/agent-team/src/types.ts:53` 与 `:131`；`TeamMemberView` 已由 `packages/experimental/agent-team/src/client.ts:7` 导出 |
+| 3 | 「`client-ui-agent-team/TeamAction.tsx:29`（已修）」 | **并未修**，且与首稿 §二 第 8 条「靠手抄」自相矛盾 | `packages/experimental/client-ui-agent-team/src/client/TeamAction.tsx:29` |
+| 4 | 根治写法 `TeamMemberProjection['phase']` | 派生源写错：`phase` 是**持久相位** `provisioning｜active｜dormant｜failed`，客户端要的是**运行时视图** `running｜inactive｜provisioning｜dormant｜failed`；按 phase 派生会把 `running`/`inactive` 换成 `active`，改坏 UI | `packages/experimental/agent-team/src/types.ts:53` 与 `:131`；`TeamMemberView` 已由 `src/client.ts:7` 导出 |
 
-**裁决**：订正 4 的改法（`type MemberStatus = TeamMemberView['status']`）比文档建议的「加 pin」更根本——去掉手抄后，服务端加枚举值客户端自动跟随，pin 本身就不必要了。按订正后的写法落地。
+**后续**：作者在我入库后**重写了整份文档**（基线改为正确的 `e587aac456`，并把在途落地波次单列），新版更详实且**不含上述 4 处错误**——订正因此成为空操作，记录留档。重写版的缺口编号与首稿不同，下面的处置按**新版**列。
 
-### 2. 8 条覆盖缺口的处置
+**裁决（仍然成立）**：订正 4 的改法（`type MemberStatus = TeamMemberView['status']`）比「加 pin」更根本——去掉手抄后，服务端加枚举值客户端自动跟随，pin 就不必要了。重写版 §四.4 独立推荐的修法（「客户端从 client 面导入该 union，让服务层加值直接变成客户端编译错」）与此一致。按订正后的写法落地。
+
+### 2. 覆盖缺口的处置（按重写版编号）
+
+重写版的清单 = 4 条用例缺口 + 1 条重放钉子 + 3 条零代码收口：
 
 | 缺口 | 处置 | 理由 |
 |---|---|---|
-| 1 resume 半途断裂 | **先取证再决定** | 文档自标「未验证（未实测该路径真实行为）」，静态推断不足以立用例 |
-| 2 档案 preset 覆盖 | **留第二轮** | 文档自问「是有意 override 还是漏校验无 pin」——这是**规格问题**，规格没写就不能由用例替它答 |
-| 3 广播半途失败 | **直接落地** | 纯回归守卫，无行为变更 |
-| 4 跨 Team 档案复用 | **直接落地** | `roster.ts` 注释已声明这是设计意图，却零测试 |
-| 5 dormant 恢复往返幂等 | **直接落地** | 纯回归守卫 |
-| 6 sendsDeveloperRole 误判 | **部分落地** | 6a（Responses 协议分支无 pin）成立，已补钉子；6c 的「零反例」不成立（见订正 1）；6b 属模型接入域，另议 |
-| 7 stateVersion 5→6 弃用路径 | **留第二轮** | 跨包（`session-projection`）改动，且框架语义已由「ver 失配 → 弃用 → 全量重放」保证 |
-| 8 MemberStatus 穷尽 pin | **按订正后的写法落地** | 见上 |
+| 1 广播投递失败路径 | **直接落地** | 纯回归守卫，无行为变更 |
+| 2 跨 Team 档案复用 | **直接落地** | `roster.ts` 注释已声明这是设计意图，却零测试 |
+| 3 resume 失败的错误折叠语义（cause 可观测） | **留第二轮** | 与「resume 错误码细分」是同一个问题，见第二轮问题 A |
+| 4 广播目标顺序的头阻塞语义 | **留第二轮** | 「首个失败即 return false」是有意不变量还是应逐目标独立重试——属语义裁决，用例钉哪个取决于裁决 |
+| 5 stateVersion 5→6 老会话重放回归 | **留第二轮** | 跨包（`session-projection`）改动 |
+| 零代码收口 ① 广播配额 JSDoc 与 per-channel 语义措辞冲突 | **留第二轮** | 两处措辞收敛，零成本但需与 S4.4.4 口径对齐 |
+| 零代码收口 ② 工具文案「the member runs under」 | **留第二轮** | 降级为记录性字段描述 |
+| 零代码收口 ③ failed spawn 永久占名占额 | **本轮已做** | README 已补边界声明（本次一并落地） |
 
-### 3. Q2–Q6 的采信
+**首稿缺口 1（resume 半途断裂）已关闭**：实测 22 条探针全过（`koutput/resume-abort.spec.ts`，git-ignored），结论是**重复投递窗口不存在**——`d0d7a3276b` 把相位记录提前到提示提交之前，审查引用的 `roster.ts:357` 是**修复前**的文件。交付与最后一次 abort 检查是原子的（`continuation-activation.ts:521` → `:530` 之间无 `await`），**已送达的提示不可能随后被拒绝**。残留的是一个更窄的问题：`park()` 吞掉 journal 失败（`roster.ts:401-405`）会让成员停在 `active` 而无 runtime，后续 resume 报 `TEAM_MEMBER_NOT_FOUND`——不是重复投递。
 
-| 问题 | 采信情况 |
+**首稿缺口 2（档案 preset 与请求 preset 的优先级）** —— 规格问题，留第二轮（第二轮问题 B）。
+
+### 3. 重写版五问的采信
+
+| 问题（重写版） | 采信情况 |
 |---|---|
-| Q3 持久化兼容 | **采信**。`stateVersion` 5→6 无需迁移：框架的 ver 失配 → 弃用 → 全量重放就是迁移机制（`packages/session/session-projection/src/index.ts:460` 丢弃行、`:430` floor 归 0、`:515-516` 丢弃行且 baseSeq>0 时抛错让调用方重读全日志）。代价是老会话首次打开多一次全量 fold，性能问题而非正确性问题。**注**：文档写的包路径 `packages/core/session-projection` 不存在，实为 `packages/session/session-projection`；行号无误 |
-| Q4 类型断裂面 | **方法采信，4 处结论订正**。「找副本 → 类型层根治 → tsc 兜底」可复用到任何枚举契约 |
-| Q5 闸门缺口 | **留第二轮**。pre-commit 加 vitest 会拖慢本地提交；pre-push 跑「按受影响包推导的 focused vitest」更合理，但要改 `lefthook.yml`，属工程策略决策。**前提是闸门连 `--config configs/vitest.config.ts` 一起钉住**（见下） |
-| Q6 基线失败 | **采信题面修正**（「3 条 hero 失败已不存在」与我的独立复核一致），并接下 `invariant.spec.ts` 那条的取证 |
+| 1 共享包隔离与未来隔离开关的最小侵入点 | **采信**。首选「不动共享代码，走 `compaction-basic` 的 `modelPolicies` 按路由覆盖」；机制类（软告警/回填熔断）才进 agent-loop，且默认值必须是「关」，同时要同步 `docs/architecture.md`；**禁改点**是共享调度分类路径（`packages/core/tools/src/index.ts:1303-1312`）——那正是已裁定的伪差距方向 |
+| 2 测试覆盖 | 缺口清单见上表，处置已定 |
+| 3 持久化事件兼容（stateVersion 5→6） | **采信**，且比首稿更精确：老折叠是新版折叠的**子集**（新版只多放行 dormant 边），任何「旧版接受、新版拒绝」的边不存在，老 JSONL 重放不会引入 `failure`；不需要迁移，`stateVersion` 递增本身即是门禁 |
+| 4 类型断裂面 | **采信方法**（复制型 union 是根因 → 客户端改为导入服务端 union → 穷尽性守卫 → 契约测试 → `git grep` 排查指令）；其推荐的修法与本轮已落地的一致 |
+| 5 基线失败处置 | **采信**（3 条 hero 失败已由 `6a382f4358` 修掉，实测两包 + agent-team 共 303 用例全绿） |
 
-**Q5 的补充判断**：pre-commit 与 pre-push **都不跑 vitest**（pre-push 只有 `pnpm run typecheck`），这条成立。但审查举的那个例子不成立，且它的教训比它的结论更重要。
+**闸门判断（重写版新增的独立小节，我的补充）**：pre-commit 与 pre-push **都不跑 vitest**（pre-push 只有 `pnpm run typecheck`），这条成立。但重写版举的那个例子不成立，且它的教训比它的结论更重要。
 
 `packages/experimental/agent-team/tests/invariant.spec.ts` **在仓库真实命令下是跑得起来的**：`vitest run --config configs/vitest.config.ts` → 2 passed，退出码 0。alias 表由 `configs/vitest.shared.ts:17-35` 从 `configs/tsconfig.base.json` 的 paths 折出，`@deepseek-ai/dsh-invariants` 在其中有映射；**只有漏掉 `--config configs/vitest.config.ts` 时 alias 表才缺失**，那时它会以「找不到包」红。仓库的真实测试命令是 `pnpm run test` → `vitest run --config configs/vitest.config.ts`（`package.json:56`）。
 
@@ -178,11 +189,13 @@
 
 | 项 | 提交 | 验证 |
 |---|---|---|
-| 缺口 8（按订正后的写法） | `3eaaf48d6d` | `packages/experimental/client-ui-agent-team` 33/33，退出码 0 |
-| 缺口 6a（Responses 协议分支） | `8cf1ddc4e7` | `packages/llm/llm-pi-ai/tests/catalog.spec.ts` 104/104；变异 `sendsDeveloperRole` 的短路 → 新用例转红、其余 103 条仍绿 |
-| 缺口 3 / 4 / 5 | `4f13403e6e` | `packages/experimental/agent-team` + `tool-agent-team` 共 8 个文件 176/176，退出码 0 |
-| `packages/llm/llm` 基线红灯（Q6 第 1 项） | `b3a7d59646` | 整包 52 个文件 1296/1296，退出码 0——**该包此前是红的** |
+| 重写版缺口 1 广播投递失败路径 + 缺口 2 跨 Team 档案复用（另含 resume 往返幂等） | `4f13403e6e` | `packages/experimental/agent-team` + `tool-agent-team` 共 8 个文件 176/176，退出码 0 |
+| 类型断裂面去掉手抄（重写版 §四.4 的推荐修法） | `3eaaf48d6d` | `packages/experimental/client-ui-agent-team` 33/33，退出码 0 |
+| Responses 协议 developer-role 告警钉子（首稿缺口 6a） | `8cf1ddc4e7` | `packages/llm/llm-pi-ai/tests/catalog.spec.ts` 104/104；变异 `sendsDeveloperRole` 的短路 → 新用例转红、其余 103 条仍绿 |
+| `packages/llm/llm` 整包基线红灯 | `b3a7d59646` | 整包 52 个文件 1296/1296，退出码 0——**该包此前是红的** |
+| 重写版零代码收口 ③ + 后端目录校验入正文 | `dbee9d28f8` | 中英配对已重录并复验通过（`verify-translation-pairing` 退出码 0） |
+| 重写版审查文档入库 | `a7fadf15bf` | 取代首稿 `7e195235cf` |
 
-**本轮所有验证命令都带 `--config configs/vitest.config.ts`**：仓库没有根 vitest 配置，裸 `vitest run <path>` 既无 alias 表也不带 jsdom setup，会给出误导性的红灯（`window is not defined`、`ResizeObserver is not defined`、「找不到包」）。这与上面 Q5 的补充判断是同一条事实。
+**本轮所有验证命令都带 `--config configs/vitest.config.ts`**：仓库没有根 vitest 配置，裸 `vitest run <path>` 既无 alias 表也不带 jsdom setup，会给出误导性的红灯（`window is not defined`、`ResizeObserver is not defined`、「找不到包」）。这与上面闸门判断是同一条事实。
 
-**仍留第二轮**：缺口 1（resume 半途断裂，文档自标未验证）、缺口 2（档案 preset 与请求 preset 的优先级——规格问题）、缺口 7（stateVersion 5→6 弃用路径，跨包）。
+**仍留第二轮**：重写版缺口 3（resume 失败的原因折叠 = 第二轮问题 A）、缺口 4（广播目标顺序的头阻塞语义）、缺口 5（stateVersion 5→6 老会话重放回归，跨包）、零代码收口 ① ②；以及首稿缺口 2（档案 preset 与请求 preset 的优先级 = 第二轮问题 B，规格问题）。

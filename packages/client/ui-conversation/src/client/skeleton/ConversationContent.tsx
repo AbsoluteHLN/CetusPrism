@@ -129,9 +129,7 @@ export function ConversationContent(props: ConversationContentProps) {
         },
         onClose: () => { setPickerOpen(false) },
       })}
-      {renderSlot('conversation.hero.agentPreset', {})}
-      {renderSlot('conversation.hero.agentBackend', {})}
-    </div>
+      </div>
   )
 
   // The placeholder chip ("Choose workspace") and the Workspace-trigger input travel

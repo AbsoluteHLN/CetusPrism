@@ -1,5 +1,6 @@
-/* Agent-preset chip on the new-session screen, beside the workspace picker.
-   Geometry mirrors HeroShell's .workspace so the two read as one row. */
+/* Agent-preset chip in the composer tool row, beside the permission control
+   and the execution-backend chip. Geometry mirrors HeroShell's .workspace so
+   the row reads as one line of controls. */
 
 /* Overflow-driven degradation (mirrors HeroShell's .workspace), no
    breakpoint: the label shrinks with an ellipsis down to nothing, so the

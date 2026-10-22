@@ -1,6 +1,6 @@
 /**
- * The execution-backend chip on the new-session screen, beside the
- * agent-preset chip.
+ * The execution-backend chip in the composer tool row, beside the agent-preset
+ * chip.
  *
  * The preset says what the Agent does; the backend says what runs it. The two
  * are separate choices, so they are separate controls: this one lists the
@@ -18,7 +18,7 @@ import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-cli
 import {
   IconBranchOutlineRegular, IconChevronDownOutlineRegular, IconWarningOutlineRegular, Menu, Toast,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-// Type-only: pulls the ui-conversation SlotMap merge (the hero seat).
+// Type-only: pulls the ui-conversation SlotMap merge (the composer seat).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { AgentBackendOption, AgentBackendSeatState } from './backend-store.ts'
 import css from './AgentBackendSeat.module.css'
@@ -42,7 +42,7 @@ const REFUSAL_HOLD_MS = 8000
 
 /** Full component props. */
 export type AgentBackendSeatProps =
-  PropsRuntime<'conversation.hero.agentBackend'>
+  PropsRuntime<'conversation.input.agentBackend'>
   & PropsLocale<'settings.agentPreset'>
   & InjectFace<AgentBackendSeatInjected>
 
@@ -66,7 +66,7 @@ function backendStatusText(
 }
 
 /**
- * Render the new-session execution-backend chip.
+ * Render the composer execution-backend chip.
  * @param props - composed slot props.
  * @returns The chip and any pending selection refusal, or null when the host
  * offers no backend at all.
@@ -143,8 +143,8 @@ export function AgentBackendSeat({
           text={t('backendSwitchRefused', { reason: toast.reason })}
           icon={<IconWarningOutlineRegular />}
           holdMs={REFUSAL_HOLD_MS}
-          // The composer card, which is the content column this chip sits
-          // above rather than inside — hence a page query, not `closest`.
+          // The composer card, which now holds this chip, so the banner
+          // anchors to the card rather than to the chip's own row.
           anchor={document.querySelector<HTMLElement>('[data-composer-card]')}
           onDone={() => { dismissRefusal() }}
         />

@@ -1,10 +1,10 @@
 /**
- * Hero-chip controller: which preset the NEXT session gets.
+ * Composer-chip controller: which preset the Session at hand runs.
  *
- * The new-session screen has no session, so a pick is staged rather than
- * applied. It reaches a session when one becomes current and is still blank —
- * whether the workspace connect created it or reused an existing blank one,
- * which is why staging cannot simply ride along on `sessions.create`.
+ * A pick is staged rather than applied: the choice reaches a session when one
+ * becomes current and is still blank — whether the workspace connect created
+ * it or reused an existing blank one, which is why staging cannot simply ride
+ * along on `sessions.create`.
  *
  * The stage is forgotten once applied. The next new session starts from the
  * Host-effective default again.
@@ -66,7 +66,7 @@ export class AgentPresetSeatController {
 
   constructor(
     private readonly ctx: ClientContext,
-    /** The session the hero is about to hand over to, when there is one. */
+    /** The session the chip is about to hand over to, when there is one. */
     private readonly currentSession: () => Pick<
       SessionSummary,
       'id' | 'blank' | 'projectionValues'
@@ -127,7 +127,10 @@ export class AgentPresetSeatController {
   async select(id: string): Promise<string | undefined> {
     if (this.store.getSnapshot().busy) return undefined
     this.stage(id)
-    return await this.apply()
+    // An explicit pick asks the Host even when the Session already started:
+    // the Host owns the refusal ("already started"), so the chip can tell the
+    // user why the switch did not happen instead of silently dropping it.
+    return await this.apply(true)
   }
 
   /**
@@ -196,9 +199,11 @@ export class AgentPresetSeatController {
    * Called both by `select()` and by whoever observes the current session
    * changing, because the session may appear either before or after the pick.
    * List updates do not repeat a selection while its response is pending.
+   * @param asked - true when the user asked for the pick, so a Session that
+   * already started is still offered to the Host for its own refusal.
    * @returns this attempt's Host refusal, or undefined when successful or no switch starts.
    */
-  async apply(): Promise<string | undefined> {
+  async apply(asked = false): Promise<string | undefined> {
     if (this.store.getSnapshot().busy) return
     const staged = this.staged.id
     const session = this.currentSession()
@@ -210,8 +215,14 @@ export class AgentPresetSeatController {
     }
     if (session === undefined) return
     // A started session's history was produced under its own composition; the
-    // host refuses the swap, so the stage is no longer meaningful.
-    if (!session.blank || presetOf(session) === staged) {
+    // host refuses the swap, so the stage is no longer meaningful. An
+    // un-asked stage is dropped here; an asked one falls through to the Host,
+    // which owns the refusal wording.
+    if (!session.blank && !asked) {
+      this.clearStage()
+      return
+    }
+    if (presetOf(session) === staged) {
       this.clearStage()
       return
     }

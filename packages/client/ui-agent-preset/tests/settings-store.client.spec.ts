@@ -195,7 +195,7 @@ describe('the agent-preset roster store', () => {
 
 })
 
-describe('the new-session chip controller', () => {
+describe('the composer chip controller', () => {
   /** A chip over a current session the test can move. */
   function chip(
     presets: { id: string; isDefault: boolean }[],
@@ -330,7 +330,8 @@ describe('the new-session chip controller', () => {
 
     await controller.select('minimal')
 
-    // Nothing to switch yet: the new-session screen precedes the session.
+    // Nothing to switch yet: the pick was staged for a session that has not
+    // started (the creator draft starts its own).
     expect(writes).toEqual([])
     expect(controller.store.getSnapshot().current).toBe('minimal')
   })
@@ -387,7 +388,26 @@ describe('the new-session chip controller', () => {
     expect(writes).toEqual([{ ns: 'select', ops: 'minimal' }])
   })
 
-  it('drops the stage against a session that already started', async () => {
+  it('asks the host about a session that already started, so the refusal is announced', async () => {
+    const writes: Recorded[] = []
+    const controller = chip(ROSTER, {
+      id: 's1' as SessionId,
+      blank: false,
+      projectionValues: { agentPreset: 'standard' },
+    }, { writes, failSelect: 'session has already started' })
+    await controller.load()
+
+    const refusal = await controller.select('minimal')
+
+    // The host owns the rule; asking it turns a silent drop into a reason the
+    // chip can show, and the label falls back to what the session really runs.
+    expect(writes).toEqual([{ ns: 'select', ops: 'minimal' }])
+    expect(refusal).toBe('session has already started')
+    expect(controller.store.getSnapshot().current).toBe('standard')
+    expect(controller.store.getSnapshot().error).toMatchObject({ reason: 'session has already started' })
+  })
+
+  it('drops an unasked stage against a session that already started', async () => {
     const writes: Recorded[] = []
     const controller = chip(ROSTER, {
       id: 's1' as SessionId,
@@ -396,9 +416,12 @@ describe('the new-session chip controller', () => {
     }, { writes })
     await controller.load()
 
-    await controller.select('minimal')
+    // A stage nobody asked for (a pick made for the next session) is dropped
+    // without troubling the host: the list movement that triggered the apply
+    // is not a request to switch anything.
+    controller.stage('minimal')
+    await controller.apply()
 
-    // The host enforces the same rule; the chip simply never asks.
     expect(writes).toEqual([])
   })
 

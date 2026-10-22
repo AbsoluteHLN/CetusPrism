@@ -1680,7 +1680,9 @@ describe('command launcher chrome and control seats', () => {
     // seat set is the contract).
     expect([...new Set(slotCalls.map(c => c.key))]).toEqual([
       'conversation.input.overlay', 'conversation.input.attachments',
-      'conversation.input.permission', 'conversation.input.plan', 'conversation.input.left',
+      'conversation.input.permission', 'conversation.input.computerDelivery',
+      'conversation.input.agentPreset', 'conversation.input.agentBackend',
+      'conversation.input.plan', 'conversation.input.left',
       'conversation.input.right', 'conversation.input.model', 'conversation.input.activity',
       'conversation.composer.dock',
     ])
@@ -1724,7 +1726,9 @@ describe('command launcher chrome and control seats', () => {
     expect(view.getByTestId('model-entry')).toBeTruthy()
     // The bar hands its chrome disable state to the filling entry.
     const controlKeys = new Set([
-      'conversation.input.permission', 'conversation.input.plan', 'conversation.input.model',
+      'conversation.input.permission', 'conversation.input.computerDelivery',
+      'conversation.input.agentPreset', 'conversation.input.agentBackend',
+      'conversation.input.plan', 'conversation.input.model',
     ])
     const controls = slotCalls.filter(call => controlKeys.has(call.key))
     expect(controls.every(c => (c.owner as { locked: boolean }).locked)).toBe(true)

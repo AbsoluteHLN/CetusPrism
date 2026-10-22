@@ -1,16 +1,17 @@
 /**
  * Agent-preset surface plugin, browser half — three surfaces over one roster:
- * a chip on the new-session screen for the session about to start, a
- * read-only label in the session header, and a settings section that lists
- * the roster (selection, the new-task default, a read-only view of each
- * declared composition, and the way into Creator mode).
+ * a chip in the composer tool row for the session at hand, a read-only label
+ * in the session header, and a settings section that lists the roster
+ * (selection, the new-task default, a read-only view of each declared
+ * composition, and the way into Creator mode).
  *
  * A running session keeps the composition it began with (the host refuses to
  * adopt an existing session under a different preset). That is what splits
- * the choice from the display: the hero chip is before-the-fact, while the
- * header only reports what a session already runs. The default preset is
- * edited where the roster is visible — the settings section's "make default"
- * — so General settings carries no duplicate control for the same field.
+ * the choice from the display: the composer chip offers the switch the Host
+ * will still accept, while the header only reports what a session already
+ * runs. The default preset is edited where the roster is visible — the
+ * settings section's "make default" — so General settings carries no
+ * duplicate control for the same field.
  *
  * PTC and Minimal stay offered everywhere the roster renders; the Developer
  * tools preference governs developer views, never preset availability.
@@ -71,7 +72,7 @@ export const inject = [
 ]
 
 /**
- * Mount the roster surfaces: hero chip, session-header label, settings section.
+ * Mount the roster surfaces: composer chips, session-header label, settings section.
  * @param ctx - the browser plugin context.
  */
 export function apply(ctx: ClientContext): void {
@@ -178,12 +179,12 @@ export function apply(ctx: ClientContext): void {
     scope.effect(() => {
       creatorDraft = startCreatorDraft
       const chip = scope.slots.register({
-        name: 'conversation.hero.agentPreset',
+        name: 'conversation.input.agentPreset',
         locale: 'settings.agentPreset',
         inject: seatInjected,
       }, AgentPresetSeat)
       const backendChip = scope.slots.register({
-        name: 'conversation.hero.agentBackend',
+        name: 'conversation.input.agentBackend',
         locale: 'settings.agentPreset',
         inject: (): AgentBackendSeatInjected => ({
           hooks: { agentBackendSeat: backends.store },
@@ -206,7 +207,7 @@ export function apply(ctx: ClientContext): void {
         backendChip()
         label()
       }
-    }, 'ui-agent-preset: new-session chip and header label')
+    }, 'ui-agent-preset: composer chips and header label')
 
     scope.slots.inject('plugins.add.actions', () => scope.slots.register({
       name: 'plugins.add.actions',

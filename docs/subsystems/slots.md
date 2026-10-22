@@ -167,6 +167,9 @@ root
 │     ├─ conversation.composer.bar
 │     │  ├─ conversation.input.attachments
 │     │  ├─ conversation.input.permission
+│     │  ├─ conversation.input.computerDelivery
+│     │  ├─ conversation.input.agentPreset
+│     │  ├─ conversation.input.agentBackend
 │     │  ├─ conversation.input.plan
 │     │  └─ conversation.input.model
 │     ├─ conversation.input.overlay
@@ -177,7 +180,6 @@ root
 │     ├─ conversation.hero.brand.mark
 │     ├─ conversation.hero.workspace
 │     │  └─ conversation.hero.workspace.directoryFlow
-│     └─ conversation.hero.agentPreset
 ├─ rightbar
 │  └─ rightbar.session
 │     ├─ sidebar.right.pane.tab

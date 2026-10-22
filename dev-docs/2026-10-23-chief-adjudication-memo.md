@@ -265,7 +265,41 @@ Duration 1777.22s
 
 ### 8. 仍然开着的清单
 
-- **缺口 7**：stateVersion 5→6 老会话 JSONL 重放冒烟（跨包 `packages/session/session-projection`）——两份意见都点名，仍未做。
 - **广播目标顺序的头阻塞语义**（`mailbox.ts` 广播准入首个失败即返回 false）——补充意见还在排队。
 - **park 吞 journal 失败**（`roster.ts` 的 park catch 只 warn）：会让成员停在 active 而无 runtime，下一次 resume 报 `TEAM_MEMBER_NOT_FOUND`，是误导性码。本轮登记不动。
 - **GLM 推理档位是否声明**、**S4.3.6 设置区四级卡片**、**S4 设置区档案卡片**：待用户决定。
+
+### 9. 缺口 7（stateVersion 5→6 老会话重放）：从推理变成执行证据
+
+此前对 stateVersion 5→6 的兼容性论证是**推理**（「旧版接受的边新版都接受」），没有执行证据。idea架构师第二轮把「老会话重放冒烟」列为「只能再做一件事时做哪件」的首选，本轮已做。
+
+**做法（全程只读，不复制、不改写生产数据）**：探针 `koutput/replay-production-sessions.ts` 直接读生产会话目录（`D:\Cetus\dshconfig\sessions`、`C:\Users\19635\.dsh\sessions`），在内存里解压 `.zstd` 帧、按 `scanLog` 解析事件，再把其中的 team 事件按顺序喂给**当前**的投影（`packages/experimental/agent-team/src/projection.ts` 的 `teamProjectionDefinition`：`init` / `apply` / `wire.view`，`stateVersion: 6`），最后检查 `failure` 字段与成员相位分布。
+
+```
+logs scanned            : 155
+logs decoded            : 155
+logs with team events   : 3
+team events replayed    : 98
+oldest team session     : 2026-10-17T10:25:32.998Z
+newest team session     : 2026-10-22T11:40:39.817Z
+member phases           : active=10
+projection failures     : 0
+reader refusals         : 21
+```
+
+**结论**：含 team 事件的 3 个生产会话（10-17 与 10-22，即 `dormant` 相位引入**之前**写的日志）经当前投影重放，**投影失败 0**、无异常抛出、成员相位全部落在合法集合内。「老折叠是新版折叠的子集」这句推理，现在有了执行证据。
+
+**21 条 reader refusals 是另一条边界，与本轮无关**：它们全是 `uses log format v3, older than the supported v4, and this build ships no upgrade path for it`（另有 1 条 v0）——被**日志格式读取器**挡在投影之前，属于既有的「旧格式无升级路径」边界，不是 stateVersion 5→6 造成的。**这条边界本身仍是一个真实的上线风险**：那些会话在当前构建里打不开，本轮只做识别、不做处置。
+
+### 10. G/H/I 的裁决（idea架构师第二轮）
+
+- **G（GLM 推理档位）——采纳「不声明」的技术结论，但仍需用户拍板**。理由：思考 token 按输出计费且**不可回传**，即「烧掉的 token 无任何证据、用量面板只能看到费用涨、无法归因」；而 CetusPrism 的前端价值主张恰恰是思维链渲染。折中做法（给目录加 `reasoningReturn: 'visible' | 'hidden'` 字段、声明档位但标注「思考不回传（计费）」）成本约 2–3 个文件，是用户愿意付「不可见成本」时的兜底。当前部署态 GLM 条目**本来就没声明任何档位**（见 §11），即现状等于「不声明」——保持现状不需要任何代码。
+- **D4（STREAM_CLOSED 是否进共享默认重试集）——不改默认集，走逐路由 opt-in**。partial EOF 已经把半截文本流给用户侧但未提交，重试语义不重复、成本上整段 prompt 重计费；若端点系统性截断，5 次重试就是 5 倍成本。共享默认集是全仓共享面，而 `retryPolicy.retryableCodes`（`packages/llm/llm/src/retry-policy.ts:43`）是既有机制、零新代码。落地时需在 llm-pi-ai README 的 `retryPolicy` 字段表加一句「断流重试会重复计费」（中英 + i18n 重录）。
+- **D5（pi-ai 链路 Retry-After 丢失）——接受缓解 + 向上游提 issue，两件都做**。仓库侧注释已自认根因（`packages/llm/llm-pi-ai/src/stream.ts:40-46` 明写丢弃 `cause` 链），分类器只能对文本做正则，拿不到 HTTP 头；本地缓解位是 `retryPolicy.backoff.maxDelayMs`。缓解盲区（网关要求等待 > maxDelayMs）靠部署态调大该路由的 `maxDelayMs` 覆盖，不在本仓 hack fetch/dispatcher 钩子。提 issue 前先搜上游 tracker。
+- **D7（discovery 对换址 baseURL 不 interrogate）——不改**。当前部署唯一路由 `csu` 是手工声明路由，按既有取舍（`packages/llm/llm-pi-ai/README.md:113`）本来就走网络询问；D7 只影响「目录自带路由被换址」这一现在不存在的场景。
+- **I（盲点）——采信其方法论**：六份审查同源同法，天然只覆盖「静态、单包、从零造数据」，漏的是**时间维度（旧数据）、空间维度（未审查的包）、资源维度（token/缓存）**。§9 已把时间维度的一条从推理变成证据；空间维度靠全仓体检覆盖（本轮 1906 个文件，见 §6）；资源维度（KV cache 命中率、token 成本）本轮**无任何测量**，仍是开口。
+
+### 11. 部署态与仓库态的两处不一致（idea架构师 I.3，已复核）
+
+1. **GLM 条目没有声明 `contextWindow`**：部署态 `D:\Cetus\dshconfig\profiles\web\cordis.patch.yml:37-38` 的 GLM 条目只有 `id` / `name`。后果链：hand-declared 模型无目录条目可继承 → 回退到路由默认 `defaultContextWindow 262,144`（`packages/llm/llm-pi-ai/README.zh.md:84`）→ **压缩阈值按 262K 算**；而同路由的 DeepSeek 条目实测声明 `128000`（`:36`）。若 GLM-5.3-Flash 真实窗口是 128K，**压缩触发点晚一倍**，长程任务会在逼近真窗口时溢出重试。修复是部署态一行（声明实测值），仓库侧零改动。**GLM 真实窗口大小未验证**——需要一次网关探针。
+2. **部署态夹带仓外插件与明文凭据**：同一文件 `:87-88` 用 `insert` 引入了 `file:///E:/KalciriteTools/agent-adapters/dsh-bot-companion/index3.js`（**仓外路径**），其 qq 配置内嵌带 token 的 `loginUrl`（`:115`，值不复述）。两个问题：该插件完全绕过仓库全部闸门（JSDoc / i18n / `any` 禁令），仓库对它的存在零记账；明文 token 违背「Never commit credentials」的精神（`AGENTS.md:124`），即便它在部署态而非 git 文件里，同机泄露面依然存在。**建议**：不删（部署态是用户资产），但下一版登记「部署态依赖清单」，并提醒该 token 宜改走环境引用。

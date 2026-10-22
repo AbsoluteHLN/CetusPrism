@@ -299,6 +299,74 @@ describe('Team agent profiles', () => {
     })).rejects.toMatchObject({ code: 'TEAM_PROFILE_CONFLICT' })
   })
 
+  it('rejects an agent preset that conflicts with the declared profile preset', async () => {
+    const { ctx, lead } = await setup([], {
+      profiles: [{
+        id: 'preset-reviewer',
+        name: 'preset-reviewer',
+        description: 'reviews changes under a preset',
+        backend: 'spawn',
+        preset: 'plain',
+      }],
+    })
+
+    await expect(ctx.agentTeams.spawnTeammate(lead, {
+      profileId: 'preset-reviewer',
+      prompt: content('review the diff'),
+      context: 'fresh',
+      preset: 'fancy',
+      signal: SIGNAL,
+    })).rejects.toMatchObject({
+      code: 'TEAM_PROFILE_CONFLICT',
+      message: expect.stringContaining('preset conflicts with the declared profile "preset-reviewer"'),
+    })
+  })
+
+  it('accepts an agent preset that matches the declared profile preset', async () => {
+    const { ctx, lead } = await setup(['hang'], {
+      profiles: [{
+        id: 'preset-reviewer',
+        name: 'preset-reviewer',
+        description: 'reviews changes under a preset',
+        backend: 'spawn',
+        preset: 'plain',
+      }],
+    })
+
+    const spawned = await ctx.agentTeams.spawnTeammate(lead, {
+      profileId: 'preset-reviewer',
+      prompt: content('review the diff'),
+      context: 'fresh',
+      preset: 'plain',
+      signal: SIGNAL,
+    })
+
+    expect(spawned.member.preset).toBe('plain')
+    expect(durable(lead).members.find(member => member.id === spawned.member.id)?.preset).toBe('plain')
+  })
+
+  it('takes the agent preset from the declared profile when the request names none', async () => {
+    const { ctx, lead } = await setup(['hang'], {
+      profiles: [{
+        id: 'preset-reviewer',
+        name: 'preset-reviewer',
+        description: 'reviews changes under a preset',
+        backend: 'spawn',
+        preset: 'plain',
+      }],
+    })
+
+    const spawned = await ctx.agentTeams.spawnTeammate(lead, {
+      profileId: 'preset-reviewer',
+      prompt: content('review the diff'),
+      context: 'fresh',
+      signal: SIGNAL,
+    })
+
+    expect(spawned.member.preset).toBe('plain')
+    expect(durable(lead).members.find(member => member.id === spawned.member.id)?.preset).toBe('plain')
+  })
+
   it('requires a request backend when the declared profile declares none', async () => {
     const { ctx, lead } = await setup([], {
       profiles: [{ id: 'reviewer', name: 'reviewer', description: 'reviews changes' }],
@@ -449,6 +517,48 @@ describe('Team dormant teammates', () => {
     // The member runs nothing, so it goes back to the phase it was released
     // into: a later resume has to be able to bring it back.
     expect(durable(lead).members.find(member => member.name === 'worker')?.phase).toBe('dormant')
+  })
+
+  it('records the resume failure reason on the dormant member row', async () => {
+    const { ctx, lead } = await setup(['hang'])
+    await spawn(ctx, lead, 'worker')
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+    vi.spyOn(ctx.subagents, 'sendMessage').mockRejectedValueOnce(new Error('the session is not available'))
+
+    await expect(ctx.agentTeams.resumeTeammate(lead, {
+      name: 'worker',
+      prompt: content('continue the review'),
+      signal: SIGNAL,
+    })).rejects.toMatchObject({ code: 'TEAM_MEMBER_NOT_RESUMABLE' })
+
+    // The reason outlives the call that reported it: the durable row says
+    // why the member went back to sleep, so a restart does not lose it.
+    const row = durable(lead).members.find(member => member.name === 'worker')
+    expect(row?.phase).toBe('dormant')
+    expect(row?.error).toContain('the session is not available')
+  })
+
+  it('clears the stale resume failure from a member a later resume brings back', async () => {
+    const { ctx, lead } = await setup(['hang', 'hang'])
+    await spawn(ctx, lead, 'worker')
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+    vi.spyOn(ctx.subagents, 'sendMessage').mockRejectedValueOnce(new Error('the session is not available'))
+    await expect(ctx.agentTeams.resumeTeammate(lead, {
+      name: 'worker',
+      prompt: content('continue the review'),
+      signal: SIGNAL,
+    })).rejects.toMatchObject({ code: 'TEAM_MEMBER_NOT_RESUMABLE' })
+
+    await ctx.agentTeams.resumeTeammate(lead, {
+      name: 'worker',
+      prompt: content('continue the review'),
+      signal: SIGNAL,
+    })
+
+    // The member runs again, so the earlier failure no longer describes it.
+    const row = durable(lead).members.find(member => member.name === 'worker')
+    expect(row?.phase).toBe('active')
+    expect(row?.error).toBeUndefined()
   })
 
   it('rejects a resume for a member that is not dormant', async () => {

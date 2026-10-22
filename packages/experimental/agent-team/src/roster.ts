@@ -352,7 +352,10 @@ export class TeamRoster {
       if (current === undefined || current.phase !== 'dormant') {
         throw new TeamError(`teammate "${request.name}" is not a dormant member`, 'TEAM_MEMBER_NOT_FOUND')
       }
-      const settled: TeamMemberSnapshot = { ...current, phase: 'active' }
+      // The member runs again, so the failure of an earlier resume no longer
+      // describes it: the stale reason is dropped instead of carried along.
+      const { error: _staleFailure, ...withoutFailure } = current
+      const settled: TeamMemberSnapshot = { ...withoutFailure, phase: 'active' }
       await this.journal.appendAndFlush(root, 'team/member', {
         version: 2,
         teamId: TeamId(root.id),
@@ -367,8 +370,9 @@ export class TeamRoster {
     } catch (error: unknown) {
       // The member runs nothing, so it goes back to the phase it was
       // released into: an active member without a runtime is a member no
-      // later resume can bring back.
-      await this.park(root, member.id)
+      // later resume can bring back. The reason travels with the row, so the
+      // failure is still on record once this call is gone.
+      await this.park(root, member.id, errorMessage(error))
       throw new TeamError(
         `teammate "${request.name}" cannot be resumed: ${errorMessage(error)}`,
         'TEAM_MEMBER_NOT_RESUMABLE',
@@ -386,16 +390,22 @@ export class TeamRoster {
    * a member no later resume can bring back.
    * @param root - exact live Team Lead.
    * @param memberId - the member identity.
+   * @param reason - why the member was parked, recorded on the member row.
    */
-  private async park(root: Agent, memberId: SessionId): Promise<void> {
+  private async park(root: Agent, memberId: SessionId, reason?: string): Promise<void> {
     try {
       await this.journal.transact(root.id, async () => {
         const current = this.journal.state(root).members.find(candidate => candidate.id === memberId)
         if (current === undefined || current.phase !== 'active') return
+        const settled: TeamMemberSnapshot = {
+          ...current,
+          phase: 'dormant',
+          ...reason === undefined ? {} : { error: reason },
+        }
         await this.journal.appendAndFlush(root, 'team/member', {
           version: 2,
           teamId: TeamId(root.id),
-          member: { ...current, phase: 'dormant' },
+          member: settled,
         })
       })
     } catch (error: unknown) {
@@ -459,11 +469,20 @@ export class TeamRoster {
           'TEAM_PROFILE_CONFLICT',
         )
       }
+      if (request.preset !== undefined && profile.preset !== undefined && request.preset !== profile.preset) {
+        throw new TeamError(
+          `preset conflicts with the declared profile "${profile.id}"`,
+          'TEAM_PROFILE_CONFLICT',
+        )
+      }
     }
     const name = this.memberName(profile?.name ?? request.name ?? '')
     const description = requiredText(profile?.description ?? request.description ?? '', 'description', 200)
     const backend = requiredText(profile?.backend ?? request.provider ?? '', 'provider', 200)
-    const preset = request.preset ?? profile?.preset
+    // The preset is part of the member identity, so it follows the same rule
+    // as the name and the backend: one profile id has to instantiate one
+    // identity, and the declared profile wins over the request.
+    const preset = profile?.preset ?? request.preset
     const teamPolicy = this.modelPolicy()
     const route = this.resolveModelRoute(root, request, teamPolicy, profile)
     if (profile?.allowedEfforts !== undefined && profile.allowedEfforts.length > 0

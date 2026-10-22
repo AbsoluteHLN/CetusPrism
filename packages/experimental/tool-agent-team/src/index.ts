@@ -408,7 +408,7 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
         },
         preset: {
           type: 'string',
-          description: 'Agent preset this member is created under, recorded and range-checked by the Team; the owning Session decides which preset it actually runs under. Must be inside the Team allowed-preset range.',
+          description: 'Agent preset this member is created under, recorded and range-checked by the Team; the owning Session decides which preset it actually runs under. Must be inside the Team allowed-preset range and name a preset id this deployment declared; an undeclared id is recorded but does not take effect. A declared profile pins its own preset, so naming a profile and a different preset is a conflict.',
         },
       },
       output: jsonOutput(SPAWN_VALUE_SCHEMA),

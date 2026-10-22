@@ -264,7 +264,8 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 |---|---|---|
 | S4.1 档案 | **已实现** | 新模块 `packages/experimental/agent-team/src/profile.ts`（`AgentProfileRegistry`）；配置项 `profiles`；`TeamMemberSnapshot.profileId` / `TeamMemberView.profileId` / `TeamMemberProjection.profileId`；`spawnTeammate({ profileId })` 走档案取名/描述/底座/路由，冲突报 `TEAM_PROFILE_CONFLICT`，未声明报 `TEAM_PROFILE_UNKNOWN` |
 | S4.2 驻留复用 | **已实现**（2026-10-23 补两处） | `TeamMemberPhase` 增 `dormant`；`roster.release()` / `roster.resume()`（resume 经 `ctx.subagents.sendMessage` 冷复原持久化子 Session）；投影允许 `active → dormant → active`；`stateVersion` 5 → 6。**补**：① 单播投递读目标相位，dormant 不冷复原（`mailbox.ts` `dispatchOnce`），dormant 成员的邮件留在持久队列等复活送达；② `resume()` 先记 `active` 再提交提示，失败回写 `dormant`——否则复活的成员在创建瞬间相位仍是 `dormant`，`tryMembership` 拒绝 → Team 工具不安装 |
-| S4.3 模式范围 | **已实现** | 新模块 `src/range.ts`（`checkRanges`）；配置项 `allowedEfforts` / `allowedBackends` / `allowedPresets`；档案自身的 `allowedEfforts` 在 Team 限制之上再收窄；越界分别报 `TEAM_EFFORT_NOT_ALLOWED` / `TEAM_BACKEND_NOT_ALLOWED` / `TEAM_PRESET_NOT_ALLOWED` |
+| S4.3 模式范围 | **已实现**（2026-10-23 补一处） | 新模块 `src/range.ts`（`checkRanges`）；配置项 `allowedEfforts` / `allowedBackends` / `allowedPresets`；档案自身的 `allowedEfforts` 在 Team 限制之上再收窄；越界分别报 `TEAM_EFFORT_NOT_ALLOWED` / `TEAM_BACKEND_NOT_ALLOWED` / `TEAM_PRESET_NOT_ALLOWED`。**补**：`allowedBackends` 的取值还要过一遍「实际存在的后端目录」（`ctx.subagents.list()`，`roster.ts`），不在目录里的后端在**成员行创建之前**就被拒（`TEAM_BACKEND_NOT_AVAILABLE`）——此前它会先落一条 `provisioning` 成员行，再因 provider 找不到而失败成 `failed`，**失败成员照样占名字与名额** |
+| S4.3.6 设置区四级卡片 | **延后** | 控制器仍停在 provider/model 两级（`packages/client/ui-settings-subagent/src/client/team-model-restriction-card-controller.ts`），未扩到「provider/model/档位/后端」四级。Team 侧的范围机制（`allowedEfforts` / `allowedBackends`）本身已实现并有守卫，卡片是可选便利面 |
 | S4.4 群聊 | **已实现** | `mailbox.broadcast()`：一条持久广播记录 + 每目标一条投递边；复用既有邮箱链（先落盘、按目标串行、目标去重、冷恢复重投）；上限按展开后目标数计；新增事件 `team/message/broadcast` / `team/message/broadcast-delivered` |
 | 工具层 | **已实现** | `tool-agent-team` 新增 `list_agent_profiles` / `release_teammate` / `reactivate_teammate` / `broadcast_message`；`spawn_teammate` 增 `profile_id` / `preset` / `backend`；`list_agents` 输出带 `dormant` / `resumable` / `profile_id` / `preset` |
 | 设置区档案卡片 | **延后** | 见 S4.1.6：profile patch 已提供「存智能体信息的配置环境」，UI 卡片是可选便利面 |
@@ -293,6 +294,9 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
    `tool-agent-team/tests/tool-team.spec.ts`）。
 3. **`maxMembers` 计入 dormant 成员**（S4.2.4 的口径）：长期逗留不会绕过成员上限，
    但 dormant 不占并发槽位。
+   **2026-10-23 补记**：这条此前只是登记的边界——实现确实计入（`release()` 只改相位、成员行保留，
+   `roster.ts` 的 `state.members.length` 仍计入它），但**没有测试钉住**；现已补回归用例
+   （`agent-team/tests/upgrade.spec.ts`「counts a dormant teammate against the member limit」）。
 
 ---
 

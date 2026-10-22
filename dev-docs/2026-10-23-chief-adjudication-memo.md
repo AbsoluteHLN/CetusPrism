@@ -30,20 +30,33 @@
 | 文档规范 | **upgrade-ideas 的 Top 1 解决的是不存在的问题**：它称旧品牌断言「仍存在」，而修复提交 `6a382f4358`（01:18:55）比该文档提交（01:19:09）**早 14 秒** | 已改为「已完成」并标注时序 |
 | 文档规范 | model-access-review 的「修法优先级 Top 5」列的 5 项在同一文档已标为完成/证伪 | 改为「四、仍待处理」 |
 | 文档规范 | 27 处行号漂移（22 在 model-access / 4 在 agentloop / 1 在 upgrade-ideas） | 全部重指；另修 agentloop 的 `canRunParallel`→`canRunInParallel` |
-| S4 一致性 | **规格 S4.3.3 明文要求「`allowedBackends` 取值必须来自实际存在的后端目录，否则拒绝」，实现只有一半**（`packages/experimental/agent-team/src/range.ts:47-53`）；真实目录 `ctx.subagents.list()`（`packages/subagent/subagent/src/index.ts:543-545`）就在手边，Team 服务已注入 `subagents`（`src/index.ts:155`）却从未查。越界后端不是被「拒绝」，而是先落一条 `provisioning` 成员行（`src/roster.ts:496-509`）再因 `expectProvider` 抛 `NO_PROVIDER`（`subagent/src/index.ts:612-618`）失败成 `failed`，**仍占名字与名额** | **待裁（见下）** |
-| S4 一致性 | 规格 S4.3.6「设置区四级卡片」**未实现且未在 §4.8 实施结果表登记**——控制器仍停在 provider/model 两级（`packages/client/ui-settings-subagent/src/client/team-model-restriction-card-controller.ts:12-15,222-228`）。读规格会误判为已覆盖 | **待裁（见下）** |
-| S4 一致性 | 规格 S4.2.6 要求复用走 mailbox 冷恢复投递，实现直调 `ctx.subagents.sendMessage`（`src/roster.ts:348`）——**规格内部即不自洽**（§4.8 记录了另一种落法） | **待裁（见下）** |
-| S4 一致性 | `maxMembers` 计入 dormant（`src/roster.ts:505`）**无测试钉住**；resume 把 `NOT_RESUMABLE`/`PERSISTENCE_UNAVAILABLE` 压成单一 `TEAM_MEMBER_NOT_RESUMABLE` | 补测试 |
+| S4 一致性 | **规格 S4.3.3 明文要求「`allowedBackends` 取值必须来自实际存在的后端目录，否则拒绝」，实现只有一半**（`packages/experimental/agent-team/src/range.ts:47-53`）；真实目录 `ctx.subagents.list()`（`packages/subagent/subagent/src/index.ts:543-545`）就在手边，Team 服务已注入 `subagents`（`src/index.ts:155`）却从未查。越界后端不是被「拒绝」，而是先落一条 `provisioning` 成员行（`src/roster.ts:496-509`）再因 `expectProvider` 抛 `NO_PROVIDER`（`subagent/src/index.ts:612-618`）失败成 `failed`，**仍占名字与名额** | **已落地（见 §三.A）** |
+| S4 一致性 | 规格 S4.3.6「设置区四级卡片」**未实现且未在 §4.8 实施结果表登记**——控制器仍停在 provider/model 两级（`packages/client/ui-settings-subagent/src/client/team-model-restriction-card-controller.ts:12-15,222-228`）。读规格会误判为已覆盖 | **已落地（见 §三.A）** |
+| S4 一致性 | 规格 S4.2.6 要求复用走 mailbox 冷恢复投递，实现直调 `ctx.subagents.sendMessage`（`src/roster.ts:348`）——**规格内部即不自洽**（§4.8 记录了另一种落法） | **已裁（见 §三.B）** |
+| S4 一致性 | `maxMembers` 计入 dormant（`src/roster.ts:505`）**无测试钉住**；resume 把 `NOT_RESUMABLE`/`PERSISTENCE_UNAVAILABLE` 压成单一 `TEAM_MEMBER_NOT_RESUMABLE` | 守卫测试**已补**（见 §三.A）；resume 的错误码细分仍未处理 |
 
 ---
 
 ## 三、待裁（第二轮讨论的议程）
 
-### A. S4 规格与实现的三处落差 —— 建议直接落地，不需要讨论
+### A. S4 规格与实现的三处落差 —— **已落地（2026-10-23 夜）**
 
 1. **补 `allowedBackends` 的目录校验**：规格已明文要求，实现缺失，且失败模式不好（越界后端仍占名字与名额）。范围：1 个包 + 测试。
 2. **§4.8 实施结果表补 S4.3.6 一行**（卡片未实现，登记为延后）。这是文档记账，5 分钟。
 3. **补 `maxMembers` 计入 dormant 的测试**。已有行为，缺守卫。
+
+**落地细节**：
+
+| 项 | 落点 | 验证 |
+|---|---|---|
+| ① 目录校验 | `agent-team/src/roster.ts`：范围校验之后、成员行创建之前查 `ctx.subagents.list()`（`packages/subagent/subagent/src/index.ts:543-545`），不在目录里报 `TEAM_BACKEND_NOT_AVAILABLE` | 撤掉校验 → 新用例转红，且错误从 `TEAM_BACKEND_NOT_AVAILABLE` 退回 `SubagentError{code:'NO_PROVIDER'}`——**后者证明旧行为确实发生在成员行写入之后**，失败成员因此占名字与名额 |
+| ② S4.3.6 登记 | 规格 §4.8 新增一行「设置区四级卡片 = 延后」 | 文档记账 |
+| ③ dormant 计入上限的守卫 | `agent-team/tests/upgrade.spec.ts`「counts a dormant teammate against the member limit」 | 既有行为的回归守卫（实现本来就对：`release()` 只改相位、成员行保留） |
+
+**既有契约未变**：「创建失败仍占名字与名额」是 Team 的既有契约（成员名是身份，同一 Team 只允许一个实例）。
+因此 `tests/team.spec.ts` 那条用例不能再用「未知后端」造失败——未知后端现在被**提前拒绝**、什么都不占；
+改用真实的创建失败（`startContinuable` 拒绝）来钉这条契约，断言保持「失败成员占名字、占名额」。
+两条语义就此分开：**后端不存在 → 提前拒绝、不留痕；创建失败 → 留失败行、占名字与名额。**
 
 ### B. S4.2.6 的规格自相矛盾 —— **已裁（2026-10-23 夜，取选项 2）**
 

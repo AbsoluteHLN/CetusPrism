@@ -9,7 +9,7 @@
  */
 
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { CONTEXT_WINDOW_EXCEEDED_CODE, DEVELOPER_ROLE_REJECTED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isDeveloperRoleRejectedError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
+import { CONTEXT_WINDOW_EXCEEDED_CODE, DEVELOPER_ROLE_REJECTED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isDeveloperRoleRejectedError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE, REASONING_EFFORT_REJECTED_CODE } from '@deepseek-ai/dsh-llm'
 import type { FinishReason, StreamChunk, TokenUsage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow'
 import type { AssistantMessage, AssistantMessageEvent, Usage as PiUsage } from '@earendil-works/pi-ai'
@@ -57,6 +57,14 @@ function classifyPiAiError(message: string): string {
   // from every other rejected request is what lets the operator see which
   // configuration line fixes it.
   if (isDeveloperRoleRejectedError(message)) return DEVELOPER_ROLE_REJECTED_CODE
+  // A gateway that refuses the reasoning effort names the level it got and
+  // the set it takes. The request is well formed and the model is willing —
+  // the route's own effort declaration is what the endpoint rejected, so the
+  // code is what tells the operator which field to change.
+  if (/\breasoning[ _-]effort\b/i.test(message)
+    && /unsupported|not\s+support|unknown|unrecognized|invalid|unexpected|not\s+allowed/i.test(message)) {
+    return REASONING_EFFORT_REJECTED_CODE
+  }
   // A rejected request body (gateway or provider size cap): resending the
   // same request cannot succeed, so it is invalid, not transient.
   if (/\b413\b|failed to buffer the request body:\s*length limit exceeded|payload too large|request body too large/i.test(message)) return 'INVALID_REQUEST'
@@ -144,7 +152,9 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
       return {
         kind: 'error',
         failure: {
-          message: code === DEVELOPER_ROLE_REJECTED_CODE ? developerRoleGuidance(text) : text,
+          message: code === DEVELOPER_ROLE_REJECTED_CODE
+            ? developerRoleGuidance(text)
+            : code === REASONING_EFFORT_REJECTED_CODE ? reasoningEffortGuidance(text) : text,
           code,
         },
       }
@@ -177,6 +187,23 @@ function developerRoleGuidance(detail: string): string {
   }
   return `${detail} — the endpoint refused a message role. When the system prompt travels as the \`developer\` role,`
     + ' set `compat.supportsDeveloperRole: false` on this provider route (or on the model entry) so it travels as `system`.'
+}
+
+/**
+ * Restate a refused reasoning effort as the configuration change that fixes it.
+ *
+ * The endpoint names the level it got and the levels it takes, so the
+ * operator already knows the fact; what the wording does not say is which
+ * configuration line decides that level. The route's `reasoningEfforts`
+ * declaration does, and it is where the fix belongs — an effort the endpoint
+ * rejects is a level the route should not be sending.
+ *
+ * @param detail - the provider's rejection text.
+ * @returns the message with the corrective configuration appended.
+ */
+function reasoningEffortGuidance(detail: string): string {
+  return `${detail} — the endpoint refused this reasoning effort. The route's \`reasoningEfforts\` declaration lists`
+    + ' the levels pi-ai sends; set it to the levels this endpoint accepts.'
 }
 
 /**

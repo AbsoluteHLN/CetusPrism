@@ -390,6 +390,32 @@ describe('PiAiAdapter provider routing', () => {
     expect(server.paths).toEqual(['/chat/completions'])
   })
 
+  it('names the effort declaration when the endpoint refuses a reasoning effort', async () => {
+    // The wording an OpenAI-compatible gateway uses when the level it was
+    // sent is not one it takes. Measured against a private gateway serving
+    // Qwen: "Unexpected reasoning effort high. Supported types are xhigh
+    // (default), medium, and low." The request is well formed and the model
+    // is willing, so the route's own effort declaration is what the endpoint
+    // rejected — and that is the line the guidance has to name.
+    const server = await mockServer([{
+      status: 400,
+      body: JSON.stringify({
+        error: { message: 'Unexpected reasoning effort high. Supported types are xhigh (default), medium, and low.' },
+      }),
+    }])
+    const ctx = await harness(server.url)
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+
+    expect(result.finish).toMatchObject({
+      kind: 'error',
+      failure: {
+        code: 'REASONING_EFFORT_REJECTED',
+        message: expect.stringContaining('reasoningEfforts'),
+      },
+    })
+    expect(server.paths).toEqual(['/chat/completions'])
+  })
+
   it('uses the resolved catalog context window for usage-based overflow detection', async () => {
     const model = getBuiltinModels('deepseek').find(candidate => candidate.id === 'deepseek-flash')
     if (model === undefined) throw new Error('deepseek-flash missing from pi-ai test catalog')

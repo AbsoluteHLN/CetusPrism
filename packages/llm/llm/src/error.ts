@@ -67,6 +67,21 @@ export const INVALID_CREDENTIAL_CODE = 'INVALID_CREDENTIAL'
 export const DEVELOPER_ROLE_REJECTED_CODE = 'DEVELOPER_ROLE_REJECTED'
 
 /**
+ * Canonical provider-neutral code for a request an OpenAI-compatible gateway
+ * rejected because it does not accept the reasoning effort that was sent.
+ *
+ * pi-ai sends the level the route's `reasoningEfforts` declaration maps to,
+ * and an endpoint that does not take that level rejects the request as a
+ * malformed one. The resulting `400` is otherwise indistinguishable from any
+ * other rejected request, so the one configuration line that fixes it — the
+ * route's own effort declaration — stays invisible to the operator.
+ *
+ * The failure is terminal rather than transient: resending the same body
+ * cannot succeed, so it stays out of the default retryable set.
+ */
+export const REASONING_EFFORT_REJECTED_CODE = 'REASONING_EFFORT_REJECTED'
+
+/**
  * Recognize the wording a gateway uses when it rejects a message role.
  *
  * Most providers name the role in the rejection itself, so the role name is

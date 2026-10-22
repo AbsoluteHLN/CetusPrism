@@ -896,6 +896,45 @@ describe('provider rows', () => {
     if (row === null) throw new Error('no row for openai')
     expect(row.textContent).toContain(modelError)
   })
+
+  it('shows every diagnostic a route carries at once', async () => {
+    // A route can carry all three kinds at the same time: a route-level
+    // failure, a risk, and a per-model failure. Rendering them as
+    // alternatives would hide the two an operator cannot otherwise reach
+    // behind the one that took the route's attention — a diagnostic with
+    // no exit is a diagnostic nobody sees.
+    const failure = 'llm-pi-ai: provider "openai" model "gpt-4" contextWindow must be a positive integer'
+    const risk = 'llm-pi-ai: provider "openai" model "gpt-5" is a reasoning model on an endpoint'
+      + ' pi-ai resolves as OpenAI ... set `compat.supportsDeveloperRole: false`'
+    const modelError = 'llm-pi-ai: provider "openai" model "gpt-4o" reasoningEfforts offers no level beyond "off"'
+    const scripted = scriptedFace({ providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
+    scripted.face.llm.listConfigurableProviders = vi.fn(() => Promise.resolve(ok([{
+      provider: 'openai',
+      displayName: 'openai',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: ['providers', 'openai'],
+      error: failure,
+      warnings: [risk],
+      modelErrors: [modelError],
+    }]))) as never
+    const controller = new ModelsSettingsStore(
+      ctxWith(scripted.face), settingsSchema, new SettingsDescribeMirror(ctxWith(scripted.face)))
+    await controller.load()
+    render(<ModelsSection
+      controller={controller}
+      useSnapshot={bindSnapshotSelector(controller.store)}
+      operations={operationsWith(scripted.face)}
+      schema={settingsSchema}
+      t={t}
+      renderSlot={() => null}
+    />)
+
+    const row = screen.getByText('openai').closest('li')
+    if (row === null) throw new Error('no row for openai')
+    expect(row.textContent).toContain(failure)
+    expect(row.textContent).toContain(risk)
+    expect(row.textContent).toContain(modelError)
+  })
 })
 
 describe('hand-declared providers', () => {

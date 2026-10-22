@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type {
   TeamMemberProjection,
+  TeamMemberView,
   TeamTaskView as TeamTask,
 } from '@deepseek-ai/dsh-experimental-agent-team/client'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
@@ -26,7 +27,7 @@ export interface TeamActionInjected {
 }
 
 /** Durable lifecycle overlaid with the member Session's live turn activity. */
-type MemberStatus = 'running' | 'inactive' | 'provisioning' | 'dormant' | 'failed'
+type MemberStatus = TeamMemberView['status']
 
 /** Full props of the Team conversation-header action. */
 export type TeamActionProps =

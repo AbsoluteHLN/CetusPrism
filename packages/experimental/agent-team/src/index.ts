@@ -68,10 +68,11 @@ const agentProfileSchema = z.object({
   backend: z.string(),
   provider: z.string(),
   model: z.string(),
-  // The declared contract is a readonly list of effort ids, so the parsed
-  // shape must carry one too: a mutable array would not satisfy
-  // `AgentProfile` under `exactOptionalPropertyTypes`.
-  allowedEfforts: z.array(z.string()) as unknown as z<readonly string[]>,
+  // The effort list is declared the way every other configured list in this
+  // package is declared: a mutable array the deployment hands over and the
+  // service copies. The list schema needs no widening to accept it, so the
+  // parsed shape carries no claim the runtime cannot keep.
+  allowedEfforts: z.array(z.string()),
   preset: z.string(),
 })
 

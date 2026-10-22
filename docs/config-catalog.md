@@ -883,8 +883,15 @@ export interface AgentProfile {
   readonly provider?: string
   /** Model id interpreted by that provider. */
   readonly model?: string
-  /** Exact model-advertised effort ids the profile may use. */
-  readonly allowedEfforts?: readonly string[]
+  /**
+   * Exact model-advertised effort ids the profile may use.
+   *
+   * The declared list is mutable, like every other configured list in this
+   * package: the array the deployment hands over is the array that is read,
+   * and the service copies it before it stores or returns it. The readonly
+   * list lives on the view, which is what a caller receives.
+   */
+  readonly allowedEfforts?: string[]
   /** Agent preset the member runs under. */
   readonly preset?: string
 }
@@ -892,7 +899,7 @@ export interface AgentProfile {
 
 Depends on: `Volatile` (`@deepseek-ai/cordis`)
 
-Source: [`packages/experimental/agent-team/src/types.ts:274`](../packages/experimental/agent-team/src/types.ts)
+Source: [`packages/experimental/agent-team/src/types.ts:281`](../packages/experimental/agent-team/src/types.ts)
 
 <a id="deepseek-aidsh-experimental-api-speech-to-text"></a>
 

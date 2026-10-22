@@ -45,21 +45,53 @@ export function mapUsage(usage: PiUsage): TokenUsage {
 // If pi-ai ever forwards the original Error (or a fetch/dispatcher hook that lets
 // us capture the cause ourselves), classify on `code`/`cause` instead of text.
 /**
- * Wording that refuses a reasoning effort, with the refusal next to the effort.
- *
- * The two have to be neighbours. A rejected request's body carries its own
- * machine code — `invalid_request_error` on most gateways — and that word
- * alone would otherwise make every request that merely mentions an effort
- * read as a refusal of it. Keeping the window tight means only the wording
- * that talks about the effort qualifies.
+ * The phrase a gateway uses when the reasoning effort is what it refuses.
  */
-const REASONING_EFFORT_REFUSAL = new RegExp(
-  String.raw`\b(?:unexpected|unsupported|not\s+supported|unknown|unrecognized|invalid|not\s+allowed)\b[^\n]{0,48}?`
-  + String.raw`\breasoning[ _-]effort\b`
-  + String.raw`|\breasoning[ _-]effort\b[^\n]{0,48}?`
-  + String.raw`\b(?:unexpected|unsupported|not\s+supported|unknown|unrecognized|invalid|not\s+allowed)\b`,
-  'i',
-)
+const EFFORT_PHRASE = /\breasoning[ _-]effort\b/i
+
+/**
+ * Wording that refuses outright: the gateway states the effort is not one it
+ * takes, in any order around the phrase.
+ */
+const EFFORT_REFUSAL = /\b(?:unexpected|unsupported|not\s+supported|unknown|unrecognized|not\s+allowed)\b/i
+
+/**
+ * The levels a route declares, as a gateway would name them.
+ *
+ * A gateway that enumerates the levels it takes has already refused the one
+ * that was sent, whatever words it wraps the list in — "must be low, high,
+ * xhigh, max" is the phrasing a private gateway used, and it carries no
+ * refusal word at all.
+ */
+const EFFORT_LEVEL = /\b(?:minimal|low|medium|high|xhigh|max)\b/i
+
+/** How far from the phrase the evidence may sit, in characters. */
+const EFFORT_WINDOW = 48
+
+/**
+ * Whether the text refuses the reasoning effort that was sent.
+ *
+ * Two ways to read a refusal, and only two:
+ *
+ * - The gateway refuses it outright, naming the effort and saying it does
+ *   not take it.
+ * - The gateway enumerates the levels it takes, which refuses the level
+ *   that was sent whatever introduces the list.
+ *
+ * The evidence has to sit next to the phrase. A rejected request's body
+ * carries its own machine code — `invalid_request_error` on most gateways —
+ * and a word from that code must not be read as a refusal of the effort.
+ *
+ * @param message - the provider's error text.
+ * @returns true when the text refuses a reasoning effort.
+ */
+function refusesReasoningEffort(message: string): boolean {
+  const match = EFFORT_PHRASE.exec(message)
+  if (match === null) return false
+  const start = Math.max(0, match.index - EFFORT_WINDOW)
+  const window = message.slice(start, match.index + match[0].length + EFFORT_WINDOW)
+  return EFFORT_REFUSAL.test(window) || EFFORT_LEVEL.test(window)
+}
 
 function classifyPiAiError(message: string): string {
   if (/\b(?:401|403)\b/.test(message)) return 'AUTH'
@@ -78,7 +110,7 @@ function classifyPiAiError(message: string): string {
   // the set it takes. The request is well formed and the model is willing —
   // the route's own effort declaration is what the endpoint rejected, so the
   // code is what tells the operator which field to change.
-  if (REASONING_EFFORT_REFUSAL.test(message)) return REASONING_EFFORT_REJECTED_CODE
+  if (refusesReasoningEffort(message)) return REASONING_EFFORT_REJECTED_CODE
   // A rejected request body (gateway or provider size cap): resending the
   // same request cannot succeed, so it is invalid, not transient.
   if (/\b413\b|failed to buffer the request body:\s*length limit exceeded|payload too large|request body too large/i.test(message)) return 'INVALID_REQUEST'

@@ -416,6 +416,26 @@ describe('PiAiAdapter provider routing', () => {
     expect(server.paths).toEqual(['/chat/completions'])
   })
 
+  it('recognizes a refusal that only enumerates the levels the endpoint takes', async () => {
+    // The other wording the same gateway family uses: it names the levels it
+    // takes and refuses the one that was sent, without any refusal word.
+    // Measured against the gateway behind the deployment's DeepSeek route.
+    const server = await mockServer([{
+      status: 400,
+      body: JSON.stringify({ error: { message: 'reasoning_effort must be low, high, xhigh, max' } }),
+    }])
+    const ctx = await harness(server.url)
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+
+    expect(result.finish).toMatchObject({
+      kind: 'error',
+      failure: {
+        code: 'REASONING_EFFORT_REJECTED',
+        message: expect.stringContaining('reasoningEfforts'),
+      },
+    })
+  })
+
   it('uses the resolved catalog context window for usage-based overflow detection', async () => {
     const model = getBuiltinModels('deepseek').find(candidate => candidate.id === 'deepseek-flash')
     if (model === undefined) throw new Error('deepseek-flash missing from pi-ai test catalog')

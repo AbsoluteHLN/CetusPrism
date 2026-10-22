@@ -1025,6 +1025,20 @@ describe('mapStopReason / mapUsage', () => {
       stopReason: 'error',
       errorMessage: "HTTP 400: unsupported role 'developer' for this endpoint, unexpected reasoning effort",
     }))).toMatchObject({ kind: 'error', failure: { code: DEVELOPER_ROLE_REJECTED_CODE } })
+    // A gateway that enumerates the levels it takes has refused the level
+    // that was sent, whatever introduces the list. This is the wording the
+    // gateway behind the deployment's DeepSeek route uses, and it carries no
+    // refusal word at all.
+    expect(mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: 'HTTP 400: reasoning_effort must be low, high, xhigh, max',
+    }))).toMatchObject({ kind: 'error', failure: { code: REASONING_EFFORT_REJECTED_CODE } })
+    // The enumeration is what refuses it, so a body that mentions an effort
+    // without naming any level is not one.
+    expect(mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: 'HTTP 400: invalid_request_error: reasoning effort must be a string',
+    }))).toMatchObject({ kind: 'error', failure: { code: 'INVALID_REQUEST' } })
   })
 
   it.each([

@@ -1088,6 +1088,52 @@ describe('compat switches', () => {
     expect(known?.warnings).toEqual([])
   })
 
+  it('warns about the developer role on a Responses route too', () => {
+    // The Responses protocols detect nothing from the endpoint, so the role
+    // travels to a private gateway whatever its URL says: the same warning a
+    // Chat Completions route earns must reach this protocol as well.
+    const warned = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-responses',
+        baseURL: 'https://acme.test/v1',
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    expect(warned?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
+
+    // The switch answers the question on this protocol too, so the warning goes.
+    const answered = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-responses',
+        baseURL: 'https://acme.test/v1',
+        compat: { supportsDeveloperRole: false },
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    expect(answered?.warnings).toEqual([])
+
+    // A model that does not reason never sends the role, on this protocol too.
+    const plain = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-responses',
+        baseURL: 'https://acme.test/v1',
+        models: [{ id: 'acme-plain' }],
+      },
+    }).get('acme-gateway')
+    expect(plain?.warnings).toEqual([])
+
+    // The same shape on Chat Completions warns as well: the two protocols
+    // reach the one warning, and neither of them is left unpinned.
+    const completions = resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test/v1',
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    }).get('acme-gateway')
+    expect(completions?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
+  })
+
   it('keeps the warning off a route the installed catalog vouches for', () => {
     // pi-ai's catalog was built against these endpoints, so the role travels
     // there by construction. A shipped route is not a risk, however many of its

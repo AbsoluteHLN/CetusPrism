@@ -27,7 +27,11 @@
               max: max
         retryPolicy:
           mode: normal
-          maxRetries: 2
+          # Upstream ZCode spends a budget of 10 retries with exponential backoff
+          # and jitter, and honors a provider wait hint over its own backoff.
+          # This harness keeps that budget instead of the shorter local default
+          # so a transient gateway failure does not end a long GLM task early.
+          maxRetries: 10
 
 - id: agent-default-model
   config:

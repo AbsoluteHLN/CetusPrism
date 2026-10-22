@@ -25,6 +25,17 @@
         maxPendingMessagesPerMember: 64
         maxMessageBytes: 65536
         disposalTimeoutMs: 5000
+        # 声明的智能体档案：跨会话可按 id 寻址的可复用身份。示例保持注释，
+        # 取消注释即声明一个档案；档案拥有成员的 name、description 与 route。
+        # profiles:
+        #   - id: reviewer
+        #     name: reviewer
+        #     description: Reviews the current change set and reports defects.
+        #     backend: spawn
+        # 三层独立白名单（集合语义，不做区间）；空列表表示不设限
+        allowedEfforts: []
+        allowedBackends: []
+        allowedPresets: []
 
     - id: tool-agent-team
       name: '@deepseek-ai/dsh-experimental-tool-agent-team'

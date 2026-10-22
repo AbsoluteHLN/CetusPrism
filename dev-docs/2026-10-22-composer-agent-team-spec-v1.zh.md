@@ -207,8 +207,8 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 | S4.1.2 | **存储位置遵循仓库既有范式**：档案**定义**走「Cordis 插件 Config + profile patch」范式（`packages/subagent/tool-subagent/src/model-selection-settings.ts:37-40` 的 `volatile()` 字段 → `packages/settings/settings/src/index.ts:302-350` → `packages/boot/config-editor/src/index.ts:34,87-137` 写 YAML），可版本化、可被用户审阅、可回滚。 |
 | S4.1.3 | 档案**运行实例**继续走 Team Lead Session 日志（`agent-team/src/journal.ts:60-72`），遵守 `model-visible ⟺ logged` 不变量（`journal.ts:65-69`）。 |
 | S4.1.4 | 档案可**按 id 跨会话寻址**（这正是「存智能体信息的配置环境」的落点），成员快照新增 `profileId` 引用（`types.ts:64-78`）。 |
-| S4.1.5 | 成员名规则改为「档案已定义的名字」语义；解除一次性占用（`roster.ts:337-339,564-572`）。同时保留名字唯一性：**同一 Team 内**仍不可重名。 |
-| S4.1.6 | 设置区新增档案卡片，读改路径复用既有 settings form 范式（参考 `packages/client/ui-settings-subagent/src/client/team-model-restriction-card-controller.ts`）。 |
+| S4.1.5 | 成员名规则改为「档案已定义的名字」语义：**同一 Team 内名字唯一**（含失败成员，失败成员仍占用名字与名额——这是仓库既有契约，`team.spec.ts` 有用例钉住）。解除的是「跨 Team 的一次性占用」：档案是部署声明，可在任何 Team 再次实例化；同一 Team 内的复用走 S4.2 的 resume，而不是再起一个同名成员。 |
+| S4.1.6 | 设置区新增档案卡片，读改路径复用既有 settings form 范式（参考 `packages/client/ui-settings-subagent/src/client/team-model-restriction-card-controller.ts`）。**本轮未实现（延后）**：档案的读写落点已由 S4.1.2 的 profile patch 满足，UI 卡片是可选的便利面，不阻塞其余三项。 |
 
 ### 4.4 S4.2 长期驻留与复用
 
@@ -218,7 +218,7 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 | S4.2.2 | 新增 `resumeTeammate(root, name)`：依据持久 descriptor（`subagent/src/descriptor.ts:72-92`）+ `continuation.ts` 的复原路径，把成员迁回 `active`；不可复原时返回结构化原因（如 `NOT_RESUMABLE`、`PERSISTENCE_UNAVAILABLE`，见 `continuation.ts:528-547`）。 |
 | S4.2.3 | 工具层新增 `reactivate_teammate`；`list_agents`（`tool-agent-team/src/index.ts:365-373`）显示 `dormant` 态与「可复用」标识。 |
 | S4.2.4 | 成员上限语义必须重新定义（`roster.ts:340-342`）：`maxMembers` 是否计入 dormant 成员——**计入**，否则「长期逗留」会绕过限额；但 `dormant` 不占并发槽位（并发池在 `continuation-activation.ts:41-56`，是另一条限额）。 |
-| S4.2.5 | 新增事件 `team/member/resumed`，投影版本闸门放行（`projection.ts:248-250,415` `stateVersion` 当前为 5，需递增）。 |
+| S4.2.5 | 新增事件 `team/member` 的 `dormant` 相位（不是新事件类型，是同一事件的新相位）；投影 `stateVersion` 递增 **5 → 6**（`projection.ts`，结构变更必须递增）。 |
 | S4.2.6 | 复用路径必须走既有冷恢复投递（`mailbox.ts:254-261,317-331`），不得新开一条绕过持久日志的通道。 |
 
 ### 4.5 S4.3 模式范围
@@ -238,7 +238,7 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 |---|---|
 | S4.4.1 | 群聊是**广播**语义：一次投递到多个成员，成员都能读到；与点对点邮箱并列，不替代它。 |
 | S4.4.2 | 投递复用既有可靠投递链：先落盘再投递（`mailbox.ts:140-147`）、按目标串行（`:192-209`）、目标去重（`:238-240,301-306`）、冷恢复重投（`:86-98`）。**不新建第二条投递链。** |
-| S4.4.3 | 新增事件 `team/message/broadcast`；`TeamMessageSnapshot` 保留单目标快照，另加广播快照（`types.ts:160-166,270-286`）。 |
+| S4.4.3 | 新增事件 `team/message/broadcast` 与 `team/message/broadcast-delivered`（载荷版本 1）；`TeamMessageSnapshot` 保留单目标快照，另加广播快照 `TeamBroadcastSnapshot`（`types.ts`）。投影状态新增 `broadcasts` 与 `broadcastDelivered` 两个集合，`stateVersion` 递增。 |
 | S4.4.4 | 消息体上限、每目标待投递上限（`mailbox.ts:124-129` `TEAM_MAILBOX_FULL`、`:137-139` `TEAM_MESSAGE_TOO_LARGE`）对广播同样生效，按**展开后的目标数**计。 |
 | S4.4.5 | 群消息**永不进模型对话面**（`journal.ts:65-69` 的 log-only 约束）。 |
 | S4.4.6 | 决策前置：fork 保留上游已删除的 durable mailbox（上游 `c772c85c17` 改为直接 inbox steer），而广播依赖队列协议。**本规格选择保留 fork 的 mailbox 协议**，群聊叠加其上；与上游再同步时该语义冲突需登记在 `docs/UPSTREAM.alignment.json`。 |
@@ -255,6 +255,32 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 6. 投影 `stateVersion` 每次结构变更递增。
 7. 可续用子智能体必须有 session persistence + session query（`continuation.ts:528-547`）。
 8. 销毁顺序：先关准入 → 等在途 → 释放直属子进程 → 释放投影（`agent-team/src/index.ts:197-206,350-365`）。
+
+---
+
+### 4.8 本轮实施结果（2026-10-22）
+
+| 子项 | 状态 | 落点 |
+|---|---|---|
+| S4.1 档案 | **已实现** | 新模块 `packages/experimental/agent-team/src/profile.ts`（`AgentProfileRegistry`）；配置项 `profiles`；`TeamMemberSnapshot.profileId` / `TeamMemberView.profileId` / `TeamMemberProjection.profileId`；`spawnTeammate({ profileId })` 走档案取名/描述/底座/路由，冲突报 `TEAM_PROFILE_CONFLICT`，未声明报 `TEAM_PROFILE_UNKNOWN` |
+| S4.2 驻留复用 | **已实现** | `TeamMemberPhase` 增 `dormant`；`roster.release()` / `roster.resume()`（resume 经 `ctx.subagents.sendMessage` 冷复原持久化子 Session）；投影允许 `active → dormant → active`；`stateVersion` 5 → 6 |
+| S4.3 模式范围 | **已实现** | 新模块 `src/range.ts`（`checkRanges`）；配置项 `allowedEfforts` / `allowedBackends` / `allowedPresets`；档案自身的 `allowedEfforts` 在 Team 限制之上再收窄；越界分别报 `TEAM_EFFORT_NOT_ALLOWED` / `TEAM_BACKEND_NOT_ALLOWED` / `TEAM_PRESET_NOT_ALLOWED` |
+| S4.4 群聊 | **已实现** | `mailbox.broadcast()`：一条持久广播记录 + 每目标一条投递边；复用既有邮箱链（先落盘、按目标串行、目标去重、冷恢复重投）；上限按展开后目标数计；新增事件 `team/message/broadcast` / `team/message/broadcast-delivered` |
+| 工具层 | **已实现** | `tool-agent-team` 新增 `list_agent_profiles` / `release_teammate` / `reactivate_teammate` / `broadcast_message`；`spawn_teammate` 增 `profile_id` / `preset` / `backend`；`list_agents` 输出带 `dormant` / `resumable` / `profile_id` / `preset` |
+| 设置区档案卡片 | **延后** | 见 S4.1.6：profile patch 已提供「存智能体信息的配置环境」，UI 卡片是可选便利面 |
+
+**未改动的既有契约**：成员名在同一 Team 内唯一（含失败成员）；`maxMembers` 计入 dormant 成员；Team 事件 log-only；
+`model-visible ⟺ logged` 不变量；投递仍只有一条邮箱链。
+
+**已知边界（本轮未解决，如实记录）**：
+
+1. **preset 只被记录与校验，不被施加**：preset 是 Session 级编排（由用户在 composer 或 Host 侧选定），
+   Team 侧无法替子会话改写编排。因此 `preset` 落在成员快照里并受 `allowedPresets` 约束，
+   但真正让子会话跑在哪个 preset 上，仍由 Session 侧的 preset 选定权决定。
+2. **dormant 成员不会被 `send_message` 唤醒**：消息照常入队并在其复原后送达（与离线成员同语义），
+   唤醒动作只有 `reactivate_teammate`（它带一次任务）。
+3. **`maxMembers` 计入 dormant 成员**（S4.2.4 的口径）：长期逗留不会绕过成员上限，
+   但 dormant 不占并发槽位。
 
 ---
 

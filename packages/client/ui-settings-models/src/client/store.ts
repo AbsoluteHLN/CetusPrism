@@ -39,6 +39,14 @@ export interface ProviderDirectoryEntry {
    * meanwhile, so the surface shows the risk beside the route it concerns.
    */
   readonly warnings?: readonly string[]
+  /**
+   * Per-model failures this route reports.
+   *
+   * A model that cannot be resolved does not take the route out of service —
+   * the route serves the models that did resolve — so these sit beside the
+   * route rather than as the route's failure.
+   */
+  readonly modelErrors?: readonly string[]
 }
 
 /**
@@ -62,6 +70,7 @@ export function joinProviderDirectory(
     ...entry.declared === undefined ? {} : { declared: entry.declared },
     ...entry.error === undefined ? {} : { error: entry.error },
     ...entry.warnings === undefined || entry.warnings.length === 0 ? {} : { warnings: [...entry.warnings] },
+    ...entry.modelErrors === undefined || entry.modelErrors.length === 0 ? {} : { modelErrors: [...entry.modelErrors] },
   }))
   for (const provider of registered) {
     if (declared.has(provider.id)) continue

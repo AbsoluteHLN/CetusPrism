@@ -426,6 +426,18 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
                 ))}
               </ul>
             )
+          // A model that cannot be resolved does not take the route out of
+          // service: the route serves the models that did resolve, so these
+          // name what to repair rather than reporting the route as failed.
+          const modelErrors = row.entry.modelErrors === undefined || row.entry.modelErrors.length === 0
+            ? null
+            : (
+              <ul className={styles['modelErrors']}>
+                {row.entry.modelErrors.map(modelError => (
+                  <li key={modelError} className={styles['error']}>{modelError}</li>
+                ))}
+              </ul>
+            )
           if (needsSetup(row, anyUsable) && !dismissedSetup.has(row.entry.provider)) {
             // First-run posture: the provider exists but has no key — the
             // setup card IS its presence on the page, until the user closes it.
@@ -433,6 +445,7 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
               <li key={row.entry.provider} className={styles['setupCard']}>
                 {error}
                 {warnings}
+                {modelErrors}
                 {renderProviderEditor({
                   target,
                   namespace,
@@ -523,6 +536,7 @@ function Loaded({ injected, renderSlot }: { injected: ModelsSectionFace; renderS
               </div>
               {error}
               {warnings}
+              {modelErrors}
               {renderSlot(
                 'settings.models.provider-card',
                 { provider: row.entry, configured: row.configured, keyConfigured: keyConfiguredOf(row) },

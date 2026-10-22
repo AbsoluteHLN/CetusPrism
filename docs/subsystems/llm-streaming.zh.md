@@ -515,6 +515,15 @@ interface LlmConfigurableProvider {
    * still works.
    */
   warnings?: readonly string[]
+  /**
+   * Per-model failures this route reports.
+   *
+   * Each names the model it concerns and what to repair. A model that cannot
+   * be resolved does not take the route out of service — the route serves the
+   * models that did resolve — so a configuration surface shows these beside
+   * the route rather than as the route's failure.
+   */
+  modelErrors?: readonly string[]
 }
 ```
 

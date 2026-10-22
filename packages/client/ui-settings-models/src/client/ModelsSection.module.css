@@ -636,6 +636,14 @@ select.input {
   gap: 4px;
 }
 
+.modelErrors {
+  margin: 0;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
 /* A risk keeps the route serviceable, so it reads as caution, not failure. */
 .warning {
   margin: 0;

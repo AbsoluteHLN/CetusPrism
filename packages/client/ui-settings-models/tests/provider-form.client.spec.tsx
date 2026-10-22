@@ -867,6 +867,35 @@ describe('provider rows', () => {
     // A risk reads as a risk, not as the failure an error would be.
     expect(row.textContent).toContain(en.configRisk)
   })
+
+  it('shows a per-model failure beside the route that still serves', async () => {
+    // The model that cannot resolve does not take the route out of service,
+    // so the failure reads as one model's, not as the route's.
+    const modelError = 'llm-pi-ai: provider "openai" model "gpt-4o" reasoningEfforts offers no level beyond "off"'
+    const scripted = scriptedFace({ providers: { openai: { apiKeyEnv: 'OPENAI_API_KEY' } } })
+    scripted.face.llm.listConfigurableProviders = vi.fn(() => Promise.resolve(ok([{
+      provider: 'openai',
+      displayName: 'openai',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: ['providers', 'openai'],
+      modelErrors: [modelError],
+    }]))) as never
+    const controller = new ModelsSettingsStore(
+      ctxWith(scripted.face), settingsSchema, new SettingsDescribeMirror(ctxWith(scripted.face)))
+    await controller.load()
+    render(<ModelsSection
+      controller={controller}
+      useSnapshot={bindSnapshotSelector(controller.store)}
+      operations={operationsWith(scripted.face)}
+      schema={settingsSchema}
+      t={t}
+      renderSlot={() => null}
+    />)
+
+    const row = screen.getByText('openai').closest('li')
+    if (row === null) throw new Error('no row for openai')
+    expect(row.textContent).toContain(modelError)
+  })
 })
 
 describe('hand-declared providers', () => {

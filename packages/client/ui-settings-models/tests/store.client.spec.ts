@@ -26,6 +26,16 @@ it('carries configuration risks onto the row they concern', () => {
   }])
 })
 
+it('carries per-model failures onto the row that still serves', () => {
+  expect(joinProviderDirectory([], [{
+    provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'],
+    modelErrors: ['model "gpt-4o" needs an api'],
+  }])).toEqual([{
+    provider: 'openai', displayName: 'openai', settingsNs: 'llm-pi-ai', settingsPath: ['providers', 'openai'],
+    active: false, modelErrors: ['model "gpt-4o" needs an api'],
+  }])
+})
+
 it('places account and official before third-party providers', () => {
   const providers = ['custom', 'deepseek-official', 'deepseek-account', 'openai']
   const directory = providers.map(provider => ({

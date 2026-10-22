@@ -44,6 +44,23 @@ export function mapUsage(usage: PiUsage): TokenUsage {
 // wrapper a bare `terminated`, so we are left pattern-matching terse words here.
 // If pi-ai ever forwards the original Error (or a fetch/dispatcher hook that lets
 // us capture the cause ourselves), classify on `code`/`cause` instead of text.
+/**
+ * Wording that refuses a reasoning effort, with the refusal next to the effort.
+ *
+ * The two have to be neighbours. A rejected request's body carries its own
+ * machine code — `invalid_request_error` on most gateways — and that word
+ * alone would otherwise make every request that merely mentions an effort
+ * read as a refusal of it. Keeping the window tight means only the wording
+ * that talks about the effort qualifies.
+ */
+const REASONING_EFFORT_REFUSAL = new RegExp(
+  String.raw`\b(?:unexpected|unsupported|not\s+supported|unknown|unrecognized|invalid|not\s+allowed)\b[^\n]{0,48}?`
+  + String.raw`\breasoning[ _-]effort\b`
+  + String.raw`|\breasoning[ _-]effort\b[^\n]{0,48}?`
+  + String.raw`\b(?:unexpected|unsupported|not\s+supported|unknown|unrecognized|invalid|not\s+allowed)\b`,
+  'i',
+)
+
 function classifyPiAiError(message: string): string {
   if (/\b(?:401|403)\b/.test(message)) return 'AUTH'
   // pi-ai's own wording when a route reaches its provider without a key. The
@@ -61,10 +78,7 @@ function classifyPiAiError(message: string): string {
   // the set it takes. The request is well formed and the model is willing —
   // the route's own effort declaration is what the endpoint rejected, so the
   // code is what tells the operator which field to change.
-  if (/\breasoning[ _-]effort\b/i.test(message)
-    && /unsupported|not\s+support|unknown|unrecognized|invalid|unexpected|not\s+allowed/i.test(message)) {
-    return REASONING_EFFORT_REJECTED_CODE
-  }
+  if (REASONING_EFFORT_REFUSAL.test(message)) return REASONING_EFFORT_REJECTED_CODE
   // A rejected request body (gateway or provider size cap): resending the
   // same request cannot succeed, so it is invalid, not transient.
   if (/\b413\b|failed to buffer the request body:\s*length limit exceeded|payload too large|request body too large/i.test(message)) return 'INVALID_REQUEST'

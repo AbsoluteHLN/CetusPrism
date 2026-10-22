@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { AttachmentId, ImageVariantId } from '@deepseek-ai/dsh-attachment'
 import type { AttachmentStore, ImageAttachmentRef, ImageRequestTarget, RequestImageAttachment } from '@deepseek-ai/dsh-attachment'
-import { createToolResultMessage, createUserMessage, ToolCallId, CONTEXT_WINDOW_EXCEEDED_CODE, DEVELOPER_ROLE_REJECTED_CODE, EMPTY_RESPONSE_CODE, createMessage } from '@deepseek-ai/dsh-llm'
+import { createToolResultMessage, createUserMessage, ToolCallId, CONTEXT_WINDOW_EXCEEDED_CODE, DEVELOPER_ROLE_REJECTED_CODE, EMPTY_RESPONSE_CODE, REASONING_EFFORT_REJECTED_CODE, createMessage } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, StreamChunk } from '@deepseek-ai/dsh-llm'
 import type { AssistantMessage, AssistantMessageEvent, Usage } from '@earendil-works/pi-ai'
 import { transformMessages } from '@earendil-works/pi-ai/api/transform-messages'
@@ -990,6 +990,41 @@ describe('mapStopReason / mapUsage', () => {
       stopReason: 'error',
       errorMessage: 'HTTP 400: the message role must be user or assistant',
     }))).toMatchObject({ kind: 'error', failure: { code: 'INVALID_REQUEST' } })
+  })
+
+  it('separates a refused reasoning effort from every other rejected request', () => {
+    // The wording a gateway uses when the level it was sent is not one it
+    // takes. Measured against a private gateway serving Qwen:
+    // "Unexpected reasoning effort high. Supported types are xhigh (default),
+    // medium, and low."
+    const rejected = mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: 'HTTP 400: Unexpected reasoning effort high. Supported types are xhigh (default), medium, and low.',
+    }))
+    expect(rejected).toMatchObject({ kind: 'error', failure: { code: REASONING_EFFORT_REJECTED_CODE } })
+    // The message must name the declaration that decides the level: the
+    // provider's wording names the level but not the configuration.
+    expect(rejected.kind === 'error' ? rejected.failure.message : '').toContain('reasoningEfforts')
+
+    // A rejected request that never mentions an effort stays a plain invalid
+    // request: the guidance would send the operator to the wrong field.
+    expect(mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: 'HTTP 400: invalid input: temperature exceeds maximum allowed value',
+    }))).toMatchObject({ kind: 'error', failure: { code: 'INVALID_REQUEST' } })
+    // An effort that is merely mentioned is not a refusal of it. The rejected
+    // body carries its own machine code, and that word is about the request,
+    // not about the effort.
+    expect(mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: 'HTTP 400: invalid_request_error: reasoning effort must be a string',
+    }))).toMatchObject({ kind: 'error', failure: { code: 'INVALID_REQUEST' } })
+    // A role rejection outranks it: the switch that repairs that one is not
+    // the effort declaration.
+    expect(mapStopReason(assistant({
+      stopReason: 'error',
+      errorMessage: "HTTP 400: unsupported role 'developer' for this endpoint, unexpected reasoning effort",
+    }))).toMatchObject({ kind: 'error', failure: { code: DEVELOPER_ROLE_REJECTED_CODE } })
   })
 
   it.each([

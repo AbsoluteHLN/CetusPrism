@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-sidebar-computer",
   "description": "Computer-use control tab for the right Sidebar: the live desktop frame, the running state, and the assistant's computer-action feed",
-  "version": "0.1.7-rc.1",
+  "version": "0.2.1-alpha.1",
   "publishConfig": {
     "access": "public"
   },

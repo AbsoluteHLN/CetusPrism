@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-computer-foreground",
   "description": "Composer toggle for the session's computer-use delivery policy: whether the assistant may take the window foreground, read from the computerDelivery projection and written through /foreground",
-  "version": "0.1.7-rc.1",
+  "version": "0.2.1-alpha.1",
   "publishConfig": {
     "access": "public"
   },

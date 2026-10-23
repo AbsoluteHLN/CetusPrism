@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-settings-about",
   "description": "About & acknowledgements section in Web settings: the distribution's own version, the harness build it embeds, upstream credit, and the non-affiliation statement",
-  "version": "0.1.7-rc.1",
+  "version": "0.2.1-alpha.1",
   "publishConfig": {
     "access": "public"
   },

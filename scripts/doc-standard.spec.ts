@@ -322,7 +322,11 @@ describe('maintained documentation standards', () => {
     }
   })
 
-  it('maps package README kinds to their documentation standards', () => {
+  // The scan reads every package README from disk, so its cost grows with the
+  // repository. On its own the case finishes well inside Vitest's 5s default;
+  // under the aggregate gate's parallel load the inherited default can expire
+  // mid-scan, so the budget is stated here instead of left to the ambient one.
+  it('maps package README kinds to their documentation standards', { timeout: 30_000 }, () => {
     const files = packageReadmes()
     expect(files.length).toBeGreaterThan(0)
 

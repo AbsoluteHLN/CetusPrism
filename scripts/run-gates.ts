@@ -835,7 +835,12 @@ function docSyncLeafGates(options: {
     pnpmScript('translation-prompt', 'verify-translation-prompt', { label: 'translation prompt', quick: true }),
     pnpmScript('doc-budgets', 'verify-doc-budgets', { label: 'doc budgets', quick: true }),
     pnpmScript('upgrade-guides', 'verify-upgrade-guides', { label: 'upgrade guides', quick: true }),
-    pnpmExec('doc-standard-tests', ['vitest', 'run', 'scripts/doc-standard.spec.ts', 'scripts/agent-note-tree.spec.ts'], {
+    // The repository has no root Vitest config: a bare run misses the alias
+    // table and the setup files, and it inherits Vitest's 5s per-test default
+    // instead of the lane budget. The validation lane already runs these two
+    // files under `configs/vitest.config.ts`, so the static lane uses the same
+    // config rather than a second, thinner world.
+    pnpmExec('doc-standard-tests', ['vitest', 'run', '--config', 'configs/vitest.config.ts', 'scripts/doc-standard.spec.ts', 'scripts/agent-note-tree.spec.ts'], {
       label: 'documentation standard tests',
       quick: true,
     }),

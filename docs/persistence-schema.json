@@ -16003,7 +16003,7 @@
       "kind": "event",
       "event": "team/member",
       "surface": false,
-      "digest": "74ac523e4d5e00ca767eabb3e05ee6394e4df190679421a547a7fcbe590be32e",
+      "digest": "5f185f4b5ac1cf6b30ee8718ba4a7300453f0fb5f3814b77a0deb91d6db2e4d7",
       "schema": {
         "root": 0,
         "nodes": [
@@ -16017,22 +16017,22 @@
               },
               {
                 "name": "ignorable",
-                "type": 12,
+                "type": 13,
                 "optional": true
               },
               {
                 "name": "seq",
-                "type": 13,
+                "type": 14,
                 "optional": false
               },
               {
                 "name": "time",
-                "type": 13,
+                "type": 14,
                 "optional": false
               },
               {
                 "name": "type",
-                "type": 14,
+                "type": 15,
                 "optional": false
               }
             ],
@@ -16053,7 +16053,7 @@
               },
               {
                 "name": "version",
-                "type": 11,
+                "type": 12,
                 "optional": false
               }
             ],
@@ -16103,6 +16103,16 @@
                 "optional": false
               },
               {
+                "name": "preset",
+                "type": 6,
+                "optional": true
+              },
+              {
+                "name": "profileId",
+                "type": 6,
+                "optional": true
+              },
+              {
                 "name": "provider",
                 "type": 6,
                 "optional": false
@@ -16124,11 +16134,11 @@
           },
           {
             "kind": "literal",
-            "value": "fork"
+            "value": "fresh"
           },
           {
             "kind": "literal",
-            "value": "fresh"
+            "value": "fork"
           },
           {
             "kind": "primitive",
@@ -16139,7 +16149,8 @@
             "types": [
               8,
               9,
-              10
+              10,
+              11
             ]
           },
           {
@@ -16148,11 +16159,15 @@
           },
           {
             "kind": "literal",
-            "value": "failed"
+            "value": "dormant"
           },
           {
             "kind": "literal",
             "value": "provisioning"
+          },
+          {
+            "kind": "literal",
+            "value": "failed"
           },
           {
             "kind": "literal",
@@ -16169,6 +16184,497 @@
           {
             "kind": "literal",
             "value": "team/member"
+          }
+        ]
+      }
+    },
+    {
+      "key": "event:team/message/broadcast",
+      "kind": "event",
+      "event": "team/message/broadcast",
+      "surface": false,
+      "digest": "52eeb4082c9639bfca9c52de0efc5b92deeda30a7e18553cac342fd81e664e21",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "data",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "ignorable",
+                "type": 29,
+                "optional": true
+              },
+              {
+                "name": "seq",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "time",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 33,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "broadcast",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "teamId",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 32,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "content",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "id",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "senderId",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "senderName",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "targetIds",
+                "type": 31,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "array",
+            "element": 4
+          },
+          {
+            "kind": "union",
+            "types": [
+              5,
+              10,
+              12,
+              14,
+              17,
+              19,
+              21
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachment",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 9,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachmentId",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "bytes",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 7,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "primitive",
+            "type": "number"
+          },
+          {
+            "kind": "literal",
+            "value": "file"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "text",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 11,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "reasoning"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "text",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 13,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "text"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "tool",
+                "type": 15,
+                "optional": true
+              },
+              {
+                "name": "toolName",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 16,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "never"
+          },
+          {
+            "kind": "literal",
+            "value": "tool-addition"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "toolName",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 18,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "tool-removal"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "arguments",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "id",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 20,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "tool-call"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachment",
+                "type": 22,
+                "optional": false
+              },
+              {
+                "name": "offloaded",
+                "type": 29,
+                "optional": true
+              },
+              {
+                "name": "type",
+                "type": 30,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachmentId",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "bytes",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "height",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "mediaType",
+                "type": 23,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 7,
+                "optional": true
+              },
+              {
+                "name": "originalDimensions",
+                "type": 28,
+                "optional": true
+              },
+              {
+                "name": "width",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              24,
+              25,
+              26,
+              27
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "image/gif"
+          },
+          {
+            "kind": "literal",
+            "value": "image/jpeg"
+          },
+          {
+            "kind": "literal",
+            "value": "image/png"
+          },
+          {
+            "kind": "literal",
+            "value": "image/webp"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "height",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "width",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": true
+          },
+          {
+            "kind": "literal",
+            "value": "image"
+          },
+          {
+            "kind": "array",
+            "element": 7
+          },
+          {
+            "kind": "literal",
+            "value": 1
+          },
+          {
+            "kind": "literal",
+            "value": "team/message/broadcast"
+          }
+        ]
+      }
+    },
+    {
+      "key": "event:team/message/broadcast-delivered",
+      "kind": "event",
+      "event": "team/message/broadcast-delivered",
+      "surface": false,
+      "digest": "0550382d5d872601f1561c1c7081243bb534c02de41e850a28e808937c05fd5d",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "data",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "ignorable",
+                "type": 4,
+                "optional": true
+              },
+              {
+                "name": "seq",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "time",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 6,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "messageId",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "targetId",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "teamId",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 3,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "literal",
+            "value": 1
+          },
+          {
+            "kind": "literal",
+            "value": true
+          },
+          {
+            "kind": "primitive",
+            "type": "number"
+          },
+          {
+            "kind": "literal",
+            "value": "team/message/broadcast-delivered"
           }
         ]
       }
@@ -22032,6 +22538,93 @@
       "sources": []
     },
     {
+      "digest": "0550382d5d872601f1561c1c7081243bb534c02de41e850a28e808937c05fd5d",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "data",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "ignorable",
+                "type": 4,
+                "optional": true
+              },
+              {
+                "name": "seq",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "time",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 6,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "messageId",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "targetId",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "teamId",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 3,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "literal",
+            "value": 1
+          },
+          {
+            "kind": "literal",
+            "value": true
+          },
+          {
+            "kind": "primitive",
+            "type": "number"
+          },
+          {
+            "kind": "literal",
+            "value": "team/message/broadcast-delivered"
+          }
+        ]
+      },
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "05a2796621b1ee6c03ef7abe560b25116bb4da4d592312117242a78415a32b04",
       "schema": {
         "root": 0,
@@ -22127,6 +22720,20 @@
         "packages/session/session-title/src/types.ts:20",
         "packages/subagent/tool-subagent/src/model-selection.ts:9"
       ]
+    },
+    {
+      "digest": "07e44014cc26ad07dde935fc3001eed07ece99b8ac4cae33b0bac31f190df756",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "literal",
+            "value": "team/message/broadcast"
+          }
+        ]
+      },
+      "names": [],
+      "sources": []
     },
     {
       "digest": "07eccc9ea2f9b5439d76cc77d5e062936677d43f07a23da749819b0a22ee36b7",
@@ -22713,7 +23320,7 @@
         "packages/llm/llm/src/types.ts#ReplayEnvelope"
       ],
       "sources": [
-        "packages/llm/llm/src/types.ts:430"
+        "packages/llm/llm/src/types.ts:448"
       ]
     },
     {
@@ -22811,7 +23418,7 @@
       },
       "names": [],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:279"
+        "packages/experimental/agent-team/src/types.ts:411"
       ]
     },
     {
@@ -37636,7 +38243,7 @@
         "packages/experimental/agent-team/src/types.ts#TeamMessageSource"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:169"
+        "packages/experimental/agent-team/src/types.ts:229"
       ]
     },
     {
@@ -41013,138 +41620,6 @@
       "sources": []
     },
     {
-      "digest": "292fdb850736d10fb4e7a17d6a29e62e0d82f7c73f8cbd9f57ea3624a2977a73",
-      "schema": {
-        "root": 0,
-        "nodes": [
-          {
-            "kind": "object",
-            "properties": [
-              {
-                "name": "member",
-                "type": 1,
-                "optional": false
-              },
-              {
-                "name": "teamId",
-                "type": 5,
-                "optional": false
-              },
-              {
-                "name": "version",
-                "type": 10,
-                "optional": false
-              }
-            ],
-            "indices": []
-          },
-          {
-            "kind": "object",
-            "properties": [
-              {
-                "name": "context",
-                "type": 2,
-                "optional": false
-              },
-              {
-                "name": "description",
-                "type": 5,
-                "optional": false
-              },
-              {
-                "name": "error",
-                "type": 5,
-                "optional": true
-              },
-              {
-                "name": "id",
-                "type": 5,
-                "optional": false
-              },
-              {
-                "name": "model",
-                "type": 5,
-                "optional": true
-              },
-              {
-                "name": "modelProvider",
-                "type": 5,
-                "optional": true
-              },
-              {
-                "name": "name",
-                "type": 5,
-                "optional": false
-              },
-              {
-                "name": "phase",
-                "type": 6,
-                "optional": false
-              },
-              {
-                "name": "provider",
-                "type": 5,
-                "optional": false
-              },
-              {
-                "name": "reasoningEffort",
-                "type": 5,
-                "optional": true
-              }
-            ],
-            "indices": []
-          },
-          {
-            "kind": "union",
-            "types": [
-              3,
-              4
-            ]
-          },
-          {
-            "kind": "literal",
-            "value": "fork"
-          },
-          {
-            "kind": "literal",
-            "value": "fresh"
-          },
-          {
-            "kind": "primitive",
-            "type": "string"
-          },
-          {
-            "kind": "union",
-            "types": [
-              7,
-              8,
-              9
-            ]
-          },
-          {
-            "kind": "literal",
-            "value": "active"
-          },
-          {
-            "kind": "literal",
-            "value": "failed"
-          },
-          {
-            "kind": "literal",
-            "value": "provisioning"
-          },
-          {
-            "kind": "literal",
-            "value": 2
-          }
-        ]
-      },
-      "names": [],
-      "sources": [
-        "packages/experimental/agent-team/src/types.ts:273"
-      ]
-    },
-    {
       "digest": "297fbd8067d7815adae02b89790ec6ff5fb7c2cb0d0eb026e1746c24ec857761",
       "schema": {
         "root": 0,
@@ -41177,6 +41652,45 @@
       },
       "names": [],
       "sources": []
+    },
+    {
+      "digest": "2a5090c13535ab6a23748c2108a712ba4c49195e7336e3a3fff44977e339d9f8",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "union",
+            "types": [
+              1,
+              2,
+              3,
+              4
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "active"
+          },
+          {
+            "kind": "literal",
+            "value": "dormant"
+          },
+          {
+            "kind": "literal",
+            "value": "failed"
+          },
+          {
+            "kind": "literal",
+            "value": "provisioning"
+          }
+        ]
+      },
+      "names": [
+        "packages/experimental/agent-team/src/types.ts#TeamMemberPhase"
+      ],
+      "sources": [
+        "packages/experimental/agent-team/src/types.ts:53"
+      ]
     },
     {
       "digest": "2aad1179f957631477b582e57cd8f538cb82618fc3fb816bde1171154235b065",
@@ -41347,7 +41861,7 @@
       },
       "names": [],
       "sources": [
-        "packages/llm/llm/src/types.ts:455"
+        "packages/llm/llm/src/types.ts:473"
       ]
     },
     {
@@ -42061,7 +42575,7 @@
         "packages/experimental/agent-team/src/types.ts#TeamMessageSnapshot"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:160"
+        "packages/experimental/agent-team/src/types.ts:220"
       ]
     },
     {
@@ -42385,6 +42899,373 @@
       ],
       "sources": [
         "packages/llm/llm/src/call-config.ts:36"
+      ]
+    },
+    {
+      "digest": "3298dc614db88b76f2da4433f85cd8069dc68ef2c1f791acd2a1760371a2555c",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "broadcast",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "teamId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 31,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "content",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "id",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "senderId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "senderName",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "targetIds",
+                "type": 30,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "array",
+            "element": 3
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              7,
+              9,
+              12,
+              14,
+              16,
+              27
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "text",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 6,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "literal",
+            "value": "reasoning"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "text",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "text"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "tool",
+                "type": 10,
+                "optional": true
+              },
+              {
+                "name": "toolName",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 11,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "never"
+          },
+          {
+            "kind": "literal",
+            "value": "tool-addition"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "toolName",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 13,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "tool-removal"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "arguments",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "id",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 15,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "tool-call"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachment",
+                "type": 17,
+                "optional": false
+              },
+              {
+                "name": "offloaded",
+                "type": 25,
+                "optional": true
+              },
+              {
+                "name": "type",
+                "type": 26,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachmentId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "bytes",
+                "type": 18,
+                "optional": false
+              },
+              {
+                "name": "height",
+                "type": 18,
+                "optional": false
+              },
+              {
+                "name": "mediaType",
+                "type": 19,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 5,
+                "optional": true
+              },
+              {
+                "name": "originalDimensions",
+                "type": 24,
+                "optional": true
+              },
+              {
+                "name": "width",
+                "type": 18,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "number"
+          },
+          {
+            "kind": "union",
+            "types": [
+              20,
+              21,
+              22,
+              23
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "image/gif"
+          },
+          {
+            "kind": "literal",
+            "value": "image/jpeg"
+          },
+          {
+            "kind": "literal",
+            "value": "image/png"
+          },
+          {
+            "kind": "literal",
+            "value": "image/webp"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "height",
+                "type": 18,
+                "optional": false
+              },
+              {
+                "name": "width",
+                "type": 18,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": true
+          },
+          {
+            "kind": "literal",
+            "value": "image"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachment",
+                "type": 28,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 29,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachmentId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "bytes",
+                "type": 18,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 5,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "file"
+          },
+          {
+            "kind": "array",
+            "element": 5
+          },
+          {
+            "kind": "literal",
+            "value": 1
+          }
+        ]
+      },
+      "names": [],
+      "sources": [
+        "packages/experimental/agent-team/src/types.ts:418"
       ]
     },
     {
@@ -43346,6 +44227,130 @@
       ],
       "sources": [
         "packages/core/session/src/types.ts:462"
+      ]
+    },
+    {
+      "digest": "34596cce12715d6865aa94f34a68d13bd51104c73092ae88b748ce3610658b89",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "context",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "description",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "error",
+                "type": 4,
+                "optional": true
+              },
+              {
+                "name": "id",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "model",
+                "type": 4,
+                "optional": true
+              },
+              {
+                "name": "modelProvider",
+                "type": 4,
+                "optional": true
+              },
+              {
+                "name": "name",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "phase",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "preset",
+                "type": 4,
+                "optional": true
+              },
+              {
+                "name": "profileId",
+                "type": 4,
+                "optional": true
+              },
+              {
+                "name": "provider",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "reasoningEffort",
+                "type": 4,
+                "optional": true
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              2,
+              3
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "fork"
+          },
+          {
+            "kind": "literal",
+            "value": "fresh"
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "union",
+            "types": [
+              6,
+              7,
+              8,
+              9
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "active"
+          },
+          {
+            "kind": "literal",
+            "value": "dormant"
+          },
+          {
+            "kind": "literal",
+            "value": "failed"
+          },
+          {
+            "kind": "literal",
+            "value": "provisioning"
+          }
+        ]
+      },
+      "names": [
+        "packages/experimental/agent-team/src/types.ts#TeamMemberSnapshot"
+      ],
+      "sources": [
+        "packages/experimental/agent-team/src/types.ts:110"
       ]
     },
     {
@@ -44462,7 +45467,7 @@
       },
       "names": [],
       "sources": [
-        "packages/llm/llm/src/types.ts:453"
+        "packages/llm/llm/src/types.ts:471"
       ]
     },
     {
@@ -49128,7 +50133,154 @@
         "packages/llm/llm/src/types.ts#StreamChunk"
       ],
       "sources": [
-        "packages/llm/llm/src/types.ts:452"
+        "packages/llm/llm/src/types.ts:470"
+      ]
+    },
+    {
+      "digest": "47fd3f66765c3c5e052212c330887e501404f27019e4f2401b1b70cb7f06dcf1",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "member",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "teamId",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 11,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "context",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "description",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "error",
+                "type": 5,
+                "optional": true
+              },
+              {
+                "name": "id",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "model",
+                "type": 5,
+                "optional": true
+              },
+              {
+                "name": "modelProvider",
+                "type": 5,
+                "optional": true
+              },
+              {
+                "name": "name",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "phase",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "preset",
+                "type": 5,
+                "optional": true
+              },
+              {
+                "name": "profileId",
+                "type": 5,
+                "optional": true
+              },
+              {
+                "name": "provider",
+                "type": 5,
+                "optional": false
+              },
+              {
+                "name": "reasoningEffort",
+                "type": 5,
+                "optional": true
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              3,
+              4
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "fork"
+          },
+          {
+            "kind": "literal",
+            "value": "fresh"
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "union",
+            "types": [
+              7,
+              8,
+              9,
+              10
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "active"
+          },
+          {
+            "kind": "literal",
+            "value": "dormant"
+          },
+          {
+            "kind": "literal",
+            "value": "failed"
+          },
+          {
+            "kind": "literal",
+            "value": "provisioning"
+          },
+          {
+            "kind": "literal",
+            "value": 2
+          }
+        ]
+      },
+      "names": [],
+      "sources": [
+        "packages/experimental/agent-team/src/types.ts:405"
       ]
     },
     {
@@ -51361,7 +52513,7 @@
         "packages/experimental/agent-team/src/types.ts#TeamTaskSnapshot"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:102"
+        "packages/experimental/agent-team/src/types.ts:158"
       ]
     },
     {
@@ -51689,6 +52841,406 @@
           {
             "kind": "primitive",
             "type": "string"
+          }
+        ]
+      },
+      "names": [],
+      "sources": []
+    },
+    {
+      "digest": "52eeb4082c9639bfca9c52de0efc5b92deeda30a7e18553cac342fd81e664e21",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "data",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "ignorable",
+                "type": 29,
+                "optional": true
+              },
+              {
+                "name": "seq",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "time",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 33,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "broadcast",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "teamId",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 32,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "content",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "id",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "senderId",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "senderName",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "targetIds",
+                "type": 31,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "array",
+            "element": 4
+          },
+          {
+            "kind": "union",
+            "types": [
+              5,
+              10,
+              12,
+              14,
+              17,
+              19,
+              21
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachment",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 9,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachmentId",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "bytes",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 7,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "primitive",
+            "type": "number"
+          },
+          {
+            "kind": "literal",
+            "value": "file"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "text",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 11,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "reasoning"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "text",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 13,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "text"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "tool",
+                "type": 15,
+                "optional": true
+              },
+              {
+                "name": "toolName",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 16,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "never"
+          },
+          {
+            "kind": "literal",
+            "value": "tool-addition"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "toolName",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 18,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "tool-removal"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "arguments",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "id",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 20,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "tool-call"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachment",
+                "type": 22,
+                "optional": false
+              },
+              {
+                "name": "offloaded",
+                "type": 29,
+                "optional": true
+              },
+              {
+                "name": "type",
+                "type": 30,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachmentId",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "bytes",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "height",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "mediaType",
+                "type": 23,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 7,
+                "optional": true
+              },
+              {
+                "name": "originalDimensions",
+                "type": 28,
+                "optional": true
+              },
+              {
+                "name": "width",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              24,
+              25,
+              26,
+              27
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "image/gif"
+          },
+          {
+            "kind": "literal",
+            "value": "image/jpeg"
+          },
+          {
+            "kind": "literal",
+            "value": "image/png"
+          },
+          {
+            "kind": "literal",
+            "value": "image/webp"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "height",
+                "type": 8,
+                "optional": false
+              },
+              {
+                "name": "width",
+                "type": 8,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": true
+          },
+          {
+            "kind": "literal",
+            "value": "image"
+          },
+          {
+            "kind": "array",
+            "element": 7
+          },
+          {
+            "kind": "literal",
+            "value": 1
+          },
+          {
+            "kind": "literal",
+            "value": "team/message/broadcast"
           }
         ]
       },
@@ -57304,6 +58856,194 @@
       "sources": []
     },
     {
+      "digest": "5f185f4b5ac1cf6b30ee8718ba4a7300453f0fb5f3814b77a0deb91d6db2e4d7",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "data",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "ignorable",
+                "type": 13,
+                "optional": true
+              },
+              {
+                "name": "seq",
+                "type": 14,
+                "optional": false
+              },
+              {
+                "name": "time",
+                "type": 14,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 15,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "member",
+                "type": 2,
+                "optional": false
+              },
+              {
+                "name": "teamId",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 12,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "context",
+                "type": 3,
+                "optional": false
+              },
+              {
+                "name": "description",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "error",
+                "type": 6,
+                "optional": true
+              },
+              {
+                "name": "id",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "model",
+                "type": 6,
+                "optional": true
+              },
+              {
+                "name": "modelProvider",
+                "type": 6,
+                "optional": true
+              },
+              {
+                "name": "name",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "phase",
+                "type": 7,
+                "optional": false
+              },
+              {
+                "name": "preset",
+                "type": 6,
+                "optional": true
+              },
+              {
+                "name": "profileId",
+                "type": 6,
+                "optional": true
+              },
+              {
+                "name": "provider",
+                "type": 6,
+                "optional": false
+              },
+              {
+                "name": "reasoningEffort",
+                "type": 6,
+                "optional": true
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "union",
+            "types": [
+              4,
+              5
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "fresh"
+          },
+          {
+            "kind": "literal",
+            "value": "fork"
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "union",
+            "types": [
+              8,
+              9,
+              10,
+              11
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "active"
+          },
+          {
+            "kind": "literal",
+            "value": "dormant"
+          },
+          {
+            "kind": "literal",
+            "value": "provisioning"
+          },
+          {
+            "kind": "literal",
+            "value": "failed"
+          },
+          {
+            "kind": "literal",
+            "value": 2
+          },
+          {
+            "kind": "literal",
+            "value": true
+          },
+          {
+            "kind": "primitive",
+            "type": "number"
+          },
+          {
+            "kind": "literal",
+            "value": "team/member"
+          }
+        ]
+      },
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "5f2117d1856a5ab43c28371faa978ebfaa48f8c7d734ea3fc94842210df83dca",
       "schema": {
         "root": 0,
@@ -57500,6 +59240,20 @@
       "sources": [
         "packages/subagent/subagent/src/descriptor.ts:61"
       ]
+    },
+    {
+      "digest": "601ea29a5ede7f8a8c8e88b102779c99b0aa72dc76c62a6d41c836fdf53160a9",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "literal",
+            "value": "dormant"
+          }
+        ]
+      },
+      "names": [],
+      "sources": []
     },
     {
       "digest": "6085488d223aeffdef51d7ae17655fc26ab22ee13cbed82a50e62e2b6fb5b918",
@@ -60638,7 +62392,7 @@
         "packages/llm/llm/src/types.ts#ToolSchema"
       ],
       "sources": [
-        "packages/llm/llm/src/types.ts:473"
+        "packages/llm/llm/src/types.ts:491"
       ]
     },
     {
@@ -62338,6 +64092,350 @@
       "sources": []
     },
     {
+      "digest": "7172050ae9ded3308df8fe2fe55c1d86b022f7947046f0e424401427444952c7",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "content",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "id",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "senderId",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "senderName",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "targetIds",
+                "type": 29,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "array",
+            "element": 2
+          },
+          {
+            "kind": "union",
+            "types": [
+              3,
+              6,
+              8,
+              11,
+              13,
+              15,
+              26
+            ]
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "text",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 5,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "literal",
+            "value": "reasoning"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "text",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 7,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "text"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "tool",
+                "type": 9,
+                "optional": true
+              },
+              {
+                "name": "toolName",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 10,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "never"
+          },
+          {
+            "kind": "literal",
+            "value": "tool-addition"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "toolName",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 12,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "tool-removal"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "arguments",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "id",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 14,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "tool-call"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachment",
+                "type": 16,
+                "optional": false
+              },
+              {
+                "name": "offloaded",
+                "type": 24,
+                "optional": true
+              },
+              {
+                "name": "type",
+                "type": 25,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachmentId",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "bytes",
+                "type": 17,
+                "optional": false
+              },
+              {
+                "name": "height",
+                "type": 17,
+                "optional": false
+              },
+              {
+                "name": "mediaType",
+                "type": 18,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 4,
+                "optional": true
+              },
+              {
+                "name": "originalDimensions",
+                "type": 23,
+                "optional": true
+              },
+              {
+                "name": "width",
+                "type": 17,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "number"
+          },
+          {
+            "kind": "union",
+            "types": [
+              19,
+              20,
+              21,
+              22
+            ]
+          },
+          {
+            "kind": "literal",
+            "value": "image/gif"
+          },
+          {
+            "kind": "literal",
+            "value": "image/jpeg"
+          },
+          {
+            "kind": "literal",
+            "value": "image/png"
+          },
+          {
+            "kind": "literal",
+            "value": "image/webp"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "height",
+                "type": 17,
+                "optional": false
+              },
+              {
+                "name": "width",
+                "type": 17,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": true
+          },
+          {
+            "kind": "literal",
+            "value": "image"
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachment",
+                "type": 27,
+                "optional": false
+              },
+              {
+                "name": "type",
+                "type": 28,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "attachmentId",
+                "type": 4,
+                "optional": false
+              },
+              {
+                "name": "bytes",
+                "type": 17,
+                "optional": false
+              },
+              {
+                "name": "name",
+                "type": 4,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "literal",
+            "value": "file"
+          },
+          {
+            "kind": "array",
+            "element": 4
+          }
+        ]
+      },
+      "names": [
+        "packages/experimental/agent-team/src/types.ts#TeamBroadcastSnapshot"
+      ],
+      "sources": [
+        "packages/experimental/agent-team/src/types.ts:250"
+      ]
+    },
+    {
       "digest": "7180844e1066230c5e891f1b9ccd942423b0fe48aac6ded7eef2a285b288a732",
       "schema": {
         "root": 0,
@@ -62525,179 +64623,6 @@
           {
             "kind": "literal",
             "value": "remove"
-          }
-        ]
-      },
-      "names": [],
-      "sources": []
-    },
-    {
-      "digest": "74ac523e4d5e00ca767eabb3e05ee6394e4df190679421a547a7fcbe590be32e",
-      "schema": {
-        "root": 0,
-        "nodes": [
-          {
-            "kind": "object",
-            "properties": [
-              {
-                "name": "data",
-                "type": 1,
-                "optional": false
-              },
-              {
-                "name": "ignorable",
-                "type": 12,
-                "optional": true
-              },
-              {
-                "name": "seq",
-                "type": 13,
-                "optional": false
-              },
-              {
-                "name": "time",
-                "type": 13,
-                "optional": false
-              },
-              {
-                "name": "type",
-                "type": 14,
-                "optional": false
-              }
-            ],
-            "indices": []
-          },
-          {
-            "kind": "object",
-            "properties": [
-              {
-                "name": "member",
-                "type": 2,
-                "optional": false
-              },
-              {
-                "name": "teamId",
-                "type": 6,
-                "optional": false
-              },
-              {
-                "name": "version",
-                "type": 11,
-                "optional": false
-              }
-            ],
-            "indices": []
-          },
-          {
-            "kind": "object",
-            "properties": [
-              {
-                "name": "context",
-                "type": 3,
-                "optional": false
-              },
-              {
-                "name": "description",
-                "type": 6,
-                "optional": false
-              },
-              {
-                "name": "error",
-                "type": 6,
-                "optional": true
-              },
-              {
-                "name": "id",
-                "type": 6,
-                "optional": false
-              },
-              {
-                "name": "model",
-                "type": 6,
-                "optional": true
-              },
-              {
-                "name": "modelProvider",
-                "type": 6,
-                "optional": true
-              },
-              {
-                "name": "name",
-                "type": 6,
-                "optional": false
-              },
-              {
-                "name": "phase",
-                "type": 7,
-                "optional": false
-              },
-              {
-                "name": "provider",
-                "type": 6,
-                "optional": false
-              },
-              {
-                "name": "reasoningEffort",
-                "type": 6,
-                "optional": true
-              }
-            ],
-            "indices": []
-          },
-          {
-            "kind": "union",
-            "types": [
-              4,
-              5
-            ]
-          },
-          {
-            "kind": "literal",
-            "value": "fork"
-          },
-          {
-            "kind": "literal",
-            "value": "fresh"
-          },
-          {
-            "kind": "primitive",
-            "type": "string"
-          },
-          {
-            "kind": "union",
-            "types": [
-              8,
-              9,
-              10
-            ]
-          },
-          {
-            "kind": "literal",
-            "value": "active"
-          },
-          {
-            "kind": "literal",
-            "value": "failed"
-          },
-          {
-            "kind": "literal",
-            "value": "provisioning"
-          },
-          {
-            "kind": "literal",
-            "value": 2
-          },
-          {
-            "kind": "literal",
-            "value": true
-          },
-          {
-            "kind": "primitive",
-            "type": "number"
-          },
-          {
-            "kind": "literal",
-            "value": "team/member"
           }
         ]
       },
@@ -63223,6 +65148,52 @@
       "names": [],
       "sources": [
         "packages/todo/tool-todo/src/types.ts:31"
+      ]
+    },
+    {
+      "digest": "7a1a83b0dd7c3a67d46d2b703e204a69b1db4e596b867777c1dde1d9ac65662e",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "object",
+            "properties": [
+              {
+                "name": "messageId",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "targetId",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "teamId",
+                "type": 1,
+                "optional": false
+              },
+              {
+                "name": "version",
+                "type": 2,
+                "optional": false
+              }
+            ],
+            "indices": []
+          },
+          {
+            "kind": "primitive",
+            "type": "string"
+          },
+          {
+            "kind": "literal",
+            "value": 1
+          }
+        ]
+      },
+      "names": [],
+      "sources": [
+        "packages/experimental/agent-team/src/types.ts:420"
       ]
     },
     {
@@ -66569,7 +68540,7 @@
       },
       "names": [],
       "sources": [
-        "packages/llm/llm/src/types.ts:456"
+        "packages/llm/llm/src/types.ts:474"
       ]
     },
     {
@@ -67639,7 +69610,7 @@
       },
       "names": [],
       "sources": [
-        "packages/llm/llm/src/types.ts:454"
+        "packages/llm/llm/src/types.ts:472"
       ]
     },
     {
@@ -69774,7 +71745,7 @@
       },
       "names": [],
       "sources": [
-        "packages/llm/llm/src/types.ts:459"
+        "packages/llm/llm/src/types.ts:477"
       ]
     },
     {
@@ -69979,7 +71950,7 @@
       },
       "names": [],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:275"
+        "packages/experimental/agent-team/src/types.ts:407"
       ]
     },
     {
@@ -77841,7 +79812,7 @@
         "packages/experimental/agent-team/src/types.ts#TeamTaskStatus"
       ],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:99"
+        "packages/experimental/agent-team/src/types.ts:155"
       ]
     },
     {
@@ -82469,115 +84440,6 @@
       },
       "names": [],
       "sources": []
-    },
-    {
-      "digest": "baec8377d63c1eb14b0ffb45e36e97f09a790665a61394de22f4cee21de9520c",
-      "schema": {
-        "root": 0,
-        "nodes": [
-          {
-            "kind": "object",
-            "properties": [
-              {
-                "name": "context",
-                "type": 1,
-                "optional": false
-              },
-              {
-                "name": "description",
-                "type": 4,
-                "optional": false
-              },
-              {
-                "name": "error",
-                "type": 4,
-                "optional": true
-              },
-              {
-                "name": "id",
-                "type": 4,
-                "optional": false
-              },
-              {
-                "name": "model",
-                "type": 4,
-                "optional": true
-              },
-              {
-                "name": "modelProvider",
-                "type": 4,
-                "optional": true
-              },
-              {
-                "name": "name",
-                "type": 4,
-                "optional": false
-              },
-              {
-                "name": "phase",
-                "type": 5,
-                "optional": false
-              },
-              {
-                "name": "provider",
-                "type": 4,
-                "optional": false
-              },
-              {
-                "name": "reasoningEffort",
-                "type": 4,
-                "optional": true
-              }
-            ],
-            "indices": []
-          },
-          {
-            "kind": "union",
-            "types": [
-              2,
-              3
-            ]
-          },
-          {
-            "kind": "literal",
-            "value": "fork"
-          },
-          {
-            "kind": "literal",
-            "value": "fresh"
-          },
-          {
-            "kind": "primitive",
-            "type": "string"
-          },
-          {
-            "kind": "union",
-            "types": [
-              6,
-              7,
-              8
-            ]
-          },
-          {
-            "kind": "literal",
-            "value": "active"
-          },
-          {
-            "kind": "literal",
-            "value": "failed"
-          },
-          {
-            "kind": "literal",
-            "value": "provisioning"
-          }
-        ]
-      },
-      "names": [
-        "packages/experimental/agent-team/src/types.ts#TeamMemberSnapshot"
-      ],
-      "sources": [
-        "packages/experimental/agent-team/src/types.ts:64"
-      ]
     },
     {
       "digest": "bb1ab3d08f49a9f3b265f844cd78d5c49813062a7b34b54904b426f85d0ff6e3",
@@ -89661,6 +91523,20 @@
       "sources": []
     },
     {
+      "digest": "d203968b01e209cdc02a22c1b9ebcc605a0335dfc5c6232d8f16db9c979bb514",
+      "schema": {
+        "root": 0,
+        "nodes": [
+          {
+            "kind": "literal",
+            "value": "team/message/broadcast-delivered"
+          }
+        ]
+      },
+      "names": [],
+      "sources": []
+    },
+    {
       "digest": "d28765f87d6b6ab408e0b2f3e7e297791b004b806d8e302c49903ebae815feb2",
       "schema": {
         "root": 0,
@@ -89999,7 +91875,7 @@
       },
       "names": [],
       "sources": [
-        "packages/llm/llm/src/types.ts:457"
+        "packages/llm/llm/src/types.ts:475"
       ]
     },
     {
@@ -90841,40 +92717,6 @@
       },
       "names": [],
       "sources": []
-    },
-    {
-      "digest": "dfce5db4aa42b7ebe0bb79eca92553587287e18c06b9eba85cbfb9d332e26acd",
-      "schema": {
-        "root": 0,
-        "nodes": [
-          {
-            "kind": "union",
-            "types": [
-              1,
-              2,
-              3
-            ]
-          },
-          {
-            "kind": "literal",
-            "value": "active"
-          },
-          {
-            "kind": "literal",
-            "value": "failed"
-          },
-          {
-            "kind": "literal",
-            "value": "provisioning"
-          }
-        ]
-      },
-      "names": [
-        "packages/experimental/agent-team/src/types.ts#TeamMemberPhase"
-      ],
-      "sources": [
-        "packages/experimental/agent-team/src/types.ts:53"
-      ]
     },
     {
       "digest": "e0a787e6ec76c7c94fecbc501b489164ab0293db05bc947914077ad01e674f05",
@@ -92768,7 +94610,7 @@
       },
       "names": [],
       "sources": [
-        "packages/experimental/agent-team/src/types.ts:277"
+        "packages/experimental/agent-team/src/types.ts:409"
       ]
     },
     {
@@ -93706,7 +95548,7 @@
       },
       "names": [],
       "sources": [
-        "packages/llm/llm/src/types.ts:458"
+        "packages/llm/llm/src/types.ts:476"
       ]
     },
     {
@@ -93875,7 +95717,7 @@
         "packages/llm/llm/src/types.ts#SystemPromptUpdate"
       ],
       "sources": [
-        "packages/llm/llm/src/types.ts:396"
+        "packages/llm/llm/src/types.ts:414"
       ]
     },
     {

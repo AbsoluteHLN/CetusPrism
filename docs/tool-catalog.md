@@ -40,7 +40,7 @@ This table connects model-visible tool names to the plugin package and service s
 | `@deepseek-ai/dsh-tool-subagent` | `list_subagent_models`, `subagent` | `ctx.tools`, `ctx.subagents`, `ctx.systemPrompt`, `ctx.llm for model discovery and selected-route validation` | `tool/call`, `tool/result`, `child session events through the chosen provider` | `subagent`, `subagent_fork` | The registered delegation name is the load-time `toolName` config (default `subagent`); the default schema above has model selection off, while the discovery schema is shown as the fixed companion available in an enabled Session. Web presets sample the Plugins preference for each new top-level Session and preserve that decision for its child Sessions; `subagent_fork` remains fixed-route. Each instance independently controls whether it reads model-selection settings and its background behavior through `modelSelectionSettings`, `backgroundMode`, and `enableRunInBackground`. |
 | `@deepseek-ai/dsh-tool-subagent-control` | `interrupt_agent`, `list_agents`, `send_message` | `ctx.tools`, `ctx.subagents`, `ctx.agents and ctx.sessionProjections (list_agents only)` | `tool/call`, `tool/result`, `child session events through ctx.subagents` | - | The globally named control tools over continuable background subagents: provider-bound `tool-subagent` instances register distinct delegation tools, while this package registers `send_message` and `interrupt_agent` once, plus `list_agents` from its separately loaded `/list-agents` plugin (whose catalog rows use the sessionProjections and live Agent registries). |
 | `@deepseek-ai/dsh-tool-jobs` | `job_kill`, `job_list`, `job_output` | `ctx.tools`, `ctx.jobs`, `ctx.systemPrompt` | `tool/call`, `tool/result`, `user/message via agent.inject() for background completion notices` | - | The kind-agnostic background-job controller: background bash commands, PTY sends, and subagents are read, listed, and killed through the same three tools. Loading the plugin attaches the controller that arms producers' `ctx.jobs.start()`. |
-| `@deepseek-ai/dsh-experimental-tool-agent-team` | `interrupt_agent`, `list_agents`, `send_message`, `spawn_teammate`, `team_task_create`, `team_task_get`, `team_task_list`, `team_task_update`, `wait_agent` | `ctx.tools`, `ctx.systemPrompt`, `ctx.agentTeams`, `an exact live Team member Agent` | `tool/call`, `team/member`, `team/message/queued`, `team/message/delivered`, `team/task`, `tool/result` | - | All nine tools are scoped to implicit Team Leads and durable teammates. The shipped dsh-base bundle keeps the package disabled; the documented Agent Teams profile patch enables it while disabling the legacy continuable-child control names. |
+| `@deepseek-ai/dsh-experimental-tool-agent-team` | `broadcast_message`, `interrupt_agent`, `list_agent_profiles`, `list_agents`, `reactivate_teammate`, `release_teammate`, `send_message`, `spawn_teammate`, `team_task_create`, `team_task_get`, `team_task_list`, `team_task_update`, `wait_agent` | `ctx.tools`, `ctx.systemPrompt`, `ctx.agentTeams`, `an exact live Team member Agent` | `tool/call`, `team/member`, `team/message/queued`, `team/message/delivered`, `team/task`, `tool/result` | - | All nine tools are scoped to implicit Team Leads and durable teammates. The shipped dsh-base bundle keeps the package disabled; the documented Agent Teams profile patch enables it while disabling the legacy continuable-child control names. |
 | `@deepseek-ai/dsh-tool-todo` | `todo_write` | `ctx.tools`, `owning Agent session` | `tool/call`, `todo/write`, `tool/result` | - | todo_write is session-owned state; UIs render the latest todo/write event as a checklist. `allowParallelInProgress` is required with no default, so the catalog states its choice: `true`, whose description invites several `in_progress` items. A deployment choosing `false` receives the same tool with a description asking for exactly one active task. |
 | `@deepseek-ai/dsh-tool-workflow` | `workflow` | `ctx.tools`, `ctx.workflowEngine`, `ctx.systemPrompt`, `a calling Agent (exec.agent parents the script children)` | `tool/call`, `tool/result` | - | - |
 | `@deepseek-ai/dsh-tool-workspace-dependencies` | `load_workspace_dependencies` | `ctx.tools` | `tool/call`, `tool/result` | - | - |
@@ -2219,6 +2219,35 @@ The kind-agnostic background-job controller: background bash commands, PTY sends
 
 ## `@deepseek-ai/dsh-experimental-tool-agent-team`
 
+### `broadcast_message`
+
+Deliver one durable message to several Team members at once. Every target keeps its own delivery edge and its own pending-message ceiling, so the ceiling counts the expanded target set.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "targets": {
+      "type": "array",
+      "description": "Member targets that receive the message, at least one.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "message": {
+      "type": "string",
+      "description": "Self-contained message for every target."
+    }
+  },
+  "required": [
+    "targets",
+    "message"
+  ]
+}
+```
+
+Source: [`packages/experimental/tool-agent-team/src/index.ts`](../packages/experimental/tool-agent-team/src/index.ts)
+
 ### `interrupt_agent`
 
 Interrupt one teammate's current turn while preserving its pending inbox. Team Lead only.
@@ -2240,9 +2269,9 @@ Interrupt one teammate's current turn while preserving its pending inbox. Team L
 
 Source: [`packages/experimental/tool-agent-team/src/index.ts`](../packages/experimental/tool-agent-team/src/index.ts)
 
-### `list_agents`
+### `list_agent_profiles`
 
-List the Lead and every durable teammate with an addressable target and current availability. inactive means no turn is executing, not a task result. provisioning and failed describe member creation.
+List the agent profiles this deployment declares. A profile is a reusable teammate identity that can be instantiated in any Team and addressed by id across sessions.
 
 ```json
 {
@@ -2253,9 +2282,69 @@ List the Lead and every durable teammate with an addressable target and current 
 
 Source: [`packages/experimental/tool-agent-team/src/index.ts`](../packages/experimental/tool-agent-team/src/index.ts)
 
+### `list_agents`
+
+List the Lead and every durable teammate with an addressable target and current availability. inactive means no turn is executing, not a task result. dormant means the member was released and keeps its identity until it is reactivated. provisioning and failed describe member creation.
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+Source: [`packages/experimental/tool-agent-team/src/index.ts`](../packages/experimental/tool-agent-team/src/index.ts)
+
+### `reactivate_teammate`
+
+Bring one dormant teammate back and give it its next task. The member is cold-resumed with its identity and history intact, and the mail that waited for it arrives then. Team Lead only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Dormant teammate name returned by list_agents or release_teammate."
+    },
+    "prompt": {
+      "type": "string",
+      "description": "Complete next task for the resumed teammate."
+    }
+  },
+  "required": [
+    "name",
+    "prompt"
+  ]
+}
+```
+
+Source: [`packages/experimental/tool-agent-team/src/index.ts`](../packages/experimental/tool-agent-team/src/index.ts)
+
+### `release_teammate`
+
+Release one resident teammate into the dormant state. The member keeps its durable identity and the profile identity behind it, so reactivate_teammate can bring the same teammate back later instead of spawning a new one. Team Lead only.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Teammate name returned by spawn_teammate or list_agents."
+    }
+  },
+  "required": [
+    "name"
+  ]
+}
+```
+
+Source: [`packages/experimental/tool-agent-team/src/index.ts`](../packages/experimental/tool-agent-team/src/index.ts)
+
 ### `send_message`
 
-Send one durable message to another Team member. A running target receives it at the nearest step boundary; an inactive target starts or resumes a turn.
+Send one durable message to another Team member. A running target receives it at the nearest step boundary; an inactive target starts or resumes a turn. A dormant target stays parked: the message is queued and arrives when reactivate_teammate brings the member back.
 
 ```json
 {
@@ -2281,7 +2370,7 @@ Source: [`packages/experimental/tool-agent-team/src/index.ts`](../packages/exper
 
 ### `spawn_teammate`
 
-Create one named, durable teammate. Only the Team Lead may call this tool.
+Create one named, durable teammate. Only the Team Lead may call this tool. Give profile_id to instantiate a declared agent profile: a profile is a deployment-declared reusable identity that can be addressed by id across sessions, and it owns the member name, description, and route, so name and description must be omitted with it. backend is the execution backend that runs the teammate, such as spawn or fork; provider is the LLM provider of its model route, and the two name different things. preset records the agent preset this member is created under, and is limited to the Team allowed-preset range; the Session that owns the member decides which preset it actually runs under.
 
 ```json
 {
@@ -2289,11 +2378,11 @@ Create one named, durable teammate. Only the Team Lead may call this tool.
   "properties": {
     "name": {
       "type": "string",
-      "description": "Unique lower-kebab-case teammate name."
+      "description": "Unique lower-kebab-case teammate name. Required unless profile_id declares the name."
     },
     "description": {
       "type": "string",
-      "description": "Short description of the delegated responsibility."
+      "description": "Short description of the delegated responsibility. Required unless profile_id declares the description."
     },
     "prompt": {
       "type": "string",
@@ -2313,16 +2402,26 @@ Create one named, durable teammate. Only the Team Lead may call this tool.
     },
     "provider": {
       "type": "string",
-      "description": "Authorized LLM provider id for this teammate. Supply together with model."
+      "description": "Authorized LLM provider id for the teammate model route; it is not the execution backend. Supply together with model."
+    },
+    "backend": {
+      "type": "string",
+      "description": "Execution backend that runs the teammate, such as spawn or fork; it is not the LLM provider. Defaults to the configured fresh or fork backend."
     },
     "reasoning_effort": {
       "type": "string",
       "description": "Optional exact effort id advertised by the selected model; without a provider/model pair it applies to the Lead route."
+    },
+    "profile_id": {
+      "type": "string",
+      "description": "Declared agent profile to instantiate. A profile is a deployment-declared reusable identity, addressable by id across sessions; it owns the name, description, and route, so omit name and description with it."
+    },
+    "preset": {
+      "type": "string",
+      "description": "Agent preset this member is created under, recorded and range-checked by the Team; the owning Session decides which preset it actually runs under. Must be inside the Team allowed-preset range and name a preset id this deployment declared; an undeclared id is recorded but does not take effect. A declared profile pins its own preset, so naming a profile and a different preset is a conflict."
     }
   },
   "required": [
-    "name",
-    "description",
     "prompt"
   ]
 }

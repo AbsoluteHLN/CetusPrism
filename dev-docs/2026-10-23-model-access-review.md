@@ -52,7 +52,7 @@
 - 证据：vendor `supportsDeveloperRole = isOpenRouter && (id 以 anthropic/ 或 openai/ 开头) || (!isNonStandard && !isOpenRouter)`（vendor:1256,1260）；仓库按 provider/host 名单判 openrouter 一律 false（`catalog.ts:727-729`）。
 - 复现：openrouter 路由改指私有网关 + `anthropic/*` 模型 + reasoning → vendor 发 developer、仓库无预警告。
 - 修法：`sendsDeveloperRole` 增加 model id 前缀入参（1-2 文件）。
-- **已修**（提交 `9a785a2f4f`）：`sendsDeveloperRole` 已按 model id 前缀判定（`anthropic/` / `openai/`），回归见 `tests/catalog.spec.ts` 的 `it('warns for the OpenRouter models pi-ai serves as OpenAI')`。
+- **已修**（提交 `“fix(llm-pi-ai): answer the developer-role detection per model for OpenRouter” 修复`）：`sendsDeveloperRole` 已按 model id 前缀判定（`anthropic/` / `openai/`），回归见 `tests/catalog.spec.ts` 的 `it('warns for the OpenRouter models pi-ai serves as OpenAI')`。
 
 ### D5【低】pi-ai 链路 Retry-After 全程丢失
 - 证据：`providerRetryAfterMs` 仅 llm-deepseek 装配（`llm-deepseek/src/transport.ts:36-42`）；pi-ai 错误路径只留 message 文本（vendor `utils/error-body.js:111-118`），header 丢弃；llm-retry 尊重该字段但恒缺省（`llm-retry/src/index.ts:227-235`）。
@@ -79,7 +79,7 @@
 | D1 api 重指残留 `base.compat` | ✅ 已修（本次） | `catalog.ts` `resolveModelCompat` + 3 条回归 |
 | D2 compat 告警只覆盖 developer role | ⚠️ 部分落地（实测后收缩） | ② 运行时分类已修（`REASONING_EFFORT_REJECTED`）；① 配置期扩展经实测证伪，不做 |
 | D3 大小写敏感偏离 vendor | ✅ 已修（本次） | `catalog.ts` `sendsDeveloperRole` + 3 条回归 |
-| D4 OpenRouter 模型 id 前缀 | ✅ 已修（`9a785a2f4f`） | `catalog.ts` + 1 条回归 |
+| D4 OpenRouter 模型 id 前缀 | ✅ 已修（`“fix(llm-pi-ai): answer the developer-role detection per model for OpenRouter” 修复`） | `catalog.ts` + 1 条回归 |
 | D5 pi-ai 链路 Retry-After 丢失 | ⏸ 未做 | 根因在上游（pi-ai 压平 Error 链） |
 | D6 HTTP 408 未分类 | ✅ 已修（本次） | `stream.ts` `classifyPiAiError` + 1 条回归 |
 | D7 discovery 不 interrogate 换址 | ⏸ 未做 | 可选，README 已声明取舍 |
@@ -94,9 +94,10 @@
 | 项 | 状态 | 说明 |
 |---|---|---|
 | D2① 配置期告警扩展至 `maxTokensField` | **不做** | 实测证伪：csu 网关接受 `max_completion_tokens` 与 `stream_options`（全部 200）。「URL 无法自证」不足以判定这两个字段有风险，按此扩展会对每个私有网关普遍告警——正是上轮「逐模型刷 8 条预警」的同类错误。能力本就存在（`compat.maxTokensField`，`config.ts:272`），缺的是依据，而依据只能来自实测 |
-| D5 pi-ai 链路 Retry-After 丢失 | **待上游** | 根因在 pi-ai 压平 Error 链（`stream.ts` 的 XXX 注释）。本地只能靠该路由的 `retryPolicy.backoff.maxDelayMs` 缓解，根治需上游透出 header |
+| D5 pi-ai 链路 Retry-After 丢失 | **待上游** | 根因在 pi-ai 压平 Error 链（`stream.ts` 的 XXX 注释）。本地只能靠该路由的 `retryPolicy.backoff.maxDelayMs` 缓解，根治需上游透出 header。2026-10-23 探针顺带实测：csu 网关连发请求即在 openresty 层撞 429（HTML 错误体，无 JSON、无 Retry-After）——分类靠错误文本里的 429 数字仍可达，本地退避是唯一防线 |
 | D7 discovery 对换址后的 baseURL 不 interrogate | **可选** | README:129 已声明该取舍。改法是 draft baseURL ≠ 目录端点时改为 interrogate（1 文件） |
 | GLM 推理档位声明 | **待用户决定** | 网关接受全部档位，但 GLM 思考 token 不回传（64 tokens 内无 content、无 reasoning_content），声明会「烧 token 不显示」 |
+| GLM `contextWindow` 补一行 | **建议补，待用户确认** | 直连实测（2026-10-23，脚本 `koutput/probe-glm-context-window.mjs`，凭据只报长度）：上游校验器原话 `max_model_len=max_total_tokens=262144`，total 校验为「输入+输出 ≤ 262144」（`max_tokens` 16384–200000 均接受，流式首 chunk 即断连，未付长生成）。仓库侧 GLM 条目未声明、内置目录无同 id 条目，物化落 `DEFAULT_CONTEXT_WINDOW = 262_144`（`config.ts:65` 经 `catalog.ts:1109` 兜底）——**与真实值恰好一致，压缩阈值当前无偏差**，此前「不补则触发点晚约一倍」的担忧（基于真实 128K 的假设）实测证伪。仍建议补一行：默认值自述 a guess by construction（`config.ts:130-131`），声明把「猜测恰好命中」换成显式契约，防网关换底座后静默漂移，并与同部署 DeepSeek 条目显式声明 128000 对齐。`maxTokens` 维持不声明：现 cap 32,768，实测 16384–200000 均接受，够用 |
 
 ## 未验证项与验证方法
 

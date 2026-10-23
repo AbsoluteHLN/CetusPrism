@@ -1,6 +1,6 @@
 # 2026-10-23- 回归与覆盖风险核对
 
-范围：`E:\Projects\CetusPrism` @ `release/v1.7.3` HEAD `401f3e82bc`。核对对象为本轮 6 处已推送改动（`f4d90a6f2c` / `e40d84380f` / `171d72117f` / `c00b497ce5` / `1e085e40f8` / `1861ee8d80`）。全程只读仓库，唯一写入为本文件。
+范围：`E:\Projects\CetusPrism` @ `release/v1.7.3` HEAD `“docs(review): record the D2 measurement and its narrower landing” 批次`。核对对象为本轮 6 处已推送改动（`“fix(llm-pi-ai): land the model-access review D1/D3/D6/D8” 批次` / `“test(ui-settings-models): guard that every diagnostic a route carries is shown” 批次` / `“fix(llm): name the effort declaration when the endpoint refuses a reasoning effort” 修复` / `“feat(llm): carry configuration risks to the configuration surface” 批次` / `“feat(llm): give every route diagnostic an exit” 批次` / `“feat(compaction): give the model the window instead of a flat reserve” 批次`）。全程只读仓库，唯一写入为本文件。
 
 核对方法：读源码 + 读测试 + 跑测试 + 用 Node 24 `--experimental-strip-types` 直接调用仓库真实源码做探针（不改任何文件）。每条结论带 `文件:行号` 或「命令 + 退出码 + 输出」。
 
@@ -14,13 +14,13 @@
 4. **共享代码默认值没有被绕过。** `packages/llm/llm/src/retry-policy.ts` 与 `packages/compaction/*/src` 本轮**未改**；压缩预算只改 preset / 示例 YAML，服务默认（`0.8` / `65_536`）原样保留并被 `packages/compaction/compaction-basic/tests/compaction-basic.spec.ts:328-342` 钉住。唯一跨部署生效的共享默认值变化在 preset 层，且 preset 可被 profile patch 按 id 覆盖（`packages/bundle/web-app/presets/standard.patch.yml:1-3`）。
 5. **跨包契约：无「漏登记」的代码清单，但有两处文档清单漏登记。** `REASONING_EFFORT_REJECTED_CODE` 已由 `packages/llm/llm/src/index.ts:46` 的 `export * from './error.ts'` 导出；「不在默认重试集」这一终态属性被 `packages/llm/llm/tests/retry-policy.spec.ts:16` 的精确集合断言间接钉住。漏的是 `packages/llm/llm-pi-ai/README.md:117` 与 `docs/user/guide/providers.md`（Troubleshooting 段，`:196` 起）两份面向人的 code 清单——`DEVELOPER_ROLE_REJECTED` 与 `REASONING_EFFORT_REJECTED` 两个码都不在其中。
 6. **部署态 `csu` 路由不会被 D3 误判。** 实测经真实解析器：`warnings=[]`，三个模型的 `compat` 均为 `{"supportsDeveloperRole":false}`。`api.chat.csu.edu.cn` 不在厂商名单里（改前改后都不在），`sendsDeveloperRole` 两次都是 `true`；真正压住告警的是路由级 `compat.supportsDeveloperRole: false`（`openai-completions` 提供该字段，`catalog.ts:234`）。
-7. **既有基线失败与本轮无关。** `packages/llm/llm/tests/invariant.spec.ts:121` 的 `no readable registration` 失败：该文件最后一次改动是 `b9b251a9fd`（2026-10-02 初始导入），本轮窗口（`c00b497ce5~1..401f3e82bc`）内 `packages/llm/llm/tests/` 与 `packages/llm/llm/src/index.ts` 均未被触碰。
+7. **既有基线失败与本轮无关。** `packages/llm/llm/tests/invariant.spec.ts:121` 的 `no readable registration` 失败：该文件最后一次改动是 `v1.6.2 初始导入批次`（2026-10-02 初始导入），本轮窗口（「配置风险上浮批次起点 → D2 测量入库批次」范围）内 `packages/llm/llm/tests/` 与 `packages/llm/llm/src/index.ts` 均未被触碰。
 
 ---
 
 ## 逐项核对
 
-### A. `f4d90a6f2c` — D1/D3/D6/D8（模型接入审查）
+### A. `“fix(llm-pi-ai): land the model-access review D1/D3/D6/D8” 批次` — D1/D3/D6/D8（模型接入审查）
 
 #### D1：路由级 `api` 重指后残留 `base.compat`
 
@@ -91,7 +91,7 @@
 
 **缺口 9（文案缺口）**：该 code 落到 `packages/llm/llm-pi-ai/src/stream.ts:155-157` 的指引分支时既不是 `DEVELOPER_ROLE_REJECTED_CODE` 也不是 `REASONING_EFFORT_REJECTED_CODE`，因此**不附加任何可操作指引**，操作员只看到 pi-ai 的原始串 `No API key for provider: local-llm`。对比 `llm-deepseek` 的同名失败会点名要修的引用（`packages/llm/llm-deepseek/README.md:118`）。没有用例断言 D8 应带指引。
 
-### B. `e40d84380f` — Models 页「诊断必须有出口」
+### B. `“test(ui-settings-models): guard that every diagnostic a route carries is shown” 批次` — Models 页「诊断必须有出口」
 
 **判定：⚠️ 有缺口（正常行路径已钉住，setup 卡路径未钉住）**
 
@@ -103,7 +103,7 @@
 
 **缺口 11（去重未覆盖）**：`ModelsSection.tsx:424` 的 `new Set` 去重无断言（重复 warning 应只渲染一次）。
 
-### C. `171d72117f` — `REASONING_EFFORT_REJECTED`
+### C. `“fix(llm): name the effort declaration when the endpoint refuses a reasoning effort” 修复` — `REASONING_EFFORT_REJECTED`
 
 **判定：❌ 有风险（部署态自己的措辞不被识别）**
 
@@ -135,7 +135,7 @@
 
 **缺口 14（终态属性只被间接钉住）**：「不进默认重试集」由 `packages/llm/llm/tests/retry-policy.spec.ts:16` 的精确集合断言 `['EMPTY_RESPONSE','RATE_LIMIT','SERVER','TIMEOUT','TRANSPORT']` 间接保证 ✅（误登记会让该用例转红）。但没有用例直接断言 `REASONING_EFFORT_REJECTED` 不被重试。
 
-### D. `c00b497ce5` — warnings → 配置面闭环
+### D. `“feat(llm): carry configuration risks to the configuration surface” 批次` — warnings → 配置面闭环
 
 **判定：✅ 主体有测试钉住（两处分支未覆盖）**
 
@@ -165,7 +165,7 @@ i18n 完整性由**类型层面**保证：`locales.ts:165` 的 `zh: { [Key in ke
 
 **缺口 16（`catalogEndpoint` 判据未覆盖）**：`catalog.ts:1081` 以「是否写了 `baseURL`」区分「目录端点」与「部署自选端点」。判据本身被 `catalog.spec.ts:1086-1103` 间接覆盖，但「写了与目录完全相同的 baseURL」这一等价情形无用例。
 
-### E. `1e085e40f8` — 逐模型失败带到配置面（同批上下文）
+### E. `“feat(llm): give every route diagnostic an exit” 批次` — 逐模型失败带到配置面（同批上下文）
 
 **判定：✅ 有测试钉住**
 
@@ -173,7 +173,7 @@ i18n 完整性由**类型层面**保证：`locales.ts:165` 的 `zh: { [Key in ke
 
 回归用例：`packages/client/ui-settings-models/tests/provider-form.client.spec.tsx:871` —「shows a per-model failure beside the route that still serves」；`packages/client/ui-settings-models/tests/store.client.spec.ts:29-37` — 逐模型失败随 join 落到仍能服务的行上。
 
-### F. `1861ee8d80` — 压缩预算对齐
+### F. `“feat(compaction): give the model the window instead of a flat reserve” 批次` — 压缩预算对齐
 
 **判定：❌ 有风险（GLM 示例未被钉住 + 面向人的数字说错）**
 
@@ -329,7 +329,7 @@ i18n 完整性由**类型层面**保证：`locales.ts:165` 的 `zh: { [Key in ke
 - **但网关的拒绝措辞不被新分类器识别**：部署态 `:28` 记录的 CSU 对 DeepSeek 的原话是 `reasoning_effort must be low, high, xhigh, max`，实测分类为 `INVALID_REQUEST`（见 P0-1 的实测表）。**新码在部署态的 DeepSeek 路由上不会触发**，操作员看到的仍是「无效请求」而没有「改 `reasoningEfforts` 声明」这一行指引。
 - **噪音风险（低）**：拒绝词表含 `invalid` / `unexpected`，任一提到 `reasoning effort` 的 400 都会改判为 `REASONING_EFFORT_REJECTED`。两者都终态，重试行为不变，只影响分类与文案，无用例界定。
 
-### `csu` 路由与压缩预算（`1861ee8d80`）
+### `csu` 路由与压缩预算（`“feat(compaction): give the model the window instead of a flat reserve” 批次`）
 
 **判定：⚠️ 有影响，无部署态守卫。**
 
@@ -369,9 +369,9 @@ i18n 完整性由**类型层面**保证：`locales.ts:165` 的 `zh: { [Key in ke
 | 命令 | 退出码 | 结果 |
 |---|---|---|
 | `git -C 'E:\Projects\CetusPrism' status --short` | 0 | 空输出（工作区干净） |
-| `git -C 'E:\Projects\CetusPrism' log --oneline 1861ee8d80..401f3e82bc` | 0 | 5 个提交：`401f3e82bc` `171d72117f` `e40d84380f` `3f54f909ae` `f4d90a6f2c` |
-| `git -C 'E:\Projects\CetusPrism' log --oneline c00b497ce5~1..401f3e82bc -- packages/llm/llm/src packages/llm/llm/tests` | 0 | 仅 `src/error.ts`（`171d72117f`、`d617b6912f`）与 `src/types.ts`（`1e085e40f8`、`c00b497ce5`）；`tests/` 未被触碰 |
-| `git -C 'E:\Projects\CetusPrism' log --oneline c00b497ce5~1..401f3e82bc -- packages/llm/llm/tests/invariant.spec.ts` | 0 | 空输出 → 本轮未触碰该文件 |
+| 对「压缩窗口批次 → D2 测量入库批次」范围跑 `git log --oneline` | 0 | 5 个提交：D2 测量入库批次、effort 拒绝诊断命名修复、诊断展示守卫用例批次、model-access 审查入库批次、model-access D1/D3/D6/D8 落地批次 |
+| 对「配置风险上浮批次 → D2 测量入库批次」范围跑 `git log --oneline -- packages/llm/llm/src packages/llm/llm/tests` | 0 | 仅 `src/error.ts`（effort 拒绝诊断命名修复、provider 原话上报修复）与 `src/types.ts`（路由诊断出口批次、配置风险上浮批次）；`tests/` 未被触碰 |
+| 对同范围跑 `git log --oneline -- packages/llm/llm/tests/invariant.spec.ts` | 0 | 空输出 → 本轮未触碰该文件 |
 | `node ... vitest.mjs run --root 'E:\Projects\CetusPrism' --config 'E:\Projects\CetusPrism\configs\vitest.config.ts' packages/llm/llm` | 1 | `1 failed | 51 passed (52)` 文件，`1 failed | 1268 passed (1269)` 用例。唯一失败：`packages/llm/llm/tests/invariant.spec.ts:121` `reports a notification whose registry cannot be re-read` → `AssertionError: expected [Function] to throw an error` |
 | `node ... vitest.mjs run ... packages/llm/llm-pi-ai packages/client/ui-settings-models packages/bundle/web-app packages/compaction/compaction-basic` | 0 | `40 passed (40)` 文件，`875 passed (875)` 用例 |
 | `node --experimental-strip-types --input-type=module -e <base64>`（部署态 csu 解析） | 0 | `warnings=[]`，三模型 `compat={"supportsDeveloperRole":false}`；去掉开关后告警点名 DeepSeek+Qwen 并排除 GLM |
@@ -379,4 +379,4 @@ i18n 完整性由**类型层面**保证：`locales.ts:165` 的 `zh: { [Key in ke
 | `node --experimental-strip-types --input-type=module -e <base64>`（D1 共有字段与重指边界） | 0 | `zai/*` 与 anthropic 共有字段交集 `[]`；`deepseek/deepseek-v4-pro` 交集 `["supportsMidConvoSystemMessages"]`；重指后 `compat={}`；模型级不被新协议提供的开关 → 报错；路由级无模型可取 → 报错 |
 | `node --experimental-strip-types --input-type=module -e <base64>`（pi-ai 内置 compat） | 0 | zai 7 个模型 compat 键、deepseek 2 个模型 compat 键（见 P1-4 表） |
 
-只读检查（无退出码语义，仅供复核）：`git show`（`f4d90a6f2c` / `e40d84380f` / `171d72117f` / `c00b497ce5` / `1861ee8d80` / `1e085e40f8`）、`git log -1 --format`（`b9b251a9fd` 2026-10-02 / `eb61b2e8b8` 2026-10-06）、`Select-String` 于 `D:\Cetus\dshconfig\profiles\web\cordis.patch.yml`、`packages/llm/llm-pi-ai/README.md`、`docs/user/guide/providers.md`、`packages/client/ui-chat/src/client/chat/MessageItem.tsx`、以及 `node_modules/@earendil-works/pi-ai/dist/{api/openai-completions.js,utils/error-body.js}`。
+只读检查（无退出码语义，仅供复核）：`git show`（`“fix(llm-pi-ai): land the model-access review D1/D3/D6/D8” 批次` / `“test(ui-settings-models): guard that every diagnostic a route carries is shown” 批次` / `“fix(llm): name the effort declaration when the endpoint refuses a reasoning effort” 修复` / `“feat(llm): carry configuration risks to the configuration surface” 批次` / `“feat(compaction): give the model the window instead of a flat reserve” 批次` / `“feat(llm): give every route diagnostic an exit” 批次`）、`git log -1 --format`（`v1.6.2 初始导入批次` 2026-10-02 / `“feat: 融合官方 deepseek-harness 0.2.1-alpha.1 内核并恢复不变量 seam” 批次` 2026-10-06）、`Select-String` 于 `D:\Cetus\dshconfig\profiles\web\cordis.patch.yml`、`packages/llm/llm-pi-ai/README.md`、`docs/user/guide/providers.md`、`packages/client/ui-chat/src/client/chat/MessageItem.tsx`、以及 `node_modules/@earendil-works/pi-ai/dist/{api/openai-completions.js,utils/error-body.js}`。

@@ -1,7 +1,7 @@
 # 第二轮意见：压缩预算分层（D）与软告警层（E）
 
 日期：2026-10-23 04:45　作者：AgentLoop对齐师　独立意见，不重复第一轮复核内容。
-基线：`release/v1.7.3` @ `a1433b9430d30aa94fb463fbcdbd6364121ed495`（`git rev-parse HEAD` 实测；**Chief 给的 `b5d522e762` 已落后 4 个提交**，本地=远端）。本文只写本文件，未动任何其他文件。
+基线：`release/v1.7.3` @ `“fix(tool-agent-team): say that a preset is recorded, not applied” 修复`（`git rev-parse HEAD` 实测；**Chief 给的 `“docs(spec): record what the fifth review's gaps turned into” 批次` 已落后 4 个提交**，本地=远端）。本文只写本文件，未动任何其他文件。
 
 ## 0. 前提修正（先于两题，均已验证）
 
@@ -39,5 +39,5 @@
 
 ## 已验证 / 未验证
 
-- 已验证：HEAD `a1433b9430`（`git rev-parse`）；`compaction-budget.spec.ts` 2 passed、退出码 0（命令见上）；`standard.patch.yml:98-99,102-107`、`ptc.patch.yml:74-83` 装配形状；`agent/pre-step` waterfall 与 firstAttempt 追加（`agent.ts:276-282,419-423`）；inbox splice 持久化（`inbox.ts:227-242`）；`packages/` 无 anomaly 实现（grep 0 命中）；`apps/cli/config` 仅 examples。
+- 已验证：HEAD `“fix(tool-agent-team): say that a preset is recorded, not applied” 修复`（`git rev-parse`）；`compaction-budget.spec.ts` 2 passed、退出码 0（命令见上）；`standard.patch.yml:98-99,102-107`、`ptc.patch.yml:74-83` 装配形状；`agent/pre-step` waterfall 与 firstAttempt 追加（`agent.ts:276-282,419-423`）；inbox splice 持久化（`inbox.ts:227-242`）；`packages/` 无 anomaly 实现（grep 0 命中）；`apps/cli/config` 仅 examples。
 - 未验证：ptc preset 的实际使用面（哪些部署选 ptc.patch——影响 D 的优先级）；注入 user 消息对 GLM KV cache 的影响（无出站环境）；上游 model-anomaly 行号（沿用第一轮【pack 未验证】标注）；未运行 compaction-basic 或 agent-loop 的其他测试套件。

@@ -12,7 +12,7 @@ import SubagentService from '@deepseek-ai/dsh-subagent'
 import * as SubagentFork from '@deepseek-ai/dsh-subagent-fork-in-process'
 import * as SubagentSpawn from '@deepseek-ai/dsh-subagent-spawn-in-process'
 import { MockAdapter } from '../../../core/agent-loop/tests/mock-adapter.ts'
-import TeamService, { TeamId, TeamMessageId } from '../src/index.ts'
+import TeamService, { TeamError, TeamId, TeamMessageId } from '../src/index.ts'
 import { teamProjectionDefinition } from '../src/projection.ts'
 import { TestSessionQuery } from './test-session-query.ts'
 
@@ -519,6 +519,28 @@ describe('Team dormant teammates', () => {
     expect(durable(lead).members.find(member => member.name === 'worker')?.phase).toBe('dormant')
   })
 
+  it('keeps the original failure as the cause of the thrown resume error', async () => {
+    const { ctx, lead } = await setup(['hang'])
+    await spawn(ctx, lead, 'worker')
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+    const failure = new Error('the session is not available')
+    vi.spyOn(ctx.subagents, 'sendMessage').mockRejectedValueOnce(failure)
+
+    const thrown = await ctx.agentTeams.resumeTeammate(lead, {
+      name: 'worker',
+      prompt: content('continue the review'),
+      signal: SIGNAL,
+    }).then(
+      () => undefined,
+      (error: unknown) => error,
+    )
+
+    // One error code still describes the failure, and the error it folded
+    // travels with it instead of being flattened into its text.
+    expect(thrown).toBeInstanceOf(TeamError)
+    expect(thrown).toHaveProperty('cause', failure)
+  })
+
   it('records the resume failure reason on the dormant member row', async () => {
     const { ctx, lead } = await setup(['hang'])
     await spawn(ctx, lead, 'worker')
@@ -919,6 +941,50 @@ describe('Team broadcast', () => {
     expect(broadcast.status).toBe('queued')
     expect(durable(lead).broadcasts.find(candidate => candidate.id === broadcast.messageId)?.targetIds)
       .toEqual([alpha.member.id, beta.member.id])
+    expect(durable(lead).broadcastDelivered.map(edge => edge.targetId)).toEqual([alpha.member.id])
+    expect(deliveries(alphaAgent, broadcast.messageId)).toBe(1)
+
+    // The resume cold-resumes the released member, and the recovery that
+    // follows it retries the pending broadcast for that target only.
+    await ctx.agentTeams.resumeTeammate(lead, {
+      name: 'beta',
+      prompt: content('continue the review'),
+      signal: SIGNAL,
+    })
+    const betaAgent = await waitRunning(ctx, beta.member.id)
+
+    await vi.waitFor(() => {
+      expect(durable(lead).broadcastDelivered.map(edge => edge.targetId))
+        .toEqual([alpha.member.id, beta.member.id])
+    }, { timeout: 2_000 })
+    // The target that already received it is not delivered to a second time.
+    expect(deliveries(alphaAgent, broadcast.messageId)).toBe(1)
+    expect(deliveries(betaAgent, broadcast.messageId)).toBe(1)
+  })
+
+  it('delivers a broadcast past an unreachable target in the same drive', async () => {
+    // The target order must not decide who is served: an unreachable target
+    // at the head keeps its message queued, and the reachable target after
+    // it is still delivered by this drive.
+    const { ctx, lead } = await setup(['hang', 'hang', 'hang'])
+    const alpha = await spawn(ctx, lead, 'alpha')
+    const beta = await spawn(ctx, lead, 'beta')
+    const alphaAgent = await waitRunning(ctx, alpha.member.id)
+    await waitRunning(ctx, beta.member.id)
+    // A released teammate keeps its identity but has no runtime left, so the
+    // broadcast cannot reach it.
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'beta', signal: SIGNAL })
+
+    const broadcast = await ctx.agentTeams.broadcastMessage(lead, {
+      targets: ['beta', 'alpha'],
+      content: content('status please'),
+      signal: SIGNAL,
+    })
+
+    // The unreachable target still owes its delivery, so the broadcast stays
+    // queued and no delivery edge is written for it — but the reachable
+    // target after it is not held back by that failure.
+    expect(broadcast.status).toBe('queued')
     expect(durable(lead).broadcastDelivered.map(edge => edge.targetId)).toEqual([alpha.member.id])
     expect(deliveries(alphaAgent, broadcast.messageId)).toBe(1)
 

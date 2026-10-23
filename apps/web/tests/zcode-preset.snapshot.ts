@@ -53,7 +53,11 @@ it.skipIf(webSnapshotMode() === 'record')('records and restores the selected nat
   const tripwire = watchConsole(page)
   await page.goto(scaffold.authenticatedUrl, { waitUntil: 'load' })
   await connectFreshWorkspaceZh(page, scaffold.workspaceCwd)
+  // The preset seat is session-scoped and renders in the composer tool row
+  // once the roster loaded and the session's own preset is known, so wait for
+  // the seat rather than assuming the chip the hero used to carry.
   const preset = page.locator('button[title="选择新任务使用的 Agent 预设"]')
+  await preset.waitFor({ timeout: 15_000 })
   await preset.click()
   mkdirSync(EVIDENCE, { recursive: true })
   await page.screenshot({ path: join(EVIDENCE, '2026-10-18-zcode-menu.png') })
@@ -89,7 +93,10 @@ it.skipIf(webSnapshotMode() === 'record')('records and restores the selected nat
   }
   await page.reload({ waitUntil: 'load' })
   await page.getByText('ZCODE_NATIVE_PRESET_OK', { exact: true }).waitFor()
-  await page.getByText('ZCode 原则模式', { exact: true }).waitFor()
+  // The preset name is on screen twice now: the session header label and the
+  // composer seat. Each assertion names the surface it means.
+  await page.getByRole('button', { name: 'ZCode 原则模式', exact: true }).waitFor()
+  await page.locator('[class*="titleRow"]').first().getByText('ZCode 原则模式', { exact: true }).waitFor()
   await page.screenshot({ path: join(EVIDENCE, '2026-10-18-zcode-session-dark.png') })
   await page.getByRole('button', { name: '设置', exact: true }).click()
   const settings = page.getByRole('dialog', { name: '设置', exact: true })

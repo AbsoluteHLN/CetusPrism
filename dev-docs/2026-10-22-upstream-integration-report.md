@@ -1,8 +1,8 @@
 # CetusPrism 整理 · 上游升级 · 闭环核验（2026-10-22）
 
 - 仓库：`E:\Projects\CetusPrism`，分支 `release/v1.7.3`
-- 评审基线 HEAD：`9f0ab4bfb78bc0baf27138363e7ba97b4be42db6`
-- 上游：`github.com/deepseek-ai/deepseek-harness`，远端名 `official`，`refs/remotes/official/master` = `687f282e8625c6b8d11ff58211a90524be2e4317`
+- 评审基线 HEAD：`“chore(release): bump product version to 1.7.3” 版本提升`
+- 上游：`github.com/deepseek-ai/deepseek-harness`，远端名 `official`，`refs/remotes/official/master` = `上游 rc.2 合并点（PR #6408）`
 - 本轮产出提交：见文末「提交」一节
 
 ---
@@ -94,7 +94,7 @@ Team 的按需选模型能力在 overlay 恢复为 true 后重新可用（修复
 ### 4.1 「拉最新上游」的真相
 
 重新 fetch（走 `127.0.0.1:7890` 代理）后：**官方 master 自 2026-10-17 起没有新提交**，
-仍是 `687f282e86`，与账本 `docs/UPSTREAM.alignment.json` 记录的 `upstreamCommit` 完全一致。
+仍是 `上游 rc.2 合并点（PR #6408）`，与账本 `docs/UPSTREAM.alignment.json` 记录的 `upstreamCommit` 完全一致。
 **官方最新上游库已拉齐，没有可拉的新版本。** 且本 fork 与官方**没有共同祖先**
 （`git merge-base --all HEAD official/master` 为空），因此不能 merge/rebase。
 
@@ -102,8 +102,7 @@ Team 的按需选模型能力在 overlay 恢复为 true 后重新可用（修复
 
 ### 4.2 筛选方法（账本规矩：窄范围、preimage 精确、可验证）
 
-1. 分叉面：`git diff --name-only ec48669f48 HEAD`（fork 改了 1435 个文件）
-   vs `git diff --name-only ec48669f48 official/master`（上游改了 4059 个文件）
+1. 分叉面：对「上游 0.2.1-alpha.1 发布点 → HEAD」与「上游 0.2.1-alpha.1 发布点 → official/master」各跑一次 `git diff --name-only <起点> <终点>`：fork 改了 1435 个文件，上游改了 4059 个文件
    → 冲突面 439 个文件（client 117 / experimental 39 / subagent 23）
 2. 上游 1281 个非 merge 提交里，**567 个**与 fork 分叉面零重叠
 3. 其中 **223 个**的每个改动文件在本 fork 真实存在（避免凭空引入上游路径）
@@ -114,22 +113,22 @@ Team 的按需选模型能力在 overlay 恢复为 true 后重新可用（修复
 
 | 提交 | 标题 | 为什么相关 |
 | --- | --- | --- |
-| `288a2bd6dc` | fix(cordis): adopt effect disposers from their owning fiber | 本次根修把跨 fiber 的 contribution 交给 `ctx.effect` 回收，这条上游修复正是该归属语义的正解 |
-| `898ed6d192` | fix(api-gateway): count mux traffic as heartbeat liveness | 桌面端长会话靠 mux 保活，空闲长会话不再被当断连 |
-| `14e9bf61cb` | fix(hmr,skills): contain watcher errors that arrive after close | 桌面宿主长期挂文件监听，关闭后的迟到错误会变未捕获异常 |
-| `df41b7cd2d` | fix(credentials-local): contain watcher errors that arrive after close | 同族：凭据监听错误兜底 |
-| `3121a4b5da` | fix(ui-chat): show a stopped notice for turns interrupted by a DSH stop | 被打断的轮次此前无提示，用户会以为卡死 |
-| `6ec995d49b` | fix(session-title): keep the first output line and bound the cap by the request | 会话标题取首行 + 按预算截断 |
-| `8953554b5e` | fix(web): clip the collapsed right sidebar so PageUp cannot shift the frame | 右侧栏折叠时 PageUp 推移整个框架 |
-| `5578ecf655` | refactor(session-projection): return the exact change-feed disposer | 投影订阅返回精确 disposer，避免状态漂移 |
+| cordis | fix(cordis): adopt effect disposers from their owning fiber | 本次根修把跨 fiber 的 contribution 交给 `ctx.effect` 回收，这条上游修复正是该归属语义的正解 |
+| api-gateway | fix(api-gateway): count mux traffic as heartbeat liveness | 桌面端长会话靠 mux 保活，空闲长会话不再被当断连 |
+| hmr/skills | fix(hmr,skills): contain watcher errors that arrive after close | 桌面宿主长期挂文件监听，关闭后的迟到错误会变未捕获异常 |
+| credentials-local | fix(credentials-local): contain watcher errors that arrive after close | 同族：凭据监听错误兜底 |
+| ui-chat | fix(ui-chat): show a stopped notice for turns interrupted by a DSH stop | 被打断的轮次此前无提示，用户会以为卡死 |
+| session-title | fix(session-title): keep the first output line and bound the cap by the request | 会话标题取首行 + 按预算截断 |
+| web | fix(web): clip the collapsed right sidebar so PageUp cannot shift the frame | 右侧栏折叠时 PageUp 推移整个框架 |
+| session-projection | refactor(session-projection): return the exact change-feed disposer | 投影订阅返回精确 disposer，避免状态漂移 |
 
 ### 4.4 复核过但**故意没回移**的
 
 | 提交 | 不回移的原因 |
 | --- | --- |
-| `59ba1321eb`（node-pty conpty） | 改动产品里**每一个** Windows 终端的 PTY 分配方式；上游那个 console host 缺陷本机复现不出来，收益不确定而影响面覆盖全部终端 |
-| `599b9f45d4`（插件补丁保留） | 依赖上游 app-boot 的 `profilePatchPreset`/`ProfilePatch`，本 fork 没有，回移后编译不过 |
-| `15ae753dcd`（预设贡献检查） | 依赖上游 plugin-manager 的 `bundleDeclarations`，本 fork 没有 |
+| `“fix(subprocess): back Windows terminals with node-pty's bundled console host” 修复`（node-pty conpty） | 改动产品里**每一个** Windows 终端的 PTY 分配方式；上游那个 console host 缺陷本机复现不出来，收益不确定而影响面覆盖全部终端 |
+| `“fix(plugins): preserve scoped patches during Host edits” 修复`（插件补丁保留） | 依赖上游 app-boot 的 `profilePatchPreset`/`ProfilePatch`，本 fork 没有，回移后编译不过 |
+| `“fix(plugin): inspect preset contributions before profile activation” 修复`（预设贡献检查） | 依赖上游 plugin-manager 的 `bundleDeclarations`，本 fork 没有 |
 
 ### 4.5 上游新方向与本产品的相关性（结论）
 
@@ -175,7 +174,7 @@ llm-deepseek-account 新包、plugin-market/secret-mask UI、HTTPS web listener�
    → 建议下次联网时执行：给该包补 `devDependencies` + `pnpm install --lockfile-only`。
 4. **包被打成两个入口导致模块状态分裂**：见 §1.2，是本次根修的第二层根因。
    任何在这类包里放模块级状态的写法都会踩同一个坑。
-5. **上游 vendor/cordis 的 effect 归属语义**：`288a2bd6dc` 修的正是本 fork 依赖的那套语义，
+5. **上游 vendor/cordis 的 effect 归属语义**：`“fix(cordis): adopt effect disposers from their owning fiber” 修复` 修的正是本 fork 依赖的那套语义，
    已回移；安装态 runtime 的 cordis 仍是旧版（本轮未重建部署闭包），下次完整打包会带上。
 
 ---
@@ -253,14 +252,14 @@ llm-deepseek-account 新包、plugin-market/secret-mask UI、HTTPS web listener�
 
 ### 9.4 本轮提交
 
-`d436d131ee` — `chore(runtime): pin the Node floor to the tested matrix and refresh the Engram Go requirement`
+「chore(runtime): pin the Node floor to the tested matrix and refresh the Engram Go requirement」批次
 
 - node engines 下限对齐 CI 实测矩阵（`.github/workflows/node-addon-system.yml` 跑
   24.22.1 / 22.23.4 / 26.12.1），根包与 5 个 `native/system/packages/*` 统一声明
   `^22.23.4 || >=24.22.1`；共享依赖仓里无任何依赖要求更高（扫描 `node_modules/.pnpm` 最高只到 `>=20`）。
 - `docs/user/guide/mcp-memory.md` / `.zh.md`：Engram v1.20.0 的 Go 要求改为 1.26.10+（或 1.27.3+）。
 - 钩子：pre-commit（third-party notices / whitespace / vendor manifest guard）全过；
-  pre-push typecheck 38.60s 通过；推送 `1c4ce3fa42..d436d131ee release/v1.7.3`（exit 0）。
+  pre-push typecheck 38.60s 通过；推送范围「agent-loop 测试依赖声明修复批次 → Node 版本下限钉扎批次」落在 `release/v1.7.3`（exit 0）。
 
 ### 9.5 node-compat 闸门：4 passed / 2 failed（两条均为环境基线）
 
@@ -309,7 +308,7 @@ llm-deepseek-account 新包、plugin-market/secret-mask UI、HTTPS web listener�
 ```
 
 根因：装配时复用了 `E:\dependency-cache\cargo\targets\cetusprism\release\CetusPrism.exe`
-（2026-10-21 16:25:31）。该 exe 早于 `c669f0d0bf`（2026-10-22 03:47:52）落到
+（2026-10-21 16:25:31）。该 exe 早于 `“fix(discovery): register list_subagent_models once per scope” 批次`（2026-10-22 03:47:52）落到
 `apps/electron/scripts/build-shell.mjs` 的两个强制开关：
 
 - `--remap-path-prefix=E:\dependency-cache=cargo-cache`——Rust 把 `file!()` 烘进 `.rdata` 的
@@ -371,7 +370,7 @@ GATE_EXIT=0
 | `dsh-experimental-tool-agent-team` | `teamDiscoveryPolicy` | Team 只贡献策略、不再重复注册 |
 | `cordis` | `effectOwners` | cordis effect 归属修复 |
 
-`client/ui-dockkit` 未出现在 backend runtime 闭包里：它是仅前端包，且 `c669f0d0bf` 对
+`client/ui-dockkit` 未出现在 backend runtime 闭包里：它是仅前端包，且 `“fix(discovery): register list_subagent_models once per scope” 批次` 对
 `DockSurface.tsx` 的改动**只有 JSDoc 注释**，无运行时行为，故不影响产物正确性。
 
 ### 10.6 两条判据陷阱（留给下一次复查的人）

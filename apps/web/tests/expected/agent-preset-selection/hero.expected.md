@@ -1,3 +1,1 @@
 - button "Choose workspace": workspace
-- button "Minimal mode"
-- button "DSH"

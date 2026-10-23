@@ -113,7 +113,7 @@ execFileSync(process.execPath, [
   '--node-linker=hoisted', '--config.inject-workspace-packages=true',
   // pnpm 11 verifies the deploy target's freshly written lockfile against the
   // supply-chain policies before installing it. That check re-fetches every
-  // package's metadata and provenance attestations from registry.npmjs.org,
+  // package's metadata and npm's signed attestations from registry.npmjs.org,
   // so it needs the network even under `--offline` and retries forever when
   // the registry is unreachable. The verification cache is keyed by the
   // lockfile's path, so a new output directory (the `CETUS_DIST_DIR` landing

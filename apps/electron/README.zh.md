@@ -135,7 +135,7 @@ pnpm --filter @deepseek-ai/dsh deploy --prod --offline \
   --trust-lockfile <runtime-dir>
 ```
 
-`--trust-lockfile` 是离线 deploy 的必需项。否则 pnpm 11 会先针对 deploy 目标目录里新写出的 lockfile 校验供应链策略，而该校验要从 `registry.npmjs.org` 拉取每个包的元数据与 provenance attestations——registry 不可达时无限重试，deploy 永远跑不完。该校验缓存以 lockfile 的路径为键，因此换一个产物落点就会失效。
+`--trust-lockfile` 是离线 deploy 的必需项。否则 pnpm 11 会先针对 deploy 目标目录里新写出的 lockfile 校验供应链策略，而该校验要从 `registry.npmjs.org` 拉取每个包的元数据与 npm 的签名证明（signed attestations）——registry 不可达时无限重试，deploy 永远跑不完。该校验缓存以 lockfile 的路径为键，因此换一个产物落点就会失效。
 
 `--node-linker=hoisted` 产生单一扁平、完全物化的 `node_modules`，没有 junction，因此复制或归档该树不会切断解析。对工作区根应用的非 legacy deploy 必须加 `--config.inject-workspace-packages=true`：它把闭包依赖的工作区包（vendor cosmokit/schemastery、原生 landlock 桩）物化为 `node_modules` 内的真实目录，而不是留回仓库的链接。缺少它时 legacy `--deploy --legacy` 隔离布局会被拒绝（`ERR_PNPM_DEPLOY_NONINJECTED_WORKSPACE`）；而 `--legacy` 与 `--node-linker=hoisted` 组合则完全不安装 `node_modules`。
 

@@ -146,8 +146,24 @@ function spawn(
   })
 }
 
+/**
+ * How long one polled condition may take to become true. Vitest's own default
+ * is 1s, and the shared Windows CI runner is far slower than a developer box:
+ * the agent teardown this suite waits on needs seconds there while it takes a
+ * few hundred milliseconds locally, so a wait that stops at the default fails
+ * the suite while the operation is still making progress.
+ */
+const WAIT_TIMEOUT_MS = 60_000
+
+/**
+ * The budget for the cases whose waits the shared CI host stretches. It sits
+ * above {@link WAIT_TIMEOUT_MS} so a stretched wait names the condition that
+ * never arrived instead of the test budget running out first.
+ */
+const SLOW_CASE_TIMEOUT_MS = 90_000
+
 async function waitNoAgent(ctx: Context, id: SessionId): Promise<void> {
-  await vi.waitFor(() => { expect(ctx.agents.get(id)).toBeUndefined() }, { timeout: 5_000 })
+  await vi.waitFor(() => { expect(ctx.agents.get(id)).toBeUndefined() }, { timeout: WAIT_TIMEOUT_MS })
 }
 
 async function waitRunning(ctx: Context, id: SessionId): Promise<Agent> {
@@ -155,7 +171,7 @@ async function waitRunning(ctx: Context, id: SessionId): Promise<Agent> {
     const agent = ctx.agents.get(id)
     expect(agent?.status).toBe('running')
     return agent!
-  }, { timeout: 5_000 })
+  }, { timeout: WAIT_TIMEOUT_MS })
 }
 
 describe('Team identity and provisioning', () => {
@@ -1200,7 +1216,7 @@ describe('Team mailbox and waiting', () => {
         && messageIds.has(message.source.messageId))).length
     await teamFiber.dispose()
     await ctx.plugin(TeamService, { maxPendingMessagesPerMember: 1 })
-    await vi.waitFor(() => { expect(durable(lead).pendingMessages).toEqual([]) })
+    await vi.waitFor(() => { expect(durable(lead).pendingMessages).toEqual([]) }, { timeout: WAIT_TIMEOUT_MS })
     expect(lead.session.snapshotEvents().filter(event => event.type === 'agent/inbox/spliced'
       && event.data.inserted.some(message => message.source.kind === 'team-message'
         && messageIds.has(message.source.messageId)))).toHaveLength(receiptCount)
@@ -1362,7 +1378,7 @@ describe('Team mailbox and waiting', () => {
     const second = ctx.agentTeams.sendMessage(lead, {
       target: 'ordered-target', content: content('second steer'), signal: SIGNAL,
     }).finally(() => { secondSettled = true })
-    await vi.waitFor(() => { expect(durable(lead).pendingMessages).toHaveLength(2) })
+    await vi.waitFor(() => { expect(durable(lead).pendingMessages).toHaveLength(2) }, { timeout: WAIT_TIMEOUT_MS })
     expect(admitted).toEqual(['first steer'])
     expect(secondSettled).toBe(false)
 
@@ -1408,14 +1424,14 @@ describe('Team mailbox and waiting', () => {
           : [])
         : [])
       expect(accepted).toEqual([earlier.id, later.messageId])
-    })
+    }, { timeout: WAIT_TIMEOUT_MS })
 
     ctx.agentTeams.interrupt(lead, 'reordered-target')
     target.cancel({ kind: 'parent' })
     await waitNoAgent(ctx, target.id)
   })
 
-  it('deduplicates live target history and contains inspection and delivery failures', async () => {
+  it('deduplicates live target history and contains inspection and delivery failures', { timeout: SLOW_CASE_TIMEOUT_MS }, async () => {
     const { ctx, lead } = await setup(['hang', textResponse('inactive target initial')])
     const liveStarted = await spawn(ctx, lead, 'live-target')
     const live = await waitRunning(ctx, liveStarted.member.id)
@@ -1494,7 +1510,7 @@ describe('Team mailbox and waiting', () => {
     }), { surfaceOp: 'append' })
     await vi.waitFor(() => {
       expect(warnings.some(warning => warning.includes('acknowledgement flush failed'))).toBe(true)
-    })
+    }, { timeout: WAIT_TIMEOUT_MS })
     failedAck.mockRestore()
 
     const inactiveStarted = await spawn(ctx, lead, 'inactive-target')
@@ -1519,7 +1535,7 @@ describe('Team mailbox and waiting', () => {
     await waitNoAgent(ctx, live.id)
   })
 
-  it('cold-resumes an inactive sibling with sender attribution', async () => {
+  it('cold-resumes an inactive sibling with sender attribution', { timeout: SLOW_CASE_TIMEOUT_MS }, async () => {
     const { ctx, lead } = await setup(['hang', 'hang'])
     const alphaStarted = await spawn(ctx, lead, 'alpha')
     const alpha = await waitRunning(ctx, alphaStarted.member.id)
@@ -1533,7 +1549,7 @@ describe('Team mailbox and waiting', () => {
     })
     expect(first.status).toBe('accepted')
     await waitNoAgent(ctx, betaStarted.member.id)
-    await vi.waitFor(() => { expect(durable(lead).pendingMessages).toEqual([]) })
+    await vi.waitFor(() => { expect(durable(lead).pendingMessages).toEqual([]) }, { timeout: WAIT_TIMEOUT_MS })
 
     const stored = await storedEvents(ctx, betaStarted.member.id)
     const peerMessages = stored.filter(event => event.type === 'user/message'
@@ -1598,7 +1614,7 @@ describe('Team mailbox and waiting', () => {
     })
     expect(followup.status).toBe('accepted')
     expect(ctx.agentTeams.interrupt(lead, 'worker')).toEqual({ previousStatus: 'running' })
-    await vi.waitFor(() => { expect(worker.status).toBe('idle') })
+    await vi.waitFor(() => { expect(worker.status).toBe('idle') }, { timeout: WAIT_TIMEOUT_MS })
     expect(worker.inbox.nextStep.some(message => message.source.kind === 'team-message'
       && message.source.messageId === followup.messageId)).toBe(true)
     worker.cancel({ kind: 'parent' })

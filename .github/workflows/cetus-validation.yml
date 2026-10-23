@@ -45,6 +45,13 @@ jobs:
       - name: Build shipped runtime and Web client
         run: pnpm run build
       - name: Test native capability composition
+        env:
+          # The lane's per-test, hook and expect.poll budgets ride one env knob
+          # (configs/vitest.config.ts reads DSH_COVERAGE_TEST_TIMEOUT_MS and
+          # spreads it into every inline project, because CLI flags do not reach
+          # them). The shared Windows runner is far slower than a developer
+          # box, and Vitest's 5s default turned one slow spawn into a red lane.
+          DSH_COVERAGE_TEST_TIMEOUT_MS: '30000'
         run: >-
           pnpm exec vitest run --config configs/vitest.config.ts
           scripts/doc-standard.spec.ts

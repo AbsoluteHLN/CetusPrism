@@ -499,6 +499,23 @@ Source: [`packages/core/agent-loop/src/index.ts`](../../packages/core/agent-loop
 Registry of YAML-declared presets and the revisions live Agents retain.
 
 ```ts cordis-catalog
+/**
+ * Register an installed runtime as an execution backend.
+ *
+ * This is the one entry an external runtime uses: the adapter answers a
+ * probe, and CetusPrism keeps no credential, private configuration or
+ * runtime file for it.
+ * @param provider - the adapter that owns the runtime.
+ * @returns a disposer that removes this registration.
+ */
+registerBackend(provider: BuiltinAgentBackendProvider): () => void
+
+/**
+ * Read the execution backends this deployment offers.
+ * @returns DSH first, then every external backend with its current state.
+ */
+@Remote('backends') remoteExportBackends(): AgentBackendCatalog
+
 /** Register and eagerly load a definition; activation failure remains visible in the roster.
  * @param definition Parsed configuration supplied by the declaring plugin.
  * @returns Definition disposer after activation or its diagnostic settles; the declaring plugin owns it.

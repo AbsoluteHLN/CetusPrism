@@ -2,7 +2,7 @@
 
 English | [中文](agent-team.zh.md)
 
-Types shared by the experimental implicit-root Team domain, model tools, and host adapters. The [Agent Teams Agent Note](../../.agents/notes/implemented/feature/2026-08-05-agent-teams.md) owns identity, mailbox, task, and shared-checkout decisions; this page records the durable and client-visible forms from [`packages/experimental/agent-team/src/types.ts`](../../packages/experimental/agent-team/src/types.ts).
+Types shared by the experimental implicit-root Team domain, model tools, and host adapters. The [Agent Teams Agent Note](../../.agents/notes/implemented/feature/2026-08-05-agent-teams.md) owns identity, mailbox, task, and shared-checkout decisions; this page records the durable and client-visible forms from [`packages/experimental/agent-team/src/types.ts`](../../packages/experimental/agent-team/src/types.ts) and the range ceilings from [`packages/experimental/agent-team/src/range.ts`](../../packages/experimental/agent-team/src/range.ts).
 
 ## Identity and roster
 
@@ -45,6 +45,18 @@ Every member starts in `provisioning` and reaches exactly one terminal roster ph
 
 `team/member` continues to write payload v2 with optional `modelProvider` and `reasoningEffort` fields; existing v2 records without them remain readable. The projection reader also accepts records from the intermediate v3 writer and normalizes them to v2 in memory without rewriting Session logs. Other Agent Teams event payloads remain v2. The `agentTeam` projection cache is at state version 5, so a v4 cache is rebuilt from the Session log.
 
+## Profiles and range ceilings
+
+`AgentProfileView` is the model-facing view of one declared profile: the reusable identity of a teammate, together with the route it may run under. A profile is a deployment fact rather than a session fact, so the same identity can be instantiated again in a later session instead of living only in one Lead's log. `ctx.agentTeams.profiles()` lists the declared profiles in declaration order.
+
+`TeamRanges` holds the Team's three independent ceilings on its members: `allowedEfforts`, `allowedBackends`, and `allowedPresets`. Every list is a set of exact names rather than an interval, and an empty list means the Team places no ceiling of that kind. The ranges bound every member of the Team, while a profile narrows one member further.
+
+## Teammate residency and reuse
+
+A teammate is spawned, released into its dormant state, and later resumed. `ReleaseTeammateRequest` names the durable teammate and carries the caller's cancellation. `ResumeTeammateRequest` names the same teammate, adds the prompt that gives the resumed member its next task, and carries its own cancellation. The durable member row stays in place across both transitions, so the same identity returns through a resume instead of a new spawn.
+
+`TeammateLifecycleResult` is the outcome of either transition: it carries the roster row the member now holds, so a caller reads the same `TeamMemberView` shape whether the member became dormant or became active again.
+
 ## Durable mailbox
 
 The Lead Session first stores the complete queued message. A target receipt is acknowledged only after its pending inbox item or recorded user message is durable, leaving queued-minus-delivered as the recovery mailbox.
@@ -63,6 +75,8 @@ interface TeamMessageSnapshot {
 Every message attempts Steer delivery. A running target receives it at the nearest step boundary; an inactive target starts a turn if loaded or cold-resumes otherwise. Scheduling is not stored in the durable record because callers cannot select another mode.
 
 The target Session keeps message identity and sender attribution on both the pending inbox item and the eventual user message. Folding that source across inbox and history is the target-side de-duplication key; the model-visible framing repeats the id and sender.
+
+A broadcast addresses several members with one durable record. `BroadcastTeamMessageRequest` names the target members and carries the content and the caller's cancellation; every named member receives the message. `BroadcastTeamMessageResult` carries the durable message identity, the resolved target Session ids, and whether the broadcast was `accepted` or is still `queued`. Each target keeps its own delivery edge, so an unreachable member holds back only its own copy and never the targets queued behind it.
 
 ```ts type-equiv
 /** Source retained by the target Session for durable mailbox de-duplication. */
@@ -191,6 +205,24 @@ listMembers(agent: Agent): TeamMemberView[]
 modelPolicy(): { allowedModels: TeamModelSelection[]; defaultModel?: TeamModelSelection }
 
 /**
+ * List the deployment's declared agent profiles.
+ *
+ * A profile is the reusable identity of a teammate: it names the member,
+ * says what it is for, and pins the route and ranges it may run under.
+ * @returns the declared profiles in declaration order.
+ */
+profiles(): AgentProfileView[]
+
+/**
+ * Read the Team's three range ceilings.
+ *
+ * Each list is a set of exact names; an empty list means the Team places no
+ * ceiling of that kind.
+ * @returns the Team's effort, backend, and preset ceilings.
+ */
+ranges(): TeamRanges
+
+/**
  * Create one named, continuable direct child of the Team Lead.
  * @param caller - exact live Lead Agent.
  * @param request - immutable name, description, prompt, context mode, provider, and cancellation.
@@ -199,12 +231,42 @@ modelPolicy(): { allowedModels: TeamModelSelection[]; defaultModel?: TeamModelSe
 async spawnTeammate(caller: Agent, request: SpawnTeammateRequest): Promise<SpawnTeammateResult>
 
 /**
+ * Release one resident teammate into its dormant state.
+ *
+ * The durable member row stays, so the same identity can be brought back by
+ * a later resume instead of being spawned again.
+ * @param caller - exact live Lead Agent.
+ * @param request - teammate name and cancellation.
+ * @returns the dormant roster row.
+ */
+async releaseTeammate(caller: Agent, request: ReleaseTeammateRequest): Promise<TeammateLifecycleResult>
+
+/**
+ * Bring one dormant teammate back and give it its next task.
+ * @param caller - exact live Lead Agent.
+ * @param request - teammate name, prompt, and cancellation.
+ * @returns the active roster row.
+ */
+async resumeTeammate(caller: Agent, request: ResumeTeammateRequest): Promise<TeammateLifecycleResult>
+
+/**
  * Queue one durable peer message, then attempt immediate delivery.
  * @param caller - exact live sending Team member.
  * @param request - target name, content, and pre-queue cancellation.
  * @returns durable message identity and immediate-delivery observation.
  */
 async sendMessage(caller: Agent, request: SendTeamMessageRequest): Promise<SendTeamMessageResult>
+
+/**
+ * Queue one durable broadcast, then attempt immediate delivery.
+ *
+ * One durable record addresses several members at once; every target keeps
+ * its own delivery edge and its own pending-message ceiling.
+ * @param caller - exact live sending Team member.
+ * @param request - target names, content, and pre-queue cancellation.
+ * @returns durable broadcast identity, its targets, and the delivery observation.
+ */
+async broadcastMessage( caller: Agent, request: BroadcastTeamMessageRequest, ): Promise<BroadcastTeamMessageResult>
 
 /**
  * Create one unowned pending task in the Team Lead log.

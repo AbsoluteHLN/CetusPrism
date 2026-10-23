@@ -136,6 +136,18 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'Registry of YAML-declared presets and the revisions live Agents retain.',
     methods: [
       {
+        signature: 'registerBackend(provider: BuiltinAgentBackendProvider): () => void',
+        description: 'Register an installed runtime as an execution backend.\n\nThis is the one entry an external runtime uses: the adapter answers a probe, and CetusPrism keeps no credential, private configuration or runtime file for it.',
+        parameters: [{ name: 'provider', description: 'the adapter that owns the runtime.' }],
+        returns: 'a disposer that removes this registration.',
+      },
+      {
+        signature: '@Remote(\'backends\') remoteExportBackends(): AgentBackendCatalog',
+        description: 'Read the execution backends this deployment offers.',
+        parameters: [],
+        returns: 'DSH first, then every external backend with its current state.',
+      },
+      {
         signature: 'async register(definition: PresetDefinition): Promise<() => Promise<void>>',
         description: 'Register and eagerly load a definition; activation failure remains visible in the roster.',
         parameters: [{ name: 'definition', description: 'Parsed configuration supplied by the declaring plugin.' }],
@@ -342,9 +354,33 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         throws: ['{TeamError} if Team routes are invalid or the default is not in allowedModels.'],
       },
       {
+        signature: 'profiles(): AgentProfileView[]',
+        description: 'List the deployment\'s declared agent profiles.\n\nA profile is the reusable identity of a teammate: it names the member, says what it is for, and pins the route and ranges it may run under.',
+        parameters: [],
+        returns: 'the declared profiles in declaration order.',
+      },
+      {
+        signature: 'ranges(): TeamRanges',
+        description: 'Read the Team\'s three range ceilings.\n\nEach list is a set of exact names; an empty list means the Team places no ceiling of that kind.',
+        parameters: [],
+        returns: 'the Team\'s effort, backend, and preset ceilings.',
+      },
+      {
         signature: 'async spawnTeammate(caller: Agent, request: SpawnTeammateRequest): Promise<SpawnTeammateResult>',
         description: 'Create one named, continuable direct child of the Team Lead.',
         parameters: [{ name: 'caller', description: 'exact live Lead Agent.' }, { name: 'request', description: 'immutable name, description, prompt, context mode, provider, and cancellation.' }],
+        returns: 'the active roster row.',
+      },
+      {
+        signature: 'async releaseTeammate(caller: Agent, request: ReleaseTeammateRequest): Promise<TeammateLifecycleResult>',
+        description: 'Release one resident teammate into its dormant state.\n\nThe durable member row stays, so the same identity can be brought back by a later resume instead of being spawned again.',
+        parameters: [{ name: 'caller', description: 'exact live Lead Agent.' }, { name: 'request', description: 'teammate name and cancellation.' }],
+        returns: 'the dormant roster row.',
+      },
+      {
+        signature: 'async resumeTeammate(caller: Agent, request: ResumeTeammateRequest): Promise<TeammateLifecycleResult>',
+        description: 'Bring one dormant teammate back and give it its next task.',
+        parameters: [{ name: 'caller', description: 'exact live Lead Agent.' }, { name: 'request', description: 'teammate name, prompt, and cancellation.' }],
         returns: 'the active roster row.',
       },
       {
@@ -352,6 +388,12 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         description: 'Queue one durable peer message, then attempt immediate delivery.',
         parameters: [{ name: 'caller', description: 'exact live sending Team member.' }, { name: 'request', description: 'target name, content, and pre-queue cancellation.' }],
         returns: 'durable message identity and immediate-delivery observation.',
+      },
+      {
+        signature: 'async broadcastMessage( caller: Agent, request: BroadcastTeamMessageRequest, ): Promise<BroadcastTeamMessageResult>',
+        description: 'Queue one durable broadcast, then attempt immediate delivery.\n\nOne durable record addresses several members at once; every target keeps its own delivery edge and its own pending-message ceiling.',
+        parameters: [{ name: 'caller', description: 'exact live sending Team member.' }, { name: 'request', description: 'target names, content, and pre-queue cancellation.' }],
+        returns: 'durable broadcast identity, its targets, and the delivery observation.',
       },
       {
         signature: 'async createTask(caller: Agent, request: CreateTeamTaskRequest): Promise<TeamTaskView>',
@@ -4544,6 +4586,26 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface Agent {\n    readonly id: SessionId;\n}',
   },
   {
+    name: 'AgentBackendAvailability',
+    declaration: 'export type AgentBackendAvailability = \'ready\' | \'unconfigured\' | \'incompatible\';',
+  },
+  {
+    name: 'AgentBackendCapabilities',
+    declaration: 'export interface AgentBackendCapabilities {\n    readonly cancel: boolean;\n    readonly resume: boolean;\n    readonly tools: boolean;\n    readonly modelRouting: AgentBackendModelRouting;\n}',
+  },
+  {
+    name: 'AgentBackendCatalog',
+    declaration: 'export interface AgentBackendCatalog {\n    readonly backends: readonly AgentBackendRow[];\n}',
+  },
+  {
+    name: 'AgentBackendModelRouting',
+    declaration: 'export type AgentBackendModelRouting = \'cetus\' | \'external-runtime\';',
+  },
+  {
+    name: 'AgentBackendRow',
+    declaration: 'export interface AgentBackendRow {\n    readonly id: \'dsh\' | \'pi\' | \'zcode\';\n    readonly name: string;\n    readonly version: string;\n    readonly source: string;\n    readonly availability: AgentBackendAvailability;\n    readonly reason?: string;\n    readonly capabilities: AgentBackendCapabilities;\n}',
+  },
+  {
     name: 'AgentCancelCause',
     declaration: 'export type AgentCancelCause = {\n    readonly kind: \'user\';\n} | {\n    readonly kind: \'parent\';\n} | {\n    readonly kind: \'hook\';\n    readonly reason: string;\n} | {\n    readonly kind: \'disposed\';\n};',
   },
@@ -4582,6 +4644,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AgentPresetRow',
     declaration: 'export interface AgentPresetRow {\n    readonly id: string;\n    readonly isDefault: boolean;\n    readonly name?: string;\n    readonly description?: string;\n    readonly broken?: string;\n}',
+  },
+  {
+    name: 'AgentProfileView',
+    declaration: 'export interface AgentProfileView {\n    readonly id: string;\n    readonly name: string;\n    readonly description: string;\n    readonly backend?: string;\n    readonly provider?: string;\n    readonly model?: string;\n    readonly allowedEfforts?: readonly string[];\n    readonly preset?: string;\n}',
   },
   {
     name: 'AgentResolver',
@@ -4796,8 +4862,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type BrandedNumber<B extends string> = number & {\n    readonly [BRAND]: B;\n};',
   },
   {
+    name: 'BroadcastTeamMessageRequest',
+    declaration: 'export interface BroadcastTeamMessageRequest {\n    readonly targets: readonly string[];\n    readonly content: ContentBlock[];\n    readonly signal: AbortSignal;\n}',
+  },
+  {
+    name: 'BroadcastTeamMessageResult',
+    declaration: 'export interface BroadcastTeamMessageResult {\n    readonly messageId: TeamMessageId;\n    readonly targetIds: readonly SessionId[];\n    readonly status: \'accepted\' | \'queued\';\n}',
+  },
+  {
     name: 'BrowserUseProviderName',
     declaration: 'export type BrowserUseProviderName = Branded<\'BrowserUseProviderName\'>;',
+  },
+  {
+    name: 'BuiltinAgentBackendProbe',
+    declaration: 'export interface BuiltinAgentBackendProbe {\n    readonly version: string;\n    readonly source: string;\n    readonly compatible: boolean;\n    readonly reason?: string;\n}',
+  },
+  {
+    name: 'BuiltinAgentBackendProvider',
+    declaration: 'export interface BuiltinAgentBackendProvider {\n    readonly id: \'pi\' | \'zcode\';\n    describe(): BuiltinAgentBackendProbe;\n}',
   },
   {
     name: 'BundleInfo',
@@ -5733,7 +5815,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlmConfigurableProvider',
-    declaration: 'export interface LlmConfigurableProvider {\n    provider: string;\n    displayName: string;\n    settingsNs: string;\n    settingsPath: readonly string[];\n    declared?: boolean;\n    error?: string;\n}',
+    declaration: 'export interface LlmConfigurableProvider {\n    provider: string;\n    displayName: string;\n    settingsNs: string;\n    settingsPath: readonly string[];\n    declared?: boolean;\n    error?: string;\n    warnings?: readonly string[];\n    modelErrors?: readonly string[];\n}',
   },
   {
     name: 'LlmDiscoveredModel',
@@ -6380,6 +6462,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type Registry = string | null;',
   },
   {
+    name: 'ReleaseTeammateRequest',
+    declaration: 'export interface ReleaseTeammateRequest {\n    readonly name: string;\n    readonly signal: AbortSignal;\n}',
+  },
+  {
     name: 'Reload',
     declaration: 'export interface Reload {\n    filename: string;\n    modules: ReloadModules;\n    runtime?: Plugin.Runtime | undefined;\n}',
   },
@@ -6466,6 +6552,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ResumeAgentOptions',
     declaration: 'export interface ResumeAgentOptions {\n    readonly resumeSessionId: SessionId;\n    readonly parentAgent?: Agent;\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
+  },
+  {
+    name: 'ResumeTeammateRequest',
+    declaration: 'export interface ResumeTeammateRequest {\n    readonly name: string;\n    readonly prompt: ContentBlock[];\n    readonly signal: AbortSignal;\n}',
   },
   {
     name: 'RpcId',
@@ -7341,7 +7431,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SpawnTeammateRequest',
-    declaration: 'export interface SpawnTeammateRequest {\n    readonly name: string;\n    readonly description: string;\n    readonly prompt: ContentBlock[];\n    readonly context: \'fresh\' | \'fork\';\n    readonly provider: string;\n    readonly model?: string;\n    readonly agentOptions?: TeamAgentRoute;\n    readonly signal: AbortSignal;\n}',
+    declaration: 'export interface SpawnTeammateRequest {\n    readonly name?: string;\n    readonly description?: string;\n    readonly prompt: ContentBlock[];\n    readonly context: \'fresh\' | \'fork\';\n    readonly provider?: string;\n    readonly model?: string;\n    readonly agentOptions?: TeamAgentRoute;\n    readonly profileId?: string;\n    readonly preset?: string;\n    readonly signal: AbortSignal;\n}',
   },
   {
     name: 'SpawnTeammateResult',
@@ -7664,12 +7754,16 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type TeamId = Branded<\'TeamId\'>;',
   },
   {
+    name: 'TeammateLifecycleResult',
+    declaration: 'export interface TeammateLifecycleResult {\n    readonly member: TeamMemberView;\n}',
+  },
+  {
     name: 'TeamMembership',
     declaration: 'export interface TeamMembership {\n    readonly root: Agent;\n    readonly id: TeamId;\n    readonly role: \'lead\' | \'teammate\';\n    readonly name: string;\n}',
   },
   {
     name: 'TeamMemberView',
-    declaration: 'export interface TeamMemberView {\n    readonly id: SessionId;\n    readonly name: string;\n    readonly role: \'lead\' | \'teammate\';\n    readonly status: \'running\' | \'inactive\' | \'provisioning\' | \'failed\';\n    readonly description?: string;\n    readonly provider?: string;\n    readonly context?: \'fresh\' | \'fork\';\n    readonly model?: string;\n    readonly modelProvider?: string;\n    readonly reasoningEffort?: string;\n    readonly diagnostics: string[];\n}',
+    declaration: 'export interface TeamMemberView {\n    readonly id: SessionId;\n    readonly name: string;\n    readonly role: \'lead\' | \'teammate\';\n    readonly status: \'running\' | \'inactive\' | \'provisioning\' | \'dormant\' | \'failed\';\n    readonly description?: string;\n    readonly provider?: string;\n    readonly context?: \'fresh\' | \'fork\';\n    readonly model?: string;\n    readonly modelProvider?: string;\n    readonly reasoningEffort?: string;\n    readonly profileId?: string;\n    readonly preset?: string;\n    readonly resumable?: boolean;\n    readonly diagnostics: string[];\n}',
   },
   {
     name: 'TeamMessageId',
@@ -7678,6 +7772,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'TeamModelSelection',
     declaration: 'export interface TeamModelSelection {\n    readonly provider: string;\n    readonly model: string;\n}',
+  },
+  {
+    name: 'TeamRanges',
+    declaration: 'export interface TeamRanges {\n    readonly allowedEfforts: readonly string[];\n    readonly allowedBackends: readonly string[];\n    readonly allowedPresets: readonly string[];\n}',
   },
   {
     name: 'TeamTaskAction',

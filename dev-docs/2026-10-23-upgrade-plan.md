@@ -20,6 +20,7 @@
 | 完整类型闸门 | **绿** | `pnpm run typecheck` → 退出码 0（2026-10-23 05:5x 实测，含全量构建） |
 | S4 两包测试 | **绿** | `vitest run --config configs/vitest.config.ts packages/experimental/agent-team packages/experimental/tool-agent-team` → 8 文件 / 167 用例 / 9.68s / 退出码 0 |
 | 全仓测试体检 | 红，但**与本轮零交集** | 1906 文件中 89 失败文件 / 249 失败用例，全部落在 Windows 环境限制（符号链接权限、子进程超时、发布产物缺失），本轮 13 笔提交碰的 14 个文件与失败集合零交集 |
+| 发布线 CI（CetusPrism validation） | **红，且先于本轮** | 两个平台同挂在「Test shipped Web interactions」：8 条 Playwright e2e 超时（`apps/web/tests/agent-preset-selection.e2e.ts` 6 条、`zcode-preset.snapshot.ts` 1 条、`cetus-settings-navigation.e2e.ts` 1 条，均为 `locator.click: Timeout 30000ms exceeded`）。在 S4 **之前**的 run（版本号提交 `9f0ab4bfb7`）里是**同一批 8 条、同样的三个文件**，且该提交不含 composer chips 改动（`git merge-base --is-ancestor aafb979693 9f0ab4bfb7` 为假）⇒ 1.7.3 发布线的存量债，与本轮无关 |
 
 ---
 
@@ -84,6 +85,7 @@
 | 9 | S4.3.6 设置区四级卡片 / S4 设置区档案卡片 | 建议维持延后：profile patch 已满足「存智能体信息的配置环境」 | **待用户拍板** | 用户确认延后或排期 |
 | 10 | 旧日志格式（v3/v0）无升级路径 | 体检发现 21 条会话在当前构建里打不开（读取器在投影之前就拒绝）。本轮只识别不处置 | 下一轮 | 明确这些会话的处置口径（可读/丢弃/迁移） |
 | 11 | **裸提交哈希**（L3，CI 阻断） | **已闭合**：119 处 → 0，清理批次已入库；本组此后用 `文件:行号` + 版本号/批次名做证据锚点 | 文档规范审查员（已交） | `pnpm run verify-repository-references` 退出码 0（本地复跑通过）；CI 转绿由文档规范审查员盯守 |
+| 12 | **发布线 CI 红灯**（`apps/web` Playwright e2e，8 条超时） | 归属未定：本组无 `apps/web` 归属。已核实**先于本轮**（同批 8 条、同三个文件出现在 S4 之前的 run）。选项：(a) 用户/前端侧接手；(b) Chief 派诊断轮本地复现定位 | **待用户决定** | 给出根因或证明本地不可复现；在此之前 `release/v1.7.3` 的 validation workflow 不会绿（**与 S4 完成度无关**） |
 
 ---
 

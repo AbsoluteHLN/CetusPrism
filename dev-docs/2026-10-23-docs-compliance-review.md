@@ -2,15 +2,18 @@
 
 核对对象：本轮 `feat(agent-team)` 三批提交（`S4 服务层批次` / `S4 工具层批次` / `S4 配置+规格批次`）及其后的修复与文档提交，**当前基线 HEAD `“docs(spec): turn the replay argument into evidence…” spec 批次`，工作树干净**。行号一律以当前工作树为准。核对方式只读：跑仓库闸门（不带 `--write`）+ 读源码 + 读 git 历史（log/diff/show），未做任何 git 写操作。
 上一版报告（基线 `“docs(spec): record the fifth review's corrections and adjudication” 批次`，报 3 条违规 V1–V3）已入库；本版为**复核更新**：逐项重跑全部闸门，确认 V1/V2/V3 闭环状态并覆盖新增提交（`“fix(agent-team): stop the mailbox from waking a dormant teammate” 修复`、`“fix(agent-team): declare the effort list the way the runtime keeps it” 修复`、`“fix(tool-agent-team): say that a preset is recorded, not applied” 修复`、`“docs(spec): correct the parity table's GLM retry budget and line numbers” 修正`、`“docs(spec): realign the memo with the review's rewritten draft” 批次`、`“docs(review): land the rewritten compliance review and the round-two opinions” 批次`、`“fix(agent-team): let the profile pin the preset, and keep the resume failure” 批次`、`第二轮裁决记录批次`、`“docs(spec): turn the replay argument into evidence…” spec 批次`）。
+**第三版（2026-10-23 晚，基线 HEAD =「docs(review): correct the release-line CI attribution and close the sweep」批次，工作树仅剩 D/E 实现轮在途的 `mailbox.ts` + `upgrade.spec.ts`）**：按 Chief 复核要求按新 HEAD 重跑——V1–V3 与 L1/L2/L3 全部实证闭环（四条静态门禁 exit 0），并按 Chief 的 CI 归属更正改写本报告的 CI 叙述（静态门禁不在 CI、发布线红灯属 e2e 测试侧过期）。
 
 ## 结论摘要
 
-**八条规则全部通过；上一轮 3 条违规（V1/V2/V3）已全部闭环；push 前仍剩两个红闸门，但均为 2026-10-22 及更早的其他批次遗留，不属本轮改动。**
+**八条规则全部通过；上一轮 3 条违规（V1/V2/V3）与两项跨批次遗留（L1/L2）均已闭环；当前 HEAD 四条静态门禁本地全绿。**
 
 - `verify-translation-pairing` 全仓 **558 对全部一致，exit 0**（上一轮 V1 失步已消除）。
 - `verify-export-jsdoc` **exit 0**；`verify-config-catalog` / `verify-cordis-config`（220 files）/ oxlint / 编码检查全部通过。
-- `verify-no-unknown-casts` 仍 **exit 1**，但失败条目已**不含本轮任何文件**（agent-team 的 `src/index.ts:74` 已由 `“fix(agent-team): declare the effort list the way the runtime keeps it” 修复` 以改写声明方式消除）；剩余条目来自 `“fix(discovery): register list_subagent_models once per scope” 批次`、`“feat(conversation): move the preset and backend chips into the composer tool row” 批次` 等 2026-10-22 及更早提交。
-- `verify-concrete-terms` 仍 **exit 1**（4 处命中与上一轮完全相同：`apps/electron/README.md:275`、`apps/electron/README.zh.md:138`、`apps/electron/scripts/pack-tauri.mjs:116`、`scripts/check-offline-pack.mjs:11`），非本轮引入。
+- `verify-no-unknown-casts` **exit 0**：agent-team 的断言由「effort 列表契约修复批次」改写声明消除，存量条目由 Chief 的门禁修复批次（「fix(gates): clear the two CI-blocking gates…」）对账 baseline 闭环（1444 条登记、无新增；逐包改写仍是长期债但不阻断 push）。
+- `verify-concrete-terms` **exit 0**：4 处含糊来源标签由同一门禁修复批次改写（点名 npm 与签名），中英 README 配对重录。
+- `verify-repository-references` **exit 0**：119 处裸哈希由 L3 清理批次（「docs(review): replace bare commit hashes with descriptive anchors」）换成提交主题/批次名锚点。
+- **治理事实（2026-10-23 由 Chief 查实）**：静态门禁不在 CI 里跑——受控 workflow 只有 `cetus-validation.yml` 与 `macos-build.yml`，其 step 不调用任何静态门禁；本报告第③节即验收判据。发布线 CI 的红灯（step 10 e2e）是 chips 迁移的测试侧过期，与本轮文档无关（归因更正见升级方案 §2.5）。
 
 ## ① 合规核对表
 
@@ -36,10 +39,12 @@
 - **V2（`agent-team/src/index.ts:74` 新增 `as unknown as` 断言未入 baseline）→ 已闭环**：`“fix(agent-team): declare the effort list the way the runtime keeps it” 修复` 改写声明（types.ts:92 可变数组 + schema 保持 `string[]`），断言整体删除；`verify-no-unknown-casts` 失败列表已无 agent-team 文件。
 - **V3（`2026-10-22-zcode-agentloop-parity.md` GLM retry 行号与结论漂移）→ 已闭环**：`“docs(spec): correct the parity table's GLM retry budget and line numbers” 修正` 修正，现 `:120` 写明「GLM 覆盖对齐上游预算 maxRetries: 10（cordis.yml:34）」。
 
-**跨批次遗留（非本轮引入，但 push 前须知悉归属）2 条**：
+**跨批次遗留 2 条 → 已由 Chief 的门禁修复波次全部闭环（2026-10-23 复核）**：
 
-- **L1【`verify-no-unknown-casts` exit 1｜未知归属批次】** 剩余未登记断言位于 `packages/client/ui-agent-preset/tests/apply.client.spec.ts`（多处）、`packages/core/scope/tests/invariant.spec.ts:37-38`、`packages/subagent/tool-subagent/src/list-models.ts:113`（`“fix(discovery): register list_subagent_models once per scope” 批次`，2026-10-22 discovery 批次）等约 20+ 条，全部为 2026-10-22 及更早提交引入。修法：由各批次 owner 走「改写优先、扩 baseline 须记录理由」流程，或由 Chief 集中登记 baseline。
-- **L2【`verify-concrete-terms` exit 1｜electron/pack 相关 owner】** 4 处命中（`apps/electron/README.md:275`、`apps/electron/README.zh.md:138`、`apps/electron/scripts/pack-tauri.mjs:116`、`scripts/check-offline-pack.mjs:11`）与上一轮完全相同，非本轮引入。
+- **L1【`verify-no-unknown-casts`】→ 已闭环**：Chief 的门禁修复批次（「fix(gates): clear the two CI-blocking gates…」）用闸门自身扫描器把 `scripts/no-unknown-casts.baseline.json` 对账成磁盘实况（26 条补登记 + 17 条失效登记清除，**未改任何被断言的源码**）。当前 HEAD 实测：**exit 0**（「no new assertions; 1444 existing assertions remain」）。存量 1444 条的逐包改写仍是长期债，但不阻断 push。
+- **L2【`verify-concrete-terms`】→ 已闭环**：4 处含糊来源标签（electron 打包路径文案）已点名 npm 与签名，中英 README 配对重录。当前 HEAD 实测：**exit 0**（配对门禁 558/558 同波复核一致）。
+
+**CI 归属更正（2026-10-23，按 Chief 的独立复核改写）**：本报告早先「步骤 7/8 失败则 CI 仍会拒」的叙述**不成立**——受版本控制的 workflow 只有 `cetus-validation.yml` 与 `macos-build.yml`（`.gitignore:83` 忽略 `.github/workflows/*`，磁盘上其余 workflow 是未跟踪本地副本），且 `cetus-validation.yml` 的 step 不调用任何静态门禁。**静态门禁（L1/L2/L3/配对）只在本地跑，CI 从未证明过它们的绿红**；CI run（如 `39874681115`，failure）只挂在 step 10 的 e2e，与静态门禁无关。本报告第③节的验收口径因此全部为**本地闸门**，这是唯一判据。
 
 ## ③ 闸门执行清单（push 前必跑）
 
@@ -51,8 +56,9 @@
 | 4 | `pnpm run verify-cordis-config` | 0（已验证：220 files passed） | ✅ |
 | 5 | `pnpm exec oxlint --config configs/oxlintrc.json packages/experimental/agent-team packages/experimental/tool-agent-team` | 0（已验证；3 条初始导入遗留 warning 可容忍） | ✅ |
 | 6 | whitespace / 编码钩子 | 本报告规则 5 已预检通过（39 文件零 BOM/CRLF/EOF 异常） | ✅ |
-| 7 | `pnpm run verify-no-unknown-casts` | 当前 **1**（遗留约 20+ 条，见 L1；不属本轮，push 前须由归属 owner 处置或 Chief 集中登记） | ⚠️ |
-| 8 | `pnpm run verify-concrete-terms` | 当前 **1**（4 处遗留，见 L2，electron/pack owner） | ⚠️ |
-| 9 | `pnpm run typecheck`（pre-push 唯一类型闸门） | Chief 闸门；`tsc -b` 已绿，完整 typecheck 由 Chief 确认后放行 | ⏳ |
+| 7 | `pnpm run verify-no-unknown-casts` | 0（已验证：no new assertions；存量 1444 条由 baseline 对账闭环） | ✅ |
+| 8 | `pnpm run verify-concrete-terms` | 0（已验证：无模糊来源标签；4 处标签已按 Chief 修复改写） | ✅ |
+| 9 | `pnpm run verify-repository-references` | 0（已验证：119 处 → 0，见 L3 清理批次） | ✅ |
+| 10 | `pnpm run typecheck`（pre-push 唯一类型闸门） | Chief 闸门；推送「docs(review): record the broadcast ruling and the drive-path correction」批次时 pre-push typecheck exit 0 | ✅ |
 
-**红线结论**：本轮自身 0 红线；步骤 7/8 的失败为跨批次遗留，push 前必须由 Chief 明确归属——要么修掉，要么登记 baseline 后知悉放行，否则 CI 仍会拒。
+**红线结论**：当前 HEAD 四条静态门禁（pairing / casts / terms / references）本地全绿、退出码均为 0；**注意静态门禁不在 CI 里跑**（治理事实见上），本表即验收判据。发布线 CI 的红灯（step 10 e2e）属 chips 迁移的测试侧过期，与本轮文档无关，由独立实施轮处置。

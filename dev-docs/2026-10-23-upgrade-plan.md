@@ -20,7 +20,7 @@
 | 完整类型闸门 | **绿** | `pnpm run typecheck` → 退出码 0（2026-10-23 05:5x 实测，含全量构建） |
 | S4 两包测试 | **绿** | `vitest run --config configs/vitest.config.ts packages/experimental/agent-team packages/experimental/tool-agent-team` → 8 文件 / 167 用例 / 9.68s / 退出码 0 |
 | 全仓测试体检 | 红，但**与本轮零交集** | 1906 文件中 89 失败文件 / 249 失败用例，全部落在 Windows 环境限制（符号链接权限、子进程超时、发布产物缺失），本轮 13 笔提交碰的 14 个文件与失败集合零交集 |
-| 发布线 CI（CetusPrism validation） | **红，且是本轮引入**（此前归属判断有误，已更正） | 两个平台同挂在「Test shipped Web interactions」：8 条 Playwright e2e 超时（`apps/web/tests/agent-preset-selection.e2e.ts` 6 条、`zcode-preset.snapshot.ts` 1 条、`cetus-settings-navigation.e2e.ts` 1 条，均为 `locator.click: Timeout 30000ms exceeded`）。根因已定位（§四第 12 条）：本轮把 preset/backend 芯片从 hero 移进会话级 composer 工具条后，**3 条 spec 没跟着改**——产品侧是有意改动，**过期的是测试侧** |
+| 发布线 CI（CetusPrism validation） | 红灯实为**两处独立成因**，两处都已修 | **① e2e（8 条，本轮自债）**：本轮把 preset/backend 芯片从 hero 移进会话级 composer 工具条后 3 条 spec 过期；修复后 ubuntu-latest 的「Test shipped Web interactions」**通过**（同一 step 修复前挂 8 条）。**② windows step 7（既有债）**：Vitest 默认 5000ms 顶不住共享 runner，偶发整条 lane 红；已用仓库自带的 lane 预算旋钮抬到 30s（§2.7）。windows 的 e2e step 因 step 7 先红被跳过，**尚未在 windows 上验证过** |
 | 第二轮文档合规复核（3 条） | 报告写于 L1/L3 波次之前，**当前已全部闭合** | `verify-translation-pairing` → 558 对一致 / 退出码 0；`verify-no-unknown-casts` → 无新增断言、存量 1444 条 / 退出码 0；`packages/experimental/agent-team/src/index.ts:75` 已是 `z.array(z.string())`，断言本身已不存在（baseline 里也无该文件条目）；`dev-docs/2026-10-22-zcode-agentloop-parity.md:120` 与 `:143` 两处均已是 `maxRetries: 10`（与 `apps/cli/config/examples/glm-harness/cordis.yml:34` 一致） |
 | 静态门禁的 CI 覆盖 | **没有**（治理缺口） | 受版本控制的 workflow 只有 `cetus-validation.yml` 与 `macos-build.yml`；`.gitignore:83` 忽略 `.github/workflows/*`，磁盘上另外 20 个 workflow 文件是未跟踪本地副本，GitHub 从未注册。`cetus-validation.yml` 的 8 个 step 不含任何静态门禁调用 ⇒ L1/L2/L3 的验收只有本地口径（§2.6） |
 
@@ -76,6 +76,15 @@
 - **CI 实际跑什么**：install → `pnpm run build` → 「Test native capability composition」（7 个 spec，含 `packages/experimental/agent-team/tests/team.spec.ts` 与 `projection-events.spec.ts`、`scripts/doc-standard.spec.ts`）→ 装 Playwright → **step 10「Test shipped Web interactions」**（4 个 web spec）→ lock 校验 → 失败证据上传。
 - **因此**：静态门禁的验收**只有本地口径**（`pnpm run test:docs` 与各脚本单跑），没有 CI 口径。任何「等 CI 转绿来验证静态门禁」的说法在本仓都不成立。
 
+### 2.7 发布线 CI 的两处成因，与 lane 预算修复
+
+- **红灯不是一处**。e2e 修复落地那一笔（`test(web): re-anchor the preset selection specs to the composer seat` 批次）里，**ubuntu-latest 整条全绿**（含「Test shipped Web interactions」），**windows-latest 挂在 step 7**——两条 agent-team 用例报 `Test timed out in 5000ms`。所以 e2e 修好了，windows 还红。
+- **windows 的红是既有债，不是本轮引入**：同一 step 在更早的 run 里也红过，但命中的是**别的文件**（`scripts/agent-note-tree.spec.ts`、`scripts/doc-standard.spec.ts`），同样都是 `Test timed out in 5000ms`；而夹在中间的 run 两个平台 step 7 都绿。也就是说，这台共享 Windows runner 上**任何一条接近 5s 的用例都可能把整条 lane 拖红**，命中哪个文件每次不同。
+- **本地量到的不是慢、CI 上是另一个量级**：这两条用例本地 257ms / 296ms（整文件 56 条 / 7.56s），CI 上 5524ms / 5404ms——差 20 倍，属 runner 环境成本，不是逻辑回归。
+- **处置用仓库自带的旋钮，不自造机制**：`DSH_COVERAGE_TEST_TIMEOUT_MS` 由 `configs/vitest.config.ts` 读入并铺进每个 inline project 的 `testTimeout` / `hookTimeout` / `expect.poll.timeout`（`scripts/coverage-partitions.ts:127-131`）。**CLI 的 `--test-timeout` 到不了 inline project**——配置注释写明了这一点（`configs/vitest.config.ts:136-140`），所以旋钮必须是 env 而不是命令行参数。该 lane 预算已设为 30s；显式 `describe`/用例级超时仍然优先。
+- **旋钮确实生效**：用 1ms 探针跑同一 invocation，vitest 立刻报 `Test timed out in 1ms`，证明预算真的铺进了 project，而不是落在命令行外壳上。
+- **残留**：windows 的 e2e step 因 step 7 先红一直被跳过，所以**修复后的 e2e 目前只有 ubuntu 的证据**；下一笔 run 的 windows job 若 step 7 转绿，会第一次真正跑 windows 的 e2e。
+
 ---
 
 ## 三、闸门裁决（收敛 5 份意见）
@@ -110,7 +119,8 @@
 | 9 | S4.3.6 设置区四级卡片 / S4 设置区档案卡片 | 建议维持延后：profile patch 已满足「存智能体信息的配置环境」 | **待用户拍板** | 用户确认延后或排期 |
 | 10 | 旧日志格式（v3/v0）无升级路径 | 体检发现 21 条会话在当前构建里打不开（读取器在投影之前就拒绝）。本轮只识别不处置 | 下一轮 | 明确这些会话的处置口径（可读/丢弃/迁移） |
 | 11 | **裸提交哈希**（L3，CI 阻断） | **已闭合**：119 处 → 0，清理批次已入库；本组此后用 `文件:行号` + 版本号/批次名做证据锚点 | 文档规范审查员（已交） | `pnpm run verify-repository-references` 退出码 0（本地实测通过）。**该门禁不在任何受版本控制的 CI workflow 里**（§2.6），所以验收**只有本地口径**，不存在「CI 转绿」这一说 |
-| 12 | **发布线 CI 红灯**（`apps/web` Playwright e2e，8 条超时） | **根因已定位，且是本轮自债**：本轮把 preset/backend 芯片从 hero 移进会话级 composer 工具条（提交标题 `feat(conversation): move the preset and backend chips into the composer tool row`）后，3 条 spec 仍按旧位置定位。末绿 run `39727581743`（success）不含该提交，首红 run `39814419426`（failure）含；且 `git log <末绿>..<首红> -- packages/client apps/web/src packages/bundle/web-app` 在该窗口内**只有这一笔** web 客户端改动 ⇒ 归属清楚，不再是「存量债」 | **实施轮**（已派出）：只改测试侧 3 个 spec + `apps/web/tests/expected/agent-preset-selection/` 黄金文件，不碰产品代码 | CI 上这 3 个 spec 文件全绿。**本地无法验证**：web 测试服务 `apps/web/dist`（`apps/web/tests/support.ts:11`），而重建 `apps/web/dist` 与 `packages/client/**/lib` 被本轮约束禁止（用户在跑的应用正从这两棵树运行）⇒ 以 CI 为唯一判据 |
+| 12 | **发布线 CI 红灯**（`apps/web` Playwright e2e，8 条超时） | **根因已定位，且是本轮自债**：本轮把 preset/backend 芯片从 hero 移进会话级 composer 工具条（提交标题 `feat(conversation): move the preset and backend chips into the composer tool row`）后，3 条 spec 仍按旧位置定位。末绿 run `39727581743`（success）不含该提交，首红 run `39814419426`（failure）含；且 `git log <末绿>..<首红> -- packages/client apps/web/src packages/bundle/web-app` 在该窗口内**只有这一笔** web 客户端改动 ⇒ 归属清楚，不再是「存量债」 | **实施轮**（已落地）：`test(web): re-anchor the preset selection specs to the composer seat`——只改测试侧 3 个 spec + `apps/web/tests/expected/agent-preset-selection/` 黄金文件，不碰产品代码；**ubuntu-latest 已转绿**（该 run 的 e2e step 通过，同一 step 修复前挂 8 条） | **windows 的 e2e 尚未验证**（step 7 先红导致被跳过）。**本地无法验证**：web 测试服务 `apps/web/dist`（`apps/web/tests/support.ts:11`），而重建 `apps/web/dist` 与 `packages/client/**/lib` 被本轮约束禁止（用户在跑的应用正从这两棵树运行）⇒ 以 CI 为唯一判据 |
+| 13 | **windows 共享 runner 的 lane 超时** | Vitest 默认 5000ms 顶不住这台 runner，偶发把整条 step 7 拖红，且每次命中不同文件（`agent-team` / `agent-note-tree` / `doc-standard`）。已用仓库自带的 lane 预算旋钮 `DSH_COVERAGE_TEST_TIMEOUT_MS` 把该 lane 抬到 30s（§2.7）；显式用例级超时仍然优先 | Chief（已落地） | 下一笔 run 的 windows job step 7 转绿；若仍有 >30s 的用例，另案处置 |
 
 ---
 

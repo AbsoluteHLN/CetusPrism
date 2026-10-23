@@ -1,7 +1,11 @@
 /**
  * Keep experimental packages outside default installations, runtime imports, and shipped compositions.
- * The one declared exception is a bundle the launcher names in `OPTIONAL_BUNDLES`: shipped for the person to
- * switch on, selected by no shipped template, its own dependency graph outside the default product's.
+ * Two declared exceptions carry an experimental package into the default product:
+ * - `OPTIONAL_BUNDLES`: a bundle the launcher ships switched off for the person to switch on, selected by no
+ *   shipped template, its own dependency graph outside the default product's.
+ * - `REQUIRED_EXPERIMENTAL_RUNTIMES`: an experimental runtime the default product cannot run without, so it
+ *   belongs to the default closure. The profile names it, the workspace must carry it, and apps/cli must
+ *   depend on it at runtime; every other experimental package stays out.
  */
 
 import { existsSync, globSync, readFileSync, statSync } from 'node:fs'
@@ -101,6 +105,20 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
       failures.push(`${PROFILE_SOURCE}: optional bundle ${name} must export ./locale/*.json display metadata`)
     }
   }
+  // The experimental runtimes the default product must carry: the profile names them, the workspace must hold
+  // them, and apps/cli must depend on them at runtime. Nothing else experimental enters the default closure.
+  const requiredExperimentalRuntimes = new Set(selection?.requiredExperimentalRuntimes ?? [])
+  for (const name of requiredExperimentalRuntimes) {
+    if (!packages.has(name)) {
+      failures.push(`${PROFILE_SOURCE}: required experimental runtime ${name} must exist in the workspace`)
+    }
+    if (!RUNTIME_SECTIONS.some(section => cli?.manifest[section]?.[name] !== undefined)) {
+      failures.push(`${PROFILE_SOURCE}: required experimental runtime ${name} must be a runtime dependency of apps/cli`)
+    }
+    if (optionalBundles.has(name)) {
+      failures.push(`${PROFILE_SOURCE}: required experimental runtime ${name} must not be an optional bundle`)
+    }
+  }
 
   const queue: Package[] = []
   const visited = new Set<string>()
@@ -110,7 +128,8 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
   const isExperimental = (pkg: Package): boolean => pkg.manifest.name.startsWith(EXPERIMENTAL_PREFIX)
     || display(pkg.directory).startsWith('packages/experimental/')
   const add = (pkg: Package, origin: string): void => {
-    if (isExperimental(pkg)) {
+    // The profile's required experimental runtimes belong to the default closure; no other one may enter it.
+    if (isExperimental(pkg) && !requiredExperimentalRuntimes.has(pkg.manifest.name)) {
       failures.push(`${origin} -> ${pkg.manifest.name}: default product must not include experimental packages`)
     } else if (!visited.has(pkg.directory)) {
       visited.add(pkg.directory)
@@ -136,7 +155,7 @@ export function verifyDefaultProductIsolation(root: string): ProductIsolationRes
       return
     }
     const packageName = barePackageName(name)
-    if (packageName.startsWith(EXPERIMENTAL_PREFIX)) {
+    if (packageName.startsWith(EXPERIMENTAL_PREFIX) && !requiredExperimentalRuntimes.has(packageName)) {
       failures.push(`${origin} -> ${name}: default product must not include experimental packages`)
       return
     }
@@ -354,17 +373,26 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/** Read the literal package lists that define installation-owned profile defaults and the optional bundles it ships. */
-function profilePackages(source: string): { packages: string[]; webBundles: string[]; optionalBundles: string[] } {
+/** Read the literal package lists that define installation-owned profile defaults, the optional bundles it ships, and the experimental runtimes it must carry. */
+function profilePackages(source: string): {
+  packages: string[]
+  webBundles: string[]
+  optionalBundles: string[]
+  requiredExperimentalRuntimes: string[]
+} {
   const file = ts.createSourceFile(PROFILE_SOURCE, source, ts.ScriptTarget.Latest, true)
   const required = new Set(['PROFILE_TEMPLATES', 'DEFAULT_PROFILE_BUNDLES'])
   const found = new Set<string>()
   const packages: string[] = []
   const webBundles: string[] = []
   const optionalBundles: string[] = []
+  const requiredExperimentalRuntimes: string[] = []
   const literals = (node: ts.Node, path: string[]): void => {
     if (ts.isStringLiteralLike(node)) {
+      // The required experimental runtimes are runtime dependencies, not bundles: they declare no bundle patch,
+      // icon, or locale metadata, so they must never join the default bundle list.
       if (path[0] === 'OPTIONAL_BUNDLES') optionalBundles.push(node.text)
+      else if (path[0] === 'REQUIRED_EXPERIMENTAL_RUNTIMES') requiredExperimentalRuntimes.push(node.text)
       else if (node.text.startsWith('@')) packages.push(node.text)
       if (path.join('.') === 'PROFILE_TEMPLATES.web.bundles') webBundles.push(node.text)
     } else if (ts.isArrayLiteralExpression(node)) node.elements.forEach((child) => { literals(child, path) })
@@ -384,19 +412,21 @@ function profilePackages(source: string): { packages: string[]; webBundles: stri
     for (const declaration of statement.declarationList.declarations) {
       if (!ts.isIdentifier(declaration.name)
         || !required.has(declaration.name.text) && declaration.name.text !== 'INSTALLATION_OWNED_PROFILE_TUPLES'
-        && declaration.name.text !== 'OPTIONAL_BUNDLES') continue
+        && declaration.name.text !== 'OPTIONAL_BUNDLES'
+        && declaration.name.text !== 'REQUIRED_EXPERIMENTAL_RUNTIMES') continue
       if (declaration.initializer === undefined) continue
       if (required.has(declaration.name.text)) found.add(declaration.name.text)
       const before = packages.length
       literals(declaration.initializer, [declaration.name.text])
-      if (declaration.name.text !== 'OPTIONAL_BUNDLES' && packages.length === before) {
+      if (declaration.name.text !== 'OPTIONAL_BUNDLES'
+        && declaration.name.text !== 'REQUIRED_EXPERIMENTAL_RUNTIMES' && packages.length === before) {
         throw new Error(`${PROFILE_SOURCE}: ${declaration.name.text} has no default bundles`)
       }
     }
   }
   if (found.size !== required.size) throw new Error(`${PROFILE_SOURCE}: missing default profile declarations`)
   if (webBundles.length === 0) throw new Error(`${PROFILE_SOURCE}: missing default Web bundle list`)
-  return { packages, webBundles, optionalBundles }
+  return { packages, webBundles, optionalBundles, requiredExperimentalRuntimes }
 }
 
 if (import.meta.main) {

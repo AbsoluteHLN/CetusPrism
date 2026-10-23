@@ -230,6 +230,26 @@ export const OPTIONAL_BUNDLES: readonly string[] = [
   '@deepseek-ai/dsh-experimental-inspector-profile',
 ]
 
+/**
+ * The experimental packages the default product must carry at runtime.
+ *
+ * `OPTIONAL_BUNDLES` is the opposite channel: a bundle shipped switched off
+ * for a person to switch on. A required experimental runtime is neither — the
+ * default product cannot run without it, so it belongs to the default closure
+ * even though its name says "experimental".
+ *
+ * The native Cua Driver is here because the Windows desktop deployment ships
+ * the native SDK and the platform binary through the CLI closure
+ * (`apps/electron/backend/desktop-computer-use.patch.yml`): dropping it from
+ * `apps/cli` would break the packaged desktop binary. The 2026-09-21 decision
+ * that kept every computer-use provider out of the installation predates that
+ * deployment fix and no longer holds
+ * ([superseded](../../../../.agents/notes/implemented/architecture/2026-09-21-experimental-capabilities-as-optional-bundles.md)).
+ */
+export const REQUIRED_EXPERIMENTAL_RUNTIMES: readonly string[] = [
+  '@deepseek-ai/dsh-experimental-computer-use-cua-driver-native',
+]
+
 const PROFILE_PATCH_TEMPLATE = `# Your patch layer for this dsh profile, applied after every bundle layer:
 # a top-level YAML array of loader patch entries (id-targeted config
 # overrides, disables, and insert lists; \`!!js\` expressions allowed).

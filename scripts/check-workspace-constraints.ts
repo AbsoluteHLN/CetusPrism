@@ -15,7 +15,7 @@ import {
 } from './experimental-package-policy.ts'
 import { hasTypertRemoteNavigation, isForbiddenPublicationFile } from './publication-payload.ts'
 import type { DshBundleManifest } from '../packages/util/package-manifest/src/types.ts'
-import { OPTIONAL_BUNDLES, bundlePatchFiles } from '../packages/boot/app-boot/src/profile.ts'
+import { OPTIONAL_BUNDLES, REQUIRED_EXPERIMENTAL_RUNTIMES, bundlePatchFiles } from '../packages/boot/app-boot/src/profile.ts'
 import { collectProjectReferenceFaceViolations } from './project-reference-faces.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -112,6 +112,39 @@ const rootManifest = readJson(join(root, 'package.json'))
 const repositoryVersion = rootManifest.version
 const nativeWorkspaceManifest = readJson(join(root, 'native/system/package.json'))
 const nativeVersion = nativeWorkspaceManifest.version
+
+/**
+ * The file that registers the two version lines side by side.
+ *
+ * The product version and the workspace package version evolve independently,
+ * and that file is the one place that records both: the gate reads the
+ * workspace line from it instead of inlining a second copy that would drift.
+ */
+const ALIGNMENT_FILE = 'docs/UPSTREAM.alignment.json'
+
+/** The two version lines, as the alignment record registers them. */
+interface VersionAlignment {
+  productVersion?: string
+  workspacePackageVersion?: string
+}
+
+function readVersionAlignment(): VersionAlignment {
+  const path = join(root, ALIGNMENT_FILE)
+  if (!existsSync(path)) throw new Error(`${ALIGNMENT_FILE}: the version alignment record is missing`)
+  return JSON.parse(readFileSync(path, 'utf8')) as VersionAlignment
+}
+
+const alignment = readVersionAlignment()
+const recordedProductVersion = alignment.productVersion
+const workspacePackageVersion = alignment.workspacePackageVersion
+
+/**
+ * The version lines the dsh family is measured against.
+ *
+ * `workspace` is the version every published family member carries; `product`
+ * is the version the workspace root carries and that names the installers.
+ */
+const versionLines = { workspace: workspacePackageVersion, product: repositoryVersion }
 
 /** Repo-relative dirs holding a package.json, walked to the configured depth. */
 function packageDirs(base: string, depth: number): string[] {
@@ -369,25 +402,39 @@ function isReleaseMemberDirectory(dir: string): boolean {
 }
 
 /**
- * Require a dsh-family manifest to carry the workspace version.
+ * Require a dsh-family manifest to carry the version line its role demands.
  *
- * The dsh release sequence publishes packages/ and apps/ members and every
- * private dsh package on one shared version, written by `release:dsh` and
- * shared with the workspace root. This name test is that boundary: it covers
- * the family wherever the manifest lives, so apps/ members cannot drift with
- * only the release lane noticing.
+ * The dsh release sequence publishes packages/ and apps/ members under one
+ * shared version — the workspace package version — so one tag names the whole
+ * family. The workspace root instead carries the product version, and the two
+ * lines evolve independently (`docs/UPSTREAM.alignment.json` registers both).
+ * This name test is that boundary: it covers the family wherever the manifest
+ * lives, so apps/ members cannot drift with only the release lane noticing.
+ *
+ * An installer application is the one role that differs: electron-builder
+ * packages it locally and never publishes it, and its version names the
+ * installer, so it stays on the product version. The workspace root carries
+ * the product version by definition.
  * @param manifest - the workspace package manifest.
- * @param expected - the version every dsh-family manifest must carry (the root's).
+ * @param versions - the workspace package version and the product version.
+ * @param dir - the manifest's repo-relative directory, when known.
  * @returns one violation naming the manifest and the expected version, or
  * undefined when the manifest is compliant or not in the family.
  */
-export function checkDshFamilyVersion(manifest: PackageManifest, expected: string | undefined): string | undefined {
+export function checkDshFamilyVersion(
+  manifest: PackageManifest,
+  versions: { workspace: string | undefined; product: string | undefined },
+  dir?: string,
+): string | undefined {
   const name = manifest.name
   if (name !== '@deepseek-ai/dsh' && name?.startsWith('@deepseek-ai/dsh-') !== true) return undefined
-  if (manifest.version !== expected) {
-    return `${name}: package.json version must match root version ${expected ?? '(missing)'}`
+  const carriesProductVersion = dir === '.' || (dir !== undefined && installerApplicationDirectories.has(dir))
+  const expected = carriesProductVersion ? versions.product : versions.workspace
+  if (manifest.version === expected) return undefined
+  if (carriesProductVersion) {
+    return `${name}: package.json version must match the product version ${expected ?? '(missing)'}`
   }
-  return undefined
+  return `${name}: package.json version must match the workspace package version ${expected ?? '(missing)'} (the product version ${versions.product ?? '(missing)'} stays on the workspace root)`
 }
 
 /**
@@ -398,7 +445,7 @@ export function checkDshFamilyVersion(manifest: PackageManifest, expected: strin
 export function checkWorkspaceManifest({ dir, manifest }: WorkspaceManifest): string[] {
   const errors = checkExperimentalManifest({ dir, manifest })
   const label = manifest.name ?? dir
-  const familyVersionError = checkDshFamilyVersion(manifest, repositoryVersion)
+  const familyVersionError = checkDshFamilyVersion(manifest, versionLines, dir)
   if (familyVersionError !== undefined) errors.push(familyVersionError)
   const isNativePackageDir = dir.startsWith('native/system/packages/')
   const isPublicNativePackage = isNativePackageDir
@@ -537,8 +584,25 @@ function checkHierarchyShape(): string[] {
 function checkRepositoryVersion(): string[] {
   // The root carries the dsh release family's version, so a prerelease such as
   // 0.0.1-rc.1 is a valid state between `release:dsh` and its publication.
-  if (repositoryVersion && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(repositoryVersion)) return []
-  return ['package.json: version must be X.Y.Z with an optional prerelease segment']
+  if (!repositoryVersion || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(repositoryVersion)) {
+    return ['package.json: version must be X.Y.Z with an optional prerelease segment']
+  }
+  // The root carries the product line, and the alignment record registers both
+  // lines side by side: they evolve independently, but the root must not drift
+  // from the product version it claims to carry, and the workspace line must
+  // exist for the family to be measured against.
+  const errors: string[] = []
+  if (recordedProductVersion === undefined) {
+    errors.push(`${ALIGNMENT_FILE}: productVersion is missing`)
+  } else if (recordedProductVersion !== repositoryVersion) {
+    errors.push(`package.json: version ${repositoryVersion} must match the recorded product version ${recordedProductVersion}`)
+  }
+  if (workspacePackageVersion === undefined) {
+    errors.push(`${ALIGNMENT_FILE}: workspacePackageVersion is missing`)
+  } else if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(workspacePackageVersion)) {
+    errors.push(`${ALIGNMENT_FILE}: workspacePackageVersion must be X.Y.Z with an optional prerelease segment`)
+  }
+  return errors
 }
 
 /** Dependency sections whose ranges reach a published tarball or a local install. */
@@ -550,12 +614,17 @@ const runtimeDependencySections = ['dependencies', 'optionalDependencies', 'peer
  * Prevent an official runtime from requiring an experimental package. The dsh installation's `dependencies`
  * may hold the bundles the launcher's `OPTIONAL_BUNDLES` names: shipped switched off, they are not a requirement
  * ([rationale](../.agents/notes/implemented/process/2026-09-15-shipped-optional-bundles.md)).
+ *
+ * The installation may also hold the experimental runtimes the default product must carry: the launcher's
+ * `REQUIRED_EXPERIMENTAL_RUNTIMES` names them.
  * @param manifests - release, private experimental, and deployment-root manifests.
  * @param optionalBundles - the bundles the installation ships switched off; the launcher's list by default.
+ * @param requiredRuntimes - the experimental runtimes the default product must carry; the launcher's list by default.
  * @returns One error for each forbidden runtime dependency.
  */
 export function checkExperimentalDependencyIsolation(
   manifests: readonly WorkspaceManifest[], optionalBundles: readonly string[] = OPTIONAL_BUNDLES,
+  requiredRuntimes: readonly string[] = REQUIRED_EXPERIMENTAL_RUNTIMES,
 ): string[] {
   const experimentalNames = new Set(manifests
     .filter(entry => experimentalPackageDirectory.test(entry.dir))
@@ -564,16 +633,37 @@ export function checkExperimentalDependencyIsolation(
   const errors: string[] = []
   for (const { dir, manifest } of manifests) {
     if (!standardReleaseMemberDirectory.test(dir) && dir !== 'python/sdk-runtime') continue
-    const offered = manifest.name === '@deepseek-ai/dsh' ? new Set(optionalBundles) : new Set<string>()
+    const isInstallation = manifest.name === '@deepseek-ai/dsh'
+    const offered = isInstallation ? new Set(optionalBundles) : new Set<string>()
+    const carried = isInstallation ? new Set(requiredRuntimes) : new Set<string>()
     for (const section of runtimeDependencySections) {
       for (const name of Object.keys(manifest[section] ?? {})) {
         if (!experimentalNames.has(name)) continue
         if (section === 'dependencies' && offered.has(name)) continue
+        if (carried.has(name)) continue
         errors.push(`${manifest.name ?? dir}: ${section}.${name} must not reference an experimental package`)
       }
     }
   }
   return errors
+}
+
+/**
+ * Require every runtime the default product must carry to exist in this workspace.
+ *
+ * A named runtime that no longer exists keeps reading as an allowance while
+ * meaning nothing: the entry would silently outlive the package it names.
+ * @param manifests - every workspace manifest.
+ * @param requiredRuntimes - the experimental runtimes the default product must carry; the launcher's list by default.
+ * @returns One error for each named runtime this workspace does not carry.
+ */
+export function checkRequiredExperimentalRuntimes(
+  manifests: readonly WorkspaceManifest[], requiredRuntimes: readonly string[] = REQUIRED_EXPERIMENTAL_RUNTIMES,
+): string[] {
+  const knownNames = new Set(manifests.map(entry => entry.manifest.name).filter(name => name !== undefined))
+  return requiredRuntimes
+    .filter(name => !knownNames.has(name))
+    .map(name => `required experimental runtime ${name} must exist in this workspace`)
 }
 
 /**
@@ -615,6 +705,7 @@ export function main(): void {
     ...workspaceManifests().flatMap(checkWorkspaceManifest),
     ...checkWorkspaceProtocol(manifests),
     ...checkExperimentalDependencyIsolation(manifests),
+    ...checkRequiredExperimentalRuntimes(manifests),
     ...checkHierarchyShape(),
     ...collectProjectReferenceFaceViolations(root),
   ]

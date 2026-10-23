@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-computer-use-policy",
   "description": "Per-session computer-use delivery policy (ctx.computerUseDeliveryPolicy): whether computer-use input tools may take the window foreground, stored as one session event and enforced by providers per tool call",
-  "version": "0.1.7-rc.1",
+  "version": "0.2.1-alpha.1",
   "publishConfig": {
     "access": "public"
   },

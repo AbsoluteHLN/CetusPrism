@@ -14,6 +14,14 @@ packages:
   # closure is what the exe bundles and what the Python runtime distributes.
   - python/sdk-runtime
 
+# All dependency content lives in the machine's dependency cache; the project's
+# node_modules hard-links into it (same volume), so nothing is duplicated.
+# Pinning storeDir keeps any future pnpm invocation from silently creating a
+# second store at the drive default: pnpm 11 reads its settings from this file
+# and no longer from the user .npmrc. The Linux side build overrides the pin
+# explicitly through scripts/bootstrap-linux.sh --config.store-dir.
+storeDir: E:\dependency-cache\pnpm\store
+
 # scripts/bootstrap-linux.sh explicitly selects the shared dependency root,
 # store and virtual store. Machine paths belong to that invocation rather than
 # this portable workspace manifest.

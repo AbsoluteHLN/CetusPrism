@@ -13,6 +13,7 @@ import {
   checkWorkspaceManifest,
   checkWorkspaceProtocol,
   checkExperimentalDependencyIsolation,
+  checkRequiredExperimentalRuntimes,
   checkExperimentalManifest,
   expectedDshPackageFiles,
   readWorkspaceManifests,
@@ -195,6 +196,38 @@ describe('experimental workspace constraints', () => {
     ])
   })
 
+  it('allows the experimental runtimes the default product must carry, and nothing else', () => {
+    const runtime = {
+      dir: 'packages/experimental/cua-driver',
+      manifest: { name: '@deepseek-ai/dsh-experimental-cua-driver' },
+    } satisfies WorkspaceManifest
+    const installation = {
+      dir: 'apps/cli',
+      manifest: {
+        name: '@deepseek-ai/dsh',
+        dependencies: { '@deepseek-ai/dsh-experimental-cua-driver': 'workspace:^' },
+      },
+    } satisfies WorkspaceManifest
+    expect(checkExperimentalDependencyIsolation(
+      [runtime, installation], [], ['@deepseek-ai/dsh-experimental-cua-driver'],
+    )).toEqual([])
+    expect(checkExperimentalDependencyIsolation([runtime, installation], [], [])).toEqual([
+      '@deepseek-ai/dsh: dependencies.@deepseek-ai/dsh-experimental-cua-driver must not reference an experimental package',
+    ])
+    expect(checkRequiredExperimentalRuntimes(
+      [runtime, installation], ['@deepseek-ai/dsh-experimental-cua-driver'],
+    )).toEqual([])
+  })
+
+  it('rejects a required experimental runtime this workspace no longer carries', () => {
+    const installation = { dir: 'apps/cli', manifest: { name: '@deepseek-ai/dsh' } } satisfies WorkspaceManifest
+    expect(checkRequiredExperimentalRuntimes(
+      [installation], ['@deepseek-ai/dsh-experimental-cua-driver'],
+    )).toEqual([
+      'required experimental runtime @deepseek-ai/dsh-experimental-cua-driver must exist in this workspace',
+    ])
+  })
+
   it('allows development and experimental consumers but rejects the Python release runtime', () => {
     const manifests: WorkspaceManifest[] = [experimental, {
       dir: 'packages/core/test-only',
@@ -223,34 +256,71 @@ describe('experimental workspace constraints', () => {
 })
 
 describe('dsh family version coherence', () => {
+  const lines = { workspace: '0.2.1-alpha.1', product: '1.7.3' }
+
   it('rejects a package carrying a stale shared version', () => {
     expect(checkDshFamilyVersion(
       { name: '@deepseek-ai/dsh-http-proxy', version: '0.1.2-alpha.5' },
-      '0.1.2-rc.1',
-    )).toBe('@deepseek-ai/dsh-http-proxy: package.json version must match root version 0.1.2-rc.1')
+      lines,
+    )).toBe('@deepseek-ai/dsh-http-proxy: package.json version must match the workspace package version 0.2.1-alpha.1 (the product version 1.7.3 stays on the workspace root)')
   })
 
   it('rejects the root-named CLI app on a stale shared version', () => {
     expect(checkDshFamilyVersion(
       { name: '@deepseek-ai/dsh', version: '0.1.2-alpha.5' },
-      '0.1.2-rc.1',
-    )).toBe('@deepseek-ai/dsh: package.json version must match root version 0.1.2-rc.1')
+      lines,
+    )).toBe('@deepseek-ai/dsh: package.json version must match the workspace package version 0.2.1-alpha.1 (the product version 1.7.3 stays on the workspace root)')
   })
 
-  it('accepts a manifest carrying the shared version', () => {
+  it('accepts a manifest carrying the workspace package version', () => {
     expect(checkDshFamilyVersion(
-      { name: '@deepseek-ai/dsh-http-proxy', version: '0.1.2-rc.1' },
-      '0.1.2-rc.1',
+      { name: '@deepseek-ai/dsh-http-proxy', version: '0.2.1-alpha.1' },
+      lines,
     )).toBeUndefined()
+  })
+
+  it('rejects a release member that carries the product version instead of the workspace line', () => {
+    expect(checkDshFamilyVersion(
+      { name: '@deepseek-ai/dsh-http-proxy', version: '1.7.3' },
+      lines,
+    )).toBe('@deepseek-ai/dsh-http-proxy: package.json version must match the workspace package version 0.2.1-alpha.1 (the product version 1.7.3 stays on the workspace root)')
+  })
+
+  it('keeps the workspace root and the installer applications on the product version', () => {
+    expect(checkDshFamilyVersion(
+      { name: '@deepseek-ai/dsh-root', version: '1.7.3' },
+      lines,
+      '.',
+    )).toBeUndefined()
+    expect(checkDshFamilyVersion(
+      { name: '@deepseek-ai/dsh-root', version: '0.2.1-alpha.1' },
+      lines,
+      '.',
+    )).toBe('@deepseek-ai/dsh-root: package.json version must match the product version 1.7.3')
+    expect(checkDshFamilyVersion(
+      { name: '@deepseek-ai/dsh-desktop', version: '1.7.3' },
+      lines,
+      'apps/desktop',
+    )).toBeUndefined()
+    expect(checkDshFamilyVersion(
+      { name: '@deepseek-ai/dsh-electron', version: '1.7.3' },
+      lines,
+      'apps/electron',
+    )).toBeUndefined()
+    expect(checkDshFamilyVersion(
+      { name: '@deepseek-ai/dsh-desktop', version: '0.2.1-alpha.1' },
+      lines,
+      'apps/desktop',
+    )).toBe('@deepseek-ai/dsh-desktop: package.json version must match the product version 1.7.3')
   })
 
   it('leaves other sequences to their own version lines', () => {
-    expect(checkDshFamilyVersion({ name: '@deepseek-ai/cordis', version: '4.0.1' }, '0.1.2-rc.1')).toBeUndefined()
+    expect(checkDshFamilyVersion({ name: '@deepseek-ai/cordis', version: '4.0.1' }, lines)).toBeUndefined()
     expect(checkDshFamilyVersion(
       { name: '@deepseek-ai/node-addon-system', version: '0.1.1' },
-      '0.1.2-rc.1',
+      lines,
     )).toBeUndefined()
-    expect(checkDshFamilyVersion({ version: '0.1.2-alpha.5' }, '0.1.2-rc.1')).toBeUndefined()
+    expect(checkDshFamilyVersion({ version: '0.1.2-alpha.5' }, lines)).toBeUndefined()
   })
 })
 

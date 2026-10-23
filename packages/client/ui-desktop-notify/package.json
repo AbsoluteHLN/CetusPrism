@@ -1,7 +1,7 @@
 {
   "name": "@deepseek-ai/dsh-client-ui-desktop-notify",
   "description": "Desktop task notifications: Windows toast when a background task's turn ends while the window is unfocused",
-  "version": "0.1.0",
+  "version": "0.2.1-alpha.1",
   "publishConfig": {
     "access": "public"
   },

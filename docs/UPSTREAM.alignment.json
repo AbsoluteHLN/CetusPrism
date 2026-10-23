@@ -295,5 +295,5 @@
     "regressionTest": "packages/experimental/tool-agent-team/tests/loader-composition.spec.ts mounts the delegation tool and the Team in one Agent scope; before the fix it failed with the exact reported error.",
     "runtimeGate": "scripts/check-offline-pack.mjs refuses a payload whose desktop overlay enables modelSelectionSettings while the shipped tool-subagent runtime predates the fix."
   },
-  "secondEvidence": "dev-docs/2026-10-22-upstream-integration-report.md"
+  "secondEvidence": "dev-docs/archive/2026-10-24-review-round/2026-10-22-upstream-integration-report.md"
 }

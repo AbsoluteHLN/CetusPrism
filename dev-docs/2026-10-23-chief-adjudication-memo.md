@@ -67,7 +67,7 @@
 
 **裁决：选项 2**，并补一条更硬的约束。§4.2.6 的原意是「不要新建第二条投递链」，而 `ctx.subagents.sendMessage` 走的是 subagent 自己的持久化通道（`continuation.ts`），不是新链；§4.8 的实施结果表也已按这一落法记账。
 
-**但字面照抄会捅出一个更严重的洞**，这是群组第四份审查（`dev-docs/2026-10-23-agent-team-review.md`）提出、Chief 独立复核成立的 P0：
+**但字面照抄会捅出一个更严重的洞**，这是群组第四份审查（`dev-docs/archive/2026-10-24-review-round/2026-10-23-agent-team-review.md`）提出、Chief 独立复核成立的 P0：
 
 | 事实 | 证据 |
 |---|---|
@@ -133,7 +133,7 @@
 
 ## 五、群组第五份审查（回归与覆盖风险）的复核与裁决
 
-输入：`dev-docs/2026-10-23-regression-risk-review.md`（8 条覆盖缺口 + Q2–Q6 必答判断题）。
+输入：`dev-docs/archive/2026-10-24-review-round/2026-10-23-regression-risk-review.md`（8 条覆盖缺口 + Q2–Q6 必答判断题）。
 
 ### 1. 首稿的 4 处事实错误（已在首稿就地订正；后被作者重写取代）
 
@@ -206,7 +206,7 @@
 
 ### 1. 意见回收状况
 
-5 条并行意见已派（4 + 1 补充），已落盘 3 份：`dev-docs/2026-10-23-round2-agent-team-opinions.md`（智能体团队架构师，A/B/C 三问）、`dev-docs/2026-10-23-round2-agentloop-opinions.md`（AgentLoop 对齐师，D/E 两问）、`dev-docs/2026-10-23-round2-regression-opinions.md`（回归风险审查员，订正复核 + 闸门裁决）。仍在跑：GLM 档位与 D4/D5/D7 一条；排队：广播头阻塞与 resume 原因折叠一条。
+5 条并行意见已派（4 + 1 补充），已吸收 3 份：`dev-docs/archive/2026-10-24-review-round/2026-10-23-round2-agent-team-opinions.md`（智能体团队架构师，A/B/C 三问）、`dev-docs/archive/2026-10-24-review-round/2026-10-23-round2-agentloop-opinions.md`（AgentLoop 对齐师，D/E 两问）、`dev-docs/archive/2026-10-24-review-round/2026-10-23-round2-regression-opinions.md`（回归风险审查员，订正复核 + 闸门裁决）。仍在跑：GLM 档位与 D4/D5/D7 一条；排队：广播头阻塞与 resume 原因折叠一条。
 
 ### 2. 三问的裁决（A/B/C）
 

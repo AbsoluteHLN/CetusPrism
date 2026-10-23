@@ -7,6 +7,7 @@ import { expect, it, onTestFinished } from 'vitest'
 import {
   captureStableAria, compareOrRefreshGolden, launchWebScaffold, watchConsole, webSnapshotMode,
 } from './scaffold.ts'
+import { connectFreshWorkspaceZh } from './support.ts'
 
 const EXPECTED = fileURLToPath(new URL('./expected/cetus-settings-navigation', import.meta.url))
 const EVIDENCE = fileURLToPath(new URL('../../../dev-docs/evidence', import.meta.url))
@@ -70,9 +71,14 @@ it('exposes Team model settings and canonical appearance controls with aligned s
   expect(await gallery.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
   await page.setViewportSize({ width: 1280, height: 900 })
   await settings.getByRole('button', { name: '关闭', exact: true }).click()
+  // The preset seat is session-scoped: it renders in the composer tool row
+  // once a session exists, so the workspace (and with it the blank session)
+  // comes first, and the live composer is what says the seat is there.
+  await connectFreshWorkspaceZh(page, scaffold.workspaceCwd)
   await newSession.click()
-  await page.locator('[data-composer-input]').waitFor()
+  await page.locator('[data-composer-input][contenteditable="true"]').waitFor({ timeout: 15_000 })
   const preset = page.locator('button[title="选择新任务使用的 Agent 预设"]')
+  await preset.waitFor({ timeout: 15_000 })
   await preset.click()
   await page.getByRole('menuitem', { name: /ZCode 原则模式/ }).click()
   await expect.poll(() => preset.textContent()).toContain('ZCode 原则模式')

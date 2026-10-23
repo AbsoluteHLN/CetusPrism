@@ -243,6 +243,7 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 | S4.4.4 | 消息体上限、每目标待投递上限（`mailbox.ts:124-129` `TEAM_MAILBOX_FULL`、`:137-139` `TEAM_MESSAGE_TOO_LARGE`）对广播同样生效，按**展开后的目标数**计。 |
 | S4.4.5 | 群消息**永不进模型对话面**（`journal.ts:65-69` 的 log-only 约束）。 |
 | S4.4.6 | 决策前置：fork 保留上游已删除的 durable mailbox（上游 `“refactor(agent-team): send directly through Agent inbox steering” 重构` 改为直接 inbox steer），而广播依赖队列协议。**本规格选择保留 fork 的 mailbox 协议**，群聊叠加其上；与上游再同步时该语义冲突需登记在 `docs/UPSTREAM.alignment.json`。 |
+| S4.4.7 | **目标顺序不承载语义**（2026-10-23 第二轮裁决并落地）：跨目标投递**逐目标独立尝试 + 聚合返回**。一个不可达目标（dormant 成员，或 `active` 但无 runtime 的成员）只让自己留在 `queued`、不落投递边，**不挡住同一次投递里的后续目标**——一个不可达成员不会让这次广播的其余目标一起挨饿。广播 `status` 仍是 `accepted`/`queued` 两值；持久化协议不动（持久记录、每目标投递边、投递前幂等检查、重复边防护全部不变），不丢消息。能补投积压广播的驱动**只有三个**：新点名该目标的广播、该目标复活、冷恢复；普通单播消息只过滤单播队列，**不**补投积压广播。 |
 
 ### 4.7 不变量（不得破坏）
 
@@ -267,7 +268,7 @@ S0.11 的 400 在界面上只显示原始 JSON。规格要求：
 | S4.2 驻留复用 | **已实现**（2026-10-23 补三处） | `TeamMemberPhase` 增 `dormant`；`roster.release()` / `roster.resume()`（resume 经 `ctx.subagents.sendMessage` 冷复原持久化子 Session）；投影允许 `active → dormant → active`；`stateVersion` 5 → 6。**补**：① 单播投递读目标相位，dormant 不冷复原（`mailbox.ts` `dispatchOnce`），dormant 成员的邮件留在持久队列等复活送达；② `resume()` 先记 `active` 再提交提示，失败回写 `dormant`——否则复活的成员在创建瞬间相位仍是 `dormant`，`tryMembership` 拒绝 → Team 工具不安装；③ resume 失败把失败原因写进成员行的 `error` 字段（此前只回写相位，原因只活在当次工具结果里，会话重启后无据可查），后续 resume 成功会清掉这条过期原因 |
 | S4.3 模式范围 | **已实现**（2026-10-23 补一处） | 新模块 `src/range.ts`（`checkRanges`）；配置项 `allowedEfforts` / `allowedBackends` / `allowedPresets`；档案自身的 `allowedEfforts` 在 Team 限制之上再收窄；越界分别报 `TEAM_EFFORT_NOT_ALLOWED` / `TEAM_BACKEND_NOT_ALLOWED` / `TEAM_PRESET_NOT_ALLOWED`。**补**：`allowedBackends` 的取值还要过一遍「实际存在的后端目录」（`ctx.subagents.list()`，`roster.ts`），不在目录里的后端在**成员行创建之前**就被拒（`TEAM_BACKEND_NOT_AVAILABLE`）——此前它会先落一条 `provisioning` 成员行，再因 provider 找不到而失败成 `failed`，**失败成员照样占名字与名额** |
 | S4.3.6 设置区四级卡片 | **延后** | 控制器仍停在 provider/model 两级（`packages/client/ui-settings-subagent/src/client/team-model-restriction-card-controller.ts`），未扩到「provider/model/档位/后端」四级。Team 侧的范围机制（`allowedEfforts` / `allowedBackends`）本身已实现并有守卫，卡片是可选便利面 |
-| S4.4 群聊 | **已实现** | `mailbox.broadcast()`：一条持久广播记录 + 每目标一条投递边；复用既有邮箱链（先落盘、按目标串行、目标去重、冷恢复重投）；上限按展开后目标数计；新增事件 `team/message/broadcast` / `team/message/broadcast-delivered` |
+| S4.4 群聊 | **已实现**（2026-10-23 补一处） | `mailbox.broadcast()`：一条持久广播记录 + 每目标一条投递边；复用既有邮箱链（先落盘、按目标串行、目标去重、冷恢复重投）；上限按展开后目标数计；新增事件 `team/message/broadcast` / `team/message/broadcast-delivered`。**补**：跨目标投递由「首个失败即返回」改为**逐目标独立尝试 + 聚合返回**，一个不可达目标不再挡住同一次投递里的后续目标（口径见 S4.4.7；三条验收断言钉在 `upgrade.spec.ts` 的「delivers a broadcast past an unreachable target in the same drive」） |
 | 工具层 | **已实现** | `tool-agent-team` 新增 `list_agent_profiles` / `release_teammate` / `reactivate_teammate` / `broadcast_message`；`spawn_teammate` 增 `profile_id` / `preset` / `backend`；`list_agents` 输出带 `dormant` / `resumable` / `profile_id` / `preset` |
 | 设置区档案卡片 | **延后** | 见 S4.1.6：profile patch 已提供「存智能体信息的配置环境」，UI 卡片是可选便利面 |
 

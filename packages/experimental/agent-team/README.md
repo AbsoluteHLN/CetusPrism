@@ -94,7 +94,7 @@ A Team can place three independent ceilings on its members: the reasoning effort
 
 ### Group messages
 
-A member can address several members at once. One durable broadcast record holds the content once and names every target; each target keeps its own delivery edge, its own de-duplication, and its own pending-message allowance, and the per-target ceiling is charged per expanded target. A broadcast that reached a member but was never recorded waits in the same durable queue as an ordinary message and is retried the same way. Broadcasting to yourself is refused, and a broadcast with no target is refused.
+A member can address several members at once. One durable broadcast record holds the content once and names every target; each target keeps its own delivery edge, its own de-duplication, and its own pending-message allowance, and the per-target ceiling is charged per expanded target. Every target is attempted on its own, so a member that cannot be reached keeps its own message queued and does not hold back the targets after it: one unreachable member never starves the rest of the same broadcast. A broadcast that reached a member but was never recorded waits in the same durable queue as an ordinary message, and it is retried by the three drivers that can reach that member again — a new broadcast naming it, its revival, and cold recovery — because an ordinary message to the same member does not retry a queued broadcast. Broadcasting to yourself is refused, and a broadcast with no target is refused.
 
 ### Messages between teammates
 

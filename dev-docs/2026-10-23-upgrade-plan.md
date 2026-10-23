@@ -20,7 +20,9 @@
 | 完整类型闸门 | **绿** | `pnpm run typecheck` → 退出码 0（2026-10-23 05:5x 实测，含全量构建） |
 | S4 两包测试 | **绿** | `vitest run --config configs/vitest.config.ts packages/experimental/agent-team packages/experimental/tool-agent-team` → 8 文件 / 167 用例 / 9.68s / 退出码 0 |
 | 全仓测试体检 | 红，但**与本轮零交集** | 1906 文件中 89 失败文件 / 249 失败用例，全部落在 Windows 环境限制（符号链接权限、子进程超时、发布产物缺失），本轮 13 笔提交碰的 14 个文件与失败集合零交集 |
-| 发布线 CI（CetusPrism validation） | **红，且先于本轮** | 两个平台同挂在「Test shipped Web interactions」：8 条 Playwright e2e 超时（`apps/web/tests/agent-preset-selection.e2e.ts` 6 条、`zcode-preset.snapshot.ts` 1 条、`cetus-settings-navigation.e2e.ts` 1 条，均为 `locator.click: Timeout 30000ms exceeded`）。在 S4 **之前**的 run（版本号提交 `9f0ab4bfb7`）里是**同一批 8 条、同样的三个文件**，且该提交不含 composer chips 改动（`git merge-base --is-ancestor aafb979693 9f0ab4bfb7` 为假）⇒ 1.7.3 发布线的存量债，与本轮无关 |
+| 发布线 CI（CetusPrism validation） | **红，且是本轮引入**（此前归属判断有误，已更正） | 两个平台同挂在「Test shipped Web interactions」：8 条 Playwright e2e 超时（`apps/web/tests/agent-preset-selection.e2e.ts` 6 条、`zcode-preset.snapshot.ts` 1 条、`cetus-settings-navigation.e2e.ts` 1 条，均为 `locator.click: Timeout 30000ms exceeded`）。根因已定位（§四第 12 条）：本轮把 preset/backend 芯片从 hero 移进会话级 composer 工具条后，**3 条 spec 没跟着改**——产品侧是有意改动，**过期的是测试侧** |
+| 第二轮文档合规复核（3 条） | 报告写于 L1/L3 波次之前，**当前已全部闭合** | `verify-translation-pairing` → 558 对一致 / 退出码 0；`verify-no-unknown-casts` → 无新增断言、存量 1444 条 / 退出码 0；`packages/experimental/agent-team/src/index.ts:75` 已是 `z.array(z.string())`，断言本身已不存在（baseline 里也无该文件条目）；`dev-docs/2026-10-22-zcode-agentloop-parity.md:120` 与 `:143` 两处均已是 `maxRetries: 10`（与 `apps/cli/config/examples/glm-harness/cordis.yml:34` 一致） |
+| 静态门禁的 CI 覆盖 | **没有**（治理缺口） | 受版本控制的 workflow 只有 `cetus-validation.yml` 与 `macos-build.yml`；`.gitignore:83` 忽略 `.github/workflows/*`，磁盘上另外 20 个 workflow 文件是未跟踪本地副本，GitHub 从未注册。`cetus-validation.yml` 的 8 个 step 不含任何静态门禁调用 ⇒ L1/L2/L3 的验收只有本地口径（§2.6） |
 
 ---
 
@@ -43,13 +45,36 @@
 - **处置**：改为「npm's signed attestations / npm 的签名证明（signed attestations）」，事实不变、可点名；`apps/electron/README.i18n.yaml` 按仓库机制重录。
 - **结果**：`verify-concrete-terms` 退出码 0；`verify-translation-pairing` 558 对全部一致、退出码 0；两个闸门自身的 spec 128 passed / 2 skipped、退出码 0。
 
-### 2.3 L3：裸提交哈希（`verify-repository-references`）—— **本轮发现，未闭合**
+### 2.3 L3：裸提交哈希（`verify-repository-references`）—— **已闭合**
 
 - **事实**：该闸门（进 CI 静态门禁）禁止在**任何受维护文件**里出现 7–40 位、且能在本仓历史里匹配到真实提交的十六进制串；正文只能用发布标签或描述性引用。它比前两条更早就在红：2026-10-20 / 10-22 的旧文档已有命中。
 - **本轮新增**：本轮 6 份审查 + 5 条第二轮意见 + 裁决备忘几乎都以裸哈希做证据锚点，命中集中在 `dev-docs/2026-10-23-*.md`。**这不是本轮引入的缺陷，是本轮把既有写法放大到了 CI 可见的规模。**
 - **重要澄清**：把哈希换成提交 URL **没有用**——闸门禁的是哈希 token 本身，URL 里带哈希照样命中。
 - **处置**：本文件已按规则改写（版本号 + 批次名）。其余文件由文档规范审查员一次性清理完毕——**119 处 → 0**，清理批次已入库；验收 `pnpm run verify-repository-references` 退出码 0（本地复跑通过，CI 转绿由文档规范审查员盯守）。
 - **顺带一条纪律**：本组此后写审查文档，证据锚点用 `文件:行号` + 版本号/批次名，不用裸哈希。
+
+### 2.4 第二轮合规复核收口 + 闸门自检（2026-10-23 08:2x）
+
+- **文档规范审查员的第二轮合规报告写于 L1/L3 波次之前，其 3 条在当前 HEAD 全部过期、全部闭合**：
+  - 「i18n 哈希失步、push 必被拒」→ 已不成立：`pnpm run verify-translation-pairing` → 558 对一致、退出码 0。
+  - 「`agent-team` 新增断言不在 baseline、闸门退出码 1」→ 已不成立：`packages/experimental/agent-team/src/index.ts:75` 现在就是 `z.array(z.string())`，**断言本身已不存在**（baseline 里也没有该文件条目），`pnpm exec tsx scripts/verify-no-unknown-casts.ts` → 无新增断言、存量 1444 条、退出码 0。审查员建议的「改写消除断言」这条路，产品侧已经走完了。
+  - 「`maxRetries: 2` 与行号双重漂移」→ 已不成立：`dev-docs/2026-10-22-zcode-agentloop-parity.md:120` 与 `:143` 两处现在写的都是 `maxRetries: 10`，与 `apps/cli/config/examples/glm-harness/cordis.yml:34` 一致。
+- **闸门自曝**：我上一笔文档提交把一个裸提交哈希写进了本文档的 CI 证据行，使 `verify-repository-references` 重新转红（退出码 1，命中 `dev-docs/2026-10-23-upgrade-plan.md`）。**这条纪律对 Chief 同样成立**——已在 2.4 这次编辑里一并改成「提交标题 + run 编号 + `文件:行号`」的可点名锚点。本笔提交前复跑该闸门，退出码 0。
+
+### 2.5 发布线 CI 归属更正（**此前判断有误**）
+
+- **此前写的**：这 8 条 e2e 失败是「S4 之前就有的存量债、与本轮无关」。**这条判断是错的**，已更正：它是**本轮引入的**。
+- **错在哪**：当时把 run `39857136168` 的 head 认成了版本号提交，并用「版本号提交不含 composer chips 改动」推出归属。但该 run 的真实 head 是另一笔提交（`pull_request` 事件），**包含** chips 提交；被拿来当证据的那个祖先关系，判定的是另一个 sha。
+- **正确证据链**：末绿 run `39727581743`（success，2026-10-22 13:20 +0800）**不含** chips 提交；首红 run `39814419426`（failure，2026-10-23 00:12 +0800）**含**；`git log <末绿>..<首红> -- packages/client apps/web/src packages/bundle/web-app` 在该窗口内**只有 chips 这一笔** web 客户端改动。两个平台失败形态一致。
+- **结论**：chips 提交把 preset/backend 芯片从 hero 移进会话级 composer 工具条，**产品侧是有意改动，3 条 spec 是过期的测试侧**。处置见 §四第 12 条（实施轮，只改测试侧 + 黄金文件）。
+- **本地不可复现的原因**：web 测试服务 `apps/web/dist`（`apps/web/tests/support.ts:11`），该产物停在 2026-10-21 16:24，早于 chips 提交；重建它与 `packages/client/**/lib` 被本轮约束禁止（用户在跑的应用正从这两棵树运行）⇒ 本地跑出「16/16 全绿」是**旧产物**的假象，CI 才是判据。
+
+### 2.6 静态门禁**不在任何受版本控制的 CI 里**（治理事实）
+
+- **受版本控制的 workflow 只有两个**：`.github/workflows/cetus-validation.yml` 与 `.github/workflows/macos-build.yml`。`.gitignore:83` 忽略 `.github/workflows/*`，磁盘上另外 20 个 workflow 文件（含 `ci.yml`、`ci-master.yml`、`e2e.yml`、`release.yml`）都是**未跟踪的本地副本**，GitHub 从未注册它们（`gh workflow list` 只有那两条 active）。`ci.yml` 也不在 `main` 的 tree 里。
+- **后果**：L1/L2/L3 三条静态门禁（`verify-no-unknown-casts` / `verify-concrete-terms` / `verify-repository-references`）**不在任何 CI 里跑**。`cetus-validation.yml` 的 8 个 step 里没有任何门禁调用（实测：全目录 grep `check:ci:static` / `run-gates` / 三个门禁名 → 0 命中）。
+- **CI 实际跑什么**：install → `pnpm run build` → 「Test native capability composition」（7 个 spec，含 `packages/experimental/agent-team/tests/team.spec.ts` 与 `projection-events.spec.ts`、`scripts/doc-standard.spec.ts`）→ 装 Playwright → **step 10「Test shipped Web interactions」**（4 个 web spec）→ lock 校验 → 失败证据上传。
+- **因此**：静态门禁的验收**只有本地口径**（`pnpm run test:docs` 与各脚本单跑），没有 CI 口径。任何「等 CI 转绿来验证静态门禁」的说法在本仓都不成立。
 
 ---
 
@@ -84,8 +109,8 @@
 | 8 | 部署态夹带仓外插件 + 明文凭据 | 不删（部署态是用户资产），但下一版登记「部署态依赖清单」，token 改走环境引用 | **待用户拍板** | 清单成文 |
 | 9 | S4.3.6 设置区四级卡片 / S4 设置区档案卡片 | 建议维持延后：profile patch 已满足「存智能体信息的配置环境」 | **待用户拍板** | 用户确认延后或排期 |
 | 10 | 旧日志格式（v3/v0）无升级路径 | 体检发现 21 条会话在当前构建里打不开（读取器在投影之前就拒绝）。本轮只识别不处置 | 下一轮 | 明确这些会话的处置口径（可读/丢弃/迁移） |
-| 11 | **裸提交哈希**（L3，CI 阻断） | **已闭合**：119 处 → 0，清理批次已入库；本组此后用 `文件:行号` + 版本号/批次名做证据锚点 | 文档规范审查员（已交） | `pnpm run verify-repository-references` 退出码 0（本地复跑通过）；CI 转绿由文档规范审查员盯守 |
-| 12 | **发布线 CI 红灯**（`apps/web` Playwright e2e，8 条超时） | 归属未定：本组无 `apps/web` 归属。已核实**先于本轮**（同批 8 条、同三个文件出现在 S4 之前的 run）。选项：(a) 用户/前端侧接手；(b) Chief 派诊断轮本地复现定位 | **待用户决定** | 给出根因或证明本地不可复现；在此之前 `release/v1.7.3` 的 validation workflow 不会绿（**与 S4 完成度无关**） |
+| 11 | **裸提交哈希**（L3，CI 阻断） | **已闭合**：119 处 → 0，清理批次已入库；本组此后用 `文件:行号` + 版本号/批次名做证据锚点 | 文档规范审查员（已交） | `pnpm run verify-repository-references` 退出码 0（本地实测通过）。**该门禁不在任何受版本控制的 CI workflow 里**（§2.6），所以验收**只有本地口径**，不存在「CI 转绿」这一说 |
+| 12 | **发布线 CI 红灯**（`apps/web` Playwright e2e，8 条超时） | **根因已定位，且是本轮自债**：本轮把 preset/backend 芯片从 hero 移进会话级 composer 工具条（提交标题 `feat(conversation): move the preset and backend chips into the composer tool row`）后，3 条 spec 仍按旧位置定位。末绿 run `39727581743`（success）不含该提交，首红 run `39814419426`（failure）含；且 `git log <末绿>..<首红> -- packages/client apps/web/src packages/bundle/web-app` 在该窗口内**只有这一笔** web 客户端改动 ⇒ 归属清楚，不再是「存量债」 | **实施轮**（已派出）：只改测试侧 3 个 spec + `apps/web/tests/expected/agent-preset-selection/` 黄金文件，不碰产品代码 | CI 上这 3 个 spec 文件全绿。**本地无法验证**：web 测试服务 `apps/web/dist`（`apps/web/tests/support.ts:11`），而重建 `apps/web/dist` 与 `packages/client/**/lib` 被本轮约束禁止（用户在跑的应用正从这两棵树运行）⇒ 以 CI 为唯一判据 |
 
 ---
 

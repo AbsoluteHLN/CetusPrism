@@ -9,6 +9,7 @@ import { verifyDefaultProductIsolation } from './verify-default-product-isolatio
 
 const roots: string[] = []
 const experimental = '@deepseek-ai/dsh-experimental-prototype'
+const requiredRuntime = '@deepseek-ai/dsh-experimental-required-runtime'
 const core = '@deepseek-ai/dsh-core'
 const base = '@deepseek-ai/dsh-base'
 const profile = 'packages/boot/app-boot/src/profile.ts'
@@ -24,6 +25,15 @@ function write(root: string, path: string, value: unknown): void {
 function manifest(root: string, path: string, fields: Record<string, unknown>): void {
   const existing = JSON.parse(readFileSync(join(root, path), 'utf8')) as Record<string, unknown>
   write(root, path, { ...existing, ...fields })
+}
+
+/** The profile source with the two experimental channels the launcher declares. */
+function profileWith(runtimes: string[], optional: string[] = []): string {
+  const list = (names: string[]): string => names.map(name => `'${name}'`).join(', ')
+  return `export const PROFILE_TEMPLATES = { web: { bundles: ['${base}'] } }\n`
+    + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`
+    + `export const OPTIONAL_BUNDLES = [${list(optional)}]\n`
+    + `export const REQUIRED_EXPERIMENTAL_RUNTIMES = [${list(runtimes)}]\n`
 }
 
 function fixture(): string {
@@ -132,6 +142,64 @@ describe('default product isolation', () => {
       + `export const DEFAULT_PROFILE_BUNDLES = ['${base}']\n`)
     manifest(root, 'apps/cli/package.json', { dependencies: { [core]: 'workspace:^', [experimental]: 'workspace:^' } })
     expect(verifyDefaultProductIsolation(root).failures.join('\n')).toContain(`@deepseek-ai/dsh dependencies -> ${experimental}`)
+  })
+
+  it('accepts an experimental runtime the profile requires of apps/cli', () => {
+    const root = fixture()
+    write(root, 'packages/experimental/required/package.json', { name: requiredRuntime })
+    manifest(root, 'apps/cli/package.json', {
+      dependencies: { [core]: 'workspace:^', [requiredRuntime]: 'workspace:^' },
+    })
+    write(root, profile, profileWith([requiredRuntime]))
+
+    // The required runtime is not a bundle: it declares no bundle patch, icon, or locale metadata.
+    expect(verifyDefaultProductIsolation(root).failures).toEqual([])
+  })
+
+  it('still rejects an experimental runtime the profile does not require', () => {
+    const root = fixture()
+    write(root, 'packages/experimental/required/package.json', { name: requiredRuntime })
+    manifest(root, 'apps/cli/package.json', {
+      dependencies: { [core]: 'workspace:^', [requiredRuntime]: 'workspace:^', [experimental]: 'workspace:^' },
+    })
+    write(root, profile, profileWith([requiredRuntime]))
+
+    const failures = verifyDefaultProductIsolation(root).failures.join('\n')
+    expect(failures).toContain(`@deepseek-ai/dsh dependencies -> ${experimental}`)
+    expect(failures).toContain('default product must not include experimental packages')
+    expect(failures).not.toContain(requiredRuntime)
+  })
+
+  it('rejects a required experimental runtime the workspace does not carry', () => {
+    const root = fixture()
+    manifest(root, 'apps/cli/package.json', {
+      dependencies: { [core]: 'workspace:^', [requiredRuntime]: 'workspace:^' },
+    })
+    write(root, profile, profileWith([requiredRuntime]))
+
+    const failures = verifyDefaultProductIsolation(root).failures.join('\n')
+    expect(failures).toContain(`required experimental runtime ${requiredRuntime} must exist in the workspace`)
+  })
+
+  it('rejects a required experimental runtime apps/cli does not depend on', () => {
+    const root = fixture()
+    write(root, 'packages/experimental/required/package.json', { name: requiredRuntime })
+    write(root, profile, profileWith([requiredRuntime]))
+
+    const failures = verifyDefaultProductIsolation(root).failures.join('\n')
+    expect(failures).toContain(`required experimental runtime ${requiredRuntime} must be a runtime dependency of apps/cli`)
+  })
+
+  it('rejects a package that is both an optional bundle and a required experimental runtime', () => {
+    const root = fixture()
+    write(root, 'packages/experimental/required/package.json', { name: requiredRuntime })
+    manifest(root, 'apps/cli/package.json', {
+      dependencies: { [core]: 'workspace:^', [requiredRuntime]: 'workspace:^' },
+    })
+    write(root, profile, profileWith([requiredRuntime], [requiredRuntime]))
+
+    const failures = verifyDefaultProductIsolation(root).failures.join('\n')
+    expect(failures).toContain(`required experimental runtime ${requiredRuntime} must not be an optional bundle`)
   })
 
   it.each(['dependencies', 'optionalDependencies', 'peerDependencies'])(

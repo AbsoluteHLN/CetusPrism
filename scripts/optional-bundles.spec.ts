@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { loadOverlayPatches } from '../packages/boot/app-boot/src/index.ts'
 import { readPluginMeta } from '../packages/boot/app-boot/src/package-meta.ts'
-import { OPTIONAL_BUNDLES, bundlePatchPaths, composeEntries } from '../packages/boot/app-boot/src/profile.ts'
+import { OPTIONAL_BUNDLES, REQUIRED_EXPERIMENTAL_RUNTIMES, bundlePatchPaths, composeEntries } from '../packages/boot/app-boot/src/profile.ts'
 import type { DshBundleManifest } from '../packages/util/package-manifest/src/types.ts'
 
 const root = resolve(import.meta.dirname, '..')
@@ -36,6 +36,16 @@ describe('optional bundles', () => {
 
   it('keeps the Inspector out of the default plugin list', () => {
     expect(OPTIONAL_BUNDLES).not.toContain('@deepseek-ai/dsh-experimental-inspector')
+  })
+
+  it('keeps the required experimental runtimes out of the optional bundles', () => {
+    // The two channels are opposite: an optional bundle ships switched off for a person to switch on, while a
+    // required experimental runtime belongs to the default closure and declares no bundle metadata.
+    expect(REQUIRED_EXPERIMENTAL_RUNTIMES.length).toBeGreaterThan(0)
+    for (const name of REQUIRED_EXPERIMENTAL_RUNTIMES) {
+      expect(OPTIONAL_BUNDLES).not.toContain(name)
+      expect(bundles.get(name)?.manifest.dsh?.bundle).toBeUndefined()
+    }
   })
 
   it.each(OPTIONAL_BUNDLES)('%s composes over the Web profile without a skipped patch', (name) => {

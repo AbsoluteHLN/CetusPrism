@@ -466,6 +466,9 @@
       "path": "../packages/session/session-format-v3-to-v4"
     },
     {
+      "path": "../packages/session/session-format-v4-to-v5"
+    },
+    {
       "path": "../packages/session/session-format-catalog"
     },
     {

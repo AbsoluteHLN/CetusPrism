@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { createSessionFormatCatalogWithChildren, sessionFormatCatalog } from '../src/index.ts'
 
 const header = { type: 'session', version: 3, id: 'parent', createdAt: 1, isSeeded: false, delegationDepth: 0 }
@@ -11,7 +12,7 @@ describe('parent-specific catalog assembly', () => {
     expect(sessionFormatCatalog.readHeader(header).status).toBe('migration-required')
     expect(() => sessionFormatCatalog.createRestore(header, policy)).toThrow('explicit historical child facts')
     expect(createSessionFormatCatalogWithChildren([]).createRestore(header, policy).finish().events).toEqual([])
-    expect(sessionFormatCatalog.createRestore({ ...header, version: 4 }, policy).finish().events).toEqual([])
+    expect(sessionFormatCatalog.createRestore({ ...header, version: SESSION_FORMAT_VERSION }, policy).finish().events).toEqual([])
   })
 
   it('isolates interleaved restores and child evidence across parent catalogs', () => {

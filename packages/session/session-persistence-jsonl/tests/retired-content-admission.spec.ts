@@ -1,13 +1,13 @@
 /** Interpreted retired content must fail before migration publication or recoverable native-tail suppression. */
 import { Context } from '@deepseek-ai/cordis'
-import { SessionId } from '@deepseek-ai/dsh-session'
+import { SessionId, SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { SessionFormatUnsupportedError, SessionPersistenceCorruptionError } from '@deepseek-ai/dsh-session-persistence'
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
 import { describe, expect, it, onTestFinished } from 'vitest'
-import { generationLogPath } from '../src/format.ts'
+import { generationLogFilename, generationLogPath } from '../src/format.ts'
 import { compressZstdFrame } from '../src/zstd.ts'
 
 const id = SessionId('retired-content-admission')
@@ -16,7 +16,7 @@ const modes = (['none', 'zstd'] as const).flatMap(compression =>
   (['read', 'write'] as const).map(access => ({ compression, access })))
 
 describe.each(modes)('retired content in JSONL ($compression, $access)', ({ compression, access }) => {
-  async function stored(version: 3 | 4, opaque: boolean, corruptPrefix: boolean) {
+  async function stored(version: 3 | 4 | typeof SESSION_FORMAT_VERSION, opaque: boolean, corruptPrefix: boolean) {
     const root = await mkdtemp(join(tmpdir(), 'dsh-retired-content-'))
     const ctx = new Context()
     onTestFinished(async () => {
@@ -37,7 +37,8 @@ describe.each(modes)('retired content in JSONL ($compression, $access)', ({ comp
     return { ctx, path, bytes, event }
   }
 
-  it.each([{ version: 3, corruptPrefix: false }, { version: 4, corruptPrefix: false }, { version: 4, corruptPrefix: true }] as const)
+  it.each([{ version: 3, corruptPrefix: false }, { version: 4, corruptPrefix: false },
+    { version: SESSION_FORMAT_VERSION, corruptPrefix: false }, { version: SESSION_FORMAT_VERSION, corruptPrefix: true }] as const)
   ('refuses V$version content with corruptPrefix=$corruptPrefix and preserves the only generation', async ({ version, corruptPrefix }) => {
     const { ctx, path, bytes } = await stored(version, false, corruptPrefix)
     const opened = ctx.sessionPersistence.open(id, access).then(async (handle) => { await handle.close() })
@@ -45,6 +46,17 @@ describe.each(modes)('retired content in JSONL ($compression, $access)', ({ comp
     await expect(opened).rejects.toThrow(/released tool-result wrapper/)
     expect(await readFile(path)).toEqual(bytes)
     expect((await readdir(dirname(path))).filter(name => name !== 'session.lock')).toEqual([basename(path)])
+  })
+
+  it('recovers a historical V4 file whose corrupt tail hides the retired content', async () => {
+    const { ctx, path, bytes } = await stored(4, false, true)
+    const handle = await ctx.sessionPersistence.open(id, access)
+    try { expect((await handle.read()).events).toEqual([]) } finally { await handle.close() }
+    expect(await readFile(path)).toEqual(bytes)
+    const published = access === 'write'
+      ? [basename(path), generationLogFilename(SESSION_FORMAT_VERSION, compression)]
+      : [basename(path)]
+    expect((await readdir(dirname(path))).filter(name => name !== 'session.lock').sort()).toEqual(published.sort())
   })
 
   it.each([3, 4] as const)('preserves an unknown ignorable V%s payload without interpreting its content', async (version) => {

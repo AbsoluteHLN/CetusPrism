@@ -845,7 +845,8 @@ function docSyncLeafGates(options: {
       quick: true,
     }),
     pnpmExec('docs-site-projection', [
-      'vitest', 'run', 'scripts/project-doc-site.spec.ts', 'scripts/verify-doc-site-fragments.spec.ts',
+      'vitest', 'run', '--config', 'configs/vitest.config.ts',
+      'scripts/project-doc-site.spec.ts', 'scripts/verify-doc-site-fragments.spec.ts',
       'website/tests/mermaid-viewer.spec.ts',
       'website/tests/image-viewer.spec.ts',
       'website/tests/code-groups.spec.ts',

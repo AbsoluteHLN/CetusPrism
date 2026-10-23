@@ -17,7 +17,7 @@ v1.7.0-beta.1 通过导出的 `BuiltinAgentConfigStore` 与校验函数引入内
 
 底座负责 Agent 生命周期、请求调度和工具执行。它与 preset（负责提示词、工具组合和运行约束）、与模型（负责 provider、model 和 effort 路由）是彼此独立的维度。
 
-`AgentPresetRegistry.registerBackend()` 是外部运行时唯一的接入入口。适配器只需回答一次探测（版本、来源、CetusPrism 能否与之通信），CetusPrism 不为其保存任何凭据、私有配置或运行时文件。`backends` 远程方法发布目录，以 DSH 开头，列出每个底座的版本、可用状态与能力。DSH 始终存在且始终可用；Pi 与 ZCode 在适配器注册之前保持可见的「未配置」状态——它们无法启动会话的原因，正是 composer 需要说明的内容。
+`AgentPresetRegistry.registerBackend()` 是外部运行时唯一的接入入口。适配器只需回答一次探测（版本、来源、CetusPrism 能否与之通信），CetusPrism 不为其保存任何凭据、私有配置或运行时文件。该探测契约就是注册表登记的 `BuiltinAgentBackendProvider`。`backends` 远程方法发布 `AgentBackendCatalog`，以 DSH 开头，列出每个底座的版本、可用状态与能力。DSH 始终存在且始终可用；Pi 与 ZCode 在适配器注册之前保持可见的「未配置」状态——它们无法启动会话的原因，正是 composer 需要说明的内容。
 
 Composer 的底座入口列出这三个底座。无法启动会话的底座会以 Host 发布的原因拒绝，而不是静默回退到 DSH。
 

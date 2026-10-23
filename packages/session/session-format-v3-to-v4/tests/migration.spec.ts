@@ -1,3 +1,4 @@
+import { SESSION_FORMAT_VERSION } from '@deepseek-ai/dsh-session'
 import { describe, expect, it } from 'vitest'
 import { restoreReleasedV3Artifact } from '@deepseek-ai/dsh-session-format-v2-to-v3'
 import { SessionFormatEventCollector } from '@deepseek-ai/dsh-session-format'
@@ -57,7 +58,7 @@ describe('V3 to V4 source preservation', () => {
     const ignorable = rows.map(row => row.type === 'developer/message' ? { ...row, ignorable: true } : row)
     expect(restore(ignorable).events).toEqual(ignorable.map(row =>
       row.type === 'developer/message' ? { ...row, type: 'plugin:developer/message' } : row))
-    const native = sessionFormatCatalog.createRestore({ type: 'session', ...header, version: 4 }, {
+    const native = sessionFormatCatalog.createRestore({ type: 'session', ...header, version: SESSION_FORMAT_VERSION }, {
       recovery: 'strict', validation: 'current',
     })
     for (const row of rows) native.decodeRow(row)
@@ -83,7 +84,7 @@ describe('V3 to V4 source preservation', () => {
     expect(JSON.stringify({ header, rows })).toBe(before)
     expect(stage().headerInheritedEventCount).toBe(0)
     expect(migrate([])).toEqual({ events: [], cut: 0 })
-    expect(restore(rows)).toEqual({ header: { ...header, version: 4 }, inheritedEventCount: 0, events: rows })
+    expect(restore(rows)).toEqual({ header: { ...header, version: SESSION_FORMAT_VERSION }, inheritedEventCount: 0, events: rows })
     expect(restore(rows)).toEqual(restore(rows))
   })
 
@@ -122,11 +123,15 @@ describe('V3 to V4 source preservation', () => {
   it('refuses target-generation delivery while retaining other generations unchanged', () => {
     expect(() => migrate([fact, delivery(4)])).toThrow('claims target format v4')
     expect(() => restore([fact, delivery(4)])).toThrow('claims target format v4')
-    for (const version of [undefined, 0, 1, 2, 3, 5, 99]) {
+    // The installed chain now ends at v5, so a generation-5 marker is the next edge's target generation.
+    expect(() => restore([fact, delivery(5)])).toThrow('claims target format v5')
+    for (const version of [undefined, 0, 1, 2, 3, 99]) {
       const marker = delivery(version)
       expect(migrate([fact, marker]).events[1]).toBe(marker)
       expect(restore([fact, marker]).events[1]).toEqual(marker)
     }
+    const target = delivery(5)
+    expect(migrate([fact, target]).events[1]).toBe(target)
   })
 
   it('checks active V3 coordinates before the delivery becomes historical', () => {
@@ -181,7 +186,7 @@ describe('V3 to V4 source preservation', () => {
     const reader = createSessionFormatCatalogWithChildren([]).createRestore(physical, { recovery: 'strict', validation: 'current' })
     for (const row of source) reader.decodeRow(version === 3 ? releasedV3SessionFormatCodec.encodeEvent(row) : row)
     const artifact = reader.finish()
-    expect(artifact.header.version).toBe(4)
+    expect(artifact.header.version).toBe(SESSION_FORMAT_VERSION)
     expect(artifact.inheritedEventCount).toBe(8)
     expect(artifact.events.filter(event => event.type === 'system/message')).toHaveLength(2)
     expect(artifact.events.at(-1)?.seq).toBe(8)
@@ -205,7 +210,7 @@ describe('V3 to V4 source preservation', () => {
 
     const reader = createSessionFormatCatalogWithChildren([]).createRestore(physical, { recovery, validation: 'current' })
     for (const row of rows) reader.decodeRow(row)
-    expect(reader.finish()).toEqual({ ...artifact, header: { ...artifact.header, version: 4 } })
+    expect(reader.finish()).toEqual({ ...artifact, header: { ...artifact.header, version: SESSION_FORMAT_VERSION } })
   })
 
   it.each(['strict', 'recoverable'] as const)('refuses foreign delivery after the final inherited cut during %s restoration', (recovery) => {

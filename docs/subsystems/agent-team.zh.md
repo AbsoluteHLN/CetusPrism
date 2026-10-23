@@ -2,7 +2,7 @@
 
 [English](agent-team.md) | 中文
 
-实验性隐式 Root Team 领域、模型工具与宿主适配器共享的类型。[Agent Teams Agent Note](../../.agents/notes/implemented/feature/2026-08-05-agent-teams.md)负责身份、mailbox、task 与共享 checkout 决策；本页记录 [`packages/experimental/agent-team/src/types.ts`](../../packages/experimental/agent-team/src/types.ts) 中的持久与客户端可见形式。
+实验性隐式 Root Team 领域、模型工具与宿主适配器共享的类型。[Agent Teams Agent Note](../../.agents/notes/implemented/feature/2026-08-05-agent-teams.md)负责身份、mailbox、task 与共享 checkout 决策；本页记录 [`packages/experimental/agent-team/src/types.ts`](../../packages/experimental/agent-team/src/types.ts) 中的持久与客户端可见形式，以及 [`packages/experimental/agent-team/src/range.ts`](../../packages/experimental/agent-team/src/range.ts) 中的 range 上限。
 
 ## 身份与 roster
 
@@ -45,6 +45,18 @@ interface TeamMemberSnapshot {
 
 `team/member` 继续写入 payload v2，`modelProvider` 和 `reasoningEffort` 为可选字段；缺少这些字段的既有 v2 记录仍可读取。投影读取方也接受中间版本写入的 v3 记录，并在内存中归一化为 v2，不改写 Session 日志。其他 Agent Teams 事件 payload 仍使用 v2。`agentTeam` 投影缓存当前为 state version 5，因此旧 v4 缓存会从 Session 日志重建。
 
+## Profile 与 range 上限
+
+`AgentProfileView` 是单个已声明 profile 的模型可见视图：它是 teammate 的可复用身份，并连同该成员可运行的路由一起固定下来。profile 是部署事实而非 session 事实，因此同一身份可以在后续 session 中再次实例化，而不是只存在于某个 Lead 的日志中。`ctx.agentTeams.profiles()` 按声明顺序列出这些 profile。
+
+`TeamRanges` 保存 Team 对成员施加的三道彼此独立的上限：`allowedEfforts`、`allowedBackends` 和 `allowedPresets`。每个列表都是精确名称的集合而非区间，空列表表示 Team 不施加该类上限。range 约束 Team 的每个成员，而 profile 会进一步收窄单个成员。
+
+## Teammate 驻留与复用
+
+teammate 先被 spawn，随后被 release 进入 dormant 状态，之后可以 resume。`ReleaseTeammateRequest` 给出持久 teammate 名称，并携带调用方的取消信号；`ResumeTeammateRequest` 给出同一 teammate 名称，附加交给恢复成员的下一个任务的 prompt，并携带自己的取消信号。两次转换都保留持久 member 行，因此同一身份通过 resume 返回，而不是重新 spawn。
+
+`TeammateLifecycleResult` 是任一转换的结果：它携带成员当前持有的 roster 行，因此无论成员变为 dormant 还是重新变为 active，调用方读到的都是同一个 `TeamMemberView` 形状。
+
 ## 持久 mailbox
 
 Lead Session 首先存储完整 queued message。只有 target 的 pending inbox 条目或已记录用户消息完成持久化，才会写入独立 acknowledgement event，queued-minus-delivered 因而构成恢复 mailbox。
@@ -63,6 +75,8 @@ interface TeamMessageSnapshot {
 每条消息都会尝试 Steer 投递。running target 在最近的步骤边界收到消息，inactive target 在已加载时启动一个轮次，否则冷恢复。调用方不能选择其他模式，因此持久记录不存储调度方式。
 
 target Session 会在 pending inbox 条目和最终用户消息上保留消息身份与发送者归因。跨 inbox 与历史折叠该 source 构成 target 侧去重键；模型可见的 framing 会重复 id 和发送者。
+
+一次 broadcast 用一条持久记录寻址多个成员。`BroadcastTeamMessageRequest` 给出目标成员名称，并携带内容与调用方的取消信号；每个被指名的成员都会收到该消息。`BroadcastTeamMessageResult` 携带持久消息身份、解析出的目标 Session id，以及该 broadcast 处于 `accepted` 还是仍为 `queued`。每个目标各自保留投递边，因此不可达的成员只会拖住自己的那一份，不会挡住排在它后面的目标。
 
 ```ts type-equiv
 /** Source retained by the target Session for durable mailbox de-duplication. */
@@ -191,6 +205,24 @@ listMembers(agent: Agent): TeamMemberView[]
 modelPolicy(): { allowedModels: TeamModelSelection[]; defaultModel?: TeamModelSelection }
 
 /**
+ * List the deployment's declared agent profiles.
+ *
+ * A profile is the reusable identity of a teammate: it names the member,
+ * says what it is for, and pins the route and ranges it may run under.
+ * @returns the declared profiles in declaration order.
+ */
+profiles(): AgentProfileView[]
+
+/**
+ * Read the Team's three range ceilings.
+ *
+ * Each list is a set of exact names; an empty list means the Team places no
+ * ceiling of that kind.
+ * @returns the Team's effort, backend, and preset ceilings.
+ */
+ranges(): TeamRanges
+
+/**
  * Create one named, continuable direct child of the Team Lead.
  * @param caller - exact live Lead Agent.
  * @param request - immutable name, description, prompt, context mode, provider, and cancellation.
@@ -199,12 +231,42 @@ modelPolicy(): { allowedModels: TeamModelSelection[]; defaultModel?: TeamModelSe
 async spawnTeammate(caller: Agent, request: SpawnTeammateRequest): Promise<SpawnTeammateResult>
 
 /**
+ * Release one resident teammate into its dormant state.
+ *
+ * The durable member row stays, so the same identity can be brought back by
+ * a later resume instead of being spawned again.
+ * @param caller - exact live Lead Agent.
+ * @param request - teammate name and cancellation.
+ * @returns the dormant roster row.
+ */
+async releaseTeammate(caller: Agent, request: ReleaseTeammateRequest): Promise<TeammateLifecycleResult>
+
+/**
+ * Bring one dormant teammate back and give it its next task.
+ * @param caller - exact live Lead Agent.
+ * @param request - teammate name, prompt, and cancellation.
+ * @returns the active roster row.
+ */
+async resumeTeammate(caller: Agent, request: ResumeTeammateRequest): Promise<TeammateLifecycleResult>
+
+/**
  * Queue one durable peer message, then attempt immediate delivery.
  * @param caller - exact live sending Team member.
  * @param request - target name, content, and pre-queue cancellation.
  * @returns durable message identity and immediate-delivery observation.
  */
 async sendMessage(caller: Agent, request: SendTeamMessageRequest): Promise<SendTeamMessageResult>
+
+/**
+ * Queue one durable broadcast, then attempt immediate delivery.
+ *
+ * One durable record addresses several members at once; every target keeps
+ * its own delivery edge and its own pending-message ceiling.
+ * @param caller - exact live sending Team member.
+ * @param request - target names, content, and pre-queue cancellation.
+ * @returns durable broadcast identity, its targets, and the delivery observation.
+ */
+async broadcastMessage( caller: Agent, request: BroadcastTeamMessageRequest, ): Promise<BroadcastTeamMessageResult>
 
 /**
  * Create one unowned pending task in the Team Lead log.

@@ -1290,6 +1290,9 @@
     "@deepseek-ai/dsh-session-format-v3-to-v4": [
       "../packages/session/session-format-v3-to-v4/src"
     ],
+    "@deepseek-ai/dsh-session-format-v4-to-v5": [
+      "../packages/session/session-format-v4-to-v5/src"
+    ],
     "@deepseek-ai/dsh-session-log-deepseek": [
       "../packages/session/session-log-deepseek/src"
     ],

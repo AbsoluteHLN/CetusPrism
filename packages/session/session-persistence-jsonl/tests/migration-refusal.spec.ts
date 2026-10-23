@@ -318,13 +318,26 @@ describe.each(modes)('EOF migration refusal ($compression, $access)', ({ compres
     await expectOnlyGenerations([path])
   })
 
-  it.each([5, 99])('retains a V3 watermark claiming V%s unchanged through native reopening', async (sessionFormatVersion) => {
+  it.each([99])('retains a V3 watermark claiming V%s unchanged through native reopening', async (sessionFormatVersion) => {
     const marker = { type: 'session-log-deepseek/delivery-accepted', data: {
       sessionId: id, throughSeq: 0, sessionFormatVersion,
     } }
     await expectV3Conversion([...releasedPrefix, marker], (events) => {
       expect(events).toEqual([...nativePrefix, marker].map((row, seq) => ({ ...row, seq, time: 1001 + seq })))
     })
+  })
+
+  it('refuses a V3 watermark claiming the current generation without publishing a successor', async () => {
+    const marker = { type: 'session-log-deepseek/delivery-accepted', data: {
+      sessionId: id, throughSeq: 0, sessionFormatVersion: SESSION_FORMAT_VERSION,
+    } }
+    const path = await store(3, compression, [...releasedPrefix, marker])
+    const original = await observe(path)
+    const ctx = await mount(compression)
+    await expectRefusal(ctx, access, path,
+      'format v4 delivery marker claims target format v5; source v3 artifact remains unchanged (raw log: ' + path + ')')
+    expect(await observe(path)).toEqual(original)
+    await expectOnlyGenerations([path])
   })
 
   it.each([false, true])('refuses own V3 tool-definition deferLoading=%s without publishing a successor', async (deferLoading) => {

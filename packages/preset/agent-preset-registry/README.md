@@ -17,7 +17,7 @@ The built-in agent protocol is introduced in v1.7.0-beta.1 through the exported 
 
 A backend owns the Agent lifecycle, the request scheduling and the tool execution. It is a separate dimension from the preset, which owns the prompt, the tool set and the runtime constraints, and from the model, which owns the provider, model and effort routing.
 
-`AgentPresetRegistry.registerBackend()` is the one entry an external runtime uses. The adapter answers a probe — version, source, and whether CetusPrism can speak to it — and nothing else: CetusPrism stores no credential, private configuration or runtime file for it. The `backends` Remote publishes the catalog, DSH first, with each backend's version, availability and capabilities. DSH is always present and always ready; Pi and ZCode stay visible as unconfigured until an adapter registers, because the reason they cannot start a session is what the composer has to explain.
+`AgentPresetRegistry.registerBackend()` is the one entry an external runtime uses. The adapter answers a probe — version, source, and whether CetusPrism can speak to it — and nothing else: CetusPrism stores no credential, private configuration or runtime file for it. That probe contract is the `BuiltinAgentBackendProvider` the registry registers. The `backends` Remote publishes the `AgentBackendCatalog`, DSH first, with each backend's version, availability and capabilities. DSH is always present and always ready; Pi and ZCode stay visible as unconfigured until an adapter registers, because the reason they cannot start a session is what the composer has to explain.
 
 The composer chip lists the three backends. A backend that cannot start a session is refused with the reason the host published, rather than silently falling back to DSH.
 

@@ -282,6 +282,11 @@ export class TeamMailbox {
 
   /**
    * Deliver one broadcast to every target in target-local queue order.
+   *
+   * Every target is attempted on its own: a target that cannot be delivered
+   * keeps its message queued and does not hold back the targets after it, so
+   * one unreachable member cannot starve the rest of the drive. The broadcast
+   * counts as delivered only when every target recorded it.
    * @param root - exact live Team Lead.
    * @param broadcast - durable broadcast record.
    * @param signal - delivery cancellation.
@@ -292,15 +297,16 @@ export class TeamMailbox {
     broadcast: TeamBroadcastSnapshot,
     signal: AbortSignal,
   ): Promise<boolean> {
+    let complete = true
     for (const targetId of broadcast.targetIds) {
       signal.throwIfAborted()
       const delivered = await this.serializeDispatch(
         targetId,
         () => this.dispatchBroadcastThrough(root, broadcast, targetId, signal),
       )
-      if (!delivered) return false
+      if (!delivered) complete = false
     }
-    return true
+    return complete
   }
 
   /**

@@ -1,6 +1,6 @@
 /** Child LLM route selection for the subagent tool. */
 
-import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
+import { ReasoningEffortId, selectSupportedReasoningEffort } from '@deepseek-ai/dsh-llm'
 import type { LlmRuntime } from '@deepseek-ai/dsh-llm'
 import type { AgentOptions } from '@deepseek-ai/dsh-agent'
 import z from '@deepseek-ai/schemastery'
@@ -164,14 +164,57 @@ export function hasConfiguredLlmSelection(options: AgentOptions | undefined): bo
 }
 
 /**
+ * Judge one requested child effort against the child model that will take it.
+ *
+ * The effort that reaches a delegation was written by the parent model, and
+ * the parent writes it in its own vocabulary: a parent that speaks the whole
+ * ladder asks a child that speaks three levels of it for `high`, and the child
+ * route refuses a level it never had. Refusing the delegation over a level
+ * the child does not carry would fail the work for a reason the parent could
+ * not have known, so the request is judged against the child instead: the
+ * level the child takes nearest to the one asked for, or the highest level
+ * the child has.
+ *
+ * A child that advertises no reasoning metadata owns no effort vocabulary at
+ * all, so the effort is dropped and the child's own default applies.
+ * @param llm - Live LLM runtime.
+ * @param provider - provider route the child will use.
+ * @param model - model id the child will use.
+ * @param requested - the effort the delegation asked for.
+ * @param signal - Tool-call cancellation signal.
+ * @returns the effort the child route takes, or undefined for the child's default.
+ */
+async function resolveChildReasoningEffort(
+  llm: LlmRuntime,
+  provider: string,
+  model: string,
+  requested: ReasoningEffortId | undefined,
+  signal: AbortSignal,
+): Promise<ReasoningEffortId | undefined> {
+  if (requested === undefined) return undefined
+  const info = await llm.resolveModelInfo(provider, model, signal)
+  if (info.reasoning === undefined) return undefined
+  return selectSupportedReasoningEffort(
+    info.reasoning.efforts.map(effort => effort.id),
+    requested,
+  )
+}
+
+/**
  * Resolve an effective child route through its live adapter before the child is
  * created. The LLM runtime owns provider lookup, exact-model metadata, effort
  * validation, and adapter defaults.
+ *
+ * The effort is judged against the child model rather than refused outright:
+ * an effort the parent asked for and the child does not take is lowered to
+ * the nearest level the child does, so a delegation fails for a reason the
+ * caller can act on rather than for a level the child never had.
  * @param llm - Live LLM runtime.
  * @param parentOptions - Current parent values whose compatible fields the child inherits.
  * @param requested - Per-child options after request/config merging.
  * @param signal - Tool-call cancellation signal.
  * @param inheritParentReasoningEffort - Whether an omitted effort may inherit from the parent route.
+ * @returns the effort the child route takes, or undefined for the child's default.
  */
 export async function preflightChildLlmRoute(
   llm: LlmRuntime,
@@ -179,18 +222,20 @@ export async function preflightChildLlmRoute(
   requested: AgentOptions | undefined,
   signal: AbortSignal,
   inheritParentReasoningEffort = true,
-): Promise<void> {
+): Promise<ReasoningEffortId | undefined> {
   const provider = requested?.provider ?? parentOptions.provider
   const model = requested?.model ?? parentOptions.model
   if (provider === undefined || model === undefined) {
     throw new Error('cannot select child LLM values without an effective provider and model')
   }
   const routeChanged = provider !== parentOptions.provider || model !== parentOptions.model
-  const reasoningEffort = requested?.reasoningEffort
+  const requestedEffort = requested?.reasoningEffort
     ?? (inheritParentReasoningEffort && !routeChanged ? parentOptions.reasoningEffort : undefined)
+  const reasoningEffort = await resolveChildReasoningEffort(llm, provider, model, requestedEffort, signal)
   await llm.resolveCallConfig({
     provider,
     model,
     ...reasoningEffort === undefined ? {} : { reasoningEffort },
   }, signal)
+  return reasoningEffort
 }

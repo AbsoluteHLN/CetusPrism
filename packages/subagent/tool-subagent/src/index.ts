@@ -482,7 +482,7 @@ export function apply(ctx: Context, config: Config, session?: Session): void {
           const configuredChildAgentOptions = requiresRoutePreflight && providerRouteDefaults !== undefined
             ? { ...providerRouteDefaults, ...config.agentOptions }
             : config.agentOptions
-          const requestedChildAgentOptions = requestedAgentOptions(
+          let requestedChildAgentOptions = requestedAgentOptions(
             parentOptions,
             configuredChildAgentOptions,
             modelRequest,
@@ -499,13 +499,25 @@ export function apply(ctx: Context, config: Config, session?: Session): void {
             if (llm === undefined) {
               throw new Error('cannot resolve the selected child LLM route because the `llm` service is unavailable')
             }
-            await preflightChildLlmRoute(
+            const effectiveEffort = await preflightChildLlmRoute(
               llm,
               parentOptions,
               requestedChildAgentOptions,
               exec.signal,
               providerRouteDefaults === undefined,
             )
+            // The route judged the effort it will take, so the child runs with
+            // that level rather than the one that was asked for. A child that
+            // does not carry the requested level still starts, on the nearest
+            // level it does.
+            if (requestedChildAgentOptions !== undefined
+              && effectiveEffort !== requestedChildAgentOptions.reasoningEffort) {
+              const { reasoningEffort: _requestedEffort, ...withoutEffort } = requestedChildAgentOptions
+              requestedChildAgentOptions = {
+                ...withoutEffort,
+                ...effectiveEffort === undefined ? {} : { reasoningEffort: effectiveEffort },
+              }
+            }
             if (runtimeCtx.subagents.getProvider(config.provider) !== subagentProvider) {
               throw new Error(`subagent provider "${config.provider}" changed while resolving the child LLM route; retry the delegation`)
             }

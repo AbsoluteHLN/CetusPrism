@@ -1509,6 +1509,25 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
         throws: ['RemoteError with `llm/model-discovery-rejected` when discovery refuses or fails.'],
       },
       {
+        signature: 'registerReasoningEffortProbe( settingsNs: string, probe: ( request: LlmReasoningEffortProbeRequest, signal?: AbortSignal, ) => Promise<LlmReasoningEffortProbeResult>, ): () => void',
+        description: 'Offer to interrogate provider endpoints for the reasoning-effort levels one model accepts, on behalf of the settings namespace this plugin owns. The namespace is the key for the same reason model discovery uses it: it is what a configuration surface already holds, and a provider being added has no route to name yet. Disposed with the fiber.',
+        parameters: [{ name: 'settingsNs', description: 'the namespace whose profiles this probe serves.' }, { name: 'probe', description: 'interrogates one endpoint about one model\'s levels and must honor the supplied signal.' }],
+        returns: 'the disposer that withdraws the offer.',
+      },
+      {
+        signature: 'async probeReasoningEfforts( settingsNs: string, request: LlmReasoningEffortProbeRequest, signal?: AbortSignal, ): Promise<LlmReasoningEffortProbeResult>',
+        description: 'Interrogate one provider endpoint for the reasoning-effort levels one model accepts and the wire spelling of each. The request describes a draft, not a stored route, so nothing here reads or writes settings or credentials — the caller owns both, and the reply is candidate metadata a surface may offer for adoption.',
+        parameters: [{ name: 'settingsNs', description: 'namespace whose registered probe serves this draft.' }, { name: 'request', description: 'the endpoint, protocol, model, and one-shot credential to use.' }, { name: 'signal', description: 'caller cancellation.' }],
+        returns: 'the probed levels and the declaration they add up to.',
+      },
+      {
+        signature: '@Remote(\'probeReasoningEfforts\') async remoteProbeReasoningEfforts( settingsNs: string, request: LlmReasoningEffortProbeRequest, signal: AbortSignal, ): Promise<LlmReasoningEffortProbeResult>',
+        description: 'Remote adapter for one draft reasoning-effort interrogation.',
+        parameters: [{ name: 'settingsNs', description: 'namespace whose registered probe serves this draft.' }, { name: 'request', description: 'endpoint, protocol, model, and one-shot credential to use.' }, { name: 'signal', description: 'caller cancellation supplied by the Remote carrier.' }],
+        returns: 'the probed levels and the declaration they add up to.',
+        throws: ['RemoteError with `llm/reasoning-effort-probe-rejected` when the probe refuses or fails.'],
+      },
+      {
         signature: 'providerRetryPolicy(provider: string): ResolvedRetryPolicy',
         description: 'Resolve the retry policy captured when one provider route was registered.',
         parameters: [{ name: 'provider', description: 'registered provider route to inspect.' }],
@@ -5858,12 +5877,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface LlmReasoningEffortInfo {\n    id: ReasoningEffortId;\n    name: string;\n    description?: string;\n}',
   },
   {
+    name: 'LlmReasoningEffortProbeOutcome',
+    declaration: 'export interface LlmReasoningEffortProbeOutcome {\n    level: string;\n    accepted: boolean;\n    detail?: string;\n}',
+  },
+  {
+    name: 'LlmReasoningEffortProbeRequest',
+    declaration: 'export interface LlmReasoningEffortProbeRequest {\n    provider?: string;\n    baseURL?: string;\n    api?: string;\n    model: string;\n    apiKey?: string;\n}',
+  },
+  {
+    name: 'LlmReasoningEffortProbeResult',
+    declaration: 'export interface LlmReasoningEffortProbeResult {\n    accepted: readonly string[];\n    refused: readonly {\n        level: string;\n        detail: string;\n    }[];\n    declared?: readonly string[];\n    declaration: Readonly<Record<string, string | null>>;\n    outcomes: readonly LlmReasoningEffortProbeOutcome[];\n}',
+  },
+  {
     name: 'LlmResolvedModelInfo',
     declaration: 'export interface LlmResolvedModelInfo extends LlmModelInfo {\n    context?: LlmModelContext;\n    defaultMaxTokens?: number;\n    reasoning?: LlmModelReasoningInfo;\n    systemPromptUpdate?: SystemPromptUpdate;\n    toolUpdate?: ToolUpdate;\n}',
   },
   {
     name: 'LlmRuntime',
-    declaration: 'export class LlmRuntime extends TypertRemoteService {\n    constructor(ctx: Context);\n    registerAdapter(providers: string[], adapter: LlmAdapter): AdapterRegistrationHandle;\n    @Remote\n    listProviders(): LlmProviderInfo[];\n    registerConfigurableProviders(entries: readonly LlmConfigurableProvider[]): DirectoryRegistrationHandle;\n    @Remote\n    listConfigurableProviders(): LlmConfigurableProvider[];\n    registerModelDiscovery(settingsNs: string, discover: (request: LlmModelDiscoveryRequest, signal?: AbortSignal) => Promise<readonly LlmDiscoveredModel[]>): () => void;\n    async discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal?: AbortSignal): Promise<LlmDiscoveredModel[]>;\n    @Remote(\'discoverModels\')\n    async remoteDiscoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal: AbortSignal): Promise<LlmDiscoveredModel[]>;\n    providerRetryPolicy(provider: string): ResolvedRetryPolicy;\n    imageRequestPricing(provider: string, model: string): LlmImageRequestPricing | undefined;\n    fileRequestText(ref: FileAttachmentRef): string;\n    async listModels(provider: string): Promise<LlmModelInfo[]>;\n    async resolveModelInfo(provider: string, model: string, signal?: AbortSignal): Promise<LlmResolvedModelInfo>;\n    async resolveCallConfig(config: LlmCallConfig, signal?: AbortSignal): Promise<LlmCallConfig>;\n    async prepareCall(config: LlmCallConfig, signal?: AbortSignal): Promise<PreparedLlmCall>;\n    stream(options: GenerateOptions) /* …truncated — full shape in source */',
+    declaration: 'export class LlmRuntime extends TypertRemoteService {\n    constructor(ctx: Context);\n    registerAdapter(providers: string[], adapter: LlmAdapter): AdapterRegistrationHandle;\n    @Remote\n    listProviders(): LlmProviderInfo[];\n    registerConfigurableProviders(entries: readonly LlmConfigurableProvider[]): DirectoryRegistrationHandle;\n    @Remote\n    listConfigurableProviders(): LlmConfigurableProvider[];\n    registerModelDiscovery(settingsNs: string, discover: (request: LlmModelDiscoveryRequest, signal?: AbortSignal) => Promise<readonly LlmDiscoveredModel[]>): () => void;\n    async discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal?: AbortSignal): Promise<LlmDiscoveredModel[]>;\n    @Remote(\'discoverModels\')\n    async remoteDiscoverModels(settingsNs: string, request: LlmModelDiscoveryRequest, signal: AbortSignal): Promise<LlmDiscoveredModel[]>;\n    registerReasoningEffortProbe(settingsNs: string, probe: (request: LlmReasoningEffortProbeRequest, signal?: AbortSignal) => Promise<LlmReasoningEffortProbeResult>): () => void;\n    async probeReasoningEfforts(settingsNs: string, request: LlmReasoningEffortProbeRequest, signal?: AbortSignal): Promise<LlmReasoningEffortProbeResult>;\n    @Remote(\'probeReasoningEfforts\')\n    async remoteProbeReasoningEfforts(settingsNs: string, request: LlmReasoningEffortProbeRequest, signal: AbortSignal): Promise<LlmReasoningEffortProbeResult>;\n    providerRetryPolicy(provider: string): ResolvedRetryPolicy;\n    imageRequestPric /* …truncated — full shape in source */',
   },
   {
     name: 'LocalAtInput',

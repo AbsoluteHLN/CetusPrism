@@ -756,7 +756,10 @@ it('addresses children inside profile groups and marks ambiguous ids read-only',
   expect((await manager.listPlugins()).find(row => row.patchId === 'child')).toBeDefined()
   const entries = composeEntries([readProfilePatches('test', profile)])
   const duplicate = entries.find(row => row.id === 'managed')!
-  writeFileSync(profile.patchPath, JSON.stringify([{ insert: [duplicate] }]))
+  // A redeclared root id composes into the row that already owns it, so the
+  // profile declares its rival inside a group: the composed list then holds
+  // two candidates for the mounted entry, and the manager cannot address it.
+  writeFileSync(profile.patchPath, JSON.stringify([{ insert: [{ id: 'shadow', name: 'cordis:group', group: true, config: [duplicate] }] }]))
   expect((await manager.listPlugins()).find(row => row.entryId === 'include:managed')?.readOnlyReason).toBe('unaddressable')
 })
 

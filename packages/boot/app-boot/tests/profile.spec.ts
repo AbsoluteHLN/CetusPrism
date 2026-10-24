@@ -492,6 +492,33 @@ describe('composeEntries', () => {
     // Default warn sink: skipped patches are silently dropped (boot repeats them).
     expect(composeEntries([[{ id: 'missing', config: {} }]])).toEqual([])
   })
+
+  it('folds a redeclared insert id into the row the root already owns', () => {
+    const warnings: string[] = []
+    const entries = composeEntries([
+      [{ insert: [{ id: 'x', name: 'pkg-x', config: { a: 1 } }] }],
+      [{ insert: [{ id: 'x', name: 'pkg-x', config: { a: 2 } }, { id: 'y', name: 'pkg-y' }] }],
+      [{ id: 'x', disabled: true }],
+    ], message => warnings.push(message))
+    // One top-level row per id: the redeclaration configures the row the
+    // earlier layer declared instead of appending a rival for the same id.
+    expect(entries).toEqual([
+      { id: 'x', name: 'pkg-x', config: { a: 2 }, disabled: true },
+      { id: 'y', name: 'pkg-y' },
+    ])
+    const ids = entries.map(entry => entry.id)
+    expect(ids).toHaveLength(new Set(ids).size)
+    expect(warnings).toEqual([])
+    // A redeclaration naming a different package is a conflict between
+    // layers: the root keeps the plugin it declares and the clash is
+    // reported, so the composition never renames a row behind an operator.
+    const conflicts: string[] = []
+    expect(composeEntries([
+      [{ insert: [{ id: 'x', name: 'pkg-x' }] }],
+      [{ insert: [{ id: 'x', name: 'other-pkg' }] }],
+    ], message => conflicts.push(message))).toEqual([{ id: 'x', name: 'pkg-x' }])
+    expect(conflicts.join('\n')).toContain('"x"')
+  })
 })
 
 describe('createRuntimeResolution', () => {

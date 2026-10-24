@@ -60,6 +60,8 @@ Keep this log exhaustive — every divergence from upstream must be listed.
 
 24. **Vendored package `tsdown.config.ts` files**: added package-local runtime bundling entries for `cordis`, `cosmokit`, `group`, `hmr`, `include`, and `timer`. They consume the declaration build output under `lib/types` and emit the Node runtime entrypoints under `lib/`, allowing the native host/client build to package these vendored dependencies from a clean checkout. These files are Harness build infrastructure and are not upstream source files.
 
+25. **`include/src/index.ts` root-level insert redeclaration**: a root `insert` row that carries an id the profile root already owns now **configures** that row — the supplied fields replace the row's fields, and a truthy `name` must match the package the row already declares (a mismatch warns and is skipped) — instead of appending a second top-level row for the same id. The Loader keys entries by id and keeps the last row it sees for an id, so two root rows sharing one id made the earlier layer's declaration vanish. Only the root carries this "one row per id" contract: a group child keeps its own place in the tree and still appends inside its group. Covered by `packages/boot/app-boot/tests/profile.spec.ts` and `packages/boot/app-boot/tests/config-schema.spec.ts`.
+
 ## Sync procedure
 
 To update a vendored package from upstream:

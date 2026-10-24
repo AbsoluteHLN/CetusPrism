@@ -23,6 +23,7 @@ import {
   createDeveloperMessage,
   errorChain,
   markAgentLoopRequest,
+  selectSupportedReasoningEffort,
 } from '@deepseek-ai/dsh-llm'
 import { assertNever, deepFreeze } from '@deepseek-ai/dsh-util-values'
 import type { Scope } from '@deepseek-ai/dsh-scope'
@@ -543,6 +544,45 @@ export class ReactLoopAgent implements Agent {
     }
   }
 
+  /**
+   * Re-judge one requested reasoning effort against the model that will take it.
+   *
+   * A reasoning effort belongs to a model, not to a route or a conversation:
+   * one provider can serve a model that takes the whole ladder and another that
+   * takes a few levels of it, so an effort that was right for the model a
+   * conversation came from is wrong for the model it moved to. The producers
+   * of a request — a persisted header, a selection, a parent model delegating
+   * to a child — each know the effort they carry and not the vocabulary of
+   * the model that ends up taking it, so the judgment belongs here: after
+   * every producer has had its say, and before the request is prepared.
+   *
+   * An effort the model does not take is lowered to the nearest level it does
+   * rather than sent as it is, which is the industry "Auto" behavior: the
+   * requested level when the model has it, the nearest supported level at or
+   * above it otherwise, the highest supported level last.
+   *
+   * A model that advertises no reasoning metadata owns no effort vocabulary at
+   * all, so whether that is an error stays the registry's decision.
+   * @param config - the proposed request config.
+   * @param signal - cancellation for adapter-owned capability lookup.
+   * @returns the config to prepare, and whether the effort was lowered.
+   */
+  private async routeReasoningEffort(
+    config: LlmCallConfig,
+    signal: AbortSignal,
+  ): Promise<{ config: LlmCallConfig; degraded: boolean }> {
+    const requested = config.reasoningEffort
+    if (requested === undefined) return { config, degraded: false }
+    const info = await this.loopCtx.llm.resolveModelInfo(config.provider, config.model, signal)
+    if (info.reasoning === undefined) return { config, degraded: false }
+    const effort = selectSupportedReasoningEffort(
+      info.reasoning.efforts.map(candidate => candidate.id),
+      requested,
+    )
+    if (effort === undefined || effort === requested) return { config, degraded: false }
+    return { config: { ...config, reasoningEffort: effort }, degraded: true }
+  }
+
   /** Resolve request config and bind its adapter before admitting model-visible input. */
   private async prepareRequest(
     turn: number,
@@ -584,8 +624,19 @@ export class ReactLoopAgent implements Agent {
     let config: LlmCallConfig
     let preparedCall: PreparedLlmCall | undefined
     try {
-      preparedCall = await this.loopCtx.llm.prepareCall(proposedConfig, signal)
+      const routed = await this.routeReasoningEffort(proposedConfig, signal)
+      preparedCall = await this.loopCtx.llm.prepareCall(routed.config, signal)
       config = preparedCall.config
+      // A lowered effort is the registry's answer, not a choice the conversation
+      // made. Marking it as an adapter default keeps it out of the persisted
+      // selection, so the next request is judged again instead of inheriting a
+      // level the model was never asked to take.
+      if (routed.degraded) {
+        preparedCall = {
+          ...preparedCall,
+          adapterDefaults: { ...preparedCall.adapterDefaults, reasoningEffort: true },
+        }
+      }
     } catch (error: unknown) {
       // Middleware may serve an unregistered route; terminal dispatch still requires an adapter.
       if (!(error instanceof LlmError) || error.code !== 'NO_ADAPTER') throw error

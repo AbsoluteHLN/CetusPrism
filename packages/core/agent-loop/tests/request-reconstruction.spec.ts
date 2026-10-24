@@ -265,6 +265,40 @@ describe('request stability across the loop', () => {
     }
   })
 
+  it('lowers an effort the model does not take and records it as an adapter default', async () => {
+    // A model that speaks three levels of the ladder, the way a gateway route
+    // can front one model that takes the whole ladder and another that does not.
+    const reasoning = {
+      efforts: [
+        { id: ReasoningEffortId('low'), name: 'Low' },
+        { id: ReasoningEffortId('medium'), name: 'Medium' },
+        { id: ReasoningEffortId('xhigh'), name: 'Xhigh' },
+      ],
+    }
+    const adapter = new MockAdapter([textResponse('one')], reasoning)
+    const ctx = await harness(adapter)
+    const agent = await ctx.agentLoop.create(SessionId('lowered-effort'), { provider: 'mock', model: 'mock' })
+    ctx.on('agent/request', async (_payload, next) => {
+      const config = await next()
+      return { ...config, reasoningEffort: ReasoningEffortId('high') }
+    })
+
+    send(agent, 'go')
+    await waitForIdle(ctx, agent)
+
+    // `high` is not one of this model's levels, so the request carries the
+    // nearest level above it instead of the level that was asked for.
+    expect(adapter.requests[0]?.reasoningEffort).toBe(ReasoningEffortId('xhigh'))
+    const header = agent.session.snapshotEvents().find(event => event.type === 'request/header')
+    expect(header?.type === 'request/header' && header.data.header.config.reasoningEffort)
+      .toBe(ReasoningEffortId('xhigh'))
+    // A lowered effort is the registry's answer rather than a choice the
+    // conversation made, so the header records it as an adapter default and the
+    // persisted selection never reads it back as the user's.
+    expect(header?.type === 'request/header' && header.data.header.adapterDefaults)
+      .toEqual({ reasoningEffort: true })
+  })
+
   it('logs an adapter-owned maxTokens default before dispatch', async () => {
     const adapter = new MockAdapter([textResponse('bounded')], undefined, 256_000)
     const ctx = await harness(adapter)

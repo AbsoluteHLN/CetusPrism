@@ -27,6 +27,11 @@ interface ModelRowProps {
   inputLoading?: boolean
   /** Adapter family accepts per-model `reasoningEfforts` (pi-ai); DeepSeek's schema does not. */
   reasoningEfforts?: boolean
+  /**
+   * Effort-probe surface for this row: the action, the levels the endpoint
+   * answered with, and the write-back. Absent when the editor offers no probe.
+   */
+  effortProbe?: ReactNode
   expanded: boolean
   disabled: boolean
   t: (key: ModelsKey) => string
@@ -116,6 +121,7 @@ export function ModelRow(props: ModelRowProps): ReactNode {
                 />
               )
               : null}
+            {props.effortProbe}
           </div>
         )
         : null}

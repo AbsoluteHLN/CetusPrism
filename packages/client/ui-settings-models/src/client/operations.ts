@@ -8,6 +8,7 @@
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type {
   CredentialInfo, LlmDiscoveredModel, LlmModelDiscoveryRequest,
+  LlmReasoningEffortProbeRequest, LlmReasoningEffortProbeResult,
   SettingsNamespaceView, SettingsPathOpView,
 } from '@deepseek-ai/dsh-api-remotes/client'
 
@@ -27,6 +28,19 @@ export type SettingsWriteOutcome =
 export type ModelDiscoveryOutcome =
   /** The candidates the provider disclosed, in its own order. */
   | { readonly kind: 'found'; readonly models: readonly LlmDiscoveredModel[] }
+  /** The interrogation was refused, with the Host's own diagnostic. */
+  | { readonly kind: 'refused'; readonly message: string }
+
+/**
+ * What one reasoning-effort interrogation answered.
+ *
+ * The reply names the levels one model accepts and the declaration they add
+ * up to; the declaration is the part a profile may adopt, so the two travel
+ * together rather than as separate outcomes.
+ */
+export type ReasoningEffortProbeOutcome =
+  /** The levels the endpoint accepted, and the declaration they add up to. */
+  | { readonly kind: 'probed'; readonly result: LlmReasoningEffortProbeResult }
   /** The interrogation was refused, with the Host's own diagnostic. */
   | { readonly kind: 'refused'; readonly message: string }
 
@@ -71,6 +85,16 @@ export interface ModelsOperations {
    * @returns the candidates, or the refusal.
    */
   discoverModels(settingsNs: string, request: LlmModelDiscoveryRequest): Promise<ModelDiscoveryOutcome>
+  /**
+   * Ask a provider endpoint which reasoning-effort levels one model accepts.
+   * @param settingsNs - namespace whose adapter family answers.
+   * @param request - endpoint facts and the one model being interrogated.
+   * @returns the probed levels and their declaration, or the refusal.
+   */
+  probeReasoningEfforts(
+    settingsNs: string,
+    request: LlmReasoningEffortProbeRequest,
+  ): Promise<ReasoningEffortProbeOutcome>
 }
 
 /**
@@ -103,6 +127,12 @@ export function createModelsOperations(ctx: ClientContext): ModelsOperations {
       const response = await ctx.remote.llm.discoverModels(settingsNs, request)
       return response.ok
         ? { kind: 'found', models: response.value }
+        : { kind: 'refused', message: response.error.message }
+    },
+    probeReasoningEfforts: async (settingsNs, request) => {
+      const response = await ctx.remote.llm.probeReasoningEfforts(settingsNs, request)
+      return response.ok
+        ? { kind: 'probed', result: response.value }
         : { kind: 'refused', message: response.error.message }
     },
   }

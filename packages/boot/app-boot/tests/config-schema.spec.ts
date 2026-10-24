@@ -297,7 +297,9 @@ describe('collectConfigSchemas', () => {
 
   it('expands initial entries in memory without writing missing include files', async () => {
     const result = await collectConfigSchemas(profile, [row('cordis:include', {
-      path: './missing.yml', initial: [row('noop')], patches: [{ insert: [row('noop')] }],
+      // The patched row carries its own id: a redeclared id composes into
+      // the row that already owns it, so it would add no second child.
+      path: './missing.yml', initial: [row('noop')], patches: [{ insert: [{ id: 'patched', name: 'noop' }] }],
     })], resolution)
     expect(result['x-cordis'].complete).toBe(true)
     expect(result['x-cordis'].entries).toHaveLength(3)

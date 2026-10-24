@@ -11,7 +11,7 @@ Reference material for bundle patches and preset plugin lists. Procedures live i
 
 A profile composes an ordered list of patch layers over the bundle entry lists. Each patch is a mapping:
 
-- `insert: [rows]` appends rows; with an `id` naming an existing `group: true` row, the rows are appended inside that group's `config` list.
+- `insert: [rows]` appends rows; with an `id` naming an existing `group: true` row, the rows are appended inside that group's `config` list. At the profile root, a row whose id another layer already declared configures that row instead of adding a second row for the same id: supplied fields replace the row's fields, and a truthy `name` must match the package the row already declares.
 - A patch with an `id` and no `insert` targets the existing row with that id. Supplied fields replace the row's fields; `config` is replaced wholesale, never deep-merged, so restate every field the row needs. A truthy `name` asserts the existing plugin name rather than renaming it.
 - Non-insert patches without a nonempty `id`, and targets that match no row, are warned about and skipped.
 

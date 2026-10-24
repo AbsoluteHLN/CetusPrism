@@ -71,6 +71,7 @@ import { assertServiceable, Config, resolveProfiles } from './config.ts'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { discoverModels } from './discovery.ts'
 import type { StoredModelDiscoveryProfile } from './discovery.ts'
+import { probeReasoningEffortsForHost } from './effort-probe-host.ts'
 import { registerPiAiFlows } from './login.ts'
 
 export { PiAiAdapter } from './adapter.ts'
@@ -289,6 +290,15 @@ export function apply(ctx: Context, config: Config): void {
   ctx.llm.registerModelDiscovery(settingsNs, (request, signal) => discoverModels(
     { ...request, ...signal === undefined ? {} : { signal } },
     () => storedDiscoveryProfile(request.provider),
+  ))
+  // The same draft, asked a narrower question: which effort levels one
+  // endpoint accepts for one model. The stored credential and the deployment
+  // headers stay inside the Host, exactly as they do for discovery, and the
+  // Host's cancellation is the probe's own.
+  ctx.llm.registerReasoningEffortProbe(settingsNs, (request, signal) => probeReasoningEffortsForHost(
+    request,
+    () => storedDiscoveryProfile(request.provider),
+    signal,
   ))
   // Route effects bind to this apply fiber via the stable `ctx` reference,
   // even when a swap runs inside the scoped settings callback below. A bare

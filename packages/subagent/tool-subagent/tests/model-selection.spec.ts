@@ -318,20 +318,28 @@ describe('dsh-tool-subagent model selection', () => {
     expect(text(result)).toContain(expected)
   })
 
-  it('uses the LLM runtime for provider and reasoning-effort validation before child creation', async () => {
+  it('uses the LLM runtime for provider validation and lowers an effort the child does not take', async () => {
+    const requests: SubagentStartRequest[] = []
     let starts = 0
-    const ctx = await setup({ provider: 'mock', withModelSelection: true }, { onStart: () => { starts += 1 } })
+    const ctx = await setup({ provider: 'mock', withModelSelection: true }, { onStart: (request) => { requests.push(request); starts += 1 } })
     ctx.llm.registerAdapter(['alpha'], new MockAdapter([], REASONING))
 
-    const unsupported = await callSubagent(ctx, {
-      description: 'bad effort',
+    // `max` is above every level the child has, so the child runs on the
+    // highest one instead of the delegation failing over a level it never
+    // carried.
+    const lowered = await callSubagent(ctx, {
+      description: 'too high effort',
       prompt: 'do it',
       provider: 'alpha',
       model: 'fast-model',
       reasoning_effort: 'max',
     })
-    expect(unsupported.isError).toBe(true)
-    expect(text(unsupported)).toContain('does not support reasoning effort "max"')
+    expect(lowered.isError).toBe(false)
+    expect(requests[0]?.agentOptions).toEqual({
+      provider: 'alpha',
+      model: 'fast-model',
+      reasoningEffort: ReasoningEffortId('high'),
+    })
 
     const missing = await callSubagent(ctx, {
       description: 'bad provider',
@@ -341,11 +349,59 @@ describe('dsh-tool-subagent model selection', () => {
     })
     expect(missing.isError).toBe(true)
     expect(text(missing)).toContain('no adapter registered for provider "missing"')
-    expect(starts).toBe(0)
+    expect(starts).toBe(1)
   })
 
-  it('validates a configured effort before child creation', async () => {
-    let starts = 0
+  it('lowers a requested effort to the nearest level the child model takes', async () => {
+    const requests: SubagentStartRequest[] = []
+    const ctx = await setup({ provider: 'mock', withModelSelection: true }, { onStart: (request) => { requests.push(request) } })
+    // A child that speaks three levels of the ladder: `high` is not one of
+    // them, and the level nearest to it from above is the one it takes.
+    ctx.llm.registerAdapter(['alpha'], new MockAdapter([], {
+      efforts: [
+        { id: ReasoningEffortId('off'), name: 'Off' },
+        { id: ReasoningEffortId('low'), name: 'Low' },
+        { id: ReasoningEffortId('medium'), name: 'Medium' },
+        { id: ReasoningEffortId('xhigh'), name: 'Xhigh' },
+      ],
+    }))
+
+    const result = await callSubagent(ctx, {
+      description: 'nearest level',
+      prompt: 'do it',
+      provider: 'alpha',
+      model: 'fast-model',
+      reasoning_effort: 'high',
+    })
+    expect(result.isError).toBe(false)
+    expect(requests[0]?.agentOptions).toEqual({
+      provider: 'alpha',
+      model: 'fast-model',
+      reasoningEffort: ReasoningEffortId('xhigh'),
+    })
+  })
+
+  it('drops an effort for a child model that advertises no reasoning at all', async () => {
+    const requests: SubagentStartRequest[] = []
+    const ctx = await setup({ provider: 'mock', withModelSelection: true }, { onStart: (request) => { requests.push(request) } })
+    ctx.llm.registerAdapter(['alpha'], new MockAdapter([]))
+
+    const result = await callSubagent(ctx, {
+      description: 'no vocabulary',
+      prompt: 'do it',
+      provider: 'alpha',
+      model: 'fast-model',
+      reasoning_effort: 'high',
+    })
+    expect(result.isError).toBe(false)
+    expect(requests[0]?.agentOptions).toEqual({
+      provider: 'alpha',
+      model: 'fast-model',
+    })
+  })
+
+  it('lowers a configured effort the child model does not take before child creation', async () => {
+    const requests: SubagentStartRequest[] = []
     const ctx = await setup({
       provider: 'mock',
       agentOptions: {
@@ -353,7 +409,7 @@ describe('dsh-tool-subagent model selection', () => {
         model: 'parent-model',
         reasoningEffort: ReasoningEffortId('high'),
       },
-    }, { onStart: () => { starts += 1 } })
+    }, { onStart: (request) => { requests.push(request) } })
     ctx.llm.registerAdapter(['alpha'], new MockAdapter([], {
       efforts: [{ id: ReasoningEffortId('low'), name: 'Low' }],
       defaultEffort: ReasoningEffortId('low'),
@@ -364,9 +420,12 @@ describe('dsh-tool-subagent model selection', () => {
       { description: 'same route', prompt: 'do it' },
       { agent: parentWithRoute() },
     )
-    expect(result.isError).toBe(true)
-    expect(text(result)).toContain('does not support reasoning effort "high"')
-    expect(starts).toBe(0)
+    expect(result.isError).toBe(false)
+    expect(requests[0]?.agentOptions).toEqual({
+      provider: 'alpha',
+      model: 'parent-model',
+      reasoningEffort: ReasoningEffortId('low'),
+    })
   })
 
   it('validates a configured route before child creation', async () => {

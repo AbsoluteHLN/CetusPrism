@@ -19,6 +19,8 @@ import type {
   LlmModelContext,
   LlmModelDiscoveryRequest,
   LlmModelInfo,
+  LlmReasoningEffortProbeRequest,
+  LlmReasoningEffortProbeResult,
   LlmResolvedModelInfo,
   LlmProviderInfo,
   ModelModality,
@@ -49,6 +51,7 @@ export * from './types.ts'
 export * from './content.ts'
 export * from './assistant-stream.ts'
 export * from './message.ts'
+export * from './reasoning-effort.ts'
 export * from './retry-policy.ts'
 export { BlockAssembler } from './assembler.ts'
 export { callConfigEquals, isAgentLoopRequest, markAgentLoopRequest } from './call-config.ts'
@@ -345,6 +348,10 @@ export class LlmRuntime extends TypertRemoteService {
   private discoveries = new Map<
     string,
     (request: LlmModelDiscoveryRequest, signal?: AbortSignal) => Promise<readonly LlmDiscoveredModel[]>
+  >()
+  private effortProbes = new Map<
+    string,
+    (request: LlmReasoningEffortProbeRequest, signal?: AbortSignal) => Promise<LlmReasoningEffortProbeResult>
   >()
 
   constructor(ctx: Context) {
@@ -646,6 +653,151 @@ export class LlmRuntime extends TypertRemoteService {
         { cause: error },
       )
     }
+  }
+
+  /**
+   * Offer to interrogate provider endpoints for the reasoning-effort levels
+   * one model accepts, on behalf of the settings namespace this plugin owns.
+   * The namespace is the key for the same reason model discovery uses it: it
+   * is what a configuration surface already holds, and a provider being added
+   * has no route to name yet.
+   * Disposed with the fiber.
+   * @param settingsNs - the namespace whose profiles this probe serves.
+   * @param probe - interrogates one endpoint about one model's levels and must honor the supplied signal.
+   * @returns the disposer that withdraws the offer.
+   */
+  registerReasoningEffortProbe(
+    settingsNs: string,
+    probe: (
+      request: LlmReasoningEffortProbeRequest,
+      signal?: AbortSignal,
+    ) => Promise<LlmReasoningEffortProbeResult>,
+  ): () => void {
+    const dispose = this.ctx.effect(function* (this: LlmRuntime) {
+      if (settingsNs.length === 0) {
+        throw new LlmError('reasoning-effort probe needs a non-empty settings namespace', 'INVALID_PROBE')
+      }
+      if (this.effortProbes.has(settingsNs)) {
+        throw new LlmError(`reasoning-effort probe for "${settingsNs}" is already registered`, 'DUPLICATE_DISCOVERY')
+      }
+      this.effortProbes.set(settingsNs, probe)
+      yield () => {
+        this.effortProbes.delete(settingsNs)
+      }
+    }.bind(this), 'llm.registerReasoningEffortProbe()')
+    return () => void dispose()
+  }
+
+  /**
+   * Interrogate one provider endpoint for the reasoning-effort levels one
+   * model accepts and the wire spelling of each. The request describes a
+   * draft, not a stored route, so nothing here reads or writes settings or
+   * credentials — the caller owns both, and the reply is candidate metadata
+   * a surface may offer for adoption.
+   * @param settingsNs - namespace whose registered probe serves this draft.
+   * @param request - the endpoint, protocol, model, and one-shot credential to use.
+   * @param signal - caller cancellation.
+   * @returns the probed levels and the declaration they add up to.
+   */
+  async probeReasoningEfforts(
+    settingsNs: string,
+    request: LlmReasoningEffortProbeRequest,
+    signal?: AbortSignal,
+  ): Promise<LlmReasoningEffortProbeResult> {
+    const probe = this.effortProbes.get(settingsNs)
+    if (probe === undefined) {
+      throw new LlmError(`no reasoning-effort probe is registered for "${settingsNs}"`, 'NO_PROBE')
+    }
+    // The probe answers about one model. Naming the model is enough; an
+    // endpoint alone is enough too, because a listing can name the model
+    // back. A draft that names neither has nothing to interrogate.
+    if (namesNothing(request.model) && namesNothing(request.baseURL)) {
+      throw new LlmError('a reasoning-effort probe needs a model or a baseURL', 'INVALID_PROBE')
+    }
+    const probed = signal === undefined
+      ? await probe(request)
+      : await probe(request, signal)
+    return this.normalizeEffortProbeResult(probed)
+  }
+
+  /**
+   * Remote adapter for one draft reasoning-effort interrogation.
+   * @param settingsNs - namespace whose registered probe serves this draft.
+   * @param request - endpoint, protocol, model, and one-shot credential to use.
+   * @param signal - caller cancellation supplied by the Remote carrier.
+   * @returns the probed levels and the declaration they add up to.
+   * @throws RemoteError with `llm/reasoning-effort-probe-rejected` when the probe refuses or fails.
+   */
+  @Remote('probeReasoningEfforts')
+  async remoteProbeReasoningEfforts(
+    settingsNs: string,
+    request: LlmReasoningEffortProbeRequest,
+    signal: AbortSignal,
+  ): Promise<LlmReasoningEffortProbeResult> {
+    try {
+      return await this.probeReasoningEfforts(settingsNs, request, signal)
+    } catch (error: unknown) {
+      throw new RemoteError(
+        'llm/reasoning-effort-probe-rejected',
+        error instanceof Error ? error.message : String(error),
+        {
+          settingsNs,
+          ...request.baseURL === undefined ? {} : { baseURL: request.baseURL },
+        },
+        { cause: error },
+      )
+    }
+  }
+
+  /**
+   * Detach one probe result from the object the probe handed back.
+   *
+   * The probe owns the endpoint conversation; the surface that shows the
+   * result owns its shape. Detaching keeps a mutable array the probe still
+   * holds from changing under the surface, and drops the entries that name
+   * no level: a level nobody can select is noise rather than information.
+   */
+  private normalizeEffortProbeResult(result: LlmReasoningEffortProbeResult): LlmReasoningEffortProbeResult {
+    const declaration: Record<string, string | null> = {}
+    for (const [level, spelling] of Object.entries(result.declaration)) {
+      if (level.length === 0) continue
+      // `off` is the level that omits the parameter, so it has no spelling to
+      // send: the declaration pins it to null instead of repeating a word
+      // the endpoint never accepts.
+      if (level === 'off' || spelling === null) {
+        declaration[level] = null
+        continue
+      }
+      if (spelling.length === 0) continue
+      declaration[level] = spelling
+    }
+    return {
+      accepted: this.detachedLevels(result.accepted),
+      refused: result.refused
+        .filter(entry => entry.level.length > 0)
+        .map(entry => ({ level: entry.level, detail: entry.detail })),
+      ...result.declared === undefined ? {} : { declared: this.detachedLevels(result.declared) },
+      declaration,
+      outcomes: result.outcomes
+        .filter(outcome => outcome.level.length > 0)
+        .map(outcome => ({
+          level: outcome.level,
+          accepted: outcome.accepted,
+          ...outcome.detail === undefined ? {} : { detail: outcome.detail },
+        })),
+    }
+  }
+
+  /** Detach one list of level names, dropping empty names and repeats. */
+  private detachedLevels(levels: readonly string[]): string[] {
+    const seen = new Set<string>()
+    const detached: string[] = []
+    for (const level of levels) {
+      if (level.length === 0 || seen.has(level)) continue
+      seen.add(level)
+      detached.push(level)
+    }
+    return detached
   }
 
   /**
@@ -1151,6 +1303,17 @@ function adapterFailureChunk(error: unknown, signal?: AbortSignal): StreamChunk 
       ? { kind: 'aborted', failure }
       : { kind: 'error', failure },
   }
+}
+
+/**
+ * Whether one draft field names nothing at all.
+ *
+ * A draft reaches the host from a configuration surface, so a field may be
+ * absent outright rather than empty; emptiness is therefore a question about
+ * the value, not about the presence of the property.
+ */
+function namesNothing(value: string | undefined): boolean {
+  return value === undefined || value.length === 0
 }
 
 interface AdapterRegistration {

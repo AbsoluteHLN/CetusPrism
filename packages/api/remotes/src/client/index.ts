@@ -28,6 +28,8 @@ import workspaceRemote from '@deepseek-ai/dsh-api-workspace-controller/remote'
 import terminalRemote from '@deepseek-ai/dsh-api-terminal-controller/remote'
 import workspaceFilesRemote from '@deepseek-ai/dsh-api-workspace-files/remote'
 import type { ClientRemote } from '@deepseek-ai/dsh-api-gateway/client'
+import type { LlmReasoningEffortProbeRequest, LlmReasoningEffortProbeResult } from '@deepseek-ai/dsh-llm/types'
+import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
 
 export type { ClientRemote } from '@deepseek-ai/dsh-api-gateway/client'
 export type {
@@ -145,6 +147,7 @@ export type {
 export type {
   LlmConfigurableProvider, LlmDiscoveredModel,
   LlmModelDiscoveryRequest, LlmProviderInfo,
+  LlmReasoningEffortProbeRequest, LlmReasoningEffortProbeResult,
 } from '@deepseek-ai/dsh-llm/types'
 // Reference-discovery result vocabulary for the fileReferences and
 // sessionReferenceResolver namespaces.
@@ -159,6 +162,22 @@ export type {
   RemoteErrorCode, RemoteErrorDetailsMap, RemoteFailure, RemoteResult,
 } from '@deepseek-ai/dsh-typert-protocol'
 export type { RemoteHostFacts } from '@deepseek-ai/dsh-api-gateway/client'
+
+// The llm namespace gains the effort probe from the Host build that
+// regenerates `typert.remote-client.d.ts`; the entry below types the Client
+// face against the very signature that build emits, so the seam is callable
+// from the Host change that declares it. The generated member and this one
+// are the same property type, so the regenerated artifact merges with it
+// instead of contradicting it.
+declare module '@deepseek-ai/dsh-typert-protocol' {
+  interface TypertRemoteNamespace$6c6c6d {
+    probeReasoningEfforts: (
+      settingsNs: string,
+      request: LlmReasoningEffortProbeRequest,
+      signal?: AbortSignal,
+    ) => Promise<RemoteResult<LlmReasoningEffortProbeResult>>
+  }
+}
 
 declare module '@deepseek-ai/cordis' {
   interface Context {

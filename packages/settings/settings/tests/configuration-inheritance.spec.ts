@@ -60,9 +60,11 @@ it('recomposes unoverridden entries after bundle changes and returns empty confi
   writeFileSync(bundlePath, JSON.stringify(patches))
   expect(read().find(row => row.entry.options.id === 'second')!.inherited).toEqual({ ordinary: 'new bundle value' })
   expect(before.find(row => row.entry.options.id === 'second')!.inherited).toEqual({ ordinary: 'second' })
+  // A second declaration of the same id composes into the one row the
+  // Loader mounts, so the inherited view follows the later declaration.
   patches[0]!.insert.push({ id: 'second', config: { ordinary: 'duplicate' } })
   writeFileSync(bundlePath, JSON.stringify(patches))
-  expect(read().find(row => row.entry.options.id === 'second')!.inherited).toEqual({ ordinary: 'new bundle value' })
+  expect(read().find(row => row.entry.options.id === 'second')!.inherited).toEqual({ ordinary: 'duplicate' })
 })
 
 it.each([0, 13, 190])('bounds composition work for 190 entries with %i config overrides', async (overrideCount) => {

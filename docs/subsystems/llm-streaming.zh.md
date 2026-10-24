@@ -1017,6 +1017,42 @@ async discoverModels( settingsNs: string, request: LlmModelDiscoveryRequest, sig
 @Remote('discoverModels') async remoteDiscoverModels( settingsNs: string, request: LlmModelDiscoveryRequest, signal: AbortSignal, ): Promise<LlmDiscoveredModel[]>
 
 /**
+ * Offer to interrogate provider endpoints for the reasoning-effort levels
+ * one model accepts, on behalf of the settings namespace this plugin owns.
+ * The namespace is the key for the same reason model discovery uses it: it
+ * is what a configuration surface already holds, and a provider being added
+ * has no route to name yet.
+ * Disposed with the fiber.
+ * @param settingsNs - the namespace whose profiles this probe serves.
+ * @param probe - interrogates one endpoint about one model's levels and must honor the supplied signal.
+ * @returns the disposer that withdraws the offer.
+ */
+registerReasoningEffortProbe( settingsNs: string, probe: ( request: LlmReasoningEffortProbeRequest, signal?: AbortSignal, ) => Promise<LlmReasoningEffortProbeResult>, ): () => void
+
+/**
+ * Interrogate one provider endpoint for the reasoning-effort levels one
+ * model accepts and the wire spelling of each. The request describes a
+ * draft, not a stored route, so nothing here reads or writes settings or
+ * credentials — the caller owns both, and the reply is candidate metadata
+ * a surface may offer for adoption.
+ * @param settingsNs - namespace whose registered probe serves this draft.
+ * @param request - the endpoint, protocol, model, and one-shot credential to use.
+ * @param signal - caller cancellation.
+ * @returns the probed levels and the declaration they add up to.
+ */
+async probeReasoningEfforts( settingsNs: string, request: LlmReasoningEffortProbeRequest, signal?: AbortSignal, ): Promise<LlmReasoningEffortProbeResult>
+
+/**
+ * Remote adapter for one draft reasoning-effort interrogation.
+ * @param settingsNs - namespace whose registered probe serves this draft.
+ * @param request - endpoint, protocol, model, and one-shot credential to use.
+ * @param signal - caller cancellation supplied by the Remote carrier.
+ * @returns the probed levels and the declaration they add up to.
+ * @throws RemoteError with `llm/reasoning-effort-probe-rejected` when the probe refuses or fails.
+ */
+@Remote('probeReasoningEfforts') async remoteProbeReasoningEfforts( settingsNs: string, request: LlmReasoningEffortProbeRequest, signal: AbortSignal, ): Promise<LlmReasoningEffortProbeResult>
+
+/**
  * Resolve the retry policy captured when one provider route was registered.
  * @param provider - registered provider route to inspect.
  * @returns the provider-owned policy, with normal defaults already resolved.

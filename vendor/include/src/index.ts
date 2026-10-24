@@ -49,6 +49,12 @@ function retryableWriteError(error: unknown): boolean {
  * could never revert a removed or changed patch. Inserted entries are indexed
  * as they are added, so a later patch in the same list can target a row an
  * earlier patch inserted. A patch that matches nothing warns and is skipped.
+ *
+ * The Loader keys entries by id and keeps the LAST row it sees for an id, so
+ * two root rows sharing one id make the earlier layer's declaration vanish.
+ * A root insert that redeclares an id the root already owns therefore
+ * configures that row — the same field-wise override an id-targeted patch
+ * applies — instead of appending a rival row for the same id.
  * @param data - the parsed entry list (JSON-safe plain data).
  * @param patches - the patch list to apply, in order.
  * @param warn - sink for skipped-patch diagnostics (printf-style, `%C` = code).
@@ -73,6 +79,14 @@ export function applyEntryPatches(
   }
   buildMap(data)
 
+  // The root rows by id: the scope a redeclaration is resolved against. A
+  // group child keeps its own place in the tree, so only the root carries
+  // this "one row per id" contract.
+  const rootRows = new Map<string, EntryOptions>()
+  for (const entry of data) {
+    if (entry.id) rootRows.set(entry.id, entry)
+  }
+
   for (const patch of patches) {
     const { id, insert, name, ...overrides } = patch
 
@@ -89,15 +103,42 @@ export function applyEntryPatches(
         }
         if (!Array.isArray(target.config)) target.config = []
         target.config.push(...insert)
-      } else {
-        data.push(...insert)
+        buildMap(insert)
+        continue
+      }
+
+      // A root insert declares rows at the profile root. A row whose id the
+      // root already owns is a redeclaration: it configures that row the way
+      // an id-targeted patch configures it, so a later layer can configure or
+      // disable a row an earlier layer inserted without adding a second
+      // top-level row for the same id.
+      const effective: EntryOptions[] = []
+      for (const row of insert) {
+        const target = row.id ? rootRows.get(row.id) : undefined
+        if (target === undefined) {
+          data.push(row)
+          if (row.id) rootRows.set(row.id, row)
+          effective.push(row)
+          continue
+        }
+        // The root keeps the plugin it already declares: a different package
+        // for the same id is a conflict between layers, not a rename.
+        if (row.name && target.name && row.name !== target.name) {
+          warn('patch insert: name mismatch for %C (expected %C, got %C), skipping', row.id, target.name, row.name)
+          continue
+        }
+        for (const [key, value] of Object.entries(row)) {
+          if (key === 'id') continue
+          target[key] = value
+        }
+        effective.push(target)
       }
       // Index what this patch added so a LATER patch in the same list can
       // target it. Patch lists compose one layer per source (each bundle
       // layer, then the user's, then `--patch` overlays), and a layer must be
       // able to configure or disable a row an earlier layer inserted; without
       // this, inserted rows were silently unpatchable.
-      buildMap(insert)
+      buildMap(effective)
       continue
     }
 

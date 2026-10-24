@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import type { LlmDiscoveredModel } from '@deepseek-ai/dsh-api-remotes/client'
+import type { LlmDiscoveredModel, LlmReasoningEffortProbeResult } from '@deepseek-ai/dsh-api-remotes/client'
 import { Button, IconPlusOutlineRegular, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import { formatCapacity, parseCapacity } from './DeepSeekModelsEditor.tsx'
 import type { ModelsOperations } from './operations.ts'
@@ -102,6 +102,94 @@ export interface ModelListEditorProps {
 /** The two token counts edited as K/M-suffixed text behind a row's disclosure. */
 type CapacityField = 'contextWindow' | 'maxTokens'
 
+/** Why a probed declaration cannot be written into a model entry. */
+type DeclarationProblem = 'effortProbeInvalidOff' | 'effortProbeInvalidLevel'
+
+/**
+ * One row's effort-probe answer, once the endpoint answered with levels.
+ */
+interface ProbedEfforts {
+  /** The endpoint answered with the levels one model accepts. */
+  readonly kind: 'probed'
+  /** The probed levels and the declaration they add up to. */
+  readonly result: LlmReasoningEffortProbeResult
+  /** Whether the probed declaration was written into this row. */
+  readonly written: boolean
+  /** Why the probed declaration was refused, when it was. */
+  readonly problem?: DeclarationProblem
+}
+
+/**
+ * One row's effort-probe answer.
+ *
+ * The probe asks about one model, so each row keeps its own answer: one
+ * gateway may take a level for the model behind one route and refuse it for
+ * the model behind another.
+ */
+type EffortProbeState =
+  /** The probe is in flight. */
+  | { readonly kind: 'probing' }
+  /** The endpoint answered with the levels one model accepts. */
+  | ProbedEfforts
+  /** The probe was refused, with the Host's own diagnostic. */
+  | { readonly kind: 'refused'; readonly message: string }
+
+/** One level's verdict, with the reason the endpoint gave when it refused. */
+interface ProbeRow {
+  /** The level the probe sent. */
+  readonly level: string
+  /** Whether the endpoint accepted that level. */
+  readonly accepted: boolean
+  /** Why the endpoint refused the level, when it refused. */
+  readonly detail?: string
+}
+
+/**
+ * Why the probed declaration cannot be written into a model entry, if it
+ * cannot.
+ *
+ * The profile schema spells `off` as "no wire value" and every other level as
+ * the string the endpoint expects, so a declaration breaking either rule is
+ * refused here rather than stored as a shape the adapter would reject; the
+ * adapter's own validation stays the backstop for everything else.
+ * @param declaration - the declaration the probe answered with.
+ * @returns the locale key naming the fault, or undefined when it is usable.
+ */
+function declarationProblem(declaration: Readonly<Record<string, string | null>>): DeclarationProblem | undefined {
+  if (declaration['off'] !== null) return 'effortProbeInvalidOff'
+  for (const [level, spelling] of Object.entries(declaration)) {
+    if (level === 'off') continue
+    if (typeof spelling !== 'string' || spelling.length === 0) return 'effortProbeInvalidLevel'
+  }
+  return undefined
+}
+
+/**
+ * The probed levels, one row each, in probe order.
+ *
+ * A level the endpoint listed itself but the probe never sent still counts as
+ * accepted, so the answer shows every level the endpoint claims to take.
+ * @param result - the probe's answer.
+ * @returns one row per level, with the refusal reason where there is one.
+ */
+function probeRows(result: LlmReasoningEffortProbeResult): ProbeRow[] {
+  const details = new Map(result.refused.map(entry => [entry.level, entry.detail]))
+  const rows: ProbeRow[] = result.outcomes.map((outcome) => {
+    const detail = outcome.detail ?? details.get(outcome.level)
+    return {
+      level: outcome.level,
+      accepted: outcome.accepted,
+      ...detail === undefined ? {} : { detail },
+    }
+  })
+  const probed = new Set(rows.map(row => row.level))
+  for (const level of result.accepted) {
+    if (probed.has(level)) continue
+    rows.push({ level, accepted: true })
+  }
+  return rows
+}
+
 /**
  * What an empty capacity field is worth, shown as its placeholder so a row left
  * blank does not read as a model with no capacity at all.
@@ -149,7 +237,8 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const { models, onChange, probe, operations, t, disabled, onBusyChange } = props
   const { catalogProvider } = props
   const [busy, setBusy] = useState(false)
-  useEffect(() => { onBusyChange(busy) }, [busy, onBusyChange])
+  const [probing, setProbing] = useState(false)
+  useEffect(() => { onBusyChange(busy || probing) }, [busy, probing, onBusyChange])
   const [failure, setFailure] = useState<string | undefined>(undefined)
   const [inheritedCatalog, setInheritedCatalog] = useState<{
     provider: string
@@ -178,6 +267,9 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   // FIELD: a single buffer would be displaced by editing any other field, and
   // the abandoned one would render its stored NaN as the literal `NaN`.
   const [editing, setEditing] = useState<ReadonlyMap<string, string>>(new Map())
+  // One probe answer per row: the levels a model accepts are that model's own,
+  // so two rows of the same provider keep two answers.
+  const [effortProbes, setEffortProbes] = useState<ReadonlyMap<number, EffortProbeState>>(new Map())
 
   /** Buffer key for one capacity field; the row half moves when rows do. */
   const bufferKey = (index: number, field: CapacityField): string => `${String(index)}:${field}`
@@ -262,6 +354,65 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
     }
   }
 
+  /**
+   * Ask the endpoint which reasoning-effort levels one row's model accepts.
+   *
+   * The question is about that model alone, so the request names it and
+   * travels the endpoint facts as the form currently shows them — exactly as
+   * the model fetch asks. Nothing is written: the answer is metadata the
+   * user may adopt, not configuration changed behind them.
+   */
+  const probeEfforts = async (index: number, model: ModelDraft): Promise<void> => {
+    setProbing(true)
+    setEffortProbes(current => new Map(current).set(index, { kind: 'probing' }))
+    try {
+      const answer = await operations.probeReasoningEfforts(probe.settingsNs, {
+        ...probe.provider === undefined ? {} : { provider: probe.provider },
+        ...probe.baseURL === undefined || probe.baseURL.length === 0 ? {} : { baseURL: probe.baseURL },
+        ...probe.api === undefined ? {} : { api: probe.api },
+        model: textOf(model, 'id'),
+        ...probe.apiKey === undefined ? {} : { apiKey: probe.apiKey },
+      })
+      setEffortProbes(current => new Map(current).set(index, answer.kind === 'probed'
+        ? { kind: 'probed', result: answer.result, written: false }
+        : { kind: 'refused', message: answer.message }))
+    } catch (error: unknown) {
+      // A probe the page cannot run at all is a refusal the user can read,
+      // not a broken surface: the seam answers with a refusal, and a throw
+      // only means the call itself could not be made.
+      setEffortProbes(current => new Map(current).set(index, {
+        kind: 'refused',
+        message: error instanceof Error ? error.message : String(error),
+      }))
+    } finally {
+      setProbing(false)
+    }
+  }
+
+  /**
+   * Write the probed declaration into the probed row, and into that row only.
+   *
+   * The levels a model accepts are that model's own, so the write touches one
+   * model entry: the other models under the same provider keep the levels
+   * they were configured with.
+   * @param index - the probed row.
+   * @param state - the probe's answer for that row.
+   */
+  const writeDeclaration = (index: number, state: ProbedEfforts): void => {
+    const problem = declarationProblem(state.result.declaration)
+    if (problem !== undefined) {
+      setEffortProbes(current => new Map(current).set(index, {
+        kind: 'probed', result: state.result, written: false, problem,
+      }))
+      return
+    }
+    const declaration = { ...state.result.declaration }
+    onChange(models.map((row, at) => at === index ? { ...row, reasoningEfforts: declaration } : row))
+    setEffortProbes(current => new Map(current).set(index, {
+      kind: 'probed', result: state.result, written: true,
+    }))
+  }
+
   const closePicker = (): void => {
     setCandidates(undefined)
     setPicked(new Set())
@@ -315,6 +466,71 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   // A route the adapter already describes answers without an endpoint; only a
   // draft with neither has nothing to ask about.
   const askable = probe.provider !== undefined || (probe.baseURL !== undefined && probe.baseURL.length > 0)
+  /**
+   * One row's effort-probe surface: the action, the levels the endpoint
+   * answered with, and the write-back that adopts them.
+   * @param index - the row the probe answers about.
+   * @param model - that row's draft.
+   * @returns the row's probe surface.
+   */
+  const effortProbePanel = (index: number, model: ModelDraft): ReactNode => {
+    const state = effortProbes.get(index)
+    const modelId = textOf(model, 'id')
+    const probing = state?.kind === 'probing'
+    const blocked = props.probeBlocked
+    const rows = state?.kind === 'probed' ? probeRows(state.result) : []
+    return (
+      <div className={styles['modelField']}>
+        <span className={styles['modelFieldLabel']}>{t('effortProbe')}</span>
+        <button
+          type="button"
+          className={styles['linkButton']}
+          disabled={disabled || busy || probing || modelId.length === 0 || !askable || blocked !== undefined}
+          title={blocked !== undefined
+            ? t(blocked)
+            : modelId.length === 0
+              ? t('effortProbeNeedsModel')
+              : askable ? undefined : t('effortProbeNeedsBaseUrl')}
+          onClick={() => { void probeEfforts(index, model) }}
+        >
+          {probing ? t('effortProbing') : t('effortProbe')}
+        </button>
+        {state?.kind === 'refused' ? <p className={styles['error']}>{state.message}</p> : null}
+        {rows.length === 0
+          ? null
+          : (
+            <ul className={styles['modelInputChoices']}>
+              {rows.map(row => (
+                <li key={row.level}>
+                  <span className={styles['candidateId']}>{row.level}</span>
+                  <span>{row.accepted ? t('effortProbeAccepted') : t('effortProbeRefused')}</span>
+                  {row.detail === undefined ? null : <span>{row.detail}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        {state?.kind === 'probed' && state.result.declared !== undefined
+          ? <p className={styles['advancedHint']}>{`${t('effortProbeDeclared')} ${state.result.declared.join(', ')}`}</p>
+          : null}
+        {state?.kind === 'probed'
+          ? (
+            <>
+              <button
+                type="button"
+                className={styles['linkButton']}
+                disabled={disabled}
+                onClick={() => { writeDeclaration(index, state) }}
+              >
+                {t('effortProbeWrite')}
+              </button>
+              {state.problem === undefined ? null : <p className={styles['error']}>{t(state.problem)}</p>}
+              {state.written ? <p className={styles['advancedHint']}>{t('effortProbeWritten')}</p> : null}
+            </>
+          )
+          : null}
+      </div>
+    )
+  }
   return (
     <section className={styles['modelCatalog']} aria-label={t('models')}>
       <div className={styles['modelListHead']}>
@@ -363,6 +579,7 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
             inputFallback={inputDefaults.get(textOf(model, 'id')) ?? props.defaultInput}
             inputLoading={catalogProvider !== undefined && catalog === undefined}
             reasoningEfforts
+            effortProbe={effortProbePanel(index, model)}
             expanded={expanded.has(index)}
             disabled={disabled}
             t={t}

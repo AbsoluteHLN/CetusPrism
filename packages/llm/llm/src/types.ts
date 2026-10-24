@@ -323,6 +323,11 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
       readonly settingsNs: string
       readonly baseURL?: string
     }
+    /** A draft reasoning-effort interrogation refused or failed. */
+    'llm/reasoning-effort-probe-rejected': {
+      readonly settingsNs: string
+      readonly baseURL?: string
+    }
   }
 }
 
@@ -342,6 +347,82 @@ export interface LlmDiscoveredModel {
   maxTokens?: number
   /** Accepted input types when disclosed by the catalog or endpoint; absent means unknown. */
   inputModalities?: readonly ModelModality[]
+}
+
+/**
+ * One interrogation of a provider endpoint for the reasoning-effort levels
+ * one model accepts, and for the wire spelling of each.
+ *
+ * The request describes a draft the way {@link LlmModelDiscoveryRequest}
+ * does — a route being edited, or the endpoint facts the draft carries — but
+ * it names one model, because the levels a model accepts are that model's
+ * own: one gateway may take `xhigh` for the model behind one route and
+ * refuse it for the model behind another.
+ */
+export interface LlmReasoningEffortProbeRequest {
+  /**
+   * Route the draft is editing, when it edits an existing one. A route whose
+   * adapter already knows its levels answers from that knowledge instead of
+   * asking the endpoint — the adapter's own registry is the better answer,
+   * and it costs no network call.
+   */
+  provider?: string
+  /**
+   * Endpoint to interrogate. Optional because a route the adapter already
+   * describes needs none; a route it does not must supply one.
+   */
+  baseURL?: string
+  /** Wire protocol the endpoint speaks, when the draft names one. */
+  api?: string
+  /**
+   * Model whose levels are being probed. The probe answers about one model:
+   * which levels exist is a property of the model behind the endpoint, not of
+   * the endpoint itself.
+   */
+  model: string
+  /** Credential for this interrogation alone; the harness never stores it. */
+  apiKey?: string
+}
+
+/** Provider-side probe request with operation-local cancellation attached. */
+export interface LlmReasoningEffortProbeOperation extends LlmReasoningEffortProbeRequest {
+  /** Caller cancellation; implementations must settle promptly after it aborts. */
+  signal?: AbortSignal
+}
+
+/** What one probed level did at the endpoint. */
+export interface LlmReasoningEffortProbeOutcome {
+  /** Level the probe sent. */
+  level: string
+  /** Whether the endpoint accepted that level. */
+  accepted: boolean
+  /** Why the endpoint refused the level, when it refused. */
+  detail?: string
+}
+
+/**
+ * The levels one model accepts, and the declaration they add up to.
+ *
+ * The two halves answer different questions. `accepted` and `refused` report
+ * what the endpoint did when the probe asked; `declaration` is the answer a
+ * configuration surface may adopt, with one wire spelling per level.
+ */
+export interface LlmReasoningEffortProbeResult {
+  /** Levels the endpoint accepted, in probe order. */
+  accepted: readonly string[]
+  /** Levels the endpoint refused, each with the reason it gave. */
+  refused: readonly { level: string; detail: string }[]
+  /** Levels the endpoint declared up front, when it declares any. */
+  declared?: readonly string[]
+  /**
+   * The declaration a profile can adopt directly: the key is the level name
+   * and the value is the spelling that goes on the wire. `off` is always
+   * `null`, because the level that omits the parameter has no spelling to
+   * send.
+   */
+  declaration: Readonly<Record<string, string | null>>
+  /** What each probed level did, in probe order. */
+  outcomes: readonly LlmReasoningEffortProbeOutcome[]
 }
 
 /** One adapter-discovered model; catalog membership is advisory, not request validation. */

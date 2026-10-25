@@ -18,6 +18,7 @@
     "src/history.ts",
     "src/list.ts",
     "src/media-references.ts",
+    "src/model-catalog-cache.ts",
     "src/model-selection-projection.ts",
     "src/archived-session-gate.ts",
     "src/skill-catalog.ts"

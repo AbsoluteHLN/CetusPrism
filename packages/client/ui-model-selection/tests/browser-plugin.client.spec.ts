@@ -480,18 +480,14 @@ describe('ui-model-selection dual entry', () => {
 
     b.setRoutable(false)
     b.remote.emit('settings/document-updated', ['llm-deepseek', 1])
-    await Promise.resolve()
-    await Promise.resolve()
+    await vi.waitFor(() => { expect(b.calls.models).toBe(2) })
     expect(b.blockOf('s1')).toBeUndefined()
-    expect(b.calls.models).toBe(2)
 
     // Recovering clears it without a reload of the surface.
     b.setRoutable(true)
     b.remote.emit('llm/adapters-updated', [])
-    await Promise.resolve()
-    await Promise.resolve()
+    await vi.waitFor(() => { expect(b.calls.models).toBe(3) })
     expect(b.blockOf('s1')).toBeUndefined()
-    expect(b.calls.models).toBe(3)
   })
 
   it('retains an unavailable durable selection without replacing or rewriting it', async () => {

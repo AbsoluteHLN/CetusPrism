@@ -52,11 +52,14 @@ export type { ModelDiscoveryOutcome, ModelsOperations, SettingsWriteOutcome } fr
 /**
  * Refetch the page snapshot only after its first load: an unopened Models
  * page must not fetch on background invalidations.
+ *
+ * The refetch is merged with the ones that follow it, so a burst of
+ * invalidations costs one read instead of one read each.
  * @param controller - the page store.
  */
 export function refreshIfLoaded(controller: ModelsSettingsStore): void {
   if (controller.store.getSnapshot().status === 'idle') return
-  void controller.load()
+  controller.refresh()
 }
 
 /**

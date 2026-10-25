@@ -123,7 +123,15 @@ export interface PreparedBuiltinAgent {
 export function resolveBuiltinAgent(declaration: BuiltinAgentDeclaration): BuiltinAgentCapabilities {
   if (!declaration.enabled) throw new BuiltinAgentConfigError(`built-in agent ${declaration.id} is disabled`)
   if (declaration.driver !== 'native') {
-    throw new BuiltinAgentConfigError(`built-in agent driver ${declaration.driver} is not available: ${declaration.id}`)
+    // A v1 declaration may name an external runtime. Pi and ZCode are ONE
+    // execution mode now — they are reached through the external-runtime
+    // registry, not through a driver this adapter can prepare.
+    const upstream = declaration.driver === 'pi' || declaration.driver === 'zcode' ? declaration.driver : undefined
+    throw new BuiltinAgentConfigError(
+      upstream === undefined
+        ? `built-in agent driver ${declaration.driver} is not available: ${declaration.id}`
+        : `built-in agent "${declaration.id}" names the ${upstream} external runtime, which is one execution mode reached through the external-runtime registry, not a native driver`,
+    )
   }
   if (declaration.compatibility.protocolVersion !== BUILTIN_AGENT_PROTOCOL_VERSION) {
     throw new BuiltinAgentConfigError(

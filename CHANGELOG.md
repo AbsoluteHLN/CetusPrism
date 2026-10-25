@@ -3,6 +3,55 @@
 所有显著变更记录于此。格式参考 Keep a Changelog；版本号遵循 SemVer。
 本文件自 1.7.3 起建立——此前的版本历史以 git tag 与提交记录为准。
 
+## [1.7.5] - 2026-10-26
+
+版本线说明：产品版本 `1.7.4` → `1.7.5`；workspace 包版本 `0.2.1-alpha.1` 不变
+（`docs/UPSTREAM.alignment.json` 的 `productVersion` 随产品版本推进）。
+本次按既有发布形状手工提升（根 `package.json` + 两个安装器应用 + 对齐记录 + 约束期望值），
+**未使用** `pnpm run release:dsh`——该脚本按上游 dsh 的「全族单一版本线」模型工作，
+会把约 280 个工作区包一并改写成产品版本，与本仓的双版本线约束闸门冲突。
+
+### 模型目录反复取数与连接卡顿：一个根因族
+
+- **根因（取数风暴）**：`llm/adapters-updated` 是无载荷事件，adapter 每次注册/替换/注销都会发一次；
+  客户端有 4 处独立位置各自发 `session/modelCatalog` RPC，而 Host 端既无缓存也无 single-flight，
+  每次都全量重算 providers × models。
+- **根因（卡顿）**：客户端的 `ModelCatalogDirectory.refresh()` 主动清空在途请求，
+  每个事件必开一条新请求；Chromium 同源 HTTP/1.1 只有 6 条并发连接，第 7 条起排队——
+  于是「模型反复获取」在用户侧就表现为「后端与软件本体连接卡顿」。
+- **放大器**：WS 心跳 2s，连续 2 次丢 pong 即 `terminate()` 重连，事件循环抖动被放大成一次完整重连，
+  UI 还会强制显示 800ms「重新连接中」。
+- **修复（Host 侧）**：`packages/api/session-controller/src/model-catalog-cache.ts` 新增
+  `ModelCatalogCache`——TTL 3s + single-flight + generation 失效。`llm/adapters-updated`
+  只作废不再重算；部署默认选择变化时缓存自动重建（默认键比对）。
+- **修复（客户端侧）**：`packages/client/ui-model-selection/src/client/catalog.ts` 把同一波事件
+  合并成一次读（60ms 窗口）；刷新期间目录立即置 `loading`，旧值不再应答读者；
+  已在途的读**不丢弃**——等它结算再读一次，保证合并后仍拿到新鲜目录。
+- **修复（面板侧）**：`packages/client/ui-settings-models` 的刷新同样合并，且只在已加载时刷新，
+  空闲页面不因 adapter 事件白白取数。
+- **回归**：`model-catalog-cache.host.spec.ts`（5 例）、`catalog.client.spec.ts`、
+  `store-refresh.client.spec.ts`。三条红线各自被证伪后还原：关掉 Host 缓存复用 → 2 失败；
+  客户端改回立即 reload → 2 失败；面板改回立即 load → 1 失败。
+
+### Pi 与 ZCode 收敛为一种「外部运行时底座」
+
+- **一个模式，两个上游**：`packages/preset/agent-preset-registry/src/external-runtime.ts`
+  给出统一帧契约（request / notification / response / error）与统一帧解析——
+  坏行返回 parse-error 帧，而不是抛出打断流。
+- **底座从各自仓库来**：探测器只**查找**不下载。Pi 走 `pi --mode rpc --no-session`（JSONL），
+  ZCode 走 `zcode app-server --stdio`（NDJSON）；未安装时报告「去哪个仓库装」，版本低于下限则拒绝。
+- **不往产品依赖树加包**：两种底座都不作为 npm 依赖进入 CetusPrism，
+  产品侧只提供统一适配器契约（`ExternalRuntimeAdapter`）。
+- **去重**：`resolveBuiltinAgent` 的非 native 分支现在识别 pi/zcode，并说明「这是通过外部运行时
+  注册表进入的同一种执行模式」，不再为 ZCode 保留一套独立底座逻辑。
+
+### Linux 构建准备
+
+- `apps/electron/scripts/build-deb.mjs` 的 `RUSTFLAGS` 增加
+  `--remap-path-prefix=${CETUS_DEPENDENCY_ROOT}=cargo-cache`（含正斜杠形式），
+  Linux 产物不再泄露依赖缓存绝对路径；此前只有 Windows 的 `build-shell.mjs` 做了这件事。
+  前缀跟随依赖根而非硬编码，因此缓存放在别处的 Linux 主机同样覆盖。
+
 ## [1.7.4] - 2026-10-25
 
 版本线说明：产品版本 `1.7.3` → `1.7.4`；workspace 包版本 `0.2.1-alpha.1` 不变

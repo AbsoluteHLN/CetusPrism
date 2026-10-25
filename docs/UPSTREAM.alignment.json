@@ -6,7 +6,7 @@
   "upstreamCommit": "687f282e8625c6b8d11ff58211a90524be2e4317",
   "priorReviewedTag": "dsh-v0.2.1-alpha.2",
   "priorReviewedCommit": "d743267388641bc76f17c45ce8b4c231aed1d32c",
-  "productVersion": "1.7.4",
+  "productVersion": "1.7.5",
   "workspacePackageVersion": "0.2.1-alpha.1",
   "verifiedOn": "2026-10-22",
   "integrationStatus": "selected-backport-validated",

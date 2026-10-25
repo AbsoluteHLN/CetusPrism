@@ -8,7 +8,7 @@
  */
 
 import { describe, expect, it, vi } from 'vitest'
-import type { Context } from '@deepseek-ai/cordis'
+import { Context } from '@deepseek-ai/cordis'
 import { ModelCatalogCache } from '../src/model-catalog-cache.ts'
 
 interface Fixture {
@@ -25,16 +25,15 @@ function fixture(): Fixture {
   const listModels = vi.fn(async (provider: string) => [
     { provider, id: `${provider}-model`, name: `${provider} model` },
   ])
-  const ctx = {
-    agentDefaultModel: {
-      currentSelection: () => ({ provider: 'fixture', model: defaultModel }),
-    },
-    llm: {
-      listProviders: () => [{ id: 'fixture', name: 'Fixture' }],
-      listModels,
-      resolveModelInfo: async (provider: string, id: string) => ({ provider, id, name: id }),
-    },
-  } as unknown as Context
+  const ctx = new Context()
+  ctx.provide('agentDefaultModel', {
+    currentSelection: () => ({ provider: 'fixture', model: defaultModel }),
+  } as never)
+  ctx.provide('llm', {
+    listProviders: () => [{ id: 'fixture', name: 'Fixture' }],
+    listModels,
+    resolveModelInfo: async (provider: string, id: string) => ({ provider, id, name: id }),
+  } as never)
   return {
     ctx,
     builds: () => listModels.mock.calls.length,

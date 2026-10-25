@@ -560,6 +560,40 @@ describe('Team dormant teammates', () => {
     expect(row?.error).toContain('the session is not available')
   })
 
+  it('reports a roster row that could not be parked to the caller', async () => {
+    const { ctx, lead } = await setup(['hang'])
+    await spawn(ctx, lead, 'worker')
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+    vi.spyOn(ctx.subagents, 'sendMessage').mockRejectedValueOnce(new Error('the session is not available'))
+    // The journal refuses the parked row, so the durable state keeps calling
+    // the member active while its runtime is already gone.
+    const append = lead.session.append.bind(lead.session)
+    vi.spyOn(lead.session, 'append').mockImplementation(((type: string, data: unknown, ...rest: never[]) => {
+      const phase = (data as { member?: { phase?: string } } | undefined)?.member?.phase
+      if (type === 'team/member' && phase === 'dormant') throw new Error('the roster journal is unavailable')
+      return (append as (...args: never[]) => unknown)(type as never, data as never, ...rest)
+    }) as never)
+
+    const thrown = await ctx.agentTeams.resumeTeammate(lead, {
+      name: 'worker',
+      prompt: content('continue the review'),
+      signal: SIGNAL,
+    }).then(
+      () => undefined,
+      (error: unknown) => error,
+    )
+
+    // The caller learns both facts: the resume failed, and the roster could
+    // not record that the member is no longer running.
+    expect(thrown).toBeInstanceOf(TeamError)
+    expect((thrown as TeamError).message).toContain('the session is not available')
+    expect((thrown as TeamError).message).toContain('the roster journal is unavailable')
+    // The durable row still calls the member active: nothing claimed
+    // otherwise, so the roster and the runtime disagree until a later
+    // resume reconciles them.
+    expect(durable(lead).members.find(member => member.name === 'worker')?.phase).toBe('active')
+  })
+
   it('clears the stale resume failure from a member a later resume brings back', async () => {
     const { ctx, lead } = await setup(['hang', 'hang'])
     await spawn(ctx, lead, 'worker')

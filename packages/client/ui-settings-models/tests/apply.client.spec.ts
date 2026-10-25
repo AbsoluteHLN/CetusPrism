@@ -273,19 +273,19 @@ describe('pushed invalidations', () => {
   })
 
   it('refreshes a loaded page and skips an idle one', () => {
-    const loads: number[] = []
+    const refreshes: number[] = []
     const controller = {
       store: { getSnapshot: () => ({ status: 'ready' }) },
-      load: () => { loads.push(1); return Promise.resolve() },
+      refresh: () => { refreshes.push(1) },
     }
-    refreshIfLoaded(controller as import('../src/client/store.ts').ModelsSettingsStore)
-    expect(loads).toHaveLength(1)
+    refreshIfLoaded(controller as unknown as import('../src/client/store.ts').ModelsSettingsStore)
+    expect(refreshes).toHaveLength(1)
     const idle = {
       store: { getSnapshot: () => ({ status: 'idle' }) },
-      load: () => { loads.push(2); return Promise.resolve() },
+      refresh: () => { refreshes.push(2) },
     }
-    refreshIfLoaded(idle as import('../src/client/store.ts').ModelsSettingsStore)
-    expect(loads).toHaveLength(1)
+    refreshIfLoaded(idle as unknown as import('../src/client/store.ts').ModelsSettingsStore)
+    expect(refreshes).toHaveLength(1)
   })
 
   it('routes pushed credential invalidation into the shared onboarding join', async () => {
@@ -301,7 +301,8 @@ describe('pushed invalidations', () => {
     injected.controller.store.update((state) => { state.status = 'ready' })
     const load = vi.spyOn(injected.controller, 'load').mockResolvedValue()
     b.remote.emit('credentials/reference-updated', ['DEEPSEEK_API_KEY'])
-    expect(load).toHaveBeenCalledTimes(1)
+    // The invalidation is merged into one read; the read still happens.
+    await vi.waitFor(() => { expect(load).toHaveBeenCalledTimes(1) })
   })
 
   it('welcome state follows the shared mirror across document commits', async () => {

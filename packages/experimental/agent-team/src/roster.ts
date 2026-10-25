@@ -372,9 +372,10 @@ export class TeamRoster {
       // released into: an active member without a runtime is a member no
       // later resume can bring back. The reason travels with the row, so the
       // failure is still on record once this call is gone.
-      await this.park(root, member.id, errorMessage(error))
+      const parkFailure = await this.park(root, member.id, errorMessage(error))
       throw new TeamError(
-        `teammate "${request.name}" cannot be resumed: ${errorMessage(error)}`,
+        `teammate "${request.name}" cannot be resumed: ${errorMessage(error)}`
+        + (parkFailure === undefined ? '' : `; the roster row could not be parked: ${errorMessage(parkFailure)}`),
         'TEAM_MEMBER_NOT_RESUMABLE',
         { cause: error },
       )
@@ -391,8 +392,10 @@ export class TeamRoster {
    * @param root - exact live Team Lead.
    * @param memberId - the member identity.
    * @param reason - why the member was parked, recorded on the member row.
+   * @returns the journal failure when the durable row could not be parked,
+   * `undefined` when the row records the member as dormant now.
    */
-  private async park(root: Agent, memberId: SessionId, reason?: string): Promise<void> {
+  private async park(root: Agent, memberId: SessionId, reason?: string): Promise<Error | undefined> {
     try {
       await this.journal.transact(root.id, async () => {
         const current = this.journal.state(root).members.find(candidate => candidate.id === memberId)
@@ -408,10 +411,16 @@ export class TeamRoster {
           member: settled,
         })
       })
+      return undefined
     } catch (error: unknown) {
       this.ctx.logger.warn(
         `team member "${memberId}" could not be parked after a failed resume: ${errorMessage(error)}`,
       )
+      // The durable row still calls the member active while its runtime is
+      // gone, so the caller has to learn that the roster and the runtime
+      // disagree — a warning in the log is the only place this would
+      // otherwise be recorded.
+      return error instanceof Error ? error : new Error(errorMessage(error))
     }
   }
 

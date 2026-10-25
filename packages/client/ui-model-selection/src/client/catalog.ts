@@ -7,6 +7,16 @@ import { createSnapshotStore, type SnapshotStore } from '@deepseek-ai/dsh-client
 /** Upper bound for one Host catalog discovery round-trip. */
 export const MODEL_CATALOG_TIMEOUT_MS = 10_000
 
+/**
+ * How long invalidation events are merged into one catalog reload.
+ *
+ * The Host announces a topology change as a payload-free event, and several
+ * unrelated surfaces react to it. Merging the events that arrive together
+ * keeps one notification from turning into a burst of identical catalog
+ * reads.
+ */
+export const MODEL_CATALOG_COALESCE_MS = 60
+
 /** Stable error code for a catalog request that did not settle in time. */
 export const MODEL_CATALOG_TIMEOUT_CODE = 'session/model-catalog-timeout'
 
@@ -50,6 +60,12 @@ export class ModelCatalogDirectory {
 
   private generation = 0
   private inflight: Promise<ModelCatalog> | undefined
+  /** The merged reload a reader waits for while an invalidation is pending. */
+  private pending: Promise<ModelCatalog> | undefined
+  private pendingResolve: ((value: ModelCatalog) => void) | undefined
+  private pendingReject: ((error: unknown) => void) | undefined
+  /** The pending merged reload's timer, if one is scheduled. */
+  private reloadTimer: ReturnType<typeof setTimeout> | undefined
 
   /**
    * @param ctx - the providing plugin's context, whose `remote.session`
@@ -64,7 +80,20 @@ export class ModelCatalogDirectory {
   load(): Promise<ModelCatalog> {
     const state = this.store.getSnapshot()
     if (state.status === 'ready' && state.value !== null) return Promise.resolve(state.value)
-    if (this.inflight !== undefined) return this.inflight
+    const inflight = this.inflight
+    if (inflight !== undefined) return inflight
+    // A merged reload is already scheduled: the reader waits for it rather
+    // than starting a read of its own.
+    const pending = this.pending
+    if (pending !== undefined) return pending
+    return this.startRead()
+  }
+
+  /**
+   * Start one catalog read and publish it when it settles.
+   * @returns the read's result.
+   */
+  private startRead(): Promise<ModelCatalog> {
     const generation = this.generation
     this.store.update((draft) => {
       draft.status = 'loading'
@@ -106,7 +135,9 @@ export class ModelCatalogDirectory {
       throw error
     }).finally(() => {
       if (timeoutId !== undefined) clearTimeout(timeoutId)
-      if (generation === this.generation && this.inflight === operation) this.inflight = undefined
+      // A settled read releases the shared slot even when its generation was
+      // retired while it was in flight.
+      if (this.inflight === operation) this.inflight = undefined
     })
     this.inflight = operation
     return operation
@@ -123,15 +154,65 @@ export class ModelCatalogDirectory {
     this.store.set({ value, status: 'idle', error: null })
   }
 
-  /** Invalidate and reload the catalog after a Host-side model input changes. */
+  /**
+   * Reload the catalog after a Host-side model input changed.
+   *
+   * The invalidations are merged: every notification that arrives before the
+   * merged reload runs produces ONE read, not one read each. The retired value
+   * stops answering readers the moment it is retired — a reader that asks now
+   * waits for the merged read instead of being handed the stale catalog — and
+   * a read that is already running is never abandoned: it is allowed to settle
+   * and the merged reload follows it.
+   */
   refresh(): void {
+    this.store.set({ ...this.store.getSnapshot(), status: 'loading', error: null })
+    if (this.pending !== undefined) return
+    this.pending = new Promise<ModelCatalog>((resolve, reject) => {
+      this.pendingResolve = resolve
+      this.pendingReject = reject
+    })
+    // A merged reload that no reader waits for must not surface as an
+    // unhandled rejection; the readers that do wait still see the failure.
+    this.pending.catch(() => { /* the selector exposes the shared error */ })
+    this.reloadTimer = setTimeout(() => {
+      this.reloadTimer = undefined
+      void this.runReload()
+    }, MODEL_CATALOG_COALESCE_MS)
+  }
+
+  /**
+   * Run the merged reload and hand its outcome to the waiting readers.
+   */
+  private async runReload(): Promise<void> {
+    const resolve = this.pendingResolve
+    const reject = this.pendingReject
+    this.pending = undefined
+    this.pendingResolve = undefined
+    this.pendingReject = undefined
+    if (resolve === undefined || reject === undefined) return
+    const inflight = this.inflight
+    if (inflight !== undefined) {
+      // A running read is never abandoned; the merged read follows it.
+      await inflight.catch(() => { /* the selector exposes the shared error */ })
+    }
     this.invalidate()
-    void this.load().catch(() => { /* the selector exposes the shared error */ })
+    try {
+      resolve(await this.startRead())
+    } catch (error) {
+      reject(error)
+    }
   }
 
   /** Clear Host-specific values and load the replacement Host generation. */
   resetGeneration(): void {
     this.reasoning.clear()
+    if (this.reloadTimer !== undefined) {
+      clearTimeout(this.reloadTimer)
+      this.reloadTimer = undefined
+    }
+    this.pending = undefined
+    this.pendingResolve = undefined
+    this.pendingReject = undefined
     this.invalidate(true)
     void this.load().catch(() => { /* the selector exposes the shared error */ })
   }

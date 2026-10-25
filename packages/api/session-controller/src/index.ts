@@ -24,6 +24,7 @@ import { SessionHistoryController } from './history.ts'
 import { SessionFileReferences } from './file-references.ts'
 import { ApiSessionList } from './list.ts'
 import { buildModelCatalog, hasProviderApiKey } from './catalog.ts'
+import { ModelCatalogCache } from './model-catalog-cache.ts'
 import { installModelSelectionProjection } from './model-selection-projection.ts'
 import { SessionSkillCatalog } from './skill-catalog.ts'
 import { SessionMediaReferences } from './media-references.ts'
@@ -132,6 +133,7 @@ export class SessionController extends TypertRemoteService {
   private readonly revealPath: (path: string, signal: AbortSignal) => Promise<void>
   private readonly canOpenPath: () => boolean
   private readonly promotions = new Set<Promise<void>>()
+  private readonly catalog: ModelCatalogCache
 
   /**
    * @param ctx - Host context containing the Session capability assembly.
@@ -157,6 +159,12 @@ export class SessionController extends TypertRemoteService {
     }, 'session-controller.promotions')
     this.history = new SessionHistoryController(ctx, (observation) => { this.promote(observation) })
     this.listState = new ApiSessionList(ctx, resolved.listWorkSliceMs)
+    // One catalog answers every reader until the provider topology or the
+    // deployment default changes; without this cache each surface rebuilt the
+    // same catalog and the duplicate reads competed for the browser's
+    // same-origin connection slots.
+    this.catalog = new ModelCatalogCache(ctx)
+    ctx.on('llm/adapters-updated', () => { this.catalog.invalidate() })
     this.fileApplications = internals.fileApplications ?? nativeFileApplications
     this.openFileApplication = internals.openFileApplication ?? openNativeFileApplication
     this.openPath = internals.openPath ?? openNativeAssociatedPath
@@ -316,7 +324,7 @@ export class SessionController extends TypertRemoteService {
    */
   @Remote('modelCatalog')
   modelCatalog(): Promise<ModelCatalog> {
-    return buildModelCatalog(this.ctx)
+    return this.catalog.get()
   }
 
   /**

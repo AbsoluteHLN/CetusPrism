@@ -1,5 +1,10 @@
 /** Public catalog and selection rules for the three independent execution backends. */
 
+import {
+  locateExternalRuntime,
+  type ExternalRuntimeId,
+  type ExternalRuntimeLocatorOptions,
+} from './external-runtime.ts'
 import type {
   AgentBackendAvailability,
   AgentBackendCapabilities,
@@ -9,6 +14,9 @@ import type {
 
 /** Stable backend identities persisted by CetusPrism. */
 export type BuiltinAgentBackendId = 'dsh' | 'pi' | 'zcode'
+
+/** The external runtimes: Pi and ZCode are ONE mode with two upstreams. */
+export type { ExternalRuntimeId, ExternalRuntimeLocatorOptions }
 
 /** Availability reported without inspecting provider credentials or private runtime state. */
 export type { AgentBackendAvailability as BuiltinAgentBackendAvailability }
@@ -60,6 +68,35 @@ const DSH_BACKEND: AgentBackendRow = {
   source: 'cetusprism',
   availability: 'ready',
   capabilities: { cancel: true, resume: true, tools: true, modelRouting: 'cetus' },
+}
+
+/**
+ * Build the provider for one external runtime.
+ *
+ * Pi and ZCode share this ONE adapter contract; only the upstream differs.
+ * The provider locates the runtime the operator installed from the upstream's
+ * own repository and reports what it found — it never downloads, bundles or
+ * reconfigures the runtime.
+ * @param id - the upstream identity.
+ * @param options - an explicit executable path and the environment to probe with.
+ * @returns a provider that answers the probe for that upstream.
+ */
+export function createExternalRuntimeProvider(
+  id: ExternalRuntimeId,
+  options: ExternalRuntimeLocatorOptions = {},
+): BuiltinAgentBackendProvider {
+  return {
+    id,
+    describe(): BuiltinAgentBackendProbe {
+      const probe = locateExternalRuntime(id, options)
+      return {
+        version: probe.version,
+        source: probe.source,
+        compatible: probe.compatible,
+        ...probe.reason === undefined ? {} : { reason: probe.reason },
+      }
+    },
+  }
 }
 
 /**

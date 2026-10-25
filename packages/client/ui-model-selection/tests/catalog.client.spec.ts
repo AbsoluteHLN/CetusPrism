@@ -2,6 +2,7 @@ import type { ModelCatalog } from '@deepseek-ai/dsh-api-remotes/client'
 import { RemoteError } from '@deepseek-ai/dsh-client-test-runtime'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  MODEL_CATALOG_COALESCE_MS,
   MODEL_CATALOG_TIMEOUT_CODE,
   MODEL_CATALOG_TIMEOUT_MS,
   ModelCatalogDirectory,
@@ -136,5 +137,47 @@ describe('ModelCatalogDirectory', () => {
 
     await expect(subject.load()).resolves.toEqual(empty)
     expect(subject.store.getSnapshot()).toEqual({ value: empty, status: 'ready', error: null })
+  })
+
+  it('merges a burst of invalidations into one catalog read', async () => {
+    const models = vi.fn().mockResolvedValue({ ok: true, value: catalog('merged') })
+    const subject = directory(models)
+
+    await subject.load()
+    expect(models).toHaveBeenCalledTimes(1)
+
+    subject.refresh()
+    subject.refresh()
+    subject.refresh()
+    subject.refresh()
+
+    await vi.waitFor(() => { expect(models).toHaveBeenCalledTimes(2) })
+    // The merged window closed with one read; the burst did not add more.
+    await new Promise(resolve => { setTimeout(resolve, MODEL_CATALOG_COALESCE_MS * 3) })
+    expect(models).toHaveBeenCalledTimes(2)
+    expect(subject.store.getSnapshot()).toMatchObject({ value: catalog('merged'), status: 'ready' })
+  })
+
+  it('lets a running read settle instead of replacing it', async () => {
+    const first = Promise.withResolvers<unknown>()
+    const models = vi.fn()
+      .mockReturnValueOnce(first.promise)
+      .mockResolvedValue({ ok: true, value: catalog('fresh') })
+    const subject = directory(models)
+
+    const running = subject.load()
+    subject.refresh()
+    subject.refresh()
+
+    await new Promise(resolve => { setTimeout(resolve, MODEL_CATALOG_COALESCE_MS * 3) })
+    // The running read was not abandoned: no second request went out.
+    expect(models).toHaveBeenCalledTimes(1)
+
+    first.resolve({ ok: true, value: catalog('settled') })
+    await expect(running).resolves.toEqual(catalog('settled'))
+    await vi.waitFor(() => { expect(models).toHaveBeenCalledTimes(2) })
+    await vi.waitFor(() => {
+      expect(subject.store.getSnapshot()).toMatchObject({ value: catalog('fresh'), status: 'ready' })
+    })
   })
 })

@@ -22,6 +22,16 @@ import type { SettingsSchemaOperations } from './schema-operations.ts'
  */
 const PROBE_ROUTE = '\u0000probe'
 
+/**
+ * How long invalidation events are merged into one page read.
+ *
+ * The Host announces provider-topology and credential changes as
+ * payload-free events, and several of them can describe one change. Merging
+ * them keeps a single change from turning into a burst of identical reads of
+ * the provider directory, the settings mirror and the credential records.
+ */
+export const MODELS_SETTINGS_COALESCE_MS = 60
+
 /** One provider row after joining the configurable directory with live routes. */
 export interface ProviderDirectoryEntry {
   readonly provider: string
@@ -179,6 +189,12 @@ export class ModelsSettingsStore {
   /** Latest load wins; an older response never overwrites a newer one. */
   private generation = 0
 
+  /** Set when an invalidation arrived that no read has answered yet. */
+  private dirty = false
+
+  /** The pending merged reload, if one is scheduled. */
+  private reloadTimer: ReturnType<typeof setTimeout> | undefined
+
   /**
    * @param ctx - the page plugin's context, whose `remote.llm` and
    * `remote.credentials` namespaces carry the directory and credential reads.
@@ -190,6 +206,28 @@ export class ModelsSettingsStore {
     private readonly schema: SettingsSchemaOperations,
     private readonly describeFace: SettingsDescribeFace,
   ) {}
+
+  /**
+   * Refresh the page after a Host-side invalidation.
+   *
+   * The invalidations are merged: every notification that arrives before the
+   * merged reload runs produces ONE read, not one read each. An explicit
+   * reload after a write uses {@link load} directly and is never delayed by
+   * this window.
+   */
+  refresh(): void {
+    // A page that was never opened must not read on a background
+    // invalidation: the read exists to refresh an open page.
+    if (this.store.getSnapshot().status === 'idle') return
+    this.dirty = true
+    if (this.reloadTimer !== undefined) return
+    this.reloadTimer = setTimeout(() => {
+      this.reloadTimer = undefined
+      if (!this.dirty) return
+      this.dirty = false
+      void this.load()
+    }, MODELS_SETTINGS_COALESCE_MS)
+  }
 
   /**
    * Refresh the whole page snapshot: the provider directory and the mirror's

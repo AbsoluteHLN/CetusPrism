@@ -152,6 +152,13 @@ if (process.platform === 'linux') {
         RUSTFLAGS: [
           process.env.RUSTFLAGS,
           `-L${join(ubuntuTarget === '22.04.2' ? ubuntuSysroot : nativeSysroot, 'usr', 'lib', 'x86_64-linux-gnu')}`,
+          // Rust bakes the build machine's absolute source paths into the
+          // panic-location strings in `.rdata`; `strip = "symbols"` does not
+          // remove them. Without this remap the shipped Linux binary leaks
+          // the dependency-cache layout. The prefix follows the dependency
+          // root, so a Linux host with its cache elsewhere is covered too.
+          `--remap-path-prefix=${dependencyRoot}=cargo-cache`,
+          `--remap-path-prefix=${dependencyRoot.replace(/\\/g, '/')}=cargo-cache`,
         ].filter(Boolean).join(' '),
         PATH: buildPath,
       },

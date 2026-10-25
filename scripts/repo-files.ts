@@ -21,6 +21,16 @@ export interface ReferenceViolation {
   ref: string
 }
 
+/** Where a matched reference sits inside the line that carries it. */
+export interface ReferenceMatch {
+  /** 1-based line containing the match. */
+  line: number
+  /** 0-based index of the match within that line. */
+  index: number
+  /** The full text of the line the match sits on. */
+  lineText: string
+}
+
 /** Whether a repository path is frozen Agent Note history, not evolving source prose. */
 export function isArchivedAgentNotePath(path: string): boolean {
   return path.replaceAll('\\', '/').startsWith('.agents/notes/archived/')
@@ -236,7 +246,7 @@ export function findReferenceViolations(
   absPath: string,
   pattern: RegExp,
   normalize: (raw: string) => string,
-  isViolation: (ref: string) => boolean,
+  isViolation: (ref: string, match: ReferenceMatch) => boolean,
   excludedRange?: (file: string, source: string) => readonly [number, number] | undefined,
 ): ReferenceViolation[] {
   const file = relative(root, absPath).split(sep).join('/')
@@ -250,7 +260,8 @@ export function findReferenceViolations(
     if (line === undefined) continue
     for (const match of line.matchAll(pattern)) {
       const ref = normalize(match[0])
-      if (isViolation(ref)) out.push({ file, line: i + 1, ref })
+      const position: ReferenceMatch = { line: i + 1, index: match.index, lineText: line }
+      if (isViolation(ref, position)) out.push({ file, line: i + 1, ref })
     }
   }
   return out

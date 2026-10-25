@@ -17,6 +17,8 @@ import {
 import { ModelsSection } from '../src/client/ModelsSection.tsx'
 import { DeepSeekOnboardingDialog } from '../src/client/DeepSeekOnboardingDialog.tsx'
 import { WelcomeNotice } from '../src/client/WelcomeNotice.tsx'
+import { ModelsSettingsStore } from '../src/client/store.ts'
+import { settingsSchema } from './settings-schema.client.ts'
 import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
 import * as hostPlugin from '../src/index.ts'
 import { ONBOARDING_CONFIG_GLOBAL } from '../src/onboarding-config.ts'
@@ -272,20 +274,18 @@ describe('pushed invalidations', () => {
     b.ctx.emit('connection/reset')
   })
 
-  it('refreshes a loaded page and skips an idle one', () => {
-    const refreshes: number[] = []
-    const controller = {
-      store: { getSnapshot: () => ({ status: 'ready' }) },
-      refresh: () => { refreshes.push(1) },
-    }
-    refreshIfLoaded(controller as unknown as import('../src/client/store.ts').ModelsSettingsStore)
-    expect(refreshes).toHaveLength(1)
-    const idle = {
-      store: { getSnapshot: () => ({ status: 'idle' }) },
-      refresh: () => { refreshes.push(2) },
-    }
-    refreshIfLoaded(idle as unknown as import('../src/client/store.ts').ModelsSettingsStore)
-    expect(refreshes).toHaveLength(1)
+  it('refreshes a loaded page and skips an idle one', async () => {
+    const b = await bench()
+    const controller = new ModelsSettingsStore(b.ctx, settingsSchema, b.ctx.configForms.describe())
+    const refresh = vi.spyOn(controller, 'refresh').mockImplementation(() => {})
+
+    controller.store.update((state) => { state.status = 'ready' })
+    refreshIfLoaded(controller)
+    expect(refresh).toHaveBeenCalledTimes(1)
+
+    controller.store.update((state) => { state.status = 'idle' })
+    refreshIfLoaded(controller)
+    expect(refresh).toHaveBeenCalledTimes(1)
   })
 
   it('routes pushed credential invalidation into the shared onboarding join', async () => {

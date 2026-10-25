@@ -3,6 +3,77 @@
 所有显著变更记录于此。格式参考 Keep a Changelog；版本号遵循 SemVer。
 本文件自 1.7.3 起建立——此前的版本历史以 git tag 与提交记录为准。
 
+## [1.7.4] - 2026-10-25
+
+版本线说明：产品版本 `1.7.3` → `1.7.4`；workspace 包版本 `0.2.1-alpha.1` 不变
+（`docs/UPSTREAM.alignment.json` 的 `productVersion` 随产品版本推进）。
+
+### 思考强度按模型能力裁定（跨模型携带脏 effort 的根治）
+
+- **根因**：思考强度是**每个模型各自的能力**，不是全局概念。实测 `csu` 网关：
+  Qwen 只吃 `off/low/medium/xhigh`，给 `high` 直接 400
+  （`Unexpected reasoning effort high. Supported types are xhigh (default), medium, and low.`）；
+  GLM 七档全吃，DeepSeek 五档。父模型（GLM/DeepSeek）给 Qwen 子路由写下
+  `high`/`max` 这类脏值时，委派被整体拒绝——**模型本身可用，是能力协商缺失**。
+- **协议中立的档位阶梯**（`packages/llm/llm/src/reasoning-effort.ts`）：
+  `REASONING_EFFORT_LADDER`（off < minimal < low < medium < high < xhigh < max）
+  与 `selectSupportedReasoningEffort`（精确命中 → 不低于请求的最近支持档 →
+  否则最高支持档），不认识任何 provider。
+- **裁定点落在请求边界**（`packages/core/agent-loop/src/agent.ts`）：在 waterfall 之后、
+  `prepareCall` 之前统一裁定，一处覆盖主 Agent / 子智能体 / Agent Team 成员三条路径。
+- **降级值不冒充用户选择**：降级时把 `adapterDefaults.reasoningEffort` 置为 `true`，
+  沿用 llm 层「adapter 填充的默认值不算用户选择」的既有语义，下次 seed 自动丢弃。
+- **委派路径同规则**（`packages/subagent/tool-subagent/src/model-selection.ts`）：
+  父模型写的档位属于「模型作者」而非用户选择，故降级而非报错；子模型完全没有档位
+  词汇时丢弃该档、用其自身默认。
+- **既有契约一行未动**：`packages/llm/llm/src/index.ts` 的 `resolveCallWithInfo` /
+  `UNSUPPORTED_REASONING_EFFORT` 严格拒绝语义保持不变——同一模型上用户显式选的非法档仍报错。
+
+### 通用思考强度探针
+
+- **探针实现**（`packages/llm/llm-pi-ai/src/effort-probe.ts`）：本期支持
+  `openai-completions`；每档恰好一次请求；`off` 不发请求且声明恒为 `null`；
+  2xx 即接受，非 2xx 拒绝并有界读取正文（≤64 KiB）；解析端点自报档位集合；
+  apiKey 绝不入消息与日志。错误码 `EFFORT_PROBE_UNSUPPORTED / FAILED / ABORTED /
+  INVALID_CREDENTIAL`；`openai-responses` / `anthropic-messages` 明确报不支持。
+- **宿主 seam**（`packages/llm/llm-pi-ai/src/effort-probe-host.ts`）：复用 discovery
+  同款 `storedDiscoveryProfile` 懒解析，探针复用**宿主持有的凭证与部署头**（含自鉴权
+  header 通道），凭据不由请求方传入。
+- **宿主 API**：`registerReasoningEffortProbe` / `probeReasoningEfforts` 与
+  `@Remote('probeReasoningEfforts')` 远程声明。
+- **探测优先、端点自报为辅**：自报集合不能替代逐档实测，冲突以实测为准并在 detail 说明。
+- **产出可直接落库**：`declaration` 键=档位名、值=wire 拼写、`off: null`，与
+  `llm-pi-ai` 的 `reasoningEfforts` schema 完全兼容，无需改配置 schema。
+- **Models 页 UI**（`packages/client/ui-settings-models`）：每个模型行新增「探测推理档位」
+  与「写回声明」，写回**只动被探测的那一个模型条目**的 `reasoningEfforts`，不碰同
+  provider 的其它模型；中英双语字典齐备。
+
+### 目录与文档
+
+- `scripts/gen-cordis-catalog.ts` 的 `LINK_MAP` 登记两个新 remote 类型，
+  重新生成 `packages/extensions/tool-cordis/src/api-catalog.ts` 与
+  `docs/subsystems/llm-streaming.md` / `.zh.md`；`gen-cordis-catalog --check` 回到 exit 0
+  （121 个产物 up to date）。
+
+### 测试与验证
+
+- 受影响包全绿：agent-loop + tool-subagent 32 文件 / 601 用例；llm-pi-ai 18 / 418；
+  llm 14 / 300；ui-settings-models 13 / 331。
+- 全量回归（`vitest run --config configs/vitest.config.ts`）：1910 文件 / 38860 用例，
+  98 个失败文件**无一落在本轮改动包**；失败签名分布与既有基线吻合（EPERM symlink 60 /
+  超时 21 / 缺 pwsh 9）。
+- lint（`tsx scripts/run-oxlint.ts .`）exit 0；25 个改动文件全部 LF-only、无 BOM。
+- 真机客户端窗体实测：选中 `csu/Qwen3.8-Flash-Next` 发真实消息，2 秒返回且无 4xx/5xx；
+  该模型的档位菜单实测为 `Default / Off / Low / Medium / Xhigh`。
+
+### 备注
+
+- 本次版本号变更：4 个版本文件（根、`apps/desktop`、`apps/electron` 的 `package.json`，
+  `docs/UPSTREAM.alignment.json` 的 `productVersion`）与本 CHANGELOG；
+  **尚未打 tag、尚未发布 GitHub Release**。
+- `pnpm-lock.yaml` 实测零 diff（workspace 协议版本不写入 lock）。
+- 328 个 workspace 包仍在 `0.2.1-alpha.1`，本轮不动。
+
 ## [1.7.3] - 2026-10-21
 
 版本线说明：产品版本从 `1.7.1-beta.1` 直接推进至 `1.7.3`。

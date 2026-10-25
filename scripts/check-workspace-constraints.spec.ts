@@ -256,20 +256,20 @@ describe('experimental workspace constraints', () => {
 })
 
 describe('dsh family version coherence', () => {
-  const lines = { workspace: '0.2.1-alpha.1', product: '1.7.3' }
+  const lines = { workspace: '0.2.1-alpha.1', product: '1.7.4' }
 
   it('rejects a package carrying a stale shared version', () => {
     expect(checkDshFamilyVersion(
       { name: '@deepseek-ai/dsh-http-proxy', version: '0.1.2-alpha.5' },
       lines,
-    )).toBe('@deepseek-ai/dsh-http-proxy: package.json version must match the workspace package version 0.2.1-alpha.1 (the product version 1.7.3 stays on the workspace root)')
+    )).toBe('@deepseek-ai/dsh-http-proxy: package.json version must match the workspace package version 0.2.1-alpha.1 (the product version 1.7.4 stays on the workspace root)')
   })
 
   it('rejects the root-named CLI app on a stale shared version', () => {
     expect(checkDshFamilyVersion(
       { name: '@deepseek-ai/dsh', version: '0.1.2-alpha.5' },
       lines,
-    )).toBe('@deepseek-ai/dsh: package.json version must match the workspace package version 0.2.1-alpha.1 (the product version 1.7.3 stays on the workspace root)')
+    )).toBe('@deepseek-ai/dsh: package.json version must match the workspace package version 0.2.1-alpha.1 (the product version 1.7.4 stays on the workspace root)')
   })
 
   it('accepts a manifest carrying the workspace package version', () => {
@@ -281,14 +281,14 @@ describe('dsh family version coherence', () => {
 
   it('rejects a release member that carries the product version instead of the workspace line', () => {
     expect(checkDshFamilyVersion(
-      { name: '@deepseek-ai/dsh-http-proxy', version: '1.7.3' },
+      { name: '@deepseek-ai/dsh-http-proxy', version: '1.7.4' },
       lines,
-    )).toBe('@deepseek-ai/dsh-http-proxy: package.json version must match the workspace package version 0.2.1-alpha.1 (the product version 1.7.3 stays on the workspace root)')
+    )).toBe('@deepseek-ai/dsh-http-proxy: package.json version must match the workspace package version 0.2.1-alpha.1 (the product version 1.7.4 stays on the workspace root)')
   })
 
   it('keeps the workspace root and the installer applications on the product version', () => {
     expect(checkDshFamilyVersion(
-      { name: '@deepseek-ai/dsh-root', version: '1.7.3' },
+      { name: '@deepseek-ai/dsh-root', version: '1.7.4' },
       lines,
       '.',
     )).toBeUndefined()
@@ -296,14 +296,14 @@ describe('dsh family version coherence', () => {
       { name: '@deepseek-ai/dsh-root', version: '0.2.1-alpha.1' },
       lines,
       '.',
-    )).toBe('@deepseek-ai/dsh-root: package.json version must match the product version 1.7.3')
+    )).toBe('@deepseek-ai/dsh-root: package.json version must match the product version 1.7.4')
     expect(checkDshFamilyVersion(
-      { name: '@deepseek-ai/dsh-desktop', version: '1.7.3' },
+      { name: '@deepseek-ai/dsh-desktop', version: '1.7.4' },
       lines,
       'apps/desktop',
     )).toBeUndefined()
     expect(checkDshFamilyVersion(
-      { name: '@deepseek-ai/dsh-electron', version: '1.7.3' },
+      { name: '@deepseek-ai/dsh-electron', version: '1.7.4' },
       lines,
       'apps/electron',
     )).toBeUndefined()
@@ -311,7 +311,7 @@ describe('dsh family version coherence', () => {
       { name: '@deepseek-ai/dsh-desktop', version: '0.2.1-alpha.1' },
       lines,
       'apps/desktop',
-    )).toBe('@deepseek-ai/dsh-desktop: package.json version must match the product version 1.7.3')
+    )).toBe('@deepseek-ai/dsh-desktop: package.json version must match the product version 1.7.4')
   })
 
   it('leaves other sequences to their own version lines', () => {

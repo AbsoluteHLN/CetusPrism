@@ -1045,22 +1045,34 @@ describe('compat switches', () => {
     expect(request.messages.map(message => message.role)).toEqual(['system'])
   })
 
-  it('warns about a reasoning model whose endpoint would receive the developer role', () => {
+  it('serves a reasoning model on an unrecognized gateway without the developer role', () => {
     // The combination that produced the reported 400: a reasoning model on a
     // gateway pi-ai cannot identify, with nothing saying which role to use.
-    const warned = resolveProfiles({
+    // The patch stripped pi-ai's guess that resolved a private URL as OpenAI,
+    // so the endpoint keeps the `system` role and serves the model as
+    // declared — no refusal, no risk.
+    const served = resolveProfiles({
       'acme-gateway': {
         api: 'openai-completions',
         baseURL: 'https://acme.test/v1',
         models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
       },
     }).get('acme-gateway')
-    expect(warned?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
-    // A warning must not make the route unserviceable: the endpoint may well
-    // accept the role, and refusing the route would be the worse failure.
-    expect(warned?.piProvider).toBeDefined()
+    expect(served?.modelErrors.size).toBe(0)
+    expect(served?.piProvider).toBeDefined()
 
-    // The switch answers the question, so the warning goes away.
+    // The Responses protocols still send the role wherever nothing says
+    // otherwise, and a private gateway rejects it with a 400 — so the same
+    // shape refuses the route there, naming the one-line repairs.
+    expect(() => resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-responses',
+        baseURL: 'https://acme.test/v1',
+        models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
+      },
+    })).toThrow(/model "acme-think" is a reasoning model.*Set `compat\.supportsDeveloperRole: false`/s)
+
+    // The switch answers the question, so the route carries the model.
     const answered = resolveProfiles({
       'acme-gateway': {
         api: 'openai-completions',
@@ -1088,20 +1100,19 @@ describe('compat switches', () => {
     expect(known?.warnings).toEqual([])
   })
 
-  it('warns about the developer role on a Responses route too', () => {
+  it('refuses the developer role on a Responses route too', () => {
     // The Responses protocols detect nothing from the endpoint, so the role
-    // travels to a private gateway whatever its URL says: the same warning a
-    // Chat Completions route earns must reach this protocol as well.
-    const warned = resolveProfiles({
+    // travels to a private gateway whatever its URL says: the same refusal a
+    // whitelisted OpenRouter route earns must reach this protocol as well.
+    expect(() => resolveProfiles({
       'acme-gateway': {
         api: 'openai-responses',
         baseURL: 'https://acme.test/v1',
         models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
       },
-    }).get('acme-gateway')
-    expect(warned?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
+    })).toThrow(/model "acme-think" is a reasoning model.*set it to `true` to declare the endpoint accepts the role/s)
 
-    // The switch answers the question on this protocol too, so the warning goes.
+    // The switch answers the question on this protocol too, so the route serves.
     const answered = resolveProfiles({
       'acme-gateway': {
         api: 'openai-responses',
@@ -1111,6 +1122,7 @@ describe('compat switches', () => {
       },
     }).get('acme-gateway')
     expect(answered?.warnings).toEqual([])
+    expect(answered?.modelErrors.size).toBe(0)
 
     // A model that does not reason never sends the role, on this protocol too.
     const plain = resolveProfiles({
@@ -1122,8 +1134,9 @@ describe('compat switches', () => {
     }).get('acme-gateway')
     expect(plain?.warnings).toEqual([])
 
-    // The same shape on Chat Completions warns as well: the two protocols
-    // reach the one warning, and neither of them is left unpinned.
+    // The same shape on Chat Completions serves too: the patch keeps the
+    // `system` role on every endpoint it does not positively read as OpenAI,
+    // and an unrecognized gateway is exactly that — so the route starts.
     const completions = resolveProfiles({
       'acme-gateway': {
         api: 'openai-completions',
@@ -1131,16 +1144,18 @@ describe('compat switches', () => {
         models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
       },
     }).get('acme-gateway')
-    expect(completions?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
+    expect(completions?.modelErrors.size).toBe(0)
+    expect(completions?.piProvider).toBeDefined()
   })
 
-  it('keeps the warning off a route the installed catalog vouches for', () => {
+  it('serves the route the installed catalog vouches for', () => {
     // pi-ai's catalog was built against these endpoints, so the role travels
     // there by construction. A shipped route is not a risk, however many of its
-    // models reason — and warning about it would tell an operator to change
-    // a route that is already right.
+    // models reason — and refusing it would take a route that is already
+    // right out of service.
     const shipped = resolveProfiles({ 'openai-codex': {} }).get('openai-codex')
     expect(shipped?.warnings).toEqual([])
+    expect(shipped?.modelErrors.size).toBe(0)
 
     // Spelling the endpoint out is the same endpoint, and it is the API the
     // role was written for.
@@ -1151,14 +1166,16 @@ describe('compat switches', () => {
       },
     }).get('openai')
     expect(spelled?.warnings).toEqual([])
+    expect(spelled?.modelErrors.size).toBe(0)
   })
 
-  it('names every affected model in one warning', () => {
-    // The surface shows the route, not the model: one sentence per model would
-    // bury the one fact the operator needs.
-    const warned = resolveProfiles({
+  it('names every refused model in its own diagnostic', () => {
+    // Each refused model carries its own diagnostic: the route still serves
+    // the models that remain, so one model's repair must not read as the
+    // whole route's.
+    const deferred = resolveProfiles({
       'acme-gateway': {
-        api: 'openai-completions',
+        api: 'openai-responses',
         baseURL: 'https://acme.test/v1',
         models: [
           { id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } },
@@ -1166,13 +1183,28 @@ describe('compat switches', () => {
           { id: 'acme-plain' },
         ],
       },
-    }).get('acme-gateway')
+    }, 'deferred').get('acme-gateway')
 
-    expect(warned?.warnings).toHaveLength(1)
-    expect(warned?.warnings[0]).toContain('"acme-think"')
-    expect(warned?.warnings[0]).toContain('"acme-think-2"')
+    expect(deferred?.modelErrors.size).toBe(2)
+    expect(deferred?.modelErrors.get('acme-think')).toContain('"acme-think"')
+    expect(deferred?.modelErrors.get('acme-think-2')).toContain('"acme-think-2"')
     // A model that does not reason never sends the role, so it is not named.
-    expect(warned?.warnings[0]).not.toContain('acme-plain')
+    expect(deferred?.modelErrors.has('acme-plain')).toBe(false)
+    // The route itself is still up, serving the model that resolved.
+    expect(deferred?.piProvider).toBeDefined()
+
+    // Under strict validation the first refusal stops the load.
+    expect(() => resolveProfiles({
+      'acme-gateway': {
+        api: 'openai-responses',
+        baseURL: 'https://acme.test/v1',
+        models: [
+          { id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } },
+          { id: 'acme-think-2', reasoningEfforts: { off: null, high: 'high' } },
+          { id: 'acme-plain' },
+        ],
+      },
+    })).toThrow(/model "acme-think" is a reasoning model/)
   })
 
   it('refuses a valueless compat key rather than writing null over the catalog', () => {
@@ -1277,7 +1309,7 @@ describe('resolution snapshots', () => {
 
     // The route set changes while the request waits, and something else reads
     // the adapter meanwhile, which is what would rebuild a shared collection.
-    current = resolveProfiles({ openai: { baseURL: `${server.url}/v1` } })
+    current = resolveProfiles({ openai: { baseURL: `${server.url}/v1`, compat: { supportsDeveloperRole: false } } })
     await expect(adapter.listModels('openai')).resolves.not.toHaveLength(0)
     release()
     await inFlight
@@ -1387,69 +1419,75 @@ describe('configurable-provider directory', () => {
     })
   })
 
-  it('carries a configuration risk onto the directory entry that names the route', async () => {
+  it('carries a configuration refusal onto the directory entry that names the route', async () => {
     // The reported 400 in its configuration-time form: a reasoning model on a
-    // gateway pi-ai cannot identify, with nothing saying which role to use.
-    // The directory is what a configuration surface reads, so the risk has to
-    // travel there — otherwise the operator only learns of it from a request
-    // that failed.
+    // Responses gateway, with nothing saying which role to use. The refusal
+    // takes the route out of service, and the directory is what a
+    // configuration surface reads, so it has to travel there — otherwise the
+    // operator only learns of it from a request that failed.
     const ctx = await harness(gateway('https://acme.test/v1', {
+      api: 'openai-responses',
       models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
     }))
 
     const entry = ctx.llm.listConfigurableProviders().find(row => row.provider === 'acme-gateway')
-    expect(entry?.warnings?.join('\n')).toContain('compat.supportsDeveloperRole')
-    // A risk does not take the route out of service.
-    expect(entry?.error).toBeUndefined()
+    // The one modelError is promoted to the route error, so nothing remains
+    // beside it.
+    expect(entry?.error).toContain('acme-think')
+    expect(entry?.error).toContain('compat.supportsDeveloperRole')
+    expect(entry?.warnings).toBeUndefined()
+    expect(entry?.modelErrors).toBeUndefined()
   })
 
-  it('drops a configuration risk the deployment has already answered', async () => {
+  it('drops a configuration refusal the deployment has already answered', async () => {
     const ctx = await harness(gateway('https://acme.test/v1', {
+      api: 'openai-responses',
       compat: { supportsDeveloperRole: false },
       models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
     }))
 
     const entry = ctx.llm.listConfigurableProviders().find(row => row.provider === 'acme-gateway')
+    expect(entry?.error).toBeUndefined()
     expect(entry?.warnings).toBeUndefined()
   })
 
   it('carries every route diagnostic to the directory', async () => {
-    // A diagnostic with no exit is a diagnostic the operator never sees. The
-    // route-level failure, the per-model failures and the risks all reach the
+    // A diagnostic with no exit is a diagnostic the operator never sees. A
+    // per-model risk is a per-model diagnostic, so every refusal reaches the
     // configuration surface through this one listing.
     const ctx = await harness(gateway('https://acme.test/v1', {
+      api: 'openai-responses',
       models: [
         { id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } },
         { id: 'acme-broken-1', reasoningEfforts: { off: null } },
         { id: 'acme-broken-2', reasoningEfforts: { off: null } },
+        { id: 'acme-plain' },
       ],
     }))
 
     const entry = ctx.llm.listConfigurableProviders().find(row => row.provider === 'acme-gateway')
-    // The route-level failure names the first model that could not resolve.
-    expect(entry?.error).toContain('acme-broken-1')
+    // The first refusal in model order is promoted to the route-level error.
+    expect(entry?.error).toContain('acme-think')
     // The rest travel beside it, and the two never repeat a line.
-    expect(entry?.modelErrors).toHaveLength(1)
-    expect(entry?.modelErrors?.[0]).toContain('acme-broken-2')
-    // The risk travels too, and the route still serves the models that did
-    // resolve.
-    expect(entry?.warnings?.join('\n')).toContain('compat.supportsDeveloperRole')
+    expect(entry?.modelErrors).toHaveLength(2)
+    expect(entry?.modelErrors?.[0]).toContain('acme-broken-1')
+    expect(entry?.modelErrors?.[1]).toContain('acme-broken-2')
+    // The servable model keeps the route listed.
     expect(ctx.llm.listProviders().map(provider => provider.id)).toContain('acme-gateway')
   })
 
-  it('warns for the OpenRouter models pi-ai serves as OpenAI', () => {
+  it('refuses the OpenRouter models pi-ai serves as OpenAI', () => {
     // OpenRouter answers per model, not per route: it keeps `system` for most
     // of its catalog, but the `anthropic/` and `openai/` models it serves as
     // OpenAI itself take the role OpenAI sends. A mirror that answered per
     // route would miss exactly these.
-    const warned = resolveProfiles({
+    expect(() => resolveProfiles({
       openrouter: {
         api: 'openai-completions',
         baseURL: 'https://openrouter.ai/api/v1',
         models: [{ id: 'openai/gpt-5', reasoningEfforts: { off: null, high: 'high' } }],
       },
-    }).get('openrouter')
-    expect(warned?.warnings.join('\n')).toContain('compat.supportsDeveloperRole')
+    })).toThrow(/model "openai\/gpt-5" is a reasoning model.*compat\.supportsDeveloperRole: false/s)
 
     // The rest of its catalog keeps the `system` role, and says nothing.
     const plain = resolveProfiles({
@@ -1460,6 +1498,7 @@ describe('configurable-provider directory', () => {
       },
     }).get('openrouter')
     expect(plain?.warnings).toEqual([])
+    expect(plain?.modelErrors.size).toBe(0)
   })
 })
 
@@ -1594,51 +1633,60 @@ describe('the compat floor under a repointed api', () => {
   })
 })
 
-describe('the developer-role risk against the endpoint pi-ai reads', () => {
-  /** The one warning a route carrying a reasoning model on a gateway raises. */
-  function warningsFor(baseURL: string): readonly string[] {
-    const route = resolveProfiles({
+describe('the developer-role refusal against the endpoint pi-ai reads', () => {
+  /** The one refusal a route carrying a reasoning model on a gateway raises. */
+  function refusalFor(baseURL: string, api: 'openai-completions' | 'openai-responses' = 'openai-completions'): string | undefined {
+    return resolveProfiles({
       'acme-gateway': {
-        api: 'openai-completions',
+        api,
         baseURL,
         models: [{ id: 'acme-think', reasoningEfforts: { off: null, high: 'high' } }],
       },
-    }).get('acme-gateway')
-    return route?.warnings ?? []
+    }, 'deferred').get('acme-gateway')?.modelErrors.get('acme-think')
   }
 
-  it('warns for a vendor host written in another case', () => {
+  it('keeps the system role for a vendor host written in another case', () => {
     // pi-ai compares the endpoint case-sensitively, so `API.Z.AI` is not the
-    // vendor it looks like: pi-ai resolves it as OpenAI and sends the
-    // `developer` role. A mirror matching case-insensitively would read it
-    // as the vendor's own endpoint and keep the warning to itself.
-    expect(warningsFor('https://API.Z.AI/v1').join('\n')).toContain('compat.supportsDeveloperRole')
+    // vendor it looks like. After the patch an endpoint pi-ai does not
+    // positively read as OpenAI keeps the `system` role, so the route serves.
+    expect(refusalFor('https://API.Z.AI/v1')).toBeUndefined()
   })
 
   it('says nothing for the vendor host spelled as pi-ai spells it', () => {
-    expect(warningsFor('https://api.z.ai/v1')).toEqual([])
+    expect(refusalFor('https://api.z.ai/v1')).toBeUndefined()
   })
 
   it('says nothing for the one host pi-ai reads case-insensitively', () => {
     // DeepSeek's host is the one comparison pi-ai lowercases, so an endpoint
     // naming it in any case is still DeepSeek's — and keeps the `system` role.
-    expect(warningsFor('https://API.DEEPSEEK.COM/v1')).toEqual([])
+    expect(refusalFor('https://API.DEEPSEEK.COM/v1')).toBeUndefined()
   })
 
-  it.each(RECOGNIZED_NON_OPENAI_HOSTS)('warns for %s spelled in another case, as pi-ai does', (host) => {
-    // Every host in the mirror is compared case-sensitively, the way pi-ai
-    // compares it, so a host written in another case is an endpoint pi-ai
-    // does not recognize: it resolves as OpenAI and sends `developer`, which
-    // is exactly the mismatch this warning exists to name.
-    expect(warningsFor(`https://${host}/v1`)).toEqual([])
-    expect(warningsFor(`https://${host.toUpperCase()}/v1`).join('\n')).toContain('compat.supportsDeveloperRole')
+  it.each(RECOGNIZED_NON_OPENAI_HOSTS)('serves %s with `system` however it is spelled, as pi-ai does', (host) => {
+    // After the patch pi-ai sends `developer` only to the endpoints it
+    // positively reads as OpenAI, so every spelling of a vendor host keeps
+    // the `system` role and no spelling raises the refusal.
+    expect(refusalFor(`https://${host}/v1`)).toBeUndefined()
+    expect(refusalFor(`https://${host.toUpperCase()}/v1`)).toBeUndefined()
   })
 
   it('says nothing for an OpenAI endpoint spelled in another case', () => {
     // The OpenAI family is matched case-insensitively, the opposite of the
-    // vendor list. The asymmetry is safe — both lists exempt an endpoint
-    // from the warning — but it is a rule of its own, so it is stated here.
-    expect(warningsFor('https://API.OPENAI.COM/v1')).toEqual([])
+    // vendor list. The asymmetry is safe — both spellings serve the route —
+    // but it is a rule of its own, so it is stated here.
+    expect(refusalFor('https://API.OPENAI.COM/v1')).toBeUndefined()
+  })
+
+  it('refuses a Responses route on a gateway pi-ai does not read as OpenAI', () => {
+    // The Responses protocol is one pi-ai positively sends the `developer`
+    // role on, so a reasoning model on a private gateway behind it is refused
+    // up front, with the switch that answers the refusal named in the text.
+    expect(refusalFor('https://acme.test/v1', 'openai-responses')).toContain('model "acme-think"')
+    expect(refusalFor('https://acme.test/v1', 'openai-responses')).toContain('compat.supportsDeveloperRole: false')
+  })
+
+  it('serves a Responses route on an OpenAI endpoint', () => {
+    expect(refusalFor('https://api.openai.com/v1', 'openai-responses')).toBeUndefined()
   })
 
   it('mirrors the vendor detection the installed pi-ai ships', () => {

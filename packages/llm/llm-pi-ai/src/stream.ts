@@ -9,7 +9,7 @@
  */
 
 import { brandString } from '@deepseek-ai/dsh-brand'
-import { CONTEXT_WINDOW_EXCEEDED_CODE, DEVELOPER_ROLE_REJECTED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isDeveloperRoleRejectedError, isQuotaExceededError, LlmError, QUOTA_EXCEEDED_CODE, REASONING_EFFORT_REJECTED_CODE } from '@deepseek-ai/dsh-llm'
+import { CONTEXT_WINDOW_EXCEEDED_CODE, DEVELOPER_ROLE_REJECTED_CODE, EMPTY_RESPONSE_CODE, isContextWindowExceededError, isDeveloperRoleRejectedError, isQuotaExceededError, LlmError, ProviderRequestId, QUOTA_EXCEEDED_CODE, REASONING_EFFORT_REJECTED_CODE } from '@deepseek-ai/dsh-llm'
 import type { FinishReason, StreamChunk, TokenUsage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { isContextOverflow } from '@earendil-works/pi-ai/utils/overflow'
 import type { AssistantMessage, AssistantMessageEvent, Usage as PiUsage } from '@earendil-works/pi-ai'
@@ -41,9 +41,12 @@ export function mapUsage(usage: PiUsage): TokenUsage {
 // error.message : JSON.stringify(error)`), discarding the original Error and its
 // `cause` chain before it reaches us. undici carries the actionable transport
 // detail on `cause` (e.g. `SocketError: other side closed`) but hands the fetch
-// wrapper a bare `terminated`, so we are left pattern-matching terse words here.
-// If pi-ai ever forwards the original Error (or a fetch/dispatcher hook that lets
-// us capture the cause ourselves), classify on `code`/`cause` instead of text.
+// wrapper a bare `terminated`. HTTP-level failures no longer depend on that
+// wording: the adapter's fetch wrapper captures the response status and headers
+// into {@link HttpFacts}, and {@link classifyFailure} reads them first, so the
+// text patterns below remain only for failures that never produced an HTTP
+// response (transport drops, SDK-internal errors) — where the flattened text
+// is all that survives.
 /**
  * The phrase a gateway uses when the reasoning effort is what it refuses.
  */
@@ -140,16 +143,106 @@ function classifyPiAiError(message: string): string {
 }
 
 /**
+ * HTTP-level facts one adapter call captured from the provider's response:
+ * the status code and headers of the response a failure traveled with. The
+ * adapter's fetch wrapper records them in place (the fields are mutable for
+ * that capture alone), so classification can read what the provider actually
+ * sent instead of pattern-matching the error text pi-ai flattened. Header
+ * names are lowercased.
+ */
+export interface HttpFacts {
+  /** The response status code, when the failure produced an HTTP response. */
+  status?: number
+  /** Response headers (lowercased names) from the same response. */
+  headers?: Readonly<Record<string, string>>
+}
+
+/** A Retry-After value that carries a plain second count. */
+const RETRY_AFTER_SECONDS = /^\d+(?:\.\d+)?$/u
+
+/**
+ * The provider's retry hint from the captured headers, in milliseconds.
+ *
+ * Mirrors the deepseek transport's reading: a plain second count scales by
+ * 1000, anything else parses as a date measured from now, and a value that is
+ * not a positive finite delay carries nothing rather than a wrong hint.
+ */
+function retryAfterMs(headers: Readonly<Record<string, string>> | undefined): number | undefined {
+  const raw = headers?.['retry-after']
+  if (raw === undefined) return undefined
+  const seconds = RETRY_AFTER_SECONDS.exec(raw)
+  const delayMs = seconds !== null ? Number(seconds[0]) * 1000 : Date.parse(raw) - Date.now()
+  return Number.isFinite(delayMs) && delayMs > 0 ? delayMs : undefined
+}
+
+/**
+ * The provider's request id from the captured headers, when one is present.
+ *
+ * Gateways name it differently (`request-id`, `x-request-id`, and the
+ * deepseek spelling the deepseek transport already reads); the first
+ * non-empty value wins, and a blank one is dropped rather than carried — a
+ * blank id diagnoses nothing, and the failure constructor rejects it outright.
+ */
+function requestIdOf(headers: Readonly<Record<string, string>> | undefined): string | undefined {
+  const raw = headers?.['request-id'] ?? headers?.['x-request-id'] ?? headers?.['x-deepseek-request-id']
+  return raw === undefined || raw.length === 0 ? undefined : raw
+}
+
+/**
+ * Classify a pi-ai stream failure, preferring HTTP facts over error text.
+ *
+ * When the adapter's fetch wrapper captured a response, the status code
+ * decides — the code the provider actually sent is what the failure is,
+ * whatever wording the flattened message happens to carry. The text
+ * classifier ({@link classifyPiAiError}) remains the fallback for failures
+ * that never produced an HTTP response (transport drops, SDK-internal
+ * errors) or one below the error threshold.
+ * @param message - the provider's error text.
+ * @param facts - HTTP facts from the response, when one was captured.
+ * @returns the harness failure code.
+ */
+export function classifyFailure(message: string, facts: HttpFacts): string {
+  const status = facts.status
+  if (status === undefined || status < 400) return classifyPiAiError(message)
+  if (status === 401 || status === 403) return 'AUTH'
+  // Payment-required is the gateway declining the account, not the request;
+  // the quota code is what the operator's runbook keys on.
+  if (status === 402) return QUOTA_EXCEEDED_CODE
+  // A 429 is a rate limit unless the text names the account's quota — the
+  // wording is still the only evidence for that distinction.
+  if (status === 429) return isQuotaExceededError(message) ? QUOTA_EXCEEDED_CODE : 'RATE_LIMIT'
+  // 408 is the endpoint stating it gave up waiting for the request: the
+  // request may still be running there, so it is transient rather than
+  // rejected, and the retry budget is what answers it.
+  if (status === 408) return 'TIMEOUT'
+  if (status >= 500) return 'SERVER'
+  // The remaining 4xx are rejected requests; the text sub-classification
+  // (rejected `developer` role, refused reasoning effort) still tells the
+  // operator which configuration line to change.
+  if (isDeveloperRoleRejectedError(message)) return DEVELOPER_ROLE_REJECTED_CODE
+  if (refusesReasoningEffort(message)) return REASONING_EFFORT_REJECTED_CODE
+  return 'INVALID_REQUEST'
+}
+
+/**
  * Map a terminal pi-ai event to the harness finish reason.
  * @param message - the assistant message carried by the `done` or `error` event.
  * @param contextWindow - resolved catalog capacity for usage-based overflow detection.
+ * @param httpFacts - HTTP facts the adapter's fetch wrapper captured from the
+ *   provider response, if it produced one. A status of 400 or above decides
+ *   the failure code and carries the response's retry hint and request id;
+ *   without them, classification falls back to the flattened error text.
  * @returns the mapped harness reason. Recognized error text, `stop` usage above
  *   `contextWindow`, and zero-output `length` usage that fills the window map
  *   to `CONTEXT_WINDOW_EXCEEDED`; a `stop` with no content blocks maps to an
  *   `EMPTY_RESPONSE` error, while terminal `pending` and `deferred` states map
  *   to non-retryable `PI_AI_ERROR` failures.
  */
-export function mapStopReason(message: AssistantMessage, contextWindow?: number): FinishReason {
+export function mapStopReason(
+  message: AssistantMessage,
+  contextWindow?: number,
+  httpFacts?: HttpFacts,
+): FinishReason {
   const piAiOverflow = isContextOverflow(message, contextWindow)
   const harnessOverflow = message.stopReason === 'error'
     && message.errorMessage !== undefined
@@ -194,7 +287,11 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
     }
     case 'error': {
       const text = message.errorMessage ?? 'pi-ai stream error'
-      const code = classifyPiAiError(text)
+      const code = classifyFailure(text, httpFacts ?? {})
+      const delay = retryAfterMs(httpFacts?.headers)
+      const requestId = requestIdOf(httpFacts?.headers)
+      const status = httpFacts?.status
+      const usableStatus = status !== undefined && status >= 400 && status <= 599 ? status : undefined
       return {
         kind: 'error',
         failure: {
@@ -202,6 +299,11 @@ export function mapStopReason(message: AssistantMessage, contextWindow?: number)
             ? developerRoleGuidance(text)
             : code === REASONING_EFFORT_REJECTED_CODE ? reasoningEffortGuidance(text) : text,
           code,
+          // Only a real rejection status belongs on the failure; a success
+          // status (or none) beside an error code would misstate the wire.
+          ...(usableStatus !== undefined ? { status: usableStatus } : {}),
+          ...(delay !== undefined ? { providerRetryAfterMs: delay } : {}),
+          ...(requestId !== undefined ? { requestId: ProviderRequestId(requestId) } : {}),
         },
       }
     }
@@ -261,6 +363,9 @@ function reasoningEffortGuidance(detail: string): string {
  * @param callerSignal - caller cancellation state; an aborted caller makes any
  *   in-band terminal error an aborted finish.
  * @param requestedModel - request model identity recorded for durable replay.
+ * @param httpFacts - HTTP facts the adapter's fetch wrapper captured from the
+ *   provider response, if it produced one; the `error` event's finish reason
+ *   reads them to classify by status and carry the retry hint/request id.
  * @returns the harness chunks, ending with `usage` then `finish`; throws
  *   `LlmError` (`STREAM_CLOSED`) if the source ends without a terminal event.
  */
@@ -269,6 +374,7 @@ export async function* toStreamChunks(
   contextWindow?: number,
   callerSignal?: AbortSignal,
   requestedModel?: string,
+  httpFacts?: HttpFacts,
 ): AsyncGenerator<StreamChunk> {
   // pi-ai contentIndex ↔ our block index map 1:1 (both count blocks from 0
   // in stream order), but we track ids per index for tool calls.
@@ -347,6 +453,7 @@ export async function* toStreamChunks(
           reason: mapStopReason(
             callerSignal?.aborted ? { ...event.error, stopReason: 'aborted' } : event.error,
             contextWindow,
+            httpFacts,
           ),
         }
         return

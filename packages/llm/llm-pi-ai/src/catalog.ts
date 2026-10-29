@@ -664,16 +664,17 @@ function invalid(provider: string, detail: string): never {
 /**
  * Vendors whose OpenAI-compatible endpoint pi-ai recognizes by name.
  *
- * pi-ai decides the `developer` role from its baseURL detection: a recognized
- * non-OpenAI vendor keeps `system`, while an **unrecognized** URL resolves as
- * OpenAI and keeps `developer`. A custom gateway therefore gets the role
- * OpenAI accepts, which most OpenAI-compatible gateways reject.
+ * This mirrors pi-ai's baseURL detection, which the patched pi-ai no longer
+ * reads into the `developer` role: the Chat Completions protocol sends
+ * `developer` to OpenRouter's `anthropic/` and `openai/` models alone, so a
+ * recognized non-OpenAI vendor and an unrecognized URL alike keep `system`.
+ * The detection still steers the vendor's other compat quirks, so the mirror
+ * stays.
  *
  * The matching is case-sensitive, as pi-ai's own detection is: a base URL
- * written `https://API.Z.AI/v1` is not the endpoint pi-ai looks for, so pi-ai
- * resolves it as OpenAI and sends `developer`. Matching it here as the vendor
- * would hide the very mismatch this list exists to expose. The one host
- * pi-ai lowercases is listed apart.
+ * written `https://API.Z.AI/v1` is not the endpoint pi-ai looks for. Matching
+ * it here as the vendor would hide the very mismatch this list exists to
+ * expose. The one host pi-ai lowercases is listed apart.
  *
  * Exported so a drift guard can compare this mirror against the installed
  * pi-ai's own detection: a vendor host pi-ai learns about later would
@@ -712,15 +713,18 @@ const NON_OPENAI_PROVIDER_IDS: readonly string[] = [
 /**
  * Whether pi-ai would send the `developer` role to this endpoint.
  *
- * This mirrors pi-ai's own `detectCompat` rule for the Chat Completions
- * protocol: a route pi-ai recognizes as a non-OpenAI vendor keeps `system`,
- * and every other route — including one whose URL it cannot identify —
- * resolves as OpenAI and keeps `developer`. The Responses protocols apply no
- * such detection, so they send `developer` wherever nothing says otherwise.
+ * This mirrors the patched pi-ai's rule for the Chat Completions protocol:
+ * the `developer` role travels to OpenRouter alone — and there only for the
+ * `anthropic/` and `openai/` models it serves as OpenAI itself. Every other
+ * endpoint keeps `system`, a recognized non-OpenAI vendor and an unrecognized
+ * URL alike, which inverts pi-ai's pre-patch rule where an unrecognized URL
+ * resolved as OpenAI and kept the role. The Responses protocols apply no such
+ * detection and still send `developer` wherever nothing says otherwise.
  *
- * One vendor answers per model rather than per route: OpenRouter keeps
- * `system` for most of its catalog, but serves the `anthropic/` and `openai/`
- * models as OpenAI itself, and those take the role OpenAI sends.
+ * The per-vendor checks below no longer change the answer — each returns the
+ * `false` the fall-through now does — but they stay so this mirror keeps
+ * tracking pi-ai's detection one-to-one and the drift guard compares like
+ * with like.
  * @param provider - the route key.
  * @param modelId - the model id the request names.
  * @param baseUrl - the endpoint the route serves.
@@ -734,12 +738,17 @@ function sendsDeveloperRole(provider: string, modelId: string, baseUrl: string, 
   if (provider === 'openrouter' || baseUrl.includes('openrouter.ai')) {
     return modelId.startsWith('anthropic/') || modelId.startsWith('openai/')
   }
+  // The checks below mirror pi-ai's vendor detection, which the patch
+  // stripped of its only role consequence: the vendor sends `developer` to
+  // OpenRouter alone, so every branch here returns the `false` the
+  // fall-through does. They stay so the mirror tracks the vendor one-to-one.
   if (NON_OPENAI_PROVIDER_IDS.includes(provider)) return false
   // Case-sensitive, as pi-ai's own detection is: a host written in another
-  // case is an endpoint pi-ai does not recognize, and it resolves as OpenAI.
+  // case is an endpoint pi-ai does not recognize — which, like every
+  // endpoint but OpenRouter's, keeps `system` either way.
   if (RECOGNIZED_NON_OPENAI_HOSTS.some(host => baseUrl.includes(host))) return false
   if (baseUrl.toLowerCase().includes(CASE_INSENSITIVE_NON_OPENAI_HOST)) return false
-  return true
+  return false
 }
 
 /**
@@ -856,11 +865,12 @@ const OPENAI_FAMILY_HOSTS: readonly string[] = [
  * Whether one model's system prompt would travel as the `developer` role to
  * an endpoint that may reject it.
  *
- * The role reaches the wire only for a reasoning model, and only where the
- * endpoint detection resolves the route as OpenAI — which an unrecognized
- * private gateway does. The result is a `400` whose repair is one
- * configuration line, so the route says so now rather than at the first
- * request.
+ * The role reaches the wire only for a reasoning model, and only on the
+ * protocols that still send it: the Responses protocols wherever nothing says
+ * otherwise, and Chat Completions for OpenRouter's `anthropic/` and `openai/`
+ * models alone — the patched vendor keeps `system` everywhere else. The
+ * result is a `400` whose repair is one configuration line, so the route
+ * refuses the model up front rather than failing at the first request.
  *
  * Two things keep a route out of that risk, and neither is a setting:
  *
@@ -900,35 +910,6 @@ function developerRoleRisk(
   const lower = baseUrl.toLowerCase()
   if (OPENAI_FAMILY_HOSTS.some(host => lower.includes(host))) return false
   return true
-}
-
-/**
- * The one warning a route carries when its models would send the `developer`
- * role to an endpoint that may reject it.
- *
- * One warning per route, not one per model: the route is what a configuration
- * surface shows, and a list of eight near-identical sentences buries the one
- * fact the operator needs. The affected models are named inside it.
- *
- * This is a warning rather than a refusal: the endpoint may well accept the
- * role, and a deployment that knows its gateway does should be able to keep
- * the route as it is. Refusing the route would turn a repairable request into
- * an unserviceable one, which is a worse failure than the one it prevents.
- *
- * @param provider - the route key.
- * @param modelIds - the affected models, in configuration order.
- * @returns the route-level diagnostic.
- */
-function developerRoleWarning(provider: string, modelIds: readonly string[]): string {
-  const one = modelIds.length === 1
-  const models = one
-    ? `model "${modelIds[0]}"`
-    : `models ${modelIds.map(id => `"${id}"`).join(', ')}`
-  return `llm-pi-ai: provider "${provider}" ${models} ${one ? 'is a' : 'are'} reasoning model`
-    + `${one ? '' : 's'} on an endpoint pi-ai resolves as OpenAI, so ${one ? 'its' : 'their'} system prompt`
-    + `${one ? '' : 's'} travel${one ? 's' : ''} as the \`developer\` role, which most OpenAI-compatible`
-    + ' gateways reject with a 400. Set `compat.supportsDeveloperRole: false` on this route'
-    + ` or on the model entr${one ? 'y' : 'ies'} so ${one ? 'it' : 'they'} travel as \`system\`.`
 }
 
 /**
@@ -998,12 +979,14 @@ export interface RouteCatalog {
   /** Models that cannot be resolved, retained as diagnostics during stored-config reads. */
   modelErrors: ReadonlyMap<string, string>
   /**
-   * Configuration risks that do not stop the route from serving.
+   * Reserved for route-level diagnostics; resolution currently leaves it
+   * empty.
    *
-   * A warning names a combination that will fail at request time unless the
-   * deployment changes something. Refusing the route instead would turn a
-   * repairable request into an unserviceable one, so the route stays and the
-   * reason travels with it.
+   * The one risk this package used to carry here — a reasoning model whose
+   * system prompt would travel as the `developer` role — is refused instead:
+   * strict resolution rejects the route, deferred resolution drops the model
+   * into `modelErrors`. The field stays so the `RouteCatalog` shape keeps
+   * working for existing readers.
    */
   warnings: readonly string[]
   /**
@@ -1086,7 +1069,6 @@ export function resolveRouteModels(
   // The endpoint the installed catalog names is the one pi-ai's catalog was
   // built against; only an endpoint the deployment chose can reject the role.
   const catalogEndpoint = request.baseURL === undefined
-  const roleRiskModels: string[] = []
   const resolveEntry = (entry: PiAiModelProfile): Model<Api> => {
     assertOfferedCompatFields(provider, `model "${entry.id}"`, entry.compat)
     if (entry.id.length === 0) invalid(provider, 'has a model with an empty id')
@@ -1118,11 +1100,16 @@ export function resolveRouteModels(
     // the model's capability and stays out of request defaults.
     if (entry.maxTokens !== undefined) configuredMaxTokens.set(entry.id, entry.maxTokens)
     const reasoning = resolveModelReasoning(provider, entry, base)
-    // Resolved before the risk is recorded: a model whose compat cannot be
-    // resolved never reaches the wire, so it is not one the route risks.
+    // Resolved before the risk is refused: a model whose compat cannot be
+    // resolved never reaches the wire, so it is not one the route refuses.
     const compat = resolveModelCompat(provider, entry, request.compat, base, api)
     if (developerRoleRisk(provider, entry, baseUrl, reasoning.reasoning, api, request.compat, catalogEndpoint)) {
-      roleRiskModels.push(entry.id)
+      // Both repairs are one line: collapse the role to `system`, or declare
+      // — with `true` — that this endpoint accepts it.
+      invalid(provider, `model "${entry.id}" is a reasoning model on an endpoint pi-ai sends the \`developer\` role`
+        + ' to, which most OpenAI-compatible gateways reject with a 400. Set `compat.supportsDeveloperRole: false`'
+        + ' on this route or on the model entry so its system prompt travels as `system`, or set it to `true` to'
+        + ' declare the endpoint accepts the role')
     }
     return {
       // The installed entry lays the floor, and the fields below override it.
@@ -1156,10 +1143,6 @@ export function resolveRouteModels(
     }
     models.push(model)
   }
-  // One warning per route, naming the models it concerns: a configuration
-  // surface shows the route, and a sentence per model would bury the one fact
-  // the operator needs.
-  if (roleRiskModels.length > 0) warnings.push(developerRoleWarning(provider, roleRiskModels))
   // A later duplicate invalidates the id, including an earlier resolved entry.
   const serviceableModels = models.filter(model => !modelErrors.has(model.id))
   // Per field, not per block: a route may default a switch its completions

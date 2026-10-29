@@ -9,7 +9,7 @@ import type {
   SaveImageAttachment,
   StoredImageAttachment,
 } from '@deepseek-ai/dsh-attachment'
-import LlmRuntime, { createToolResultMessage, createUserMessage, CONTEXT_WINDOW_EXCEEDED_CODE, LlmError, ReasoningEffortId, resolveRetryPolicy, userAgent } from '@deepseek-ai/dsh-llm'
+import LlmRuntime, { createToolResultMessage, createUserMessage, CONTEXT_WINDOW_EXCEEDED_CODE, DEVELOPER_ROLE_REJECTED_CODE, LlmError, QUOTA_EXCEEDED_CODE, ReasoningEffortId, resolveRetryPolicy, userAgent } from '@deepseek-ai/dsh-llm'
 import * as LlmPiAi from '@deepseek-ai/dsh-llm-pi-ai'
 import { PiAiAdapter } from '@deepseek-ai/dsh-llm-pi-ai'
 import { MAX_TIMER_DELAY_MS } from '@deepseek-ai/dsh-timeout'
@@ -365,6 +365,10 @@ describe('PiAiAdapter provider routing', () => {
         openai: {
           apiKeyEnv: 'PI_TEST_KEY',
           baseURL: `${server.url}/api/projects/openai/openai/v1`,
+          // The deployment answers the developer-role refusal for this
+          // private Azure path, so the route resolves and the request goes
+          // out with the headers under test.
+          compat: { supportsDeveloperRole: false },
           headers: { 'api-key': 'test-key', Authorization: '' },
         },
       },
@@ -484,6 +488,86 @@ describe('PiAiAdapter provider routing', () => {
     expect(policy.retryableCodes).toContain('TIMEOUT')
     expect(policy.retryableCodes).not.toContain('REASONING_EFFORT_REJECTED')
     expect(policy.retryableCodes).not.toContain('DEVELOPER_ROLE_REJECTED')
+  })
+
+  it('carries the HTTP status and request id of a server failure', async () => {
+    // The pi-ai error text alone cannot tell a server outage from a refused
+    // request, so the failure carries the facts of the response the endpoint
+    // actually returned: the status, the provider request id, and nothing more.
+    const server = await mockServer([{ status: 500, headers: { 'request-id': 'req-1' }, body: JSON.stringify({ error: { message: 'upstream failed' } }) }])
+    const ctx = await harness(server.url)
+
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+    expect(result.finish.kind).toBe('error')
+    if (result.finish.kind !== 'error') throw new Error('expected an error finish')
+
+    expect(result.finish.failure).toMatchObject({ code: 'SERVER', status: 500, requestId: 'req-1' })
+    expect(result.finish.failure).not.toHaveProperty('providerRetryAfterMs')
+    expect(server.paths).toEqual(['/chat/completions'])
+  })
+
+  it('carries a Retry-After duration from a rate limit', async () => {
+    const server = await mockServer([{ status: 429, headers: { 'retry-after': '2', 'request-id': 'req-2' }, body: 'too many requests' }])
+    const ctx = await harness(server.url)
+
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+
+    expect(result.finish).toMatchObject({ kind: 'error', failure: { code: 'RATE_LIMIT', status: 429, providerRetryAfterMs: 2000, requestId: 'req-2' } })
+  })
+
+  it('parses an HTTP-date Retry-After into a delay', async () => {
+    const server = await mockServer([{ status: 429, headers: { 'retry-after': new Date(Date.now() + 3000).toUTCString() }, body: 'too many requests' }])
+    const ctx = await harness(server.url)
+
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+
+    // The constructor already validates that the delay is positive and finite,
+    // so the assertion holds to that contract instead of racing the wall clock.
+    expect(result.finish).toMatchObject({ kind: 'error', failure: { code: 'RATE_LIMIT', status: 429, providerRetryAfterMs: expect.any(Number) } })
+  })
+
+  it('keeps a quota-named 429 on the quota code', async () => {
+    // A 429 is a rate limit unless the endpoint says otherwise: a body that
+    // names the quota keeps the failure on the quota code so exhausted
+    // accounts stay distinct from merely paced ones.
+    const server = await mockServer([{ status: 429, body: JSON.stringify({ error: { message: 'insufficient quota for this organization' } }) }])
+    const ctx = await harness(server.url)
+
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+    expect(result.finish.kind).toBe('error')
+    if (result.finish.kind !== 'error') throw new Error('expected an error finish')
+
+    expect(result.finish.failure.code).toBe(QUOTA_EXCEEDED_CODE)
+    expect(result.finish.failure.status).toBe(429)
+    expect(result.finish.failure).not.toHaveProperty('providerRetryAfterMs')
+  })
+
+  it('names the rejected developer role when the status carries it', async () => {
+    const server = await mockServer([{ status: 400, body: JSON.stringify({ error: { message: 'the developer role is not supported by this endpoint' } }) }])
+    const ctx = await harness(server.url)
+
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+
+    expect(result.finish).toMatchObject({ kind: 'error', failure: { code: DEVELOPER_ROLE_REJECTED_CODE, status: 400, message: expect.stringContaining('supportsDeveloperRole') } })
+  })
+
+  it('classifies a mid-stream drop without a response status', async () => {
+    // The events stop before the terminal frame, so the failure carries no
+    // HTTP status to classify with and falls to the stream text — which is
+    // not a developer-role or effort refusal, and names no quota.
+    const events = [
+      '{"choices":[{"delta":{"role":"assistant","content":""},"index":0,"finish_reason":null}]}',
+      '{"choices":[{"delta":{"content":"hel"},"index":0,"finish_reason":null}]}',
+    ]
+    const server = await mockServer([{ events }])
+    const ctx = await harness(server.url)
+
+    const result = await assemble(ctx, { model: 'deepseek-flash', messages: [] })
+    expect(result.finish.kind).toBe('error')
+    if (result.finish.kind !== 'error') throw new Error('expected an error finish')
+
+    expect(result.finish.failure.code).toBe('TRANSPORT')
+    expect(result.finish.failure).not.toHaveProperty('status')
   })
 
   it('uses the resolved catalog context window for usage-based overflow detection', async () => {
@@ -781,7 +865,7 @@ describe('provider profile lifecycle', () => {
     expect(server.requests[1]).not.toHaveProperty('reasoning_effort')
   })
 
-  it('keeps the system role on a declared route whose gateway rejects the developer one', async () => {
+  it('keeps the system role on a private gateway, declared or not', async () => {
     vi.stubEnv('PI_TEST_KEY', 'test-key')
     const server = await mockServer([{ events: textEvents }, { events: textEvents }])
     const ctx = new Context()
@@ -793,10 +877,10 @@ describe('provider profile lifecycle', () => {
           api: 'openai-completions',
           baseURL: `${server.url}/v1`,
           models: [
-            // pi-ai sends the system prompt as `developer` to a reasoning
-            // model whenever its URL detection says the endpoint is OpenAI —
-            // which is what an unrecognized private URL resolves to. Most
-            // OpenAI-compatible gateways reject that role.
+            // After the patch pi-ai sends the `developer` role only to the
+            // endpoints it positively reads as OpenAI. An unrecognized
+            // private URL always keeps the `system` role; the declaration
+            // only records that the deployment has answered the question.
             { id: 'acme-think', reasoningEfforts: { off: null, high: 'high' }, compat: { supportsDeveloperRole: false } },
             { id: 'acme-guess', reasoningEfforts: { off: null, high: 'high' } },
           ],
@@ -816,9 +900,9 @@ describe('provider profile lifecycle', () => {
     }
 
     expect(await roles('acme-think')).toEqual(['system'])
-    // The switch is the only thing that changes it: the same route, same
-    // endpoint, same reasoning declaration still gets pi-ai's guess.
-    expect(await roles('acme-guess')).toEqual(['developer'])
+    // The declaration changes nothing on the wire: the same route, the same
+    // endpoint, the same reasoning declaration serves the same roles.
+    expect(await roles('acme-guess')).toEqual(['system'])
   })
 
   it('sends a declared off value as the effort parameter instead of omitting it', async () => {

@@ -61,6 +61,7 @@ import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { toPiContext } from './context.ts'
 import { createModels, getSupportedThinkingLevels } from './models.ts'
 import { toStreamChunks } from './stream.ts'
+import type { HttpFacts } from './stream.ts'
 
 /** One resolution's frozen view: the profiles and the collection built from them. */
 interface PiAiSnapshot {
@@ -377,6 +378,28 @@ export class PiAiAdapter extends LlmAdapter {
             maxBytes: profile.requestImageMaxBytes,
           },
         }, onReplayDegrade)
+      // One facts holder per stream call: the fetch wrapper below records the
+      // HTTP facts of the response each attempt saw (status, headers) into
+      // this same object — cleared at every wrapper entry, written in place.
+      // In place, because the toStreamChunks generator captured the object by
+      // reference at its call site; rebinding would leave it reading the
+      // original empty holder.
+      const httpFacts: HttpFacts = {}
+      const fetchWithFacts: NonNullable<SimpleStreamOptions['fetch']> = async (input, init) => {
+        delete httpFacts.headers
+        delete httpFacts.status
+        // The fetch itself stays outside the guard: a rejected request must
+        // keep its own rejection, not a facts-shaped one.
+        const response = await globalThis.fetch(input, init)
+        try {
+          httpFacts.status = response.status
+          httpFacts.headers = Object.fromEntries(response.headers)
+        } catch (_factsCaptureFailure) {
+          // Facts capture is diagnostics only; reading the response must never
+          // change the request's outcome, so a failure here is dropped.
+        }
+        return response
+      }
       const events = snapshot.models.streamSimple(model, context, {
         ...profileOptions(profile, reasoning, apiKey),
         ...options.temperature === undefined ? {} : { temperature: options.temperature },
@@ -386,8 +409,12 @@ export class PiAiAdapter extends LlmAdapter {
         // Profile headers are deployment-owned; attribution names are
         // Harness-owned and therefore win collisions.
         headers: requestHeaders(profile.headers),
+        // The wrapper records each response's HTTP facts, so an in-stream
+        // failure is classified by the status/headers the provider actually
+        // sent instead of the error text pi-ai flattened.
+        fetch: fetchWithFacts,
       })
-      const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id)[Symbol.asyncIterator]()
+      const iterator = toStreamChunks(events, model.contextWindow, options.signal, model.id, httpFacts)[Symbol.asyncIterator]()
       let exhausted = false
       try {
         while (true) {

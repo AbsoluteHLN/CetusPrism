@@ -38,12 +38,24 @@ const PRESETS = [
 ] as const
 
 const PRESET_ANIMATIONS: Record<(typeof PRESETS)[number], string> = {
-  'tensor-stream': 'hln-cetus-band-glide',
+  'tensor-stream': 'hln-v35-bg-stream-glide',
   'neural-dag': 'hln-v35-bg-dag-drift',
   'fourier-harmonics': 'hln-v35-bg-harmonic-wave',
   'procedural-matrix': 'hln-v35-bg-matrix-pan',
   'simplex-contour': 'hln-v35-bg-stream-pulse',
   'clock-bus': 'hln-v35-bg-bus-clock',
+  'swiss-vector': 'none',
+  quiet: 'none',
+}
+
+/** The second (pulse) layer each preset declares; presets without one stay static. */
+const PRESET_AFTER_ANIMATIONS: Record<(typeof PRESETS)[number], string> = {
+  'tensor-stream': 'hln-v35-bg-stream-pulse',
+  'neural-dag': 'hln-v35-bg-stream-pulse',
+  'fourier-harmonics': 'hln-v35-bg-stream-pulse',
+  'procedural-matrix': 'none',
+  'simplex-contour': 'none',
+  'clock-bus': 'none',
   'swiss-vector': 'none',
   quiet: 'none',
 }
@@ -225,9 +237,9 @@ function renderGeometry(samples: readonly GeometrySample[], draftGrew: boolean, 
     '# Cetus motion and composer geometry',
     '',
     '- Background presets: tensor-stream, neural-dag, fourier-harmonics, procedural-matrix, simplex-contour, clock-bus, swiss-vector, quiet.',
-    '- Root ::after remains unpainted and has no animation for every preset.',
+    '- Root ::after stays painted; tensor-stream, neural-dag, and fourier-harmonics animate it with hln-v35-bg-stream-pulse, the other presets keep it static.',
     '- prefers-reduced-motion disables both root pseudo-element animations.',
-    '- tensor-stream reads its 52s duration and linear easing from local motion tokens.',
+    '- tensor-stream runs hln-v35-bg-stream-glide for 16s with linear easing.',
     '',
     '## Composer matrix',
     '',
@@ -265,7 +277,7 @@ describe('web e2e: Cetus background motion and composer fade', () => {
     await scaffold?.close()
   })
 
-  it('uses one tokenized scene layer and stops all root motion for reduced-motion users', async () => {
+  it('renders both v3.5 ambience layers and stops all root motion for reduced-motion users', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-cetus-motion-presets'))
     await page.emulateMedia({ reducedMotion: 'no-preference' })
     const normal: MotionSample[] = []
@@ -286,23 +298,14 @@ describe('web e2e: Cetus background motion and composer fade', () => {
         }
       }, preset)
       expect(sample.animationName).toBe(PRESET_ANIMATIONS[preset])
-      expect(sample.afterContent).toBe('none')
-      expect(sample.afterAnimation).toBe('none')
+      expect(sample.afterContent).toBe('""')
+      expect(sample.afterAnimation).toBe(PRESET_AFTER_ANIMATIONS[preset])
       normal.push(sample)
     }
 
-    const tokens = await page.locator('#root').evaluate((root) => {
-      const style = getComputedStyle(root)
-      return {
-        duration: style.getPropertyValue('--hln-cetus-bg-motion-duration').trim(),
-        easing: style.getPropertyValue('--hln-cetus-bg-motion-easing').trim(),
-      }
-    })
-    expect(tokens.duration).toBe('52s')
-    expect(tokens.easing).toBe('linear')
     const band = normal.find(sample => sample.preset === 'tensor-stream')
-    expect(band?.animationDuration).toBe(tokens.duration)
-    expect(band?.animationEasing).toBe(tokens.easing)
+    expect(band?.animationDuration).toBe('16s')
+    expect(band?.animationEasing).toBe('linear')
 
     await page.emulateMedia({ reducedMotion: 'reduce' })
     for (const preset of PRESETS) {

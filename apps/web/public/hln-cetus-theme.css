@@ -182,8 +182,6 @@ html body {
 html body #root[data-hln-ui-root] {
   background: transparent;
   min-height: 100vh;
-  --hln-cetus-bg-motion-duration: 52s;
-  --hln-cetus-bg-motion-easing: linear;
   --hln-cetus-composer-fade-size: 36px;
 }
 
@@ -196,39 +194,11 @@ html body #root[data-hln-ui-root] {
    --dsw-specific-sidebar-fill, so each preset reads through the glass while
    text and panels stay crisp. */
 
-/* One-motion contract. The engine stacks two animated layers per preset:
-   the ::before scene and an ::after pulse that paints a full-width hairline
-   at 38% height crossing a full-height line at 61.8% width over the whole
-   #root — it ignores every panel edge and shows through the translucent
-   sidebar. CetusPrism ships one motion layer: the pulse layer is removed for
-   every preset, and the default tensor-stream scene is retuned to a pinned
-   hairline grid whose only moving element is one slow accent band. */
-html body #root[data-hln-ui-root][data-hln-bg-motion]::after {
-  content: none;
-  animation: none;
-}
-
-html body #root[data-hln-bg-motion='tensor-stream']::before {
-  background-image:
-    linear-gradient(90deg, color-mix(in srgb, var(--hln-ui-line) 32%, transparent) 1px, transparent 1px),
-    linear-gradient(180deg, color-mix(in srgb, var(--hln-ui-line) 32%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--hln-ui-accent) 14%, transparent) 50%, transparent 100%);
-  background-size: 48px 48px, 48px 48px, 380px 100%;
-  opacity: 0.5;
-  animation: hln-cetus-band-glide var(--hln-cetus-bg-motion-duration) var(--hln-cetus-bg-motion-easing) infinite;
-}
-
-/* The band sweeps fully offscreen on both ends, so the infinite loop has no
-   visible jump; the two grid layers stay pinned at 0 0. */
-@keyframes hln-cetus-band-glide {
-  from {
-    background-position: 0 0, 0 0, -380px 0;
-  }
-
-  to {
-    background-position: 0 0, 0 0, calc(100% + 380px) 0;
-  }
-}
+/* Full v3.5 ambience. Each preset owns two animated layers on the #root
+   pseudos: the ::before scene and the ::after pulse that paints a full-width
+   hairline at 38% height crossing a full-height line at 61.8% width. Both stay
+   as shipped by KalciriteUI so the catalogue shown in Appearance matches the
+   composition; the reduced-motion block below is the only blanket override. */
 
 /* ---------- Control alignment (v3.5 control contract) ---------- */
 

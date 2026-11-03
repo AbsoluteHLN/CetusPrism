@@ -211,7 +211,8 @@
       if (theme) applyTheme(theme)
       var font = isFont(saved.font) ? saved.font : FONT_MIGRATIONS[saved.font]
       if (font) applyFont(font)
-      if (isCjkFont(saved.cjkFont)) applyCjkFont(saved.cjkFont)
+      var cjk = isCjkFont(saved.cjk) ? saved.cjk : (isCjkFont(saved.cjkFont) ? saved.cjkFont : undefined)
+      if (cjk) applyCjkFont(cjk)
       var bgMotion = isBgMotion(saved.bgMotion) ? saved.bgMotion : BG_MOTION_MIGRATIONS[saved.bgMotion]
       if (bgMotion) applyBgMotion(bgMotion)
     }

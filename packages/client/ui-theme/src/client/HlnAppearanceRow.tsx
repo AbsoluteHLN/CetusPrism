@@ -9,6 +9,7 @@
  */
 import clsx from 'clsx'
 import type { ReactNode } from 'react'
+import { useHlnEnterMotion } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale, PropsRuntime, PropsStore } from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import {
@@ -95,8 +96,9 @@ export function HlnAppearanceRow(
   { t, useStore, setHlnTheme, setHlnFont, setHlnCjk, setHlnBgMotion }: HlnRowComponentProps,
 ) {
   const selection = useStore(s => s)
+  const motionScope = useHlnEnterMotion('item')
   return (
-    <div className={css.group} data-hln-appearance>
+    <div className={css.group} data-hln-appearance ref={motionScope}>
       <div className={css.title}>{t('hln.title')}</div>
 
       <CatalogPanel title={t('hln.theme')} index="01">
@@ -106,6 +108,7 @@ export function HlnAppearanceRow(
             type="button"
             className={css.card}
             data-hln-ui-control
+            data-hln-motion="item"
             data-active={selection.theme === theme.id}
             aria-pressed={selection.theme === theme.id}
             onClick={() => { setHlnTheme(theme.id) }}
@@ -126,6 +129,7 @@ export function HlnAppearanceRow(
             type="button"
             className={clsx(css.card, css.fontCard)}
             data-hln-ui-control
+            data-hln-motion="item"
             data-active={selection.font === font}
             style={{ fontFamily: `var(${HLN_FONT_VARIABLES[font]}, inherit)` }}
             aria-pressed={selection.font === font}
@@ -144,6 +148,7 @@ export function HlnAppearanceRow(
             type="button"
             className={css.card}
             data-hln-ui-control
+            data-hln-motion="item"
             data-active={selection.cjk === cjk}
             aria-pressed={selection.cjk === cjk}
             onClick={() => { setHlnCjk(cjk) }}
@@ -160,6 +165,7 @@ export function HlnAppearanceRow(
             type="button"
             className={css.card}
             data-hln-ui-control
+            data-hln-motion="item"
             data-active={selection.bgMotion === motion}
             aria-pressed={selection.bgMotion === motion}
             onClick={() => { setHlnBgMotion(motion) }}

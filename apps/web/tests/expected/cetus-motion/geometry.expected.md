@@ -1,9 +1,9 @@
 # Cetus motion and composer geometry
 
 - Background presets: tensor-stream, neural-dag, fourier-harmonics, procedural-matrix, simplex-contour, clock-bus, swiss-vector, quiet.
-- Root ::after remains unpainted and has no animation for every preset.
+- Root ::after stays painted; tensor-stream, neural-dag, and fourier-harmonics animate it with hln-v35-bg-stream-pulse, the other presets keep it static.
 - prefers-reduced-motion disables both root pseudo-element animations.
-- tensor-stream reads its 52s duration and linear easing from local motion tokens.
+- tensor-stream runs hln-v35-bg-stream-glide for 16s with linear easing.
 
 ## Composer matrix
 

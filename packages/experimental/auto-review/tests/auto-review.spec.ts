@@ -386,7 +386,13 @@ describe('native review request', () => {
       system: EXPECTED_REVIEW_POLICY,
       temperature: 0,
     })
-    expect(request).not.toHaveProperty('sessionId')
+    // The review request stamps the owning session's identity; adapters map it
+    // to transport metadata such as the x-opencode-session header, which the
+    // routing gateway requires.
+    expect(request.sessionId).toBe(session.id)
+    // The purpose lets adapters apply auxiliary-call policy and keeps the
+    // review out of session-upload accounting.
+    expect(request.purpose).toBe('auto-review')
     expect(request.maxTokens).toBeUndefined()
     expect(request.tools).toBeUndefined()
     expect(request.messages).toHaveLength(1)

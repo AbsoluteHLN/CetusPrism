@@ -608,7 +608,16 @@ async function readDecision(stream: AsyncIterable<StreamChunk>): Promise<AutoRev
   if (!finished) throw new Error('auto-review: reviewer emitted no terminal finish')
   const blocks = assembler.blocks()
   const final = blocks.at(-1)
-  if (final?.type !== 'text' || blocks.slice(0, -1).some(block => block.type !== 'reasoning')) {
+  if (final?.type !== 'text') {
+    // Gateways have been observed to stream the whole reply as reasoning
+    // content with an empty text body; name that symptom instead of folding
+    // it into the generic protocol error.
+    const reasoningOnly = blocks.length > 0 && blocks.every(block => block.type === 'reasoning')
+    throw new Error(reasoningOnly
+      ? 'auto-review: reviewer emitted reasoning blocks but no text block'
+      : 'auto-review: reviewer must emit zero or more reasoning blocks followed by exactly one text block')
+  }
+  if (blocks.slice(0, -1).some(block => block.type !== 'reasoning')) {
     throw new Error('auto-review: reviewer must emit zero or more reasoning blocks followed by exactly one text block')
   }
   return parseDecision(final.text)
@@ -623,9 +632,13 @@ async function classifyRisk(
 ): Promise<AutoReviewDecision> {
   const snapshot = snapshotAutoReview(agent, exec)
   // This review prompt is sent only through ctx.llm.stream and never enters a Session log.
+  // The session identity is still stamped: adapters map it to transport metadata such as
+  // the x-opencode-session header, and routing gateways reject headerless calls outright.
   const options: GenerateOptions = deepFreeze({
     provider: snapshot.provider,
     model: snapshot.model,
+    sessionId: agent.session.id,
+    purpose: 'auto-review',
     system: REVIEW_POLICY,
     messages: [{
       role: 'user',

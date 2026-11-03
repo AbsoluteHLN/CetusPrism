@@ -7,8 +7,11 @@
  */
 
 import { createServer } from 'node:http'
+import { createServer as createHttpsServer } from 'node:https'
+import { readFileSync } from 'node:fs'
 import type { IncomingMessage, ServerResponse, Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { TLSSocket } from 'node:tls'
 import type { Duplex } from 'node:stream'
 import { Context, Service } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -67,6 +70,27 @@ export interface Config {
   compressionLevel?: number
   /** Minimum known response length eligible for gzip; unknown-length streams are eligible. @default 1024 */
   compressionThresholdBytes?: number
+  /**
+   * Mutual-TLS mode. Present = HTTPS with mandatory client certificates:
+   * the server verifies every peer against `ca`, presents `cert`/`key`,
+   * and terminates connections whose certificate serial is revoked.
+   * Absent = plain HTTP (the historical behavior, unchanged).
+   */
+  tls?: TlsConfig
+}
+
+/** Mutual-TLS identities and revocation. All files are PEM. */
+export interface TlsConfig {
+  /** Server certificate chain file (leaf first). */
+  cert: string
+  /** Server private key file. */
+  key: string
+  /** CA bundle used to verify client certificates. */
+  ca: string
+  /** Hex serial numbers revoked before expiry. @default [] */
+  revokedSerials?: string[]
+  /** JSON file (array of hex serial strings) read at activation; merged over `revokedSerials`. */
+  revokedSerialsFile?: string
 }
 
 const DEFAULT_COMPRESSION = 'none' as const
@@ -79,14 +103,55 @@ interface ResolvedConfig extends Config {
   compressionThresholdBytes: number
 }
 
+/** Revocation state shared by activation and runtime reload. */
+interface RevocationState {
+  revoked: ReadonlySet<string>
+}
+
+/** Normalize one serial for denylist comparison: uppercase hex, no separators. */
+function normalizeSerial(serial: string): string {
+  return serial.replace(/[^0-9a-fA-F]/g, '').toUpperCase()
+}
+
+/** Collect the activation-time serial denylist from config and its JSON file. */
+function loadRevokedSerials(tls: Config['tls']): string[] {
+  if (tls === undefined) return []
+  const serials = [...tls.revokedSerials ?? []]
+  if (tls.revokedSerialsFile !== undefined) {
+    const parsed: unknown = JSON.parse(readFileSync(tls.revokedSerialsFile, 'utf8'))
+    if (!Array.isArray(parsed) || parsed.some(entry => typeof entry !== 'string')) {
+      throw new Error(`webserver: revokedSerialsFile "${tls.revokedSerialsFile}" must be a JSON array of serial strings`)
+    }
+    serials.push(...parsed)
+  }
+  return serials.map(normalizeSerial)
+}
+
+/** Extract the peer serial a denylist decision keys on, normalized. */
+function serialOf(peer: import('node:tls').PeerCertificate): string | undefined {
+  const serial = peer.serialNumber
+  return typeof serial === 'string' && serial !== '' ? normalizeSerial(serial) : undefined
+}
+
+/**
+ * The authenticated client certificate of one request, when the connection
+ * is mTLS. Route and upgrade handlers use this to authorize by identity
+ * (subject CN, serial, fingerprint) after the TLS layer authenticated it.
+ * @param req - one server request or upgrade request.
+ * @returns the peer certificate, or undefined on a non-TLS connection.
+ */
+export function peerCertificate(req: IncomingMessage): import('node:tls').PeerCertificate | undefined {
+  const socket = req.socket
+  return socket instanceof TLSSocket ? socket.getPeerCertificate() : undefined
+}
+
 type NodeMiddleware = (
   req: IncomingMessage,
   res: ServerResponse,
   next: () => void,
 ) => void
 
-function createGzipMiddleware(config: ResolvedConfig): NodeMiddleware {
-  // `compression` is typed for Express, but its runtime uses only the
+function createGzipMiddleware(config: ResolvedConfig): NodeMiddleware {  // `compression` is typed for Express, but its runtime uses only the
   // node:http request and response members supplied here.
   const middleware = compressionMiddleware({
     level: config.compressionLevel,
@@ -129,6 +194,13 @@ export class WebServer extends Service {
     compression: z.union([z.const('none'), z.const('gzip')]).default(DEFAULT_COMPRESSION),
     compressionLevel: z.number().step(1).min(0).max(9).default(DEFAULT_COMPRESSION_LEVEL),
     compressionThresholdBytes: z.natural().default(DEFAULT_COMPRESSION_THRESHOLD_BYTES),
+    tls: z.union([z.object({
+      cert: z.string().min(1),
+      key: z.string().min(1),
+      ca: z.string().min(1),
+      revokedSerials: z.array(z.string().min(1)).default([]),
+      revokedSerialsFile: z.union([z.string().min(1), z.const(undefined)]),
+    }), z.const(undefined)]),
   })
 
   private readonly exact = new Map<string, WebRoute>()
@@ -140,11 +212,29 @@ export class WebServer extends Service {
   private server!: Server
   private listenedPort!: number
   private readonly gzip: NodeMiddleware | undefined
+  /** Client-certificate serial denylist; mutable for runtime revocation reload. */
+  private readonly revocation: RevocationState
 
   constructor(ctx: Context, private config: Config) {
     super(ctx, 'webServer')
     const resolved = config as ResolvedConfig
     this.gzip = resolved.compression === 'gzip' ? createGzipMiddleware(resolved) : undefined
+    this.revocation = { revoked: new Set(loadRevokedSerials(config.tls)) }
+  }
+
+  /**
+   * Replace the revoked-serial denylist at runtime (e.g. after an operator
+   * revokes a device). Already-connected sockets are not retroactively
+   * dropped; the refusal applies from the next handshake.
+   * @param serials - hex serial numbers to refuse, replacing the current set.
+   */
+  setRevokedSerials(serials: readonly string[]): void {
+    this.revocation.revoked = new Set(serials.map(normalizeSerial))
+  }
+
+  /** The current revoked-serial denylist (hex, normalized uppercase). */
+  get revokedSerials(): readonly string[] {
+    return [...this.revocation.revoked]
   }
 
   /** The listening port (the OS-assigned value when config.port is 0). */
@@ -240,7 +330,7 @@ export class WebServer extends Service {
     // rejection killing the process on one malformed request (bad %-escape,
     // client dropping mid-body). Per-request failures log and answer 400 —
     // never a process exit.
-    this.server = createServer((req, res) => {
+    const requestListener = (req: IncomingMessage, res: ServerResponse): void => {
       const next = (): void => {
         void handle(req, res).catch((err: unknown) => {
           this.ctx.logger.warn(err instanceof Error ? err : new Error(String(err)))
@@ -254,7 +344,35 @@ export class WebServer extends Service {
       }
       if (this.gzip === undefined) next()
       else this.gzip(req, res, next)
-    })
+    }
+    const tls = this.config.tls
+    if (tls === undefined) {
+      this.server = createServer(requestListener)
+    } else {
+      const revocation = this.revocation
+      // Fail closed: every peer must present a certificate chaining to `ca`.
+      // The CA file is the trust root — there is no fallback to public CAs.
+      const httpsServer = createHttpsServer({
+        cert: readFileSync(tls.cert),
+        key: readFileSync(tls.key),
+        ca: readFileSync(tls.ca),
+        requestCert: true,
+        rejectUnauthorized: true,
+      }, requestListener)
+      // Revocation runs after the handshake (serial denylist): the TLS stack
+      // authenticates, the application decides whether the identity survives.
+      httpsServer.on('secureConnection', (socket) => {
+        const serial = serialOf(socket.getPeerCertificate())
+        if (serial !== undefined && revocation.revoked.has(serial)) {
+          this.ctx.logger.warn(`webserver: refusing revoked client certificate ${serial}`)
+          socket.destroy()
+        }
+      })
+      // https.Server is runtime-compatible with every member this service
+      // uses (listen/close/closeAllConnections/on/address); the http.Server
+      // field type keeps the two modes uniform.
+      this.server = httpsServer as unknown as Server
+    }
     this.server.on('upgrade', (req, socket, head) => {
       const onError = (error: Error): void => {
         this.ctx.logger.warn(error)

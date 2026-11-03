@@ -61,6 +61,12 @@ export interface ProviderEditorProps {
    * override every one of them and the card does not offer it.
    */
   declared?: boolean
+  /**
+   * Credential reference this page manages when the profile names none. The
+   * adapter's provider-native variable wins over the name derived from the
+   * route id, so the card shows the variable the provider actually reads.
+   */
+  managedKeyRef?: string
   /** The owning namespace view (schema, layers, secrets). */
   namespace: SettingsNamespaceView
   /** Settings-owned synchronous schema and immutable path operations. */
@@ -150,12 +156,13 @@ function refFor(
   namespace: SettingsNamespaceView,
   path: readonly string[],
   provider: string,
+  managedKeyRef: string | undefined,
 ): string {
   const profile = schema.getPath(namespace.value, path)
   const named = typeof profile === 'object' && profile !== null
     ? (profile as { apiKeyEnv?: unknown }).apiKeyEnv
     : undefined
-  return typeof named === 'string' && named.length > 0 ? named : deriveKeyRef(provider)
+  return typeof named === 'string' && named.length > 0 ? named : (managedKeyRef ?? deriveKeyRef(provider))
 }
 
 /**
@@ -187,7 +194,7 @@ export function ProviderEditor(props: ProviderEditorProps): ReactNode {
   const accountProvider = props.provider === 'deepseek-account'
   // Account settings use a configurable Cordis entry id.
   const layout = accountProvider ? 'deepseek' : layoutOf(namespace.ns)
-  const keyRef = refFor(schema, namespace, settingsPath, props.provider)
+  const keyRef = refFor(schema, namespace, settingsPath, props.provider, props.managedKeyRef)
   // The same schema read the create card makes, so the choices offered here
   // and there cannot drift apart: both come from the adapter's own `Config`.
   // Only the pi-ai layout has a per-route protocol for the read to find, and

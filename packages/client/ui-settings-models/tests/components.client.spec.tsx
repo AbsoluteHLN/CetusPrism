@@ -19,7 +19,7 @@ import {
 } from '../src/client/DeepSeekModelsEditor.tsx'
 import { apiKeyFailure } from '../src/client/apiKey.ts'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
-import { deriveKeyRef, ModelsSettingsStore } from '../src/client/store.ts'
+import { credentialRefsOf, deriveKeyRef, managedKeyRefOf, ModelsSettingsStore } from '../src/client/store.ts'
 import { createModelsOperations } from '../src/client/operations.ts'
 import type { ModelsOperations } from '../src/client/operations.ts'
 import type { ProviderRow } from '../src/client/store.ts'
@@ -540,6 +540,21 @@ describe('ModelsSection', () => {
   it('derives conventional credential references from route ids', () => {
     expect(deriveKeyRef('anthropic')).toBe('ANTHROPIC_API_KEY')
     expect(deriveKeyRef('minimax-cn')).toBe('MINIMAX_CN_API_KEY')
+  })
+
+  it('prefers the provider-native credential variable the adapter declares', () => {
+    const entry = {
+      provider: 'opencode-go',
+      displayName: 'OpenCode Go',
+      settingsNs: 'llm-pi-ai',
+      settingsPath: ['providers', 'opencode-go'],
+      nativeAuth: { env: ['OPENCODE_API_KEY', 'OPENCODE_GO_API_KEY'], oauth: false },
+    }
+    expect(managedKeyRefOf(entry)).toBe('OPENCODE_API_KEY')
+    expect(credentialRefsOf(entry, undefined))
+      .toEqual(['OPENCODE_GO_API_KEY', 'OPENCODE_API_KEY'])
+    // A profile that names its own variable is the only reference checked.
+    expect(credentialRefsOf(entry, 'CUSTOM_KEY')).toEqual(['CUSTOM_KEY'])
   })
 
   it('uses one stable provider identity in action copy', () => {

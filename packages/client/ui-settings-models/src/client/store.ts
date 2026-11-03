@@ -147,6 +147,34 @@ export function deriveKeyRef(provider: string): string {
 }
 
 /**
+ * Credential references the page checks for one route. A profile that names
+ * its own `apiKeyEnv` has exactly one; otherwise the page checks the name it
+ * manages plus the provider-native names the adapter declares, so a key
+ * exported under the provider's own variable still shows as configured.
+ * @param entry - the configurable-provider directory entry.
+ * @param apiKeyEnv - the profile's own credential reference, when it names one.
+ * @returns reference names in precedence order, without duplicates.
+ */
+export function credentialRefsOf(
+  entry: LlmConfigurableProvider,
+  apiKeyEnv: string | undefined,
+): readonly string[] {
+  if (apiKeyEnv !== undefined) return [apiKeyEnv]
+  return [...new Set([deriveKeyRef(entry.provider), ...entry.nativeAuth?.env ?? []])]
+}
+
+/**
+ * The credential reference the page manages for a route when the profile names
+ * none: the provider's own variable when the adapter ships it, else the
+ * conventional derived name.
+ * @param entry - the configurable-provider directory entry.
+ * @returns the reference a typed key is stored under.
+ */
+export function managedKeyRefOf(entry: LlmConfigurableProvider): string {
+  return entry.nativeAuth?.env[0] ?? deriveKeyRef(entry.provider)
+}
+
+/**
  * The wire protocols a hand-declared route may name, read out of the owning
  * namespace's own schema. This stays a schema read rather than a wire field so
  * the choices the page offers cannot drift from the ones the adapter accepts:
@@ -279,7 +307,9 @@ export class ModelsSettingsStore {
           && catalog.value.groups.some(group => group.id === 'deepseek-account' && group.models.length > 0)
       }
     }
-    const refs = [...new Set(rows.filter(row => row.entry.provider !== 'deepseek-account').map(row => row.apiKeyEnv ?? deriveKeyRef(row.entry.provider)))]
+    const refs = [...new Set(rows
+      .filter(row => row.entry.provider !== 'deepseek-account')
+      .flatMap(row => credentialRefsOf(row.entry, row.apiKeyEnv)))]
     let credentials: Record<string, CredentialInfo> = {}
     let credentialError: string | null = null
     if (refs.length > 0) {
@@ -298,8 +328,11 @@ export class ModelsSettingsStore {
       s.writable = writable
       s.rows = rows.filter(row => row.entry.provider !== 'deepseek-account' || row.accountAvailable === true).map((row) => {
         if (row.entry.provider === 'deepseek-account') return row
-        const named = row.apiKeyEnv === undefined ? undefined : credentials[row.apiKeyEnv]
-        const derived = row.apiKeyEnv !== undefined ? undefined : credentials[deriveKeyRef(row.entry.provider)]
+        const candidates = credentialRefsOf(row.entry, row.apiKeyEnv)
+          .map(ref => credentials[ref])
+          .filter(credential => credential !== undefined)
+        const named = row.apiKeyEnv === undefined ? undefined : candidates[0]
+        const derived = row.apiKeyEnv === undefined ? candidates[0] : undefined
         return {
           ...row,
           ...named === undefined ? {} : { credential: named },

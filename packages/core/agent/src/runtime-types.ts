@@ -7,10 +7,11 @@
 
 import type { Context } from '@deepseek-ai/cordis'
 import type { Scoped } from '@deepseek-ai/dsh-scope'
+import type { Scope } from '@deepseek-ai/dsh-scope'
 import type {
   LlmAttemptId, LlmCallConfig, LlmFailure, MessageId, ReasoningEffortId, ResolvedRetryPolicy, StreamChunk,
 } from '@deepseek-ai/dsh-llm'
-import type { AgentCancelCause, Session, SessionSeq, UserMessage } from '@deepseek-ai/dsh-session'
+import type { AgentCancelCause, Session, SessionId, SessionSeq, UserMessage } from '@deepseek-ai/dsh-session'
 export type { AgentCancelCause } from '@deepseek-ai/dsh-session'
 import type { Agent, InboxTarget } from './types.ts'
 export type { Agent } from './types.ts'
@@ -123,6 +124,31 @@ export type RequestErrorAction = { kind: 'retry' } | undefined
 
 /** Why a session lifecycle began; seeded creates are `startup`, while persisted loads are `resume`. */
 export type SessionStartSource = 'startup' | 'resume' | 'clear' | 'compact'
+
+/**
+ * The lifecycle-owner face of one agent driver: the full public {@link Agent}
+ * runtime face plus the scoped registration boundary the lifecycle owner
+ * unwinds after the driver exits. `ReactLoopAgent` and external-runtime
+ * drivers both satisfy this contract, which is what lets a factory build
+ * either without knowing which one it got.
+ */
+export interface AgentDriver extends Agent {
+  /** Agent-scoped registration boundary; the lifecycle owner unwinds it after the driver exits. */
+  readonly scope: Scope
+}
+
+/**
+ * Builds the driver for one agent/session identity. The factory is chosen by
+ * the creation caller (e.g. an external-runtime binding), not by config: one
+ * session gets exactly one driver for its whole lifecycle, so the turn
+ * vocabulary in its log always comes from a single owner.
+ */
+export type AgentDriverFactory = (
+  loopCtx: Context,
+  id: SessionId,
+  options: AgentOptions,
+  session: Session,
+) => AgentDriver
 
 /** One process-local live assistant streaming publication. */
 export type AssistantStreamFrame =

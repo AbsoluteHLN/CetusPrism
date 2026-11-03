@@ -47,6 +47,9 @@
       "optional": true
     }
   },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
   "devDependencies": {
     "@deepseek-ai/dsh-llm": "workspace:*",
     "@deepseek-ai/dsh-scope": "workspace:*",

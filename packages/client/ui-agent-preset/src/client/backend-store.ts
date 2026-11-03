@@ -93,6 +93,21 @@ export function backendOptions(
 }
 
 /**
+ * The one-button rule.
+ *
+ * While no external runtime is installed, DSH is the only execution mode
+ * there is to choose, so the composer shows one preset chip and no backend
+ * chip: a menu with a single working entry is noise, not a choice. Any probe
+ * answer from an external runtime — ready or incompatible — means a runtime
+ * exists on this machine and the second chip earns its seat.
+ * @param options - the catalog rows as the composer renders them.
+ * @returns whether the backend chip has anything real to offer.
+ */
+export function backendSeatVisible(options: readonly AgentBackendOption[]): boolean {
+  return options.some(option => option.id !== 'dsh' && option.availability !== 'unconfigured')
+}
+
+/**
  * The controller behind the composer backend chip.
  *
  * It reads the catalog the host publishes and answers one question per pick:

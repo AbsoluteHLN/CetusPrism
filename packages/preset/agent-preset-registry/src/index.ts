@@ -57,6 +57,24 @@ export {
   type RuntimeResponseFrame,
 } from './external-runtime.ts'
 export {
+  PiRuntimeAdapter,
+  type PiRuntimeAdapterOptions,
+} from './external-runtime-pi.ts'
+export {
+  ZCodeRuntimeAdapter,
+  type ZCodeRuntimeAdapterOptions,
+} from './external-runtime-zcode.ts'
+export {
+  openRuntimeTransport,
+  RuntimeRequests,
+  type RuntimeTransport,
+  type RuntimeTransportOptions,
+} from './external-runtime-transport.ts'
+export {
+  ExternalAgentDriver,
+  type ExternalAgentDriverOptions,
+} from './external-agent-driver.ts'
+export {
   BUILTIN_AGENT_PROTOCOL_VERSION,
   BUILTIN_AGENT_RELEASE,
   BuiltinAgentConfigError,
@@ -79,6 +97,14 @@ export {
   type BuiltinAgentRequest,
   type PreparedBuiltinAgent,
 } from './builtin-agent-adapter.ts'
+export {
+  assertUpstreamSource,
+  CommandFailure,
+  installExternalRuntimeFromSource,
+  type ExternalRuntimeSourceRecipe,
+  type SourceBuildOptions,
+  type SourceBuildReceipt,
+} from './source-build.ts'
 
 declare module '@deepseek-ai/cordis' {
   interface Context {

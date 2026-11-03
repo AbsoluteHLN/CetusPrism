@@ -227,13 +227,45 @@ export function compareVersions(left: string, right: string): number {
  */
 function readVersion(command: string, env: Record<string, string>): string | undefined {
   for (const flag of ['--version', 'version']) {
-    const result = spawnSync(command, [flag], { encoding: 'utf8', env: { ...process.env, ...env } })
-    if (result.error !== undefined || result.status !== 0) continue
-    const output = `${result.stdout || ''}\n${result.stderr || ''}`.trim()
-    const match = output.match(/\d+\.\d+\.\d+[^\s]*/)
-    if (match !== null) return match[0]
+    const attempt = probeSpawn(command, [flag], env)
+    if (attempt.kind === 'result' && attempt.result.status === 0) {
+      const match = `${attempt.result.stdout || ''}\n${attempt.result.stderr || ''}`.trim().match(/\d+\.\d+\.\d+[^\s]*/)
+      if (match !== null) return match[0]
+    }
   }
   return undefined
+}
+
+/**
+ * The outcome of one probe attempt: the child's result, or why it never ran.
+ */
+type ProbeAttempt =
+  | { readonly kind: 'result'; readonly result: ReturnType<typeof spawnSync> }
+  | { readonly kind: 'launch'; readonly code: string | undefined; readonly message: string }
+
+/**
+ * Probe one command, retrying through the shell when the direct spawn cannot
+ * launch it.
+ *
+ * On Windows, npm-distributed runtimes are .cmd shims and Node refuses to
+ * spawn .cmd without a shell (EINVAL). The command is operator-configured
+ * either way, so the shell retry carries no new trust level; ENOENT stays a
+ * direct failure because the shell would only re-report it.
+ * @param command - the executable to run.
+ * @param args - the probe arguments.
+ * @param env - the environment for the probe.
+ * @returns the child result, or the launch failure that stopped the probe.
+ */
+function probeSpawn(command: string, args: readonly string[], env: Record<string, string>): ProbeAttempt {
+  const base = { encoding: 'utf8' as const, env: { ...process.env, ...env } }
+  const direct = spawnSync(command, args, base)
+  if (direct.error === undefined) return { kind: 'result', result: direct }
+  if ((direct.error as NodeJS.ErrnoException).code === 'EINVAL' && process.platform === 'win32') {
+    const shelled = spawnSync(command, args, { ...base, shell: true })
+    if (shelled.error === undefined) return { kind: 'result', result: shelled }
+  }
+  const code = (direct.error as NodeJS.ErrnoException).code
+  return { kind: 'launch', code, message: String(direct.error.message || direct.error) }
 }
 
 /**
@@ -254,12 +286,11 @@ export function locateExternalRuntime(
   const upstream = EXTERNAL_RUNTIME_UPSTREAMS[id]
   const command = options.command ?? upstream.command
   const env = options.env ?? {}
-  const probe = spawnSync(command, ['--version'], { encoding: 'utf8', env: { ...process.env, ...env } })
-  if (probe.error !== undefined) {
-    const code = (probe.error as NodeJS.ErrnoException).code
-    const reason = code === 'ENOENT'
+  const attempt = probeSpawn(command, ['--version'], env)
+  if (attempt.kind === 'launch') {
+    const reason = attempt.code === 'ENOENT'
       ? `${upstream.name} runtime is not installed (${command} not found); install it from ${upstream.repo}`
-      : `${upstream.name} runtime could not be probed: ${String(probe.error.message || probe.error)}`
+      : `${upstream.name} runtime could not be probed: ${attempt.message}`
     return { version: 'unknown', source: upstream.repo, compatible: false, reason }
   }
   const version = options.version ?? readVersion(command, env)
@@ -339,4 +370,12 @@ export interface ExternalRuntimeAdapter {
   request(method: string, params?: unknown): Promise<unknown>
   /** Subscribe to the normalized event stream. */
   subscribe(listener: (event: ExternalRuntimeEvent) => void): () => void
+  /**
+   * Run one user message as one turn until the runtime reaches idle.
+   * Resolves when the turn settled; rejects when the turn could not complete
+   * (transport loss, runtime refusal) or the signal aborted it.
+   */
+  runTurn(input: string, signal: AbortSignal): Promise<void>
+  /** Interrupt the turn the runtime is currently executing, if any. */
+  abortTurn(): Promise<void>
 }

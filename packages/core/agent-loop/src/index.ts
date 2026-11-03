@@ -13,6 +13,8 @@ import { z as zod } from 'zod'
 import { brandString } from '@deepseek-ai/dsh-brand'
 import type {
   Agent,
+  AgentDriver,
+  AgentDriverFactory,
   AgentFactory,
   AgentHandle,
   AgentOptions,
@@ -203,7 +205,7 @@ interface StoredSession {
 
 /** Prepared-but-unpublished agent resources sharing one memoized teardown. */
 interface PreparedAgent {
-  agent: ReactLoopAgent
+  agent: AgentDriver
   /** Aborts when the factory unloads, the caller cancels, or teardown begins — ends any setup await. */
   signal: AbortSignal
   /** Enter both registries and await creation listeners. */
@@ -240,6 +242,7 @@ declare module '@deepseek-ai/cordis' {
 }
 
 export { DEFAULT_MAX_PARALLEL_TOOL_CALLS }
+export { ReactLoopInbox } from './inbox.ts'
 
 /**
  * One launcher-selected session identity for a configured agent. `resume`
@@ -484,6 +487,7 @@ export class AgentLoop extends Service implements AgentFactory {
     callerSignal?: AbortSignal,
     handle?: SessionHandle,
     parentAgent?: Agent,
+    driver?: AgentDriverFactory,
   ): PreparedAgent {
     assertAgentOptions(options)
     ownerCtx.fiber.assertActive()
@@ -514,7 +518,7 @@ export class AgentLoop extends Service implements AgentFactory {
     callerSignal?.addEventListener('abort', onCallerAbort, { once: true })
     this.ownership.signal.addEventListener('abort', onFactoryTeardown, { once: true })
 
-    let machine: ReactLoopAgent | undefined
+    let machine: AgentDriver | undefined
     let detachSession: (() => void) | undefined
     let detachAgent: (() => void) | undefined
     let disposing: Promise<void> | undefined
@@ -573,7 +577,9 @@ export class AgentLoop extends Service implements AgentFactory {
     let unfollowOwner: () => Promise<void> | void
     try {
       unfollowOwner = ownerCtx.effect(function* () {
-        machine = new ReactLoopAgent(loopCtx, id, options, session)
+        // The caller-chosen driver (external-runtime bindings) replaces the
+        // default React loop; either way one session gets one driver owner.
+        machine = driver?.(loopCtx, id, options, session) ?? new ReactLoopAgent(loopCtx, id, options, session)
         machineReady.resolve()
         yield machine.scope.rawDispose
         yield () => {
@@ -744,6 +750,7 @@ export class AgentLoop extends Service implements AgentFactory {
         'startup',
         stored,
         options.parentAgent,
+        options.driver,
       )
     })()
     this.ownership.trackWrapper(published)
@@ -761,12 +768,13 @@ export class AgentLoop extends Service implements AgentFactory {
     source: SessionStartSource,
     stored?: StoredSession,
     parentAgent?: Agent,
+    driver?: AgentDriverFactory,
   ): Promise<AgentHandle> {
     using ownedPreparation = preparation
     const session = ownedPreparation.session
     let prepared: PreparedAgent
     try {
-      prepared = this.prepare(ownerCtx, id, agentOptions, session, signal, stored?.handle, parentAgent)
+      prepared = this.prepare(ownerCtx, id, agentOptions, session, signal, stored?.handle, parentAgent, driver)
     } catch (error: unknown) {
       await stored?.handle.close().catch(() => {})
       throw error
@@ -879,6 +887,7 @@ export class AgentLoop extends Service implements AgentFactory {
           'resume',
           owned,
           options.parentAgent,
+          options.driver,
         )
       } finally {
         preparation?.[Symbol.dispose]()

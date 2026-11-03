@@ -14,10 +14,11 @@ import type { Scoped } from '@deepseek-ai/dsh-scope'
 import type { SessionEvent, SessionId, SessionLogOffset } from '@deepseek-ai/dsh-session'
 import { installTurnArchiveAdmission } from './archive-admission.ts'
 import type { Agent } from './types.ts'
-import type { AgentOptions, SessionStartSource } from './runtime-types.ts'
+import type { AgentOptions, AgentDriverFactory, SessionStartSource } from './runtime-types.ts'
 
 export * from './runtime-types.ts'
 export * from './types.ts'
+export { AgentInbox, inboxProjectionDefinition, inboxProjectionSchema } from './inbox.ts'
 export type * from './projection.ts'
 export * from './consumed-work.ts'
 export * from './model-selection.ts'
@@ -95,6 +96,14 @@ export interface CreateAgentOptions {
   readonly seed?: readonly SessionEvent[]
   /** Per-agent options (model, …). */
   readonly agentOptions?: AgentOptions
+  /**
+   * An explicit driver factory for this agent's whole lifecycle, chosen by the
+   * caller (e.g. an external-runtime backend binding). Omission builds the
+   * factory's default React loop driver. The same driver MUST be supplied
+   * again when resuming this session, or the resumed log would change turn
+   * vocabulary mid-history.
+   */
+  readonly driver?: AgentDriverFactory
   /** Optional creation-only cancellation signal; detached before the returned handle becomes visible. */
   readonly signal?: AbortSignal
   /**
@@ -129,6 +138,13 @@ export interface ResumeAgentOptions {
   readonly parentAgent?: Agent
   /** Per-agent options (model, …). */
   readonly agentOptions?: AgentOptions
+  /**
+   * The driver factory for the resumed lifecycle. It MUST match the driver
+   * that wrote the persisted log (see {@link CreateAgentOptions.driver}):
+   * resuming an external-runtime session without its driver would let a
+   * different turn vocabulary claim foreign history.
+   */
+  readonly driver?: AgentDriverFactory
   /** Optional creation-only cancellation signal for persistence load/setup; detached before return. */
   readonly signal?: AbortSignal
   /**

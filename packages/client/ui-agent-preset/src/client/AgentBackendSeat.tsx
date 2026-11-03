@@ -20,7 +20,7 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 // Type-only: pulls the ui-conversation SlotMap merge (the composer seat).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
-import type { AgentBackendOption, AgentBackendSeatState } from './backend-store.ts'
+import { backendSeatVisible, type AgentBackendOption, type AgentBackendSeatState } from './backend-store.ts'
 import css from './AgentBackendSeat.module.css'
 
 /** Registration-side business face for the backend chip. */
@@ -94,7 +94,9 @@ export function AgentBackendSeat({
 
   // A deployment that publishes no backend offers nothing to choose; DSH is
   // always there, so this only happens when the service is absent entirely.
-  if (state.status === 'idle' || state.status === 'loading' || state.options.length === 0) return null
+  // The one-button rule keeps the chip hidden while no external runtime is
+  // installed: one preset chip, no single-entry menu.
+  if (state.status === 'idle' || state.status === 'loading' || state.options.length === 0 || !backendSeatVisible(state.options)) return null
 
   const current = state.options.find(option => option.id === state.current) ?? state.options[0]
   const label = current?.name ?? state.current

@@ -7,7 +7,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { describe, expect, it } from 'vitest'
 import { RemoteError, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import type { AgentBackendRow } from '@deepseek-ai/dsh-agent-preset-registry/types'
-import { AgentBackendSeatController, backendOptions, readBackendCatalog } from '../src/client/backend-store.ts'
+import { AgentBackendSeatController, backendOptions, backendSeatVisible, readBackendCatalog } from '../src/client/backend-store.ts'
 
 const BACKENDS: AgentBackendRow[] = [
   { id: 'dsh', name: 'DSH', version: 'native', source: 'cetusprism', availability: 'ready', capabilities: { cancel: true, resume: true, tools: true, modelRouting: 'cetus' } },
@@ -108,5 +108,26 @@ describe('backend options', () => {
       id: 'dsh', name: 'DSH', version: 'native', availability: 'ready',
     })
     expect(options[1]).toMatchObject({ reason: 'Pi runtime is not configured' })
+  })
+})
+
+describe('the one-button rule', () => {
+  const wire = (row: { id: 'dsh' | 'pi' | 'zcode'; name: string; version: string; availability: 'ready' | 'unconfigured' | 'incompatible'; reason?: string }) => row
+  const dsh = wire({ id: 'dsh', name: 'DSH', version: 'native', availability: 'ready' })
+  const piUnconfigured = wire({ id: 'pi', name: 'Pi', version: 'unconfigured', availability: 'unconfigured', reason: 'Pi runtime is not configured' })
+  const zcodeUnconfigured = wire({ id: 'zcode', name: 'ZCode', version: 'unconfigured', availability: 'unconfigured', reason: 'ZCode runtime is not configured' })
+  const piReady = wire({ id: 'pi', name: 'Pi', version: '0.87.0', availability: 'ready' })
+  const zcodeIncompatible = wire({ id: 'zcode', name: 'ZCode', version: '3.16.2', availability: 'incompatible', reason: 'protocol version 2 is not supported' })
+
+  it('hides the seat while only DSH is installed', () => {
+    expect(backendSeatVisible(backendOptions([dsh, piUnconfigured, zcodeUnconfigured]))).toBe(false)
+  })
+
+  it('shows the seat once any external runtime answered a probe', () => {
+    // Ready counts: a runtime this build can drive is the whole point.
+    expect(backendSeatVisible(backendOptions([dsh, piReady]))).toBe(true)
+    // Incompatible counts too: the runtime exists, so choosing is real even
+    // when the answer is a refusal the chip explains.
+    expect(backendSeatVisible(backendOptions([dsh, zcodeIncompatible]))).toBe(true)
   })
 })

@@ -165,7 +165,8 @@ describe('webserver mutual TLS', () => {
       kind: 'exact',
       path: '/whoami',
       handler: (req, res) => {
-        observed = peerCertificate(req).subject.CN
+        const subject = peerCertificate(req)?.subject
+        observed = typeof subject?.CN === 'string' ? subject.CN : undefined
         res.writeHead(200)
         res.end()
       },

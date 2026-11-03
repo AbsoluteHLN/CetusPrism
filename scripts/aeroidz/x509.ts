@@ -39,7 +39,12 @@ function tlv(tag: number, content: Uint8Array): Uint8Array {
 
 function oidBytes(dotted: string): Uint8Array {
   const parts = dotted.split('.').map(Number)
-  const out = [parts[0] * 40 + parts[1]]
+  const first = parts[0]
+  const second = parts[1]
+  if (first === undefined || second === undefined) {
+    throw new Error(`aeroidz: OID "${dotted}" needs at least two arcs`)
+  }
+  const out = [first * 40 + second]
   for (const part of parts.slice(2)) {
     let value = part
     const stack = [value & 0x7f]
@@ -274,7 +279,8 @@ export function parsePemCertificates(pem: string): Uint8Array[] {
   const pattern = /-----BEGIN CERTIFICATE-----([^-]+)-----END CERTIFICATE-----/g
   const out: Uint8Array[] = []
   for (let match = pattern.exec(pem); match !== null; match = pattern.exec(pem)) {
-    out.push(new Uint8Array(Buffer.from(match[1].replace(/\s+/g, ''), 'base64')))
+    // The pattern requires the base64 body, so capture group 1 always exists.
+    out.push(new Uint8Array(Buffer.from(match[1]!.replace(/\s+/g, ''), 'base64')))
   }
   return out
 }

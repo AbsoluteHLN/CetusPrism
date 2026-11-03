@@ -76,7 +76,7 @@ export interface Config {
    * and terminates connections whose certificate serial is revoked.
    * Absent = plain HTTP (the historical behavior, unchanged).
    */
-  tls?: TlsConfig
+  tls?: TlsConfig | undefined
 }
 
 /** Mutual-TLS identities and revocation. All files are PEM. */
@@ -90,7 +90,7 @@ export interface TlsConfig {
   /** Hex serial numbers revoked before expiry. @default [] */
   revokedSerials?: string[]
   /** JSON file (array of hex serial strings) read at activation; merged over `revokedSerials`. */
-  revokedSerialsFile?: string
+  revokedSerialsFile?: string | undefined
 }
 
 const DEFAULT_COMPRESSION = 'none' as const

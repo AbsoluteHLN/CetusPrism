@@ -37,10 +37,8 @@ verify-evidence/
 packages/*/*/dist/
 apps/electron/src-tauri/target/
 dev-docs/archive/
-examples/*/*.jsonl
 .storages/
 .sessions/
-examples/*/.sessions/
 coverage/
 .coverage-times.json
 .doc-typecheck-*/
@@ -69,6 +67,10 @@ apps/web/dist/
 .dsh-build/
 .playwright-mcp/
 .orig
+# Agent working memory kept outside version control.
+.workbuddy/
+# A relative path handed to a tool as `undefined` produces this scratch root.
+/undefined/
 .worktrees/
 worktrees/
 .agents/worktrees/

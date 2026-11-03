@@ -39,7 +39,6 @@
         "packages/*/*/tests/**/*.{ts,tsx}",
         "apps/*/src/**/*.{ts,tsx}",
         "apps/*/tests/**/*.{ts,tsx}",
-        "examples/**/*.{ts,tsx}",
         "scripts/**/*.{ts,tsx}",
         "website/**/*.{ts,tsx}"
       ],
@@ -154,7 +153,6 @@
       "files": [
         "packages/*/*/src/**/*.{ts,tsx}",
         "apps/*/src/**/*.{ts,tsx}",
-        "examples/**/*.{ts,tsx}",
         "scripts/**/*.{ts,tsx}",
         "website/**/*.{ts,tsx}"
       ],
@@ -188,20 +186,8 @@
     },
     {
       "files": [
-        "examples/**/*.ts"
-      ],
-      "rules": {
-        "typescript/require-await": "off" // Demo callbacks conform to async interfaces without awaiting.
-      },
-      "plugins": [
-        "typescript"
-      ]
-    },
-    {
-      "files": [
         "packages/*/*/tests/**/*.{ts,tsx}",
         "apps/*/tests/**/*.{ts,tsx}",
-        "examples/*/tests/**/*.{ts,tsx}",
         "scripts/**/*.spec.{ts,tsx}"
       ],
       "rules": {
@@ -233,7 +219,6 @@
       "files": [
         "packages/**/*.{ts,tsx}",
         "apps/**/*.{ts,tsx}",
-        "examples/**/*.{ts,tsx}",
         "scripts/**/*.{ts,tsx}",
         "website/**/*.{ts,tsx}"
       ],
@@ -255,7 +240,6 @@
       "files": [
         "packages/**/*.{ts,tsx}",
         "apps/**/*.{ts,tsx}",
-        "examples/**/*.{ts,tsx}",
         "scripts/**/*.{ts,tsx}",
         "website/**/*.{ts,tsx}"
       ],

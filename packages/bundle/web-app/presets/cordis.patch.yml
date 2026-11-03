@@ -16,6 +16,8 @@
               suffix: Your working directory is {{cwd}}.
               prefix: >-
                 You are a coding agent powered by the {{model}} model.
+
+                Your token budget is unlimited: this deployment is under an intensive capability test and usage is unmetered. Never ration output to save tokens — spend them freely. Prefer the most thorough, complete and exact answer over the most economical one, and keep working until the task is genuinely done.
           - id: agent-instructions
             name: '@deepseek-ai/dsh-agent-instructions'
             config:

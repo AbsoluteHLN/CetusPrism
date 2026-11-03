@@ -524,6 +524,18 @@ interface LlmConfigurableProvider {
    * the route rather than as the route's failure.
    */
   modelErrors?: readonly string[]
+  /**
+   * Provider-native credential variables, when the adapter ships knowledge of
+   * them. Configuration surfaces name these for detection and help text
+   * instead of deriving a guess from the route id; a stored profile's
+   * `apiKeyEnv` still takes precedence.
+   */
+  nativeAuth?: {
+    /** Environment-variable names the provider itself reads, in precedence order. */
+    readonly env: readonly string[]
+    /** Whether the provider also supports an interactive OAuth login. */
+    readonly oauth: boolean
+  }
 }
 ```
 
@@ -661,7 +673,7 @@ interface GenerateOptions {
    * map the purpose to model-hidden transport metadata or purpose-specific
    * generation policy. Ordinary conversation requests leave it unset.
    */
-  purpose?: 'compaction' | 'session-title'
+  purpose?: 'compaction' | 'session-title' | 'auto-review'
 }
 ```
 

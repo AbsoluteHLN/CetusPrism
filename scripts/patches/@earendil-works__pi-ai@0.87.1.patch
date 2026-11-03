@@ -1,8 +1,8 @@
 diff --git a/dist/api/anthropic-messages.js b/dist/api/anthropic-messages.js
-index e1538a5dfcf2225da9dc3ec622576564ee7c8530..abb8f990d680ee247708ca774a467fc5774e28b0 100644
+index 5dd85f19db51b73dcd0c5c4cd8c28ad99e09ee6f..e94fa7784bbe0b8972ec47a9088de6bf52ac4d4c 100644
 --- a/dist/api/anthropic-messages.js
 +++ b/dist/api/anthropic-messages.js
-@@ -500,7 +500,6 @@ export const stream = (model, context, options) => {
+@@ -507,7 +507,6 @@ export const stream = (model, context, options) => {
                          const block = blocks[index];
                          if (block && block.type === "toolCall") {
                              block.partialJson += event.delta.partial_json;
@@ -11,10 +11,10 @@ index e1538a5dfcf2225da9dc3ec622576564ee7c8530..abb8f990d680ee247708ca774a467fc5
                                  type: "toolcall_delta",
                                  contentIndex: index,
 diff --git a/dist/api/bedrock-converse-stream.js b/dist/api/bedrock-converse-stream.js
-index 6bc6312906ec3d75f31d190994d21c87f1d0767d..7ff68fb60c3c1d9e3e7d2d2df8d4619593a67335 100644
+index 44e3f13e808f0665a44e34437e173743f81bd51f..6c4899b29efeec46a67e1b9c1403677c66200a81 100644
 --- a/dist/api/bedrock-converse-stream.js
 +++ b/dist/api/bedrock-converse-stream.js
-@@ -453,7 +453,6 @@ function handleContentBlockDelta(event, blocks, output, stream) {
+@@ -459,7 +459,6 @@ function handleContentBlockDelta(event, blocks, output, stream) {
      }
      else if (delta?.toolUse && block?.type === "toolCall") {
          block.partialJson = (block.partialJson || "") + (delta.toolUse.input || "");
@@ -23,10 +23,10 @@ index 6bc6312906ec3d75f31d190994d21c87f1d0767d..7ff68fb60c3c1d9e3e7d2d2df8d46195
      }
      else if (delta?.reasoningContent) {
 diff --git a/dist/api/mistral-conversations.js b/dist/api/mistral-conversations.js
-index 67f9341a6f7d855dce25054fd48cd9077e8e04a1..afdb5c2c873abb72ca8011b7e3f06a230dbe3e8a 100644
+index 3106c5d470dc3610c05d8ee153026df20f86f66e..c54c1b5dc525715c7b9dc4e780cd74b497f0671d 100644
 --- a/dist/api/mistral-conversations.js
 +++ b/dist/api/mistral-conversations.js
-@@ -543,7 +543,6 @@ async function consumeChatStream(model, output, stream, mistralStream) {
+@@ -541,7 +541,6 @@ async function consumeChatStream(model, output, stream, mistralStream) {
                  ? toolCall.function.arguments
                  : JSON.stringify(toolCall.function.arguments || {});
              block.partialArgs = (block.partialArgs || "") + argsDelta;
@@ -35,10 +35,10 @@ index 67f9341a6f7d855dce25054fd48cd9077e8e04a1..afdb5c2c873abb72ca8011b7e3f06a23
                  type: "toolcall_delta",
                  contentIndex: toolBlocksByKey.get(key),
 diff --git a/dist/api/openai-completions.js b/dist/api/openai-completions.js
-index 48464f2bf56b9369d5c202e4f02fc4f13d35b412..d829f5e8e56e788d96fa7a82c0e3cfaef3fc1f63 100644
+index fc8e89382b75f259eb4f041b522840b0d603c033..4288df1b974825771082c7c7aa536b7dbf40be63 100644
 --- a/dist/api/openai-completions.js
 +++ b/dist/api/openai-completions.js
-@@ -453,7 +453,6 @@ export const stream = (model, context, options) => {
+@@ -437,7 +437,6 @@ export const stream = (model, context, options) => {
                              if (toolCall.function?.arguments) {
                                  delta = toolCall.function.arguments;
                                  block.partialArgs = (block.partialArgs ?? "") + toolCall.function.arguments;
@@ -46,8 +46,17 @@ index 48464f2bf56b9369d5c202e4f02fc4f13d35b412..d829f5e8e56e788d96fa7a82c0e3cfae
                              }
                              else if (toolCall.custom?.input) {
                                  const nextInput = getCustomToolCallInput(block) + toolCall.custom.input;
+@@ -1258,7 +1257,7 @@ function detectCompat(model) {
+     const cacheControlFormat = provider === "openrouter" && model.id.startsWith("anthropic/") ? "anthropic" : undefined;
+     return {
+         supportsStore: !isNonStandard,
+-        supportsDeveloperRole: isOpenRouterDeveloperRoleModel || (!isNonStandard && !isOpenRouter),
++        supportsDeveloperRole: isOpenRouterDeveloperRoleModel,
+         supportsReasoningEffort: !isGrok && !isZai && !isMoonshot && !isTogether && !isCloudflareAiGateway && !isNvidia && !isAntLing,
+         supportsUsageInStreaming: true,
+         supportsFinishReason: true,
 diff --git a/dist/api/openai-responses-shared.js b/dist/api/openai-responses-shared.js
-index 43e463dbfd1e6cc437ebc680468036f47678de26..f4259772e289c326697ea7f2ece25954bfb5a520 100644
+index 53597d2c3becdd2c03d4fd265c213a36b403f26b..0aa5752a3e4bad3c0c5aa04d0405448e0fa488be 100644
 --- a/dist/api/openai-responses-shared.js
 +++ b/dist/api/openai-responses-shared.js
 @@ -546,7 +546,6 @@ export async function processResponsesStream(openaiStream, output, stream, model
@@ -59,7 +68,7 @@ index 43e463dbfd1e6cc437ebc680468036f47678de26..f4259772e289c326697ea7f2ece25954
          }
          else if (event.type === "response.function_call_arguments.done") {
 diff --git a/dist/api/pi-messages.js b/dist/api/pi-messages.js
-index 5b9cb1680c47083a9a36eefa93124c67c750fd42..dc5a43ebd801fa6d4b7897c3739b588d4d571d3a 100644
+index ad5f4605e8e157f12b8948e88e0c66e8a5494fc4..5609d61b49264b26fc86a787ec19780d29cdfcab 100644
 --- a/dist/api/pi-messages.js
 +++ b/dist/api/pi-messages.js
 @@ -155,8 +155,6 @@ function createEventConverter(model) {

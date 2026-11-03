@@ -1,6 +1,6 @@
 import type { UserConfig } from 'tsdown'
 import { clientBundle } from '../../client/tsdown.client.ts'
-import { profileWorkerBanner } from '../../tsdown.worker.ts'
+import { profileWorkerBanner } from '../../../configs/tsdown.worker.ts'
 import { buildDevtools } from './scripts/build-devtools.ts'
 
 const worker: UserConfig = {

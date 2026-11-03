@@ -53,3 +53,9 @@ pre-push:
   jobs:
     - name: typecheck
       run: pnpm run typecheck
+
+    # Focused suites for the packages the push touches. The config is pinned
+    # (a bare vitest run has neither the alias table nor the jsdom setup);
+    # the 5-minute budget downgrades to a warning, failures block the push.
+    - name: focused vitest (changed packages)
+      run: node_modules/.bin/tsx scripts/pre-push-focused-vitest.ts

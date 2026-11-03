@@ -519,6 +519,57 @@ describe('Team dormant teammates', () => {
     expect(durable(lead).members.find(member => member.name === 'worker')?.phase).toBe('dormant')
   })
 
+  it('names the stuck active row when a failed resume could not be parked', async () => {
+    const { ctx, lead } = await setup(['hang'])
+    await spawn(ctx, lead, 'worker')
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+    // The resume fails, and the park that would put the row back to dormant
+    // fails too: the durable row is stuck calling the member active while
+    // nothing runs behind it.
+    const internals = ctx.agentTeams as unknown as {
+      journal: { transact: (rootId: SessionId, operation: () => Promise<unknown>) => Promise<unknown> }
+    }
+    const transact = internals.journal.transact.bind(internals.journal)
+    let transactions = 0
+    internals.journal.transact = (rootId, operation) => {
+      transactions += 1
+      // The second transaction of this resume is the park.
+      if (transactions === 2) return Promise.reject(new Error('journal is wedged'))
+      return transact(rootId, operation)
+    }
+    vi.spyOn(ctx.subagents, 'sendMessage').mockRejectedValueOnce(new Error('the session is not available'))
+
+    await expect(ctx.agentTeams.resumeTeammate(lead, {
+      name: 'worker',
+      prompt: content('continue the review'),
+      signal: SIGNAL,
+    })).rejects.toMatchObject({
+      code: 'TEAM_MEMBER_NOT_RESUMABLE',
+      message: expect.stringContaining('could not be parked'),
+    })
+    internals.journal.transact = transact
+
+    const memberId = durable(lead).members.find(member => member.name === 'worker')!.id
+    await vi.waitFor(() => {
+      expect(ctx.agents.get(memberId)).toBeUndefined()
+    }, { timeout: 5_000 })
+
+    // The stuck row is a known state, not an absent member: the next resume
+    // names it and points at release, the one call that can clear the row.
+    await expect(ctx.agentTeams.resumeTeammate(lead, {
+      name: 'worker',
+      prompt: content('continue the review'),
+      signal: SIGNAL,
+    })).rejects.toMatchObject({
+      code: 'TEAM_MEMBER_NOT_RESUMABLE',
+      message: expect.stringContaining('runs no runtime'),
+    })
+
+    // release() tolerates a row whose runtime is gone and parks it dormant.
+    await ctx.agentTeams.releaseTeammate(lead, { name: 'worker', signal: SIGNAL })
+    expect(durable(lead).members.find(member => member.name === 'worker')?.phase).toBe('dormant')
+  })
+
   it('keeps the original failure as the cause of the thrown resume error', async () => {
     const { ctx, lead } = await setup(['hang'])
     await spawn(ctx, lead, 'worker')

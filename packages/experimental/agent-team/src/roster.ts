@@ -340,6 +340,19 @@ export class TeamRoster {
     const root = membership.root
     const member = this.namedMember(root, request.name)
     if (member.phase !== 'dormant') {
+      // A known broken state, kept diagnosable instead of collapsing into the
+      // generic wrong-phase refusal: a resume whose park also failed leaves
+      // the row active with no runtime behind it. resume cannot bring that
+      // row back, but release can clear it — say so, with the in-flight
+      // window (row active, child not yet resident) named as the benign twin.
+      if (member.phase === 'active' && this.ctx.agents.get(member.id) === undefined) {
+        throw new TeamError(
+          `teammate "${request.name}" is recorded active but runs no runtime`
+          + ' — an earlier resume failed and its roster row could not be parked'
+          + ' (or a resume is in flight); release the teammate to clear the row, then resume it again',
+          'TEAM_MEMBER_NOT_RESUMABLE',
+        )
+      }
       throw new TeamError(`teammate "${request.name}" is not a dormant member`, 'TEAM_MEMBER_NOT_FOUND')
     }
     // The member becomes active before its turn is submitted. The child

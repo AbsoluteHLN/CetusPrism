@@ -1,28 +1,55 @@
 {
   "repository": "https://github.com/deepseek-ai/deepseek-harness",
   "license": "MIT",
-  "upstreamVersion": "0.2.1-rc.2",
-  "upstreamTag": "dsh-v0.2.1-rc.2",
-  "upstreamCommit": "687f282e8625c6b8d11ff58211a90524be2e4317",
-  "priorReviewedTag": "dsh-v0.2.1-alpha.2",
-  "priorReviewedCommit": "d743267388641bc76f17c45ce8b4c231aed1d32c",
-  "productVersion": "1.7.5",
+  "upstreamVersion": "0.2.1-rc.5",
+  "upstreamTag": "dsh-v0.2.1-rc.5",
+  "upstreamCommit": "ce7073d51254c26cd63b22a60835b8f948deb447",
+  "priorReviewedTag": "dsh-v0.2.1-rc.2",
+  "priorReviewedCommit": "687f282e8625c6b8d11ff58211a90524be2e4317",
+  "productVersion": "2.0.1",
   "workspacePackageVersion": "0.2.1-alpha.1",
-  "verifiedOn": "2026-10-22",
+  "verifiedOn": "2026-11-01",
   "integrationStatus": "selected-backport-validated",
-  "headAtReview": "9f0ab4bfb78bc0baf27138363e7ba97b4be42db6",
+  "headAtReview": "47c02715ac948018d20f804c71e6396bae186cc7",
   "alignmentPolicy": "Record the fetched upstream separately, review selectively, and do not replace product or workspace versions or claim a wholesale merge.",
+  "forkOwnedCustomizations": [
+    "The unlimited-token-budget persona directive in packages/bundle/web-app/presets/*.patch.yml and the matching snapshots/web/*/system-prompt.expected.md is fork-owned copy. Upstream ships no equivalent wording; a sync must re-assert every occurrence instead of accepting upstream persona text."
+  ],
   "fetched": {
-    "officialMaster": "refs/remotes/official/master",
-    "officialCommit": "687f282e8625c6b8d11ff58211a90524be2e4317",
-    "officialTag": "dsh-v0.2.1-rc.2",
-    "priorReviewedTag": "dsh-v0.2.1-alpha.2",
-    "priorReviewedCommit": "d743267388641bc76f17c45ce8b4c231aed1d32c",
+    "officialMaster": "refs/upstream/master",
+    "officialCommit": "ce7073d51254c26cd63b22a60835b8f948deb447",
+    "officialTag": "dsh-v0.2.1-rc.5",
+    "priorReviewedTag": "dsh-v0.2.1-rc.2",
+    "priorReviewedCommit": "687f282e8625c6b8d11ff58211a90524be2e4317",
     "mergeBaseEstablished": false,
-    "note": "The shallow local history has no established merge base with official master; do not infer ancestry from content equality. Refetched on 2026-10-22: official/master is still 687f282e86 (last upstream commit 2026-10-17), so the tree is already at the newest official upstream.",
-    "fetchedOn": "2026-10-22",
+    "note": "The shallow local history has no established merge base with upstream master; do not infer ancestry from content equality. Fetched on 2026-11-01 (tip 2026-10-30) through a SOCKS5 proxy because the configured local proxy refused the connection. The tree is 2527 upstream commits past the last reviewed rc.2; integration stays selective backport.",
+    "fetchedOn": "2026-11-01",
     "remoteName": "official",
-    "newCommitsSincePriorReview": 0
+    "newCommitsSincePriorReview": 2527,
+    "thirdFetch": {
+      "fetchedOn": "2026-11-03",
+      "latestTag": "dsh-v0.2.2-alpha.2",
+      "latestCommit": "f3803c96974ad4a94195fb97e5c637e9c2a3afe3",
+      "tagDate": "2026-10-28",
+      "deltaSinceLastReviewed": {
+        "from": "dsh-v0.2.1-rc.5",
+        "to": "dsh-v0.2.2-alpha.2",
+        "commits": 2161,
+        "filesChanged": 7253,
+        "meaning": "Tag-topology delta, not a local merge scope. Histories share no merge base; the third review round stays selective backport under the same selectionRule.",
+        "headlineAreas": [
+          "liveshare host/viewer/client share surfaces (relevant to the Aeroidz remote-link direction)",
+          "model listing badges and refresh lifecycle",
+          "session runtime projection read unification",
+          "web startup asset performance (partially reverted upstream)",
+          "ui-user-questions multi-select recommendation presets"
+        ],
+        "reviewStatus": "pending-third-round"
+      },
+      "protectedForkAssets": [
+        "The unlimited-token-budget persona directive and its snapshot goldens stay fork-owned and are never overwritten by upstream text (forkOwnedCustomizations above)."
+      ]
+    }
   },
   "reviewed": {
     "releaseDelta": {

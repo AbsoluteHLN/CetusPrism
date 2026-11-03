@@ -1,0 +1,15 @@
+# Opt-in reference for the CompletionQA MCP server (completion-review-plugin).
+# Install the Python package first (pip install of the plugin source into the
+# interpreter you point at below); DSH starts it but runs no package manager.
+# The interpreter path is machine-local: replace it with your own environment.
+- insert:
+    - id: mcp-completion-qa
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: completion-qa
+        transport: stdio
+        command: E:/dependency-cache/shared/python-env/Scripts/python.exe
+        args: ['-m', 'completion_plugin.server']
+        env:
+          PYTHONNOUSERSITE: '1'
+        cwd: !!js process.cwd()

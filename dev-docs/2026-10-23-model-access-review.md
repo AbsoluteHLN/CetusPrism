@@ -2,7 +2,7 @@
 
 - 审查人：模型接入架构师
 - 范围：`packages/llm/*`（llm / llm-pi-ai / llm-retry）+ vendor `@earendil-works/pi-ai@0.87`（openai-completions 路径）+ 部署态 `D:\Cetus\dshconfig\profiles\web\cordis.patch.yml`
-- 仓库基线：分支 `release/v1.7.3`（群内其他成员汇报 HEAD=d7bd69592a，产品版本 1.7.5）
+- 仓库基线：分支 `release/v1.7.3`（群内其他成员汇报 HEAD 为 `release/v1.7.3` 合并进 main 的批次，产品版本 1.7.5）
 - 方法：全量读码 + 部署态只读核对；每条结论附 文件:行号；未经实测的判断单独标注「未验证」。
 - 红线核验：部署态仅接 csu provider 三个模型（DeepSeek / GLM / Qwen），无 MiniMax 路由；凭据仅经 `apiKeyEnv: CSU_API_KEY` 注入，无明文凭据落盘（本文件与群回复均不回显任何凭据值）。
 

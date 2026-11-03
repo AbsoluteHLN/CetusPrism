@@ -548,7 +548,11 @@ export class LlmRuntime extends TypertRemoteService {
    */
   @Remote
   listConfigurableProviders(): LlmConfigurableProvider[] {
-    return [...this.directory.values()].map(entry => ({ ...entry, settingsPath: [...entry.settingsPath] }))
+    return [...this.directory.values()].map(entry => ({
+      ...entry,
+      settingsPath: [...entry.settingsPath],
+      ...entry.nativeAuth === undefined ? {} : { nativeAuth: { ...entry.nativeAuth, env: [...entry.nativeAuth.env] } },
+    }))
   }
 
   /**

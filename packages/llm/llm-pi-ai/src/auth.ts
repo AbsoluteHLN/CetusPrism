@@ -16,6 +16,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import {
   credentialKey, credentialKeyId, credentialKeyScope, credentialRef, isCredentialKeySegment, isCredentialRefName,
 } from '@deepseek-ai/dsh-credentials'
+import { credentialEnvAliases } from './opencode.ts'
 import type { CredentialKey, CredentialProvider, CredentialRecord } from '@deepseek-ai/dsh-credentials'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { LlmError } from '@deepseek-ai/dsh-llm'
@@ -211,7 +212,21 @@ export function authContextFrom(ctx: Context): AuthContext {
         const hit = await credentials?.resolve(credentialRef(name))
         if (hit !== undefined) return hit.value
       }
-      return launchEnvironmentOf(ctx).get(name)?.value
+      const ambient = launchEnvironmentOf(ctx).get(name)?.value
+      if (ambient !== undefined && ambient.length > 0) return ambient
+      // OpenCode's ecosystem exports OPENCODE_GO_API_KEY while the provider
+      // declares the shared name; accept the alias without overriding the
+      // native name. An empty or whitespace-only variable is not a credential.
+      for (const alias of credentialEnvAliases(name)) {
+        if (isCredentialRefName(alias)) {
+          const credentials = ctx.get('credentials')
+          const hit = await credentials?.resolve(credentialRef(alias))
+          if (hit !== undefined && hit.value.length > 0) return hit.value
+        }
+        const aliasValue = launchEnvironmentOf(ctx).get(alias)?.value
+        if (aliasValue !== undefined && aliasValue.length > 0) return aliasValue
+      }
+      return ambient
     },
     async fileExists(path) {
       const expanded = path.startsWith('~/') || path === '~'

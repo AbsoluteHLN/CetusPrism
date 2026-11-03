@@ -60,6 +60,7 @@ import { idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { toPiContext } from './context.ts'
 import { createModels, getSupportedThinkingLevels } from './models.ts'
+import { openCodeSessionProblem } from './opencode.ts'
 import { toStreamChunks } from './stream.ts'
 import type { HttpFacts } from './stream.ts'
 
@@ -342,6 +343,8 @@ export class PiAiAdapter extends LlmAdapter {
     // the one it started with and the next call picks up the new one.
     const profile = this.profileOf(snapshot, options.provider)
     const model = this.modelOf(snapshot, options.provider, options.model)
+    const sessionProblem = openCodeSessionProblem(options.provider, options.sessionId)
+    if (sessionProblem !== undefined) throw new LlmError(sessionProblem, 'OPENCODE_SESSION_REQUIRED')
     const reasoning = resolveReasoningLevel(
       model,
       options.reasoningEffort ?? profile.reasoning,

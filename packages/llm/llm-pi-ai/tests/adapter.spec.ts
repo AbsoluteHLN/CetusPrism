@@ -1239,3 +1239,66 @@ it.each([
   })
   expect(await adapter.listModels('deepseek')).not.toHaveLength(0)
 })
+
+describe('OpenCode Go route', () => {
+  /** Mount the real plugin with one OpenCode route pointed at the mock server. */
+  async function openCodeContext(url: string, credential: Record<string, unknown> = {}): Promise<Context> {
+    const ctx = new Context()
+    await ctx.plugin(LlmRuntime)
+    await ctx.plugin(LlmPiAi, {
+      providers: {
+        'opencode-go': {
+          ...credential,
+          baseURL: url,
+          models: [{ id: 'deepseek-v4-flash', contextWindow: 1_000_000, maxTokens: 384_000 }],
+        },
+      },
+    })
+    return ctx
+  }
+
+  it('stamps x-opencode-session when the request carries a session', async () => {
+    const server = await mockServer([{ events: textEvents }])
+    const ctx = await openCodeContext(server.url, { apiKeyEnv: 'PI_TEST_KEY' })
+    await assemble(ctx, {
+      provider: 'opencode-go',
+      model: 'deepseek-v4-flash',
+      messages: [],
+      sessionId: 'ses_route_check' as never,
+    })
+    expect(server.headers[0]?.['x-opencode-session']).toBe('ses_route_check')
+  })
+
+  it('refuses a sessionless generation before any request is sent', async () => {
+    const server = await mockServer([{ events: textEvents }])
+    const ctx = await openCodeContext(server.url, { apiKeyEnv: 'PI_TEST_KEY' })
+    // A stream surfaces a refused generation as an error finish, the same
+    // way every adapter-level failure reaches the loop.
+    const result = await assemble(ctx, {
+      provider: 'opencode-go',
+      model: 'deepseek-v4-flash',
+      messages: [],
+    })
+    expect(result.finish).toMatchObject({
+      kind: 'error',
+      failure: { code: 'OPENCODE_SESSION_REQUIRED' },
+    })
+    expect(server.requests).toHaveLength(0)
+  })
+
+  it('resolves the OpenCode ecosystem credential alias', async () => {
+    vi.stubEnv('OPENCODE_GO_API_KEY', 'alias-key')
+    vi.stubEnv('OPENCODE_API_KEY', '')
+    const server = await mockServer([{ events: textEvents }])
+    // No apiKeyEnv: the route defers to the provider-native discovery path,
+    // which asks for OPENCODE_API_KEY.
+    const ctx = await openCodeContext(server.url)
+    await assemble(ctx, {
+      provider: 'opencode-go',
+      model: 'deepseek-v4-flash',
+      messages: [],
+      sessionId: 'ses_alias' as never,
+    })
+    expect(server.headers[0]?.authorization).toBe('Bearer alias-key')
+  })
+})

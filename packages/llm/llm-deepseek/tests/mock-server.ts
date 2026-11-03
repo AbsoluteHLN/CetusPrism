@@ -3,7 +3,7 @@ import type { IncomingMessage, Server, ServerResponse } from 'node:http'
 
 /** One scripted behavior for the next request the mock server receives. */
 export type Behavior =
-  | { kind: 'sse'; events: string[]; delayMs?: number }
+  | { kind: 'sse'; events: string[]; delayMs?: number; gate?: Promise<unknown> }
   | { kind: 'http-error'; status: number; body: string; contentType?: string; headers?: Record<string, string> }
   | { kind: 'close-early'; events: string[] }
 
@@ -129,6 +129,10 @@ export async function mockServer(script: Behavior[]): Promise<MockServer> {
           return
         }
         response.writeHead(200, { 'content-type': 'text/event-stream' })
+        // A gate holds every scripted event back until it resolves, so a test
+        // can land its own action (an abort, an edit) before any byte flows
+        // and assert on the outcome without racing wall-clock timers.
+        if (behavior.kind === 'sse' && behavior.gate) await behavior.gate
         const write = (index: number): void => {
           if (index >= behavior.events.length) {
             if (behavior.kind === 'sse') response.end()

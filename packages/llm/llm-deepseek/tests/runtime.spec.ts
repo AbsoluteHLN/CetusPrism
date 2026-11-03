@@ -1587,7 +1587,11 @@ describe('DeepSeekAdapter against a mock server', () => {
   })
 
   it('aborts mid-stream via the request signal', async () => {
-    const server = await mockServer([{ kind: 'sse', events: textEvents, delayMs: 50 }])
+    // The gate holds every scripted event back until the abort has landed, so
+    // the finish reason cannot depend on timer scheduling under load.
+    let release!: () => void
+    const gate = new Promise<void>(resolve => { release = resolve })
+    const server = await mockServer([{ kind: 'sse', events: textEvents, delayMs: 50, gate }])
     const ctx = await harness(server.url)
     const controller = new AbortController()
 
@@ -1604,7 +1608,9 @@ describe('DeepSeekAdapter against a mock server', () => {
       return chunks
     })()
 
-    setTimeout(() => { controller.abort() }, 30)
+    await vi.waitFor(() => { expect(server.requests).toHaveLength(1) }, { timeout: 5000 })
+    controller.abort()
+    release()
     const chunks = await pending
     expect(chunks).toHaveLength(1)
     expect(chunks[0]?.type).toBe('finish')

@@ -94,6 +94,10 @@ kind: "package-reference"
 
 pi-ai 提供登录的提供方可以通过 harness 授权 seam 登录：流程提供 OAuth 或交互式密钥提示（密钥键入 pi-ai 自己的登录提示，而非设置表单），得到的凭据存储在 harness 凭据存储的 `llm-pi-ai/<provider id>` 记录中。存储的登录在其路由的 `apiKeyEnv` 覆盖之下完成认证，并在存储的跨进程锁下自行刷新；退出登录即删除存储记录。落在记录文法之外——小写连字符标识符——的手工声明路由键无法登录，因为对它的记录写入会以 `LlmError('UNSTORABLE_PROVIDER_ID')` 拒绝；这类路由改用 `apiKeyEnv` 或提供方 ambient 设置认证。
 
+### OpenCode Zen 与 OpenCode Go
+
+两条路由都来自已安装的 pi-ai 目录，包括各自的逐模型协议与 `x-opencode-session` 请求头。提供方声明一个凭据变量 `OPENCODE_API_KEY`；OpenCode 生态也导出 `OPENCODE_GO_API_KEY`，ambient 认证上下文把它作为别名接受，但不会覆盖原生名称。OpenCode 网关拒绝不带会话标识的生成请求（`400 MissingSessionID`），因此这两条路由上缺少 `sessionId` 的调用会在本适配器内以 `OPENCODE_SESSION_REQUIRED` 失败并点名缺失的请求头，而不是暴露网关那条晦涩的拒绝。可配置提供方目录把两个变量作为路由的 `nativeAuth` 发布，因此模型页显示并检测提供方真正读取的变量。
+
 ### 解析模型目录
 
 profile 的 `models` 列表会替换而非扩展路由的已安装目录；每个条目从同 id 已安装模型取未设置字段的默认值，因此把路由收窄到两个模型、修正一个容量或添加比已安装目录更新的模型都是一行编辑。`modelOverrides` 无需该代价即可重塑个别已安装目录模型——修正一个模型，保留其余三十七个——当它与 `models` 列表并存、位于手工声明路由上、或点名目录未描述的模型时会被拒绝，因为静默不变的模型会成为别人日后寻找的拼写错误。
@@ -140,6 +144,7 @@ Config 更新严格验证发生变化的 provider。初始加载将已存储的�
 |---|---|
 | [`src/index.ts`](src/index.ts) | Config 快照、目录及路由注册 |
 | [`src/auth.ts`](src/auth.ts) | 覆盖 harness 凭据平面的凭据存储与 ambient auth context |
+| [`src/opencode.ts`](src/opencode.ts) | OpenCode 的凭据名称、别名解析与会话要求 |
 | [`src/login.ts`](src/login.ts) | 面向提供登录的已安装提供方的授权流程 |
 | [`src/config.ts`](src/config.ts) | Profile schema、解析与可服务性校验 |
 | [`src/catalog.ts`](src/catalog.ts) | 已安装目录集成与漂移门禁 |

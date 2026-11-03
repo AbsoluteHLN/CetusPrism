@@ -5238,7 +5238,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'DeepSeekLlmApiExtensionRequest',
-    declaration: 'export interface DeepSeekLlmApiExtensionRequest {\n    readonly body: Readonly<Record<string, DeepSeekLlmApiJson>>;\n    readonly sessionId?: string;\n    readonly purpose?: \'compaction\' | \'session-title\';\n    readonly signal: AbortSignal;\n}',
+    declaration: 'export interface DeepSeekLlmApiExtensionRequest {\n    readonly body: Readonly<Record<string, DeepSeekLlmApiJson>>;\n    readonly sessionId?: string;\n    readonly purpose?: \'compaction\' | \'session-title\' | \'auto-review\';\n    readonly signal: AbortSignal;\n}',
   },
   {
     name: 'DeepSeekLlmApiJson',
@@ -5482,7 +5482,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'GenerateOptions',
-    declaration: 'export interface GenerateOptions {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: RequestMessage[];\n    system?: string;\n    tools?: ToolSchema[];\n    toolHistory?: ToolHistory;\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: \'compaction\' | \'session-title\';\n}',
+    declaration: 'export interface GenerateOptions {\n    provider: string;\n    model: string;\n    reasoningEffort?: ReasoningEffortId;\n    messages: RequestMessage[];\n    system?: string;\n    tools?: ToolSchema[];\n    toolHistory?: ToolHistory;\n    temperature?: number;\n    maxTokens?: number;\n    stop?: string[];\n    signal?: AbortSignal;\n    sessionId?: Branded<\'SessionId\'>;\n    purpose?: \'compaction\' | \'session-title\' | \'auto-review\';\n}',
   },
   {
     name: 'GenericCallView',
@@ -5834,7 +5834,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'LlmConfigurableProvider',
-    declaration: 'export interface LlmConfigurableProvider {\n    provider: string;\n    displayName: string;\n    settingsNs: string;\n    settingsPath: readonly string[];\n    declared?: boolean;\n    error?: string;\n    warnings?: readonly string[];\n    modelErrors?: readonly string[];\n}',
+    declaration: 'export interface LlmConfigurableProvider {\n    provider: string;\n    displayName: string;\n    settingsNs: string;\n    settingsPath: readonly string[];\n    declared?: boolean;\n    error?: string;\n    warnings?: readonly string[];\n    modelErrors?: readonly string[];\n    nativeAuth?: {\n        readonly env: readonly string[];\n        readonly oauth: boolean;\n    };\n}',
   },
   {
     name: 'LlmDiscoveredModel',

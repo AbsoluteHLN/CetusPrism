@@ -94,6 +94,10 @@ The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-a
 
 A provider pi-ai ships a login for can be signed into through the harness authorization seam: the flow offers OAuth or an interactive key prompt (a key is typed into pi-ai's own login prompt, not into the settings form), and the resulting credential is stored in the harness credential store at `llm-pi-ai/<provider id>`. The stored sign-in authenticates its route beneath any `apiKeyEnv` override and refreshes itself under the store's cross-process lock; signing out deletes the stored record. A hand-declared route key outside the record grammar — a lowercase hyphenated identifier — cannot be signed into, because a record write for it refuses with `LlmError('UNSTORABLE_PROVIDER_ID')`; such a route authenticates through `apiKeyEnv` or ambient provider settings instead.
 
+### OpenCode Zen and OpenCode Go
+
+Both routes come from the installed pi-ai catalog, including their per-model protocols and the `x-opencode-session` header. The provider declares one credential variable, `OPENCODE_API_KEY`; the OpenCode ecosystem also exports `OPENCODE_GO_API_KEY`, which the ambient auth context accepts as an alias without overriding the native name. The OpenCode gateway rejects a generation request without a session identity (`400 MissingSessionID`), so a call on either route without `sessionId` fails in this adapter with `OPENCODE_SESSION_REQUIRED` and the missing header named, instead of surfacing the gateway's opaque rejection. The configurable-provider directory publishes both variables as the route's `nativeAuth`, so the Models page shows and detects the variable the provider actually reads.
+
 ### Resolve the model catalog
 
 A profile's `models` list replaces the route's installed catalog rather than extending it; each entry defaults its unset fields from the installed model of the same id, so narrowing a route to two models, correcting one capacity, or adding a model newer than the installed catalog are one-line edits. `modelOverrides` reshapes individual installed-catalog models without that cost — correct one model, keep the other thirty-seven — and is refused when set beside a `models` list, on a hand-declared route, or naming a model the catalog does not describe, because a silently unchanged model would be a typo someone hunts for later.
@@ -140,6 +144,7 @@ The adapter is built on immutable snapshots and per-operation resolution. Each o
 |---|---|
 | [`src/index.ts`](src/index.ts) | Config snapshots, directory and route registration |
 | [`src/auth.ts`](src/auth.ts) | The credential store and ambient auth context over the harness credential plane |
+| [`src/opencode.ts`](src/opencode.ts) | OpenCode credential names, alias resolution, and the session requirement |
 | [`src/login.ts`](src/login.ts) | Authorization flows for the installed providers that ship a login |
 | [`src/config.ts`](src/config.ts) | Profile schema, resolution, and serviceability checks |
 | [`src/catalog.ts`](src/catalog.ts) | Installed-catalog integration and drift gates |

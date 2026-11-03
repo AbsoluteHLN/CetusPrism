@@ -71,6 +71,7 @@ import { assertServiceable, Config, resolveProfiles } from './config.ts'
 import type { ResolvedPiAiProviderProfile } from './config.ts'
 import { discoverModels } from './discovery.ts'
 import type { StoredModelDiscoveryProfile } from './discovery.ts'
+import { openCodeNativeAuth } from './opencode.ts'
 import { probeReasoningEffortsForHost } from './effort-probe-host.ts'
 import { registerPiAiFlows } from './login.ts'
 
@@ -135,6 +136,7 @@ function directoryEntries(
     warnings?: readonly string[],
     modelErrors?: readonly string[],
   ): void => {
+    const nativeAuth = openCodeNativeAuth(provider)
     entries.set(provider, {
       provider,
       displayName,
@@ -147,6 +149,7 @@ function directoryEntries(
       ...error === undefined ? {} : { error },
       ...warnings === undefined || warnings.length === 0 ? {} : { warnings: [...warnings] },
       ...modelErrors === undefined || modelErrors.length === 0 ? {} : { modelErrors: [...modelErrors] },
+      ...nativeAuth === undefined ? {} : { nativeAuth },
     })
   }
   for (const provider of catalog) declare(provider, provider)

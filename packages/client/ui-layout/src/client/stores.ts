@@ -60,10 +60,26 @@ type LayoutActions = {
   retainMainPanels: (draft: LayoutState, panelIds: readonly string[]) => void
   setSidebar: (draft: LayoutState, px: number) => void
   toggleSidebar: (draft: LayoutState) => void
+  setSidebarCollapsed: (draft: LayoutState, collapsed: boolean) => void
   setViewportWidth: (draft: LayoutState, width: number) => void
   setRightbar: (draft: LayoutState, px: number) => void
   openRightbar: (draft: LayoutState, track: boolean, fullscreen: boolean) => void
   closeRightbar: (draft: LayoutState) => void
+}
+
+/**
+ * Whether the sidebar column is closed for the frame's current width.
+ *
+ * The frame collapses it in two ways — the width preference is zero on a wide
+ * frame, the narrow override is off on a narrow one — and the answer is the
+ * one the frame renders with.
+ * @param state - the layout store's state.
+ * @returns true when the column is closed.
+ */
+export function sidebarCollapsedOf(state: LayoutState): boolean {
+  return state.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE
+    ? !state.layoutInfo.narrowExpanded
+    : state.layoutInfo.sidebar === 0
 }
 
 /**
@@ -109,6 +125,14 @@ export function createLayoutStore(): EngineStoreHandle<LayoutState, LayoutAction
         d.layoutInfo.rightbarInstant = false
         if (d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) d.layoutInfo.narrowExpanded = !d.layoutInfo.narrowExpanded
         else d.layoutInfo.sidebar = d.layoutInfo.sidebar === 0 ? SIDEBAR_DEFAULT : 0
+      },
+      // A host that SHOWS the column decides its state, not the other way
+      // round: the IDE collapses the column when it takes the frame and
+      // restores it when it leaves, and a toggle could not tell the two apart.
+      setSidebarCollapsed: (d, collapsed: boolean) => {
+        d.layoutInfo.rightbarInstant = false
+        if (d.layoutInfo.viewportWidth < SIDEBAR_AUTO_COLLAPSE) d.layoutInfo.narrowExpanded = !collapsed
+        else d.layoutInfo.sidebar = collapsed ? 0 : SIDEBAR_DEFAULT
       },
       // Crossing the breakpoint in either direction drops the override: the
       // narrow default is auto-collapsed, the wide state is the preference.

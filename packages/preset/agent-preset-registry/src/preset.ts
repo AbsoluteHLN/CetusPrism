@@ -15,4 +15,21 @@ export interface Config {
   default: string
   /** User-selected default; edited through Settings. */
   selectedDefault: Volatile<string | undefined>
+  /**
+   * Explicit runtime executables, for the operators who installed an external
+   * runtime outside the PATH. A runtime that is not named here is discovered
+   * on the PATH, exactly like the upstream's own command.
+   */
+  externalRuntimes?: {
+    /**
+     * Absolute path or command name of the Pi runtime executable; the
+     * deployment's own PATH lookup applies when this is omitted.
+     */
+    pi?: string
+    /**
+     * Absolute path or command name of the ZCode runtime executable; the
+     * deployment's own PATH lookup applies when this is omitted.
+     */
+    zcode?: string
+  }
 }

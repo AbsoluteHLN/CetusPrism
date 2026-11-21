@@ -1,19 +1,16 @@
 /**
- * External-runtime agent driver: owns the Agent lifecycle and inbox semantics
- * while an external runtime (Pi, ZCode) owns the turn. The driver translates
- * the normalized adapter event stream into the same durable session-event
- * vocabulary the React loop writes (`turn/start`, `step/start`,
- * `user/message`, `assistant/message`, `tool/call` + `tool/result`,
- * `step/end`, `turn/end`), so the front-end session stream renders an
- * external-runtime turn exactly like a native one — the log stays the single
- * source of truth and `model-visible ⟺ logged` survives the boundary.
+ * External-runtime agent driver base and generic adapter driver: owns the
+ * Agent lifecycle and inbox semantics while an external runtime owns the turn.
+ * The driver translates the normalized adapter event stream into the same
+ * durable session-event vocabulary the React loop writes (`turn/start`,
+ * `step/start`, `user/message`, `assistant/message`, `tool/call` +
+ * `tool/result`, `step/end`, `turn/end`), so the front-end session stream
+ * renders an external-runtime turn exactly like a native one — the log stays
+ * the single source of truth and `model-visible ⟺ logged` survives the boundary.
  *
- * Turn mapping: one claimed inbox message opens one step; runtimes that
- * report per-round boundaries (`message_started`, e.g. Pi) advance one DSH
- * step per model round, so a tool loop's rounds appear as separate steps
- * exactly like the React loop's. Runtimes without the signal (ZCode today)
- * keep one step for the whole run. Steering queued mid-run is claimed by
- * the next step, mirroring the React loop's inbox contract.
+ * Specialised loop drivers (`PiLoopAgent`, `ZCodeLoopAgent`) extend
+ * {@link BaseExternalAgentDriver} with runtime-specific protocol semantics,
+ * model attributions, and steering dispatch.
  *
  * @module @deepseek-ai/dsh-agent-preset-registry/external-agent-driver
  */
@@ -46,15 +43,19 @@ import { createScope } from '@deepseek-ai/dsh-scope'
 import type { Session, SessionId, SessionSeq, TurnEndReason } from '@deepseek-ai/dsh-session'
 import type { ExternalRuntimeAdapter, ExternalRuntimeEvent } from './external-runtime.ts'
 
-/** Construction options for {@link ExternalAgentDriver}. */
-export interface ExternalAgentDriverOptions {
+/** Construction options for {@link BaseExternalAgentDriver}. */
+export interface BaseExternalAgentDriverOptions<TAdapter extends ExternalRuntimeAdapter = ExternalRuntimeAdapter> {
   /** The normalized adapter this driver drives; the runtime owns turn execution. */
-  readonly adapter: ExternalRuntimeAdapter
+  readonly adapter: TAdapter
   /** Optional sink for runtime notices (retries, compaction, declined interactions). */
   readonly onNotice?: (notice: Extract<ExternalRuntimeEvent, { type: 'notice' }>) => void
 }
 
-type Phase =
+/** Construction options for {@link ExternalAgentDriver}. */
+export type ExternalAgentDriverOptions = BaseExternalAgentDriverOptions<ExternalRuntimeAdapter>
+
+/** The driver's lifecycle phase: idle, running a turn, or running maintenance. */
+export type Phase =
   | { kind: 'idle'; lastTurn: number }
   | {
     kind: 'maintenance'
@@ -68,8 +69,10 @@ type Phase =
  * Read the cause `cancel()` passed when aborting a driver-owned signal,
  * copying only the fields `turn/end` records (the live reason may carry
  * Node-assigned stacks `Session.append` rejects as data).
+ * @param signal - the aborted driver-owned signal.
+ * @returns the recordable cancel cause, or undefined when the signal never aborted.
  */
-function abortedCancelCause(signal: AbortSignal): AgentCancelCause | undefined {
+export function abortedCancelCause(signal: AbortSignal): AgentCancelCause | undefined {
   if (!signal.aborted) return undefined
   const cause = signal.reason as AgentCancelCause
   switch (cause.kind) {
@@ -84,8 +87,13 @@ function abortedCancelCause(signal: AbortSignal): AgentCancelCause | undefined {
   }
 }
 
-/** Extract the plain-text input of one user message; external runtimes take text. */
-function extractText(message: UserMessage): string {
+/**
+ * Extract the plain-text input of one user message; external runtimes take text.
+ * @param message - the user message handed to the driver.
+ * @returns the message's plain-text content.
+ * @throws when the message carries no text block.
+ */
+export function extractText(message: UserMessage): string {
   const parts: string[] = []
   for (const block of message.content) {
     if (block.type === 'text') parts.push(block.text)
@@ -97,8 +105,12 @@ function extractText(message: UserMessage): string {
   return text
 }
 
-/** Compact JSON text for a tool result payload crossing into the durable log. */
-function stringifyResult(result: unknown): string {
+/**
+ * Compact JSON text for a tool result payload crossing into the durable log.
+ * @param result - the tool result value.
+ * @returns the result's JSON text, or its string form when it does not serialize.
+ */
+export function stringifyResult(result: unknown): string {
   if (typeof result === 'string') return result
   try {
     return JSON.stringify(result)
@@ -108,13 +120,13 @@ function stringifyResult(result: unknown): string {
 }
 
 /**
- * Agent driver over one external runtime. Implements the full public Agent
- * runtime face so host, registry, and client code drive it exactly like a
- * React-loop agent; only the turn mechanics differ.
+ * Common base for external-runtime agent drivers. Implements the full public Agent
+ * runtime face and lifecycle state machine (inbox, phase transitions, cancellation,
+ * maintenance, turn boundaries, session event settlements).
  */
-export class ExternalAgentDriver implements Agent {
+export abstract class BaseExternalAgentDriver<TAdapter extends ExternalRuntimeAdapter = ExternalRuntimeAdapter> implements Agent {
   readonly inbox: AgentInbox
-  private phase: Phase
+  protected phase: Phase
   private activityDone: Promise<void> = Promise.resolve()
 
   /** The agent-scoped registration boundary; the lifecycle owner unwinds it after the driver exits. */
@@ -122,17 +134,17 @@ export class ExternalAgentDriver implements Agent {
   readonly ctx: Context
 
   /** Fused dispatcher, built once in the constructor so hot-path dispatches never allocate. */
-  private readonly dispatch: AgentEventDispatch
-  private readonly driverOptions: ExternalAgentDriverOptions
+  protected readonly dispatch: AgentEventDispatch
+  protected readonly driverOptions: BaseExternalAgentDriverOptions<TAdapter>
   /** Whether the adapter process is up; started lazily on the first turn. */
   private adapterStarted = false
 
   constructor(
-    private readonly loopCtx: Context,
+    protected readonly loopCtx: Context,
     public readonly id: SessionId,
     public readonly options: AgentOptions,
     public readonly session: Session,
-    driverOptions: ExternalAgentDriverOptions,
+    driverOptions: BaseExternalAgentDriverOptions<TAdapter>,
   ) {
     this.driverOptions = driverOptions
     this.dispatch = agentEvents(loopCtx, this)
@@ -154,7 +166,7 @@ export class ExternalAgentDriver implements Agent {
   }
 
   /** Commit a phase and publish its externally visible status transition. */
-  private setPhase(next: Phase): void {
+  protected setPhase(next: Phase): void {
     const previousStatus = this.status
     this.phase = next
     const status = this.status
@@ -172,14 +184,26 @@ export class ExternalAgentDriver implements Agent {
     if (wakeup) this.wakeDriver(wakingAfterAbort)
   }
 
+  /**
+   * Queue a follow-up for the next turn and wake the driver.
+   * @param input - the user message to deliver.
+   */
   followup(input: UserMessage): void {
     this.send(input, 'next-turn', true)
   }
 
+  /**
+   * Queue a steering message for the running turn's next step and wake the driver.
+   * @param input - the user message to deliver.
+   */
   steer(input: UserMessage): void {
     this.send(input, 'next-step', true)
   }
 
+  /**
+   * Queue a message for the running turn's next step without waking the driver.
+   * @param input - the user message to deliver.
+   */
   inject(input: UserMessage): void {
     this.send(input, 'next-step', false)
   }
@@ -199,6 +223,12 @@ export class ExternalAgentDriver implements Agent {
     }
   }
 
+  /**
+   * Run one maintenance job with the driver idle.
+   * @param job - the job to run; it receives the maintenance signal.
+   * @returns the job's result.
+   * @throws when the driver already has active work.
+   */
   runMaintenance<T>(job: (signal: AbortSignal) => Promise<T>): Promise<T> {
     if (this.phase.kind !== 'idle') throw new Error(`agent "${this.id}" already has active work`)
     const done = Promise.withResolvers<void>()
@@ -228,7 +258,7 @@ export class ExternalAgentDriver implements Agent {
    * when its message was cleared; only a latched replay is suppressed when
    * the queue no longer holds the wake.
    */
-  private wakeDriver(wakeAfterAbort = false): void {
+  protected wakeDriver(wakeAfterAbort = false): void {
     if (this.phase.kind !== 'idle') {
       // Maintenance and aborted drivers cannot deliver the wake: latch it for
       // replay at convergence. Live drivers claim queued work themselves;
@@ -258,10 +288,12 @@ export class ExternalAgentDriver implements Agent {
     } while (activity !== this.activityDone)
   }
 
-  /** Report one failure at its live boundary, then preserve it for driver containment. */
-  private throwError(error: unknown): never {
-    const turn = this.phase.kind === 'running' ? this.phase.turn : this.phase.lastTurn
-    const step = this.phase.kind === 'running' ? this.phase.step : 0
+  /**
+   * Report one failure at its live boundary, then preserve it for driver
+   * containment. Every caller runs inside a live turn and passes the
+   * boundary coordinates it already holds.
+   */
+  protected throwError(error: unknown, turn: number, step: number): never {
     this.dispatch.emit('agent/error', { turn, step, error })
     throw error
   }
@@ -283,8 +315,11 @@ export class ExternalAgentDriver implements Agent {
 
   /** Open one turn and drain the queued input through external runtime runs. */
   private async turn(): Promise<boolean> {
+    // kick is the only caller and always holds the reservation; the guard
+    // narrows the phase for the reads below and cannot fire.
+    /* v8 ignore next 3 -- reservation is a kick-kept invariant */
     if (this.phase.kind !== 'running') {
-      this.throwError(new Error(`agent "${this.id}": turn without driver reservation`))
+      throw new Error(`agent "${this.id}": turn without driver reservation`)
     }
     const phase = this.phase
     const { signal } = phase.abort
@@ -301,7 +336,10 @@ export class ExternalAgentDriver implements Agent {
         // (runtimes with round boundaries advance further steps per round).
         const claimed = this.inbox.claim('next-turn', turn)
         // A removed waking message still owns the initial turn boundary, but
-        // it spends no runtime run.
+        // it spends no runtime run. No inbox path in this driver removes a
+        // queued message without also aborting the signal, so the guard is a
+        // boundary-keeping invariant inherited from the loop seam.
+        /* v8 ignore next 4 -- unreachable without a non-aborting removal */
         if (phase.step === 0 && claimed.length === 0) {
           turnEnds = { kind: 'completed' }
           return false
@@ -322,10 +360,9 @@ export class ExternalAgentDriver implements Agent {
               phase.step = nextStep
               this.session.append('step/start', { turn, step: nextStep })
             })
-            // A later completed step must not downgrade an aborted outcome.
-            // (The cast re-widens: assignments narrow turnEnds to the last
-            // step's exact reason across loop iterations.)
-            if ((turnEnds as TurnEndReason | null)?.kind !== 'aborted') turnEnds = stepEnd
+            // The abort path rethrows before a later step can complete, so
+            // the last settled step's reason always wins here.
+            turnEnds = stepEnd
           } finally {
             this.session.append('step/end', { turn, step: phase.step })
           }
@@ -350,20 +387,78 @@ export class ExternalAgentDriver implements Agent {
           ? error.failure
           : { message: errorChain(error), code: 'UNKNOWN' },
       }
-      this.throwError(error)
+      this.throwError(error, turn, phase.step)
     } finally {
       try {
         this.session.append('turn/end', { turn, reason: turnEnds! })
       } catch (error: unknown) {
-        this.throwError(error)
+        this.throwError(error, turn, phase.step)
       }
     }
-    if (!this.inbox.hasPending) return false
-    phase.abort = new AbortController()
-    // A fresh controller makes a latch set on the old one stale: the live driver claims the queue itself.
-    phase.wakeRequested = false
-    phase.step = 0
-    return true
+    // The claim loop only breaks with the inbox drained — every message
+    // queued mid-run was claimed by the `continue` above, and a cancel
+    // rethrows before reaching here — so this turn boundary is final.
+    return false
+  }
+
+  /** Lazily start the adapter process on the first turn. */
+  protected async ensureAdapterStarted(): Promise<void> {
+    if (!this.adapterStarted) {
+      await this.driverOptions.adapter.start()
+      this.adapterStarted = true
+    }
+  }
+
+  /** Finalize an interrupted run's visible text prefix, if any content streamed. */
+  protected settleInterrupted(
+    turn: number,
+    step: number,
+    accumulator: AssistantStreamAccumulator,
+    assembler: BlockAssembler,
+  ): void {
+    const stream = [...accumulator.snapshot()] as AssistantStreamRecord[]
+    const content = assembler.interruptedBlocks()
+    if (content.length === 0) {
+      this.session.append('assistant/attempt', { turn, step, stream })
+      return
+    }
+    this.session.append('assistant/message', {
+      turn,
+      step,
+      message: createAssistantMessage({ content, source: this.messageSource() }),
+      interrupted: true,
+      stream,
+    }, { surfaceOp: 'append' })
+  }
+
+  /** Settle a completed run's assembled assistant message when it produced content. */
+  protected settleCompleted(
+    turn: number,
+    step: number,
+    accumulator: AssistantStreamAccumulator,
+    assembler: BlockAssembler,
+  ): void {
+    const content = assembler.blocks()
+    if (content.length === 0) return
+    this.session.append('assistant/message', {
+      turn,
+      step,
+      message: createAssistantMessage({ content, source: this.messageSource() }),
+      stream: [...accumulator.snapshot()] as AssistantStreamRecord[],
+    }, { surfaceOp: 'append' })
+  }
+
+  /**
+   * Model attribution for assembled messages from this external runtime.
+   * Derives from the agent options, falling back to the adapter's runtime
+   * identity (`external:<runtimeId>`); subclasses may override for a
+   * runtime-specific default.
+   */
+  protected messageSource(): { provider: string; model: string } {
+    return {
+      provider: this.options.provider ?? `external:${this.driverOptions.adapter.runtimeId}`,
+      model: this.options.model ?? this.driverOptions.adapter.runtimeVersion,
+    }
   }
 
   /**
@@ -374,7 +469,7 @@ export class ExternalAgentDriver implements Agent {
    * for the whole run. Resolves `'completed'` when the runtime settled;
    * throws on abort (mapped by the turn) or failure (settling the attempt).
    */
-  private async runStep(
+  protected async runStep(
     turn: number,
     firstStep: number,
     message: UserMessage,
@@ -382,10 +477,7 @@ export class ExternalAgentDriver implements Agent {
     advanceRound: (nextStep: number) => void,
   ): Promise<Extract<TurnEndReason, { kind: 'completed' }>> {
     const text = extractText(message)
-    if (!this.adapterStarted) {
-      await this.driverOptions.adapter.start()
-      this.adapterStarted = true
-    }
+    await this.ensureAdapterStarted()
     let accumulator = new AssistantStreamAccumulator()
     let assembler = new BlockAssembler()
     const callSeqs = new Map<string, SessionSeq>()
@@ -495,53 +587,11 @@ export class ExternalAgentDriver implements Agent {
     this.settleCompleted(turn, round.step, accumulator, assembler)
     return { kind: 'completed' }
   }
-
-  /** Finalize an interrupted run's visible text prefix, if any content streamed. */
-  private settleInterrupted(
-    turn: number,
-    step: number,
-    accumulator: AssistantStreamAccumulator,
-    assembler: BlockAssembler,
-  ): void {
-    const stream = [...accumulator.snapshot()] as AssistantStreamRecord[]
-    const content = assembler.interruptedBlocks()
-    if (content.length === 0) {
-      this.session.append('assistant/attempt', { turn, step, stream })
-      return
-    }
-    this.session.append('assistant/message', {
-      turn,
-      step,
-      message: createAssistantMessage({ content, source: this.messageSource() }),
-      interrupted: true,
-      ...assembler.usage === undefined ? {} : { usage: assembler.usage },
-      stream,
-    }, { surfaceOp: 'append' })
-  }
-
-  /** Settle a completed run's assembled assistant message when it produced content. */
-  private settleCompleted(
-    turn: number,
-    step: number,
-    accumulator: AssistantStreamAccumulator,
-    assembler: BlockAssembler,
-  ): void {
-    const content = assembler.blocks()
-    if (content.length === 0) return
-    this.session.append('assistant/message', {
-      turn,
-      step,
-      message: createAssistantMessage({ content, source: this.messageSource() }),
-      ...assembler.usage === undefined ? {} : { usage: assembler.usage },
-      stream: [...accumulator.snapshot()] as AssistantStreamRecord[],
-    }, { surfaceOp: 'append' })
-  }
-
-  /** Model attribution for assembled messages from this external runtime. */
-  private messageSource(): { provider: string; model: string } {
-    return {
-      provider: this.options.provider ?? `external:${this.driverOptions.adapter.runtimeId}`,
-      model: this.options.model ?? this.driverOptions.adapter.runtimeVersion,
-    }
-  }
 }
+
+/**
+ * Agent driver over one external runtime. Implements the full public Agent
+ * runtime face so host, registry, and client code drive it exactly like a
+ * React-loop agent; only the turn mechanics differ.
+ */
+export class ExternalAgentDriver extends BaseExternalAgentDriver<ExternalRuntimeAdapter> {}

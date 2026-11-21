@@ -9,7 +9,7 @@ kind: "package-reference"
 
 ## 概述
 
-使用本包可从 Web Client 预览 Session 文件系统允许读取的文件。它按页读取 UTF-8 文本、按有界窗口或完整文件读取原始字节、从基文件目录解析关联文件，并报告文件元数据。可以跟随一个文件或一个目录直接子项的变化。文件读取和监听可以指向工作区外路径；目录列举和监听仍限定于工作区。本服务不提供修改操作。
+使用本包可从 Web Client 预览 Session 文件系统允许读取的文件。它按页读取 UTF-8 文本、按有界窗口或完整文件读取原始字节、从基文件目录解析关联文件，并报告文件元数据。可以跟随一个文件或一个目录直接子项的变化。文件读取和监听可以指向工作区外路径；目录列举和监听仍限定于工作区。本服务也提供写入：在 Session 自己的沙箱模式下，对工作区内某个文件做一次受守卫的文本替换。
 
 ## 目录
 
@@ -25,7 +25,7 @@ kind: "package-reference"
 <a id="use-this-package"></a>
 ## 使用本包
 
-把本包与 `dsh-fs`、`dsh-sandbox-policy`、Session store 和 Typert Gateway 一起挂载；bundle 把它紧随 Session Controller 之后挂载。每个方法都在线路上携带 Session 身份，Client 调用 `remote.workspaceFiles.read(sessionId, path, range, signal)`、`stat(sessionId, path, signal)`、`readBytes(sessionId, path, options, signal)`、`list(sessionId, path, signal)` 或 `changes(sessionId, path, signal)`，从不自己指定根。Host 读取 live Session header，cold Session 则使用持久层 `stat`；它不会激活 Agent、读取事件正文或借用父 Session 的根。live 读取不要求挂载 Session persistence；未挂载时 cold Session 无法解析，Gateway 返回 `gateway/lookup-not-found`。
+把本包与 `dsh-fs`、`dsh-sandbox-policy`、Session store 和 Typert Gateway 一起挂载；bundle 把它紧随 Session Controller 之后挂载。每个方法都在线路上携带 Session 身份，Client 调用 `remote.workspaceFiles.read(sessionId, path, range, signal)`、`stat(sessionId, path, signal)`、`readBytes(sessionId, path, options, signal)`、`list(sessionId, path, signal)`、`write(sessionId, path, content, options, signal)` 或 `changes(sessionId, path, signal)`，从不自己指定根。Host 读取 live Session header，cold Session 则使用持久层 `stat`；它不会激活 Agent、读取事件正文或借用父 Session 的根。live 读取不要求挂载 Session persistence；未挂载时 cold Session 无法解析，Gateway 返回 `gateway/lookup-not-found`。
 
 | 方法 | 返回 | 用途 |
 |---|---|---|
@@ -34,6 +34,7 @@ kind: "package-reference"
 | `readBytes(path, { range?, baseFile? })` | `WorkspaceFileBytes` = stat + `{ offset, data, eof }` | 以 `Uint8Array` 返回完整文件或有界字节范围；可从另一个文件所在目录解析目标 |
 | `list(path)` | `WorkspaceDirectoryListing { path, entries, truncated }` | 一个目录的直接子项 |
 | `changes(path)` | `WorkspaceFileWatchFrame` 流 | 订阅就绪确认，随后为单个文件或目录直接子项的失效通知 |
+| `write(path, content, { expectedVersion? })` | `WorkspaceFileWrite` = stat + `{ operation, before, after }` | 在 Session 的沙箱模式与调用方读到的版本号下，替换某个工作区文件的文本 |
 
 ### 寻址与路径
 
@@ -53,6 +54,14 @@ kind: "package-reference"
 
 每项操作都先通过 `lstat` 拒绝不存在的路径或错误的文件类型；读取文件的操作还拒绝末端符号链接，包括指回工作区内的链接。`list` 改为跟随末端链接——任何平台上的目录符号链接，包括 Windows 目录联接——要求它解析为工作区内的目录，因此被链接的目录与其目标一样可列举；`changes` 也以同样方式把被监听的目录限制在工作区内。文件操作随后通过组合文件系统解析和读取，不做额外的工作区包含检查。配置的分页、窗口、完整文件和目录列举上限仍然适用。文本页还拒绝无效 UTF-8 与 NUL 字节；字节读取不解码内容。读取或列举的空路径是 `gateway/bad-request`。
 
+### 写入
+
+`write(path, content, { expectedVersion? })` 替换某个文件的文本。它是读取权限的例外：目标必须是 Session 工作区根**内**的普通文件，尽管读取可以越出工作区。
+
+写入有双重守卫。Session 自己的沙箱模式先决定是否允许写入——`read-only` 的会话以 `workspace-file/read-only` 拒绝一切写入——而 `expectedVersion` 指名调用方读到的版本：文件在此期间动过，写入就以 `workspace-file/stale-version` 被拒绝，而不是把它覆盖掉。写入后的文件版本随结果一起返回，下一次写入据此指名新版本。
+
+写入以本次读到的版本向文件系统声明自己的意图（`replaceIfVersion`），并且**不走** `fs/write-intent` 瀑布：那是**工具**层的接口，Agent 的读后写闸门在那里决定 **Agent** 自己的改动。编辑器写入是用户对自己刚读过的文件的改动，它不惊动 Agent 的账本。写入成功后会发出不带 actor 的 `fs/observed`，因此变更流听得见，监听该文件的会话也会刷新。
+
 ### 变更流
 
 `changes` 是 `stream` 模式的 Remote，只接受目标路径。Host 从 `stat` 取得实际目标类型；只要当前类型是目录，就要求位于工作区内，目标类型变化后也执行该检查。一代流先注册观察队列、解析目标并建立 `fs.watch`，然后产出 `{ kind: 'ready' }`。随后产出 `{ kind: 'change', change }`，其中 `change` 为当前 stat 元数据 `{ absolutePath, version }` 或 `{ absolutePath, absent: true }`。本地提供方使用 Chokidar，目录仅监听直接子项。匹配目标的 `fs/observed` 也触发失效。流在初始化期间排队变化。取消会独立于消费方拉取帧的进度关闭 watcher，流或插件拆除等待关闭完成。父目录保持存在时，缺失文件仍可监听同一路径的重建。
@@ -70,7 +79,7 @@ kind: "package-reference"
 
 ### 失败
 
-每种失败都是一个带类型化 details 的 `RemoteError` 代码，声明于 [`src/types.ts`](src/types.ts)：`workspace-file/not-found`、`workspace-file/outside-workspace`（目录列举或监听）、`workspace-file/watch-unsupported`（监听初始化失败）、`workspace-file/too-large`（带 `limit`，即适用的页、窗口或完整文件上限）、`workspace-file/not-text`、`workspace-file/not-regular-file`（`kind` 为 `directory`、`symlink` 或 `other`）以及 `workspace-file/not-directory`（`kind` 为 `file`、`symlink` 或 `other`）。调用方按代码分支，绝不按消息文本。
+每种失败都是一个带类型化 details 的 `RemoteError` 代码，声明于 [`src/types.ts`](src/types.ts)：`workspace-file/not-found`、`workspace-file/outside-workspace`（目录列举、监听或写入）、`workspace-file/watch-unsupported`（监听初始化失败）、`workspace-file/too-large`（带 `limit`，即适用的页、窗口或完整文件上限）、`workspace-file/not-text`、`workspace-file/not-regular-file`（`kind` 为 `directory`、`symlink` 或 `other`）、`workspace-file/not-directory`（`kind` 为 `file`、`symlink` 或 `other`），写入另有 `workspace-file/read-only`（Session 的沙箱模式）、`workspace-file/stale-version`（带 `expected` 与 `actual`）与 `workspace-file/write-failed`。调用方按代码分支，绝不按消息文本。
 
 ### Client 文件资源
 
@@ -100,7 +109,7 @@ kind: "package-reference"
 
 | 文件 | 职责 |
 |---|---|
-| [`src/index.ts`](src/index.ts) | `WorkspaceFiles`：`workspaceFiles` 服务与 Remote 命名空间、`Config`、四道关、切页器、`read`、`readBytes`、`stat`、`list` |
+| [`src/index.ts`](src/index.ts) | `WorkspaceFiles`：`workspaceFiles` 服务与 Remote 命名空间、`Config`、四道关、切页器、`read`、`readBytes`、`stat`、`list`、`write` |
 | [`src/changes.ts`](src/changes.ts) | `WorkspaceChangeFeed`：目标监听、匹配的 `fs/observed` 通知与每代流各自的队列 |
 | [`src/types.ts`](src/types.ts) | 线路类型与 `RemoteErrorDetailsMap` 错误码，以 `./types` 发布给 Client 包 |
 | [`src/client/index.ts`](src/client/index.ts)、[`provider.ts`](src/client/provider.ts)、[`change-feed.ts`](src/client/change-feed.ts) | 浏览器插件、文件元数据与按目标建立的变更流 |
@@ -139,7 +148,7 @@ Typert 生成 `./typert` 与 `./remote` 暴露的 Host 与 Client Remote 产物�
 
 - **提供方监听支持**——包括 SSH 在内的不支持后端报告 `watch-unsupported`；普通读取与手动刷新仍可用，不轮询外部变化。
 - **Linux 父目录重建**——父目录删除并重建后的自动监听恢复仍延期，见 [fs-local](../../fs/fs-local/README.zh.md)。
-- **仅目录受限**——目录列举与监听限定在 Session 工作区内；文件读取与监听沿用文件系统后端的读取权限。
+- **仅目录受限**——目录列举与监听限定在 Session 工作区内；文件读取与监听沿用文件系统后端的读取权限。**写入**同样限定在工作区根内，并按 Session 自己的沙箱模式执行。
 - **没有总行数**——页只报告 `eof`，不报告后面还有多少行；需要总数的消费方要翻到末尾或按 `bytes` 估算。
 - **超长单行没有页**——超过 `maxBytes` 的单行在包含它的每个窗口都以 `too-large` 失败，因为页按行而非按字节切。
 - **读取不具备事务性**——结果元数据来自内容读取之前的 stat；并发写入可能使报告版本与返回内容不一致。

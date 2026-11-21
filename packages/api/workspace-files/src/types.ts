@@ -61,6 +61,34 @@ export interface WorkspaceFileText extends WorkspaceFileStat {
   readonly eof: boolean
 }
 
+/**
+ * The options one write carries.
+ *
+ * The version guard is what keeps an editor honest: a Client that read the
+ * file a moment ago names the version it saw, and the write refuses when the
+ * file has moved on since.
+ */
+export interface WorkspaceFileWriteOptions {
+  /** The version the caller read; the write is refused when the file moved on. */
+  readonly expectedVersion?: string
+}
+
+/**
+ * The outcome of one guarded write.
+ *
+ * The `before`/`after` pair is the diff basis: both sides are LF-normalized
+ * storage text, so a Client can show what changed without reading the file
+ * again.
+ */
+export interface WorkspaceFileWrite extends WorkspaceFileStat {
+  /** Whether the write created the file or replaced an existing one. */
+  readonly operation: 'create' | 'update'
+  /** The file's content BEFORE the write, or null when the file did not exist. */
+  readonly before: string | null
+  /** The file's content AFTER the write, LF-normalized. */
+  readonly after: string
+}
+
 /** The byte window one `readBytes` returns. Offsets are 0-based. */
 export interface WorkspaceByteRange {
   /** First byte of the window. Defaults to 0. */
@@ -172,5 +200,23 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
       readonly path: string
       readonly kind: 'file' | 'symlink' | 'other'
     }
+    /**
+     * The file changed on disk since the caller read it: the write's version
+     * guard refused to overwrite a version the caller never saw.
+     */
+    'workspace-file/stale-version': {
+      readonly path: string
+      /** The version the caller read. */
+      readonly expected: string
+      /** The version the file carries now. */
+      readonly actual: string
+    }
+    /**
+     * The Session's sandbox mode does not allow writing this file: the write
+     * was refused before the filesystem was touched.
+     */
+    'workspace-file/read-only': { readonly path: string; readonly mode: string }
+    /** The write itself failed: the filesystem refused it or it could not be completed. */
+    'workspace-file/write-failed': { readonly path: string }
   }
 }

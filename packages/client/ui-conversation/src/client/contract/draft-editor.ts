@@ -40,6 +40,9 @@ export type ArbitrateKey = 'up' | 'down' | 'enter' | 'escape' | 'tab' | 'tabBack
 /** Trigger-menu keyboard routing result. */
 export type ArbitrateOutcome = 'consumed' | 'pick-highlighted' | 'pass'
 
+/** Direction of one prompt-history gesture in the composer. */
+export type PromptHistoryDirection = 'older' | 'newer'
+
 /**
  * The InputBar-exclusive keyboard/DOM command face: synchronous
  * returns and event-handler semantics that must not enter the public provide
@@ -74,6 +77,13 @@ export interface ComposerKeyboard {
   arbitrate(key: ArbitrateKey, composing: boolean): ArbitrateOutcome
   /** Space adjudication; true = the input applied a claim — caller preventDefaults. */
   space(): boolean
+  /**
+   * Recall one previously sent prompt into the draft (terminal-style history
+   * navigation: the older prompt, or the newer one).
+   * @param direction - which way the gesture walks the history.
+   * @returns true when the gesture placed a prompt; false when it does not apply.
+   */
+  recall(direction: PromptHistoryDirection): boolean
   /** Dismiss the popupSelect shell (any interaction outside the box). */
   dismissPopup(): void
   /**

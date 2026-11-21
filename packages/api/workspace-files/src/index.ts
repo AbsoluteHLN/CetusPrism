@@ -1,6 +1,6 @@
 /**
- * Workspace file service: read-only file previews, workspace directory
- * listings, and the filesystem-observation change feed, exposed as
+ * Workspace file service: file previews, workspace directory listings, the
+ * filesystem-observation change feed, and guarded writes, exposed as
  * `workspaceFiles`.
  *
  * File reads follow the composed filesystem's read access, including paths
@@ -8,7 +8,12 @@
  * relative paths, with the sandbox policy root as its no-cwd fallback, not a
  * read-containment restriction. Directory listings and change observations
  * remain workspace-scoped. File-kind checks and configured read caps apply to
- * every preview; this service exposes no mutations.
+ * every preview.
+ *
+ * Writes are the exception to the read authority: a write stays inside the
+ * Session's workspace root, runs under that Session's own sandbox mode, and
+ * is guarded by the version the caller read — so an editor never overwrites a
+ * file the Agent rewrote under it.
  *
  * A page is cut from `streamText`, which decodes and rejects non-UTF-8 as it
  * goes, so the file is read only up to the first character past the page and
@@ -23,8 +28,9 @@ import { posix, win32 } from 'node:path'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-fs'
-import type { FsDirEntry, FsInfo, FsPathInfo, FsTarget } from '@deepseek-ai/dsh-fs'
+import type { FsDirEntry, FsInfo, FsPathInfo, FsTarget, FsWriteIntent, FsWriteOutcome } from '@deepseek-ai/dsh-fs'
 import type {} from '@deepseek-ai/dsh-sandbox-policy'
+import type { SandboxExecutionPolicy } from '@deepseek-ai/dsh-sandbox'
 import type {} from '@deepseek-ai/dsh-session'
 import type {} from '@deepseek-ai/dsh-session-persistence'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -40,6 +46,8 @@ import type {
   WorkspaceFileStat,
   WorkspaceFileText,
   WorkspaceFileWatchFrame,
+  WorkspaceFileWrite,
+  WorkspaceFileWriteOptions,
 } from './types.ts'
 
 export type * from './types.ts'
@@ -339,6 +347,108 @@ export class WorkspaceFiles extends TypertRemoteService {
   @Remote({ mode: 'stream' })
   changes(workspaceFileScope: WorkspaceFileScope, path: string, signal: AbortSignal): AsyncIterable<WorkspaceFileWatchFrame> {
     return this.feed.follow(workspaceFileScope.workspaceRoot, path, signal)
+  }
+
+  /**
+   * Replace one workspace file's text, under the Session's own sandbox mode.
+   *
+   * The write is GUARDED twice: the caller's version must still be the file's
+   * version (so a file the Agent rewrote under the editor is never silently
+   * overwritten), and the Session's sandbox mode must allow the write at all.
+   * The target stays inside the Session's workspace root — reading may reach
+   * beyond it, editing may not.
+   * @param workspaceFileScope - header-derived workspace root for the Session identity on the wire.
+   * @param path - target path, absolute or relative to the workspace root.
+   * @param content - the complete new file content.
+   * @param options - the write's options; the version guard travels here.
+   * @param signal - caller cancellation.
+   * @returns the write outcome: the file's new version, its size, and the before/after diff basis.
+   * @throws RemoteError when the sandbox forbids the write, the version is stale, or the path is not a file.
+   */
+  @Remote
+  async write(
+    workspaceFileScope: WorkspaceFileScope,
+    path: string,
+    content: string,
+    options: WorkspaceFileWriteOptions,
+    signal: AbortSignal,
+  ): Promise<WorkspaceFileWrite> {
+    const policy = this.policyOf(workspaceFileScope)
+    if (policy.mode === 'read-only') {
+      throw new RemoteError(
+        'workspace-file/read-only',
+        `the Session's sandbox mode "${policy.mode}" does not allow writing "${path}"`,
+        { path, mode: policy.mode },
+      )
+    }
+    const { root, workspaceRoot } = await this.inspect(workspaceFileScope, path, signal)
+    const target = await this.confine(root, workspaceRoot, path, signal)
+    const info = await this.ctx.fs.stat(target, signal)
+    if (info === undefined) {
+      throw new RemoteError('workspace-file/not-found', `no entry at "${path}"`, { path })
+    }
+    if (info.type !== 'file') {
+      throw new RemoteError('workspace-file/not-regular-file', `"${path}" is a ${info.type}`, { path, kind: info.type })
+    }
+    const version = info.version
+    // The guard the caller asked for is honoured only against a version the
+    // file actually reports: an unknown version is not a confirmed one.
+    if (options.expectedVersion !== undefined && options.expectedVersion !== version) {
+      throw new RemoteError(
+        'workspace-file/stale-version',
+        `"${path}" changed on disk since it was read`,
+        { path, expected: options.expectedVersion, actual: version },
+      )
+    }
+    // The `fs/write-intent` waterfall is the TOOL seam: the agent's
+    // read-before-write gate owns that slot and decides about the AGENT's
+    // mutations, keyed on the session that observed the file. An editor write
+    // is the user's own edit of a file the editor itself read, so the guard
+    // is stated here — the version THIS call read — and the agent's ledger
+    // stays untouched.
+    const intent: FsWriteIntent | undefined = version === undefined
+      ? undefined
+      : { kind: 'replaceIfVersion', version }
+    let outcome: FsWriteOutcome
+    try {
+      outcome = await this.ctx.fs.writeText(target, content, intent, signal, policy)
+    } catch (cause: unknown) {
+      throw new RemoteError(
+        'workspace-file/write-failed',
+        `writing "${path}" failed: ${cause instanceof Error ? cause.message : String(cause)}`,
+        { path },
+        { cause },
+      )
+    }
+    // The observation carries no actor: an editor write is not a tool
+    // execution, so it must not enter the read-before-write gate's ledger.
+    // The change feed still hears it, and a watcher on the file refreshes.
+    this.ctx.emit('fs/observed', target, { kind: 'present', version: outcome.version }, undefined)
+    const written = await this.ctx.fs.stat(target, signal)
+    return {
+      absolutePath: this.ctx.fs.processPath(target),
+      version: outcome.version,
+      ...written?.size === undefined ? {} : { bytes: written.size },
+      operation: outcome.operation,
+      before: outcome.before,
+      after: outcome.after,
+    }
+  }
+
+  /**
+   * The sandbox policy of the Session the write belongs to.
+   *
+   * A Session that is not live cannot carry an override, so the deployment
+   * default applies; its workspace root still comes from the Session's header
+   * through the scope.
+   * @param scope - the Session-derived file scope.
+   * @returns the resolved per-call policy.
+   */
+  private policyOf(scope: WorkspaceFileScope): SandboxExecutionPolicy {
+    // The Session service is read defensively: a deployment without one has
+    // no per-Session override to apply, and the default policy still holds.
+    const session = this.ctx.get('sessions')?.get(scope.sessionId)
+    return this.ctx.sandboxPolicy.resolve(session === undefined ? {} : { session })
   }
 
   private async relativePath(scope: WorkspaceFileScope, baseFile: string, path: string, signal: AbortSignal): Promise<string> {

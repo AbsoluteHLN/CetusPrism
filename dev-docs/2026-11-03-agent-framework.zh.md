@@ -77,17 +77,17 @@
 - abort：驱动器先 `adapter.abortTurn()` 再武装信号；中断前缀按 `interrupted: true` 结算
 - 失败运行结算 `assistant/attempt`（不伪造模型可见历史）
 - 适配器进程随 scope 处置自动 stop；首个回合惰性 start
-- **已知边界**：外部运行时的 mid-run steering 直达（Pi `steer` 命令）未接，队列到下一 step；ZCode 的 `interaction/requestPermission` 被结构化拒绝（`-32601`）+ notice；多模态输入仅文本
+- **已知边界**：ZCode 的 `interaction/requestPermission` 被结构化拒绝（`-32601`）+ notice；多模态输入仅文本（Pi 的 mid-run steering 直达已接：`PiLoopAgent.steer` 在回合运行中向适配器发 live `steer` 命令，失败静默回落队列投递）
 
-### 未接的最后一环（任务#6）
-Host 后端绑定：`backend-store.select()` 当前拒绝非 DSH（"not supported by this build yet"）。接通路径已完备——按选择构造 adapter + `ExternalAgentDriver`，用 `createAgent(ownerCtx, { sessionId, driver })` 建会话。resume 同一会话必须传同一 driver（契约已写明；**持久化引擎标记进 session meta 需要格式评审**，是当前硬缺口）。
+### 最后一环：已接通
+Host 后端绑定链路已完整：composer 的 `backend-store.select()` 对**每一个** ready 选择（含 DSH）调用宿主 `agentPresets.selectBackend` 提交；registry 的 `backendDriver(backend)` 只对 probe 判定为 `ready` 的后端返回驱动器工厂，并把部署配置的 `externalRuntimes.{pi,zcode}` 命令透传给适配器 spawn；resume 侧 `backendForObservation` 用 `parseBuiltinAgentBackend` 白名单校验日志中记录的后端，非法值回落原生循环而不是让 resume 失败。
 
 ## 5. 后端强化规则（本轮随接缝落地）
 
 1. **一会话一驱动器**：驱动器由创建调用方选定，整个生命周期不变；工厂层 ownership 机器保证无双重驱动
 2. **日志词汇单一来源**：外部驱动器写与 ReactLoop 完全相同的 `SessionEventMap` 词汇 → 投影/前台/回放零分叉，天然防耦合
 3. **resume 一致性**：`driver` 选项在 create/resume 两侧；契约 + 文档强制同一 driver，防"外语种日志被认领"
-4. **中止不泄漏**：`raceAbort` + `settled.catch` 模式保证 abort 竞态无未处理拒绝；适配器中断与信号双通道
+4. **中止不泄漏**：共享的 `raceAbortSignal` + `awaitRuntimeIdle`（`external-runtime.ts`）保证 abort 竞态无未处理拒绝；适配器中断与信号双通道
 5. **能力诚实**：ZCode `hostPermission/hostUserInput: true` 如实声明，交互面缺失时结构化拒绝而非悬挂
 
 ## 6. 项目结构约定（收敛后）

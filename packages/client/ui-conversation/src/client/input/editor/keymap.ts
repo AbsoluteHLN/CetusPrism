@@ -20,12 +20,17 @@ import {
   KEY_ESCAPE_COMMAND, KEY_SPACE_COMMAND, KEY_TAB_COMMAND, PASTE_COMMAND,
 } from 'lexical'
 import { mergeRegister } from '@lexical/utils'
-import type { ArbitrateKey, ArbitrateOutcome } from '../../contract/draft-editor.ts'
+import type { ArbitrateKey, ArbitrateOutcome, PromptHistoryDirection } from '../../contract/draft-editor.ts'
 
 /** The bar-supplied behavior behind each intercepted gesture. */
 export interface ComposerKeymapHandlers {
   /** Keyboard arbitration while the menu is open ('pass' when no pipeline). */
   arbitrate(key: ArbitrateKey, composing: boolean): ArbitrateOutcome
+  /**
+   * Recall one previously sent prompt into the draft (terminal-style history
+   * navigation); true = the gesture placed a prompt — the keystroke is consumed.
+   */
+  recall(direction: PromptHistoryDirection): boolean
   /** Space adjudication; true = a claim was applied — the keystroke is consumed. */
   space(): boolean
   /** Dismiss the popupSelect shell (Escape layering: an open overlay closes first). */
@@ -89,6 +94,18 @@ export function registerComposerKeymap(editor: LexicalEditor, handlers: Composer
     return false
   }
 
+  // History navigation rides the arrow keys behind the menu arbitration: an
+  // open menu keeps them (it moves its highlight), a closed one offers them
+  // to the prompt history. The composition guard holds: an IME candidate
+  // window owns the arrows while it is open.
+  const historyArrow = (direction: PromptHistoryDirection) => (event: KeyboardEvent | null): boolean => {
+    if (arrow(direction === 'older' ? 'up' : 'down')(event)) return true
+    if (event !== null && isComposingEvent(event, recentlyComposing)) return false
+    if (!handlers.recall(direction)) return false
+    event?.preventDefault()
+    return true
+  }
+
   return mergeRegister(
     editor.registerRootListener((root, prevRoot) => {
       prevRoot?.removeEventListener('compositionstart', onCompositionStart)
@@ -102,8 +119,8 @@ export function registerComposerKeymap(editor: LexicalEditor, handlers: Composer
       syncComposition()
     }),
     editor.registerUpdateListener(syncComposition),
-    editor.registerCommand(KEY_ARROW_UP_COMMAND, arrow('up'), COMMAND_PRIORITY_CRITICAL),
-    editor.registerCommand(KEY_ARROW_DOWN_COMMAND, arrow('down'), COMMAND_PRIORITY_CRITICAL),
+    editor.registerCommand(KEY_ARROW_UP_COMMAND, historyArrow('older'), COMMAND_PRIORITY_CRITICAL),
+    editor.registerCommand(KEY_ARROW_DOWN_COMMAND, historyArrow('newer'), COMMAND_PRIORITY_CRITICAL),
     // Tab settles the highlighted completion and passes without one, keeping
     // native focus traversal; Shift+Tab leaves the menu like Escape whenever it
     // is open, highlight or not, so the two Tab gestures never disagree about

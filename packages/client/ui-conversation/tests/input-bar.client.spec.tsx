@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 // InputBar behavior over the editor + submit-machine wiring: Enter-send
 // semantics (IME guard, Shift newline, busy Enter policy, Ctrl/Meta steering,
 // repeat suppression), running semantics (input stays free; continuable
@@ -91,6 +91,8 @@ interface BenchOptions {
   /** The hub's steer-all face (empty-draft accelerated Enter). */
   steerQueue?: () => void
   variant?: 'hero' | 'composer'
+  /** Ask for the REDUCED composer: no mode chips, no model seat, no metric row. */
+  compact?: boolean
   placeholder?: string
   t?: InputBarProps['t']
   accessory?: React.ReactNode
@@ -220,6 +222,7 @@ function bench(over?: BenchOptions) {
     t: over?.t ?? makeTranslate(zh, commonZh),
     renderSlot,
     variant: over?.variant ?? 'composer',
+    ...(over?.compact === true ? { compact: true } : {}),
     ...(over?.inert === true ? { disabled: true } : {}),
     ...(over?.blocked !== undefined ? { blocked: over.blocked } : {}),
     ...(over?.workspacePickerOpen !== undefined ? { workspacePickerOpen: over.workspacePickerOpen } : {}),
@@ -1668,6 +1671,42 @@ describe('strips and variants', () => {
     expect(view.getByTestId('ri')).toBeTruthy()
     expect(view.getByTestId('foot')).toBeTruthy()
   })
+
+  it('withholds the chips, the model seat and the metric row in the reduced form', () => {
+    const { view, slotCalls } = bench({
+      compact: true,
+      planEntry: <i data-testid="plan" />,
+      modelEntry: <i data-testid="model" />,
+      permissionEntry: <i data-testid="perm" />,
+      rightItems: <i data-testid="right" />,
+      footer: <i data-testid="foot" />,
+    })
+    // The seats are not even ASKED for: the reduced bar offers no second
+    // editing surface for the values they carry, so nothing mounts behind it.
+    const dispatched = new Set(slotCalls.map(call => call.key))
+    for (const key of [
+      'conversation.input.permission',
+      'conversation.input.computerDelivery',
+      'conversation.input.agentPreset',
+      'conversation.input.agentBackend',
+      'conversation.input.plan',
+      'conversation.input.right',
+      'conversation.input.model',
+      'conversation.input.activity',
+      'conversation.composer.dock',
+    ]) {
+      expect(dispatched.has(key)).toBe(false)
+    }
+    expect(view.queryByTestId('plan')).toBeNull()
+    expect(view.queryByTestId('model')).toBeNull()
+    expect(view.queryByTestId('perm')).toBeNull()
+    expect(view.queryByTestId('right')).toBeNull()
+    expect(view.queryByTestId('foot')).toBeNull()
+    // The text surface, the command button and the submit action remain.
+    expect(view.container.querySelector('[data-composer-input]')).not.toBeNull()
+    expect(view.getByLabelText('添加文件或调用指令')).toBeTruthy()
+    expect(view.getByRole('button', { name: '发送消息' })).toBeTruthy()
+  })
 })
 
 describe('command launcher chrome and control seats', () => {
@@ -1850,5 +1889,53 @@ describe('session reference drops', () => {
       dataTransfer: sessionTransfer({ sessionId: 'other-session' as SessionId, title: '标题' }),
     })
     expect(view.getByRole('alert').textContent).toContain(zh['attachment.dropBlocked'])
+  })
+})
+
+describe('prompt history gestures', () => {
+  it('recalls the prompts this session sent, newest first', async () => {
+    const { shell, textarea, sink } = bench()
+    writeDraft(shell, 'first prompt')
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    await act(async () => {})
+    expect(sink).toHaveBeenCalledWith('first prompt', [], 'queue', expect.any(AbortSignal))
+    writeDraft(shell, 'second prompt')
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    await act(async () => {})
+    expect(shell.snapshot.draft).toBe('')
+
+    fireEvent.keyDown(textarea, { key: 'ArrowUp' })
+    expect(shell.snapshot.draft).toBe('second prompt')
+    fireEvent.keyDown(textarea, { key: 'ArrowUp' })
+    expect(shell.snapshot.draft).toBe('first prompt')
+    fireEvent.keyDown(textarea, { key: 'ArrowDown' })
+    expect(shell.snapshot.draft).toBe('second prompt')
+  })
+
+  it('restores the draft that stood before the walk when the walk leaves the newest end', async () => {
+    const { shell, textarea } = bench()
+    writeDraft(shell, 'sent prompt')
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    await act(async () => {})
+
+    writeDraft(shell, 'unsent draft')
+    fireEvent.keyDown(textarea, { key: 'ArrowUp' })
+    expect(shell.snapshot.draft).toBe('sent prompt')
+    fireEvent.keyDown(textarea, { key: 'ArrowDown' })
+    expect(shell.snapshot.draft).toBe('unsent draft')
+  })
+
+  it('keeps a prompt that never landed out of the history', async () => {
+    const { shell, textarea, sink } = bench()
+    sink.mockImplementationOnce(() => Promise.resolve({ kind: 'error', text: '发送失败' }))
+    writeDraft(shell, 'refused prompt')
+    fireEvent.keyDown(textarea, { key: 'Enter' })
+    await act(async () => {})
+    // The failed send restores its own draft.
+    expect(shell.snapshot.draft).toBe('refused prompt')
+
+    writeDraft(shell, '')
+    fireEvent.keyDown(textarea, { key: 'ArrowUp' })
+    expect(shell.snapshot.draft).toBe('')
   })
 })

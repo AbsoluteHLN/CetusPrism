@@ -5,7 +5,8 @@ import { AccountUnauthorizedError, PlatformAuthError, requestAccount, requestBon
 
 const user = z.object({
   id: z.string().nullish(),
-  email: z.string(), mobile: z.string().optional(), mobile_number: z.string().optional(),
+  // A phone-only account carries no email, so the contact falls back to the mobile number.
+  email: z.string().nullish(), mobile: z.string().optional(), mobile_number: z.string().optional(),
   id_profile: z.object({ name: z.string().nullable(), picture: z.string().nullish() }).nullish(),
 })
 // balance and amount arrive as strings that Platform's Web client passes to big.js, whose decimal
@@ -14,6 +15,8 @@ const decimal = /^-?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i
 const wallet = z.object({
   currency: z.enum(['CNY', 'USD']), balance: z.string().regex(decimal),
 })
+// A missing wallet list is a protocol failure, not an empty wallet: a failed read
+// never becomes a zero balance.
 const summary = z.object({ normal_wallets: z.array(wallet), bonus_wallets: z.array(wallet) })
 const bonus = z.object({
   order_id: z.uuid(), campaign: z.string(), amount: z.string().regex(decimal),

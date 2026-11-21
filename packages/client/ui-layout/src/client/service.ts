@@ -42,6 +42,22 @@ export interface ILayout {
   /** Toggle the sidebar panel (closed ⟷ contract default width). */
   toggleSidebar(): void
   /**
+   * Report the sidebar column's state, as the frame renders it.
+   *
+   * A host that shows the column decides its state; it needs to know the
+   * state it is leaving behind in order to restore it.
+   * @returns true when the column is closed.
+   */
+  sidebarCollapsed(): boolean
+  /**
+   * Collapse or restore the sidebar column.
+   *
+   * The counterpart of {@link ILayout.toggleSidebar} for a host that knows
+   * which state it wants, rather than which state to flip to.
+   * @param collapsed - true closes the column, false restores it.
+   */
+  setSidebarCollapsed(collapsed: boolean): void
+  /**
    * Report the right panel's presentation without changing its expanded state.
    * @param track - whether the normal panel width reserves a grid track,
    *   including beneath a fullscreen overlay.
@@ -61,11 +77,13 @@ export class LayoutController implements ILayout {
    * @param panels - actions of the instance shared with the root entry.
    * @param hasMainPanel - checks the live main-slot registry for a panel id.
    * @param panelInfo - root store's shared central-panel selection source.
+   * @param readCollapsed - reads the sidebar column's current state.
    */
   constructor(
     private readonly panels: PanelActions,
     private readonly hasMainPanel: (id: MainPanelId) => boolean,
     readonly panelInfo: HostObservable<PanelInfo>,
+    private readonly readCollapsed: () => boolean,
   ) {}
 
   /** Select a global panel or return to the Conversation. */
@@ -92,6 +110,16 @@ export class LayoutController implements ILayout {
   /** Toggle the sidebar panel (closed ⟷ contract default width). */
   toggleSidebar(): void {
     this.panels.toggleSidebar()
+  }
+
+  /** @returns true when the sidebar column is closed. */
+  sidebarCollapsed(): boolean {
+    return this.readCollapsed()
+  }
+
+  /** Collapse or restore the sidebar column. */
+  setSidebarCollapsed(collapsed: boolean): void {
+    this.panels.setSidebarCollapsed(collapsed)
   }
 
   /** Report the right panel's track and fullscreen presentation. */

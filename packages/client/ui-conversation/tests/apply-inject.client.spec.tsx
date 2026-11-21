@@ -469,6 +469,7 @@ describe('Conversation inject API', () => {
       arbitrate: () => 'pass', space: () => false, dismissPopup: () => {},
       canSubmit: () => true, submit: () => {}, pasteText: (text) => { composer.keyboard!.paste(text) },
       intakeFiles: (files, directories) => { expect(composer.addFiles?.(files, directories)).toBeNull() },
+      recall: () => false,
     })
     onTestFinished(off)
     const folder = new File([], 'my project')

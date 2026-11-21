@@ -382,12 +382,33 @@ describe('execution backends', () => {
     const ctx = await setup()
     const dispose = ctx.agentPresets.registerBackend({
       id: 'zcode',
-      describe: () => ({ version: '3.16.2', source: 'external-runtime', compatible: true }),
+      describe: () => ({ version: '3.16.2', source: 'external-runtime', installed: true, compatible: true }),
     })
     expect(ctx.agentPresets.remoteExportBackends().backends.find(backend => backend.id === 'zcode'))
       .toMatchObject({ availability: 'ready', version: '3.16.2' })
     dispose()
-    expect(ctx.agentPresets.remoteExportBackends().backends.find(backend => backend.id === 'zcode'))
-      .toMatchObject({ availability: 'unconfigured' })
+    // Releasing the registration hands the backend back to the deployment's
+    // own discovery, which finds no runtime on this machine.
+    const released = ctx.agentPresets.remoteExportBackends().backends.find(backend => backend.id === 'zcode')
+    expect(released?.version).not.toBe('3.16.2')
+    expect(released?.availability).toBe('unconfigured')
+  })
+})
+describe('backend driver binding', () => {
+  it('binds a driver factory only to a ready external backend', async () => {
+    // The harness pins both runtimes to commands that do not exist, so the
+    // probe reports them uninstalled and no driver may spawn them.
+    const ctx = await setup()
+    expect(ctx.agentPresets.backendDriver('dsh')).toBeUndefined()
+    expect(ctx.agentPresets.backendDriver('pi')).toBeUndefined()
+    expect(ctx.agentPresets.backendDriver('zcode')).toBeUndefined()
+
+    // A command whose --version satisfies the floor makes the backend ready,
+    // and the same deployment then binds its driver factory.
+    const ready = await harness({ externalRuntimes: { pi: process.execPath } })
+    contexts.push(ready)
+    expect(ready.agentPresets.remoteExportBackends().backends.find(backend => backend.id === 'pi'))
+      .toMatchObject({ availability: 'ready' })
+    expect(typeof ready.agentPresets.backendDriver('pi')).toBe('function')
   })
 })

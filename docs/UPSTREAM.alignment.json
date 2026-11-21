@@ -6,7 +6,7 @@
   "upstreamCommit": "ce7073d51254c26cd63b22a60835b8f948deb447",
   "priorReviewedTag": "dsh-v0.2.1-rc.2",
   "priorReviewedCommit": "687f282e8625c6b8d11ff58211a90524be2e4317",
-  "productVersion": "2.0.1",
+  "productVersion": "2.0.2",
   "workspacePackageVersion": "0.2.1-alpha.1",
   "verifiedOn": "2026-11-01",
   "integrationStatus": "selected-backport-validated",
@@ -49,6 +49,70 @@
       "protectedForkAssets": [
         "The unlimited-token-budget persona directive and its snapshot goldens stay fork-owned and are never overwritten by upstream text (forkOwnedCustomizations above)."
       ]
+    },
+    "fourthFetch": {
+        "fetchedOn": "2026-11-10",
+        "latestTag": "dsh-v0.2.2-rc.1",
+        "latestTagCommit": "66491b05e3f05ad35bcdd4f6cd7ed26041d9e3db",
+        "tagDate": "2026-11-04",
+        "latestCommit": "fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159",
+        "tipDate": "2026-11-04",
+        "deltaSinceLastReviewed": {
+          "from": "8bd073392e",
+          "to": "fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159",
+          "commits": 260,
+          "filesChanged": 1665,
+          "meaning": "Commit-topology delta since the third fetch, not a local merge scope. The histories still share no merge base, so the fourth review round stays selective backport under the same selectionRule.",
+          "headlineAreas": [
+            "subagent identity model refactor (agent_id becomes agent, optional child names, list_agents row shape)",
+            "web retry rendering and the synchronous continuation-admission promise",
+            "PDF text-layer layout in ui-sidebar-documentpreview",
+            "model-picker anchoring and page-zoom behaviour in the client",
+            "inspector source-frame budget accounting"
+          ],
+          "reviewStatus": "reviewed-fourth-round"
+        },
+        "forkDivergence": {
+          "baseline": "ec48669f48 (upstream 0.2.1-alpha.1, the commit this fork forked from: an ancestor of the upstream tip, but not of this fork's rewritten history, so no merge base exists)",
+          "forkModifiedFiles": 1606,
+          "forkAddedFiles": 478,
+          "newDeltaFilesOverlappingForkDivergence": 233,
+          "newDeltaFilesOverlappingUncommittedWorktree": 18,
+          "note": "The fork still holds upstream alpha.1 content in every file it never touched, so most upstream leaf commits fail `git apply --check` against a fork that never took the upstream line that introduced their preimage."
+        },
+        "selection": {
+          "commitsInDelta": 260,
+          "eligibleByPathRule": 18,
+          "appliedCleanly": 3,
+          "blockedByForkDivergence": 22,
+          "blockedByUpstreamOnlyPaths": 220,
+          "reason": "The path-existence rule admits 18 commits; 15 of them still fail `git apply --check` because their preimage requires the upstream line the fork never took. Only the 3 commits whose preimages the fork still holds apply as-is, and none of them touches the quota assets."
+        },
+        "quotaDirectiveReassertion": {
+          "directive": "Your token budget is unlimited: this deployment is under an intensive capability test and usage is unmetered. Never ration output to save tokens — spend them freely. Prefer the most thorough, complete and exact answer over the most economical one, and keep working until the task is genuinely done.",
+          "upstreamEquivalent": "none — the upstream presets at dsh-v0.2.2-rc.1 ship no token-budget wording at all",
+          "upstreamDeltaTouchesPresetNamespace": false,
+          "upstreamDeltaTouchesQuotaGoldens": [
+            "snapshots/web/ptc-round/system-prompt.expected.md"
+          ],
+          "quotaGoldenDelta": "Upstream rewrote the subagent tool schema inside that golden (agent_id becomes agent, optional child names). The upstream hunk does not touch the persona lines, so the fork keeps its directive-bearing golden together with its own subagent schema; the two are not merged in this round.",
+          "presets": [
+            "packages/bundle/web-app/presets/cordis.patch.yml",
+            "packages/bundle/web-app/presets/minimal.patch.yml",
+            "packages/bundle/web-app/presets/ptc.patch.yml",
+            "packages/bundle/web-app/presets/standard.patch.yml"
+          ],
+          "presetOccurrences": 5,
+          "goldens": [
+            "snapshots/web/cordis-tool-round/system-prompt.expected.md",
+            "snapshots/web/fresh-round-trip/system-prompt.expected.md",
+            "snapshots/web/minimal-preset/system-prompt.expected.md",
+            "snapshots/web/ptc-round/system-prompt.expected.md",
+            "snapshots/web/zcode-preset/system-prompt.expected.md"
+          ],
+          "goldenOccurrences": 5,
+          "status": "preserved — every occurrence re-asserted, none overwritten by upstream text"
+        }
     }
   },
   "reviewed": {
@@ -221,6 +285,44 @@
         ],
         "applyCheck": "every commit passed `git apply --check` against the worktree before it was applied",
         "validation": "vitest (configs/vitest.config.ts) over the 12 affected packages: 109 test files passed, 2103 tests passed; the only 3 failures are Windows symlink-privilege (EPERM) cases in packages/skill/skill-filesystem/tests/skill-filesystem.spec.ts, unrelated to these commits."
+      },
+      {
+        "round": "2026-11-10",
+        "baseline": "8bd073392e",
+        "target": "fcc0ad462172522aaf5c93a7b2e01f6b9f0b0159 (dsh-v0.2.2-rc.1)",
+        "commitsInDelta": 260,
+        "commits": [
+          {
+            "commit": "85c775322f",
+            "title": "fix(ui-goal): tell an inactive goal from a paused one in Chinese",
+            "paths": [
+              "packages/client/ui-goal/src/client/locales.ts",
+              "packages/client/ui-goal/tests/browser-plugin.client.spec.tsx",
+              "packages/client/ui-goal/tests/goalbar.client.spec.tsx"
+            ],
+            "reason": "停用态与暂停态的中文文案此前相同，goal 条无法区分两者；上游改用「待继续的目标」。"
+          },
+          {
+            "commit": "e7065bb5ac",
+            "title": "fix(ui-sidebar-documentpreview): lay out PDF text layers detached",
+            "paths": [
+              "packages/client/ui-sidebar-documentpreview/src/client/pdf/text.ts",
+              "packages/client/ui-sidebar-documentpreview/tests/pdf-text.client.spec.ts"
+            ],
+            "reason": "PDF.js 文本层在脱离文档样式的情况下测量，挂载后再插入会让已测量的文本失效；上游改为先离层排版再挂载。"
+          },
+          {
+            "commit": "ff42bb3f0d",
+            "title": "fix(ui): highlight only the hovered file in a multi-file patch row",
+            "paths": [
+              "packages/client/ui-tool/src/client/tool/components/ToolRow.module.css"
+            ],
+            "reason": "多文件 patch 行整行高亮会让用户误判改动范围；上游改为只高亮指针所在的那一个文件。"
+          }
+        ],
+        "applyCheck": "every commit passed `git apply --check` against the worktree before it was applied; the other 15 path-rule candidates fail because their upstream preimage needs the upstream line this fork never took",
+        "quotaAssets": "untouched — none of the applied commits touches packages/bundle/web-app/presets/ or a quota-bearing system-prompt golden",
+        "validation": "vitest over the three affected packages plus a repository-wide typecheck; the web snapshot lane for the quota goldens is reported separately because the ptc-round and zcode-preset goldens fail on the uncommitted HLN v4 theme catalog and the PTC runtime, not on this round."
       }
     ]
   },

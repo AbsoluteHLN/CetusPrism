@@ -1,11 +1,8 @@
 /**
- * HLN UI System v3.5 selection row, registered into the Appearance settings
- * section's item slot: theme (the eight official v3.5 planes, including the
- * two native light themes), font (eight type modes), CJK font (seven hanzi
- * modes), and background preset (eight algorithmic planes), each a card grid
- * in the CetusPrism settings style. Applying goes through the shell's
- * `window.HLN` engine; the choice persists locally and is restored by the
- * same shim on boot.
+ * HLN UI System v4 selection row, registered into the Appearance settings
+ * section's item slot: unified themes (pairing dual-pigment palettes with
+ * cohesive typography and ambient surfaces), along with fine-tuning panels
+ * for Latin fonts, CJK fonts, and background presets.
  */
 import clsx from 'clsx'
 import type { ReactNode } from 'react'
@@ -39,6 +36,14 @@ export type HlnRowComponentProps =
 
 /** Catalog id → locale key for the theme card labels. */
 const THEME_LABEL: Record<HlnThemeId, HlnKey> = {
+  'folio-graphite': 'theme.folio-graphite',
+  'folio-porcelain': 'theme.folio-porcelain',
+  'folio-pine': 'theme.folio-pine',
+  'folio-slate': 'theme.folio-slate',
+  'folio-apricot': 'theme.folio-apricot',
+  'folio-plum': 'theme.folio-plum',
+  'folio-sage': 'theme.folio-sage',
+  'folio-lilac': 'theme.folio-lilac',
   'singularity-cyan': 'theme.singularity-cyan',
   'tensor-amber': 'theme.tensor-amber',
   'veridian-stream': 'theme.veridian-stream',
@@ -69,13 +74,19 @@ const MOTION_LABEL: Record<HlnBgMotionId, HlnKey> = {
   'simplex-contour': 'motion.simplex-contour',
   'clock-bus': 'motion.clock-bus',
   'swiss-vector': 'motion.swiss-vector',
+  'paper-grain': 'motion.paper-grain',
+  'margin-rule': 'motion.margin-rule',
+  'tint-wash': 'motion.tint-wash',
+  'ruled-lines': 'motion.ruled-lines',
+  'folio-grid': 'motion.folio-grid',
+  'vellum-fiber': 'motion.vellum-fiber',
   quiet: 'motion.quiet',
 }
 
-/** Numbered catalog panel using the shell's KalciriteUI v3.5 primitives. */
+/** Numbered catalog panel using the shell's KalciriteUI v4 primitives. */
 function CatalogPanel({ title, index, children }: { title: string; index: string; children: ReactNode }) {
   return (
-    <section className={clsx('hln-v35-panel', css.panel)} data-hln-ui-surface>
+    <section className={clsx('hln-v35-panel', css.panel)} data-hln-ui-surface="panel">
       <div className="hln-v35-panel__head">
         <div className="hln-v35-panel__title">
           <span className="hln-v35-panel__index" aria-hidden="true">{index}</span>
@@ -106,18 +117,30 @@ export function HlnAppearanceRow(
           <button
             key={theme.id}
             type="button"
-            className={css.card}
+            className={clsx(css.card, css.themeCard)}
             data-hln-ui-control
             data-hln-motion="item"
             data-active={selection.theme === theme.id}
             aria-pressed={selection.theme === theme.id}
-            onClick={() => { setHlnTheme(theme.id) }}
+            onClick={() => {
+              setHlnTheme(theme.id)
+              setHlnFont(theme.defaultFont)
+              setHlnCjk(theme.defaultCjk)
+              setHlnBgMotion(theme.defaultBgMotion)
+            }}
           >
             <span className={css.swatchPair} aria-hidden="true">
               <span className={css.swatchShade} style={{ background: theme.swatch }} />
               <span className={css.swatchAccent} style={{ background: theme.accent }} />
+              <span className={css.swatchAccentCool} style={{ background: theme.accentCool }} />
             </span>
-            <span className={css.cardLabel}>{t(THEME_LABEL[theme.id])}</span>
+            <span className={css.themeInfo}>
+              <span className={css.cardLabel}>{t(THEME_LABEL[theme.id])}</span>
+              <span className={css.metaRow} aria-hidden="true">
+                <span className={css.schemeBadge}>{theme.colorScheme}</span>
+                <span className={css.fontBadge}>{theme.defaultFont}</span>
+              </span>
+            </span>
           </button>
         ))}
       </CatalogPanel>

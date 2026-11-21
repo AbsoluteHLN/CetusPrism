@@ -36,7 +36,7 @@ getPlatformSession 仅在已存授权的 issuer 与 platformOrigin 一致时导�
 
 账号资料投影将 `id_profile.picture` 映射为 `avatarUrl`，没有配置头像时返回 null。
 
-getProfile / getBalance 将保存的授权 token 通过 x-dsh-auth-token 请求头，向 platformOrigin 上的 GET /auth-api/v0/users/current 和 GET /api/v0/users/get_user_summary 发起请求。授权签发来源必须与该来源一致。Host 只投影账号 UID、资料名称、头像 URL、由 Platform 脱敏的手机号或邮箱（原样保留），以及 normal_wallets / bonus_wallets 的币种和余额字符串，丢弃响应 token 与其他字段。余额和赠金金额字符串只要符合 Platform Web 客户端交给 big.js 的数字文法即可通过，该文法和 big.js 一致，允许省略整数或小数部分以及十进制指数，因此 0E-16、5.0000000000000000 这类值仍然有效；原始字符串会保留，NaN、Infinity 和非法文本仍被拒绝。赠送钱包不计入充值余额。凭证变化和销毁会使进行中的查询失效。
+getProfile / getBalance 将保存的授权 token 通过 x-dsh-auth-token 请求头，向 platformOrigin 上的 GET /auth-api/v0/users/current 和 GET /api/v0/users/get_user_summary 发起请求。授权签发来源必须与该来源一致。Platform 以 `{code, msg, data}` 应答：读取器同时接受普通信封与 DSH 业务信封（`data.biz_code` / `data.biz_data`），因此一种部署的包装层不会遮住另一种部署的账号负载；而校验不通过的业务信封仍然是协议失败，不会被当成普通负载读出。Host 只投影账号 UID、资料名称、头像 URL、由 Platform 脱敏的手机号或邮箱（原样保留），以及 normal_wallets / bonus_wallets 的币种和余额字符串，丢弃响应 token 与其他字段。余额和赠金金额字符串只要符合 Platform Web 客户端交给 big.js 的数字文法即可通过，该文法和 big.js 一致，允许省略整数或小数部分以及十进制指数，因此 0E-16、5.0000000000000000 这类值仍然有效；原始字符串会保留，NaN、Infinity 和非法文本仍被拒绝。赠送钱包不计入充值余额。凭证变化和销毁会使进行中的查询失效。
 
 getUnnotifiedBonuses 读取同一来源上的 GET /api/v0/users/get_unnotified_bonuses，ackBonusNotified 向 POST /api/v0/users/ack_bonus_notified 发送仅含订单号的 JSON 正文，两者都按调用方元数据组装这五个客户端请求头。二者都先为捕获到的授权解析账号身份，因此退登或切号时返回 null 或 false，而不会确认另一个账号的赠金；一次读取只有在同一凭证生命周期内全部结算后才发布。Host 按 Platform 返回顺序转发赠金列表，把每条的 msg 映射为 message，其余字段不额外丢弃；格式错误、其他 HTTP 失败和其他业务失败都会抛出，而凭据被拒绝（HTTP 401 或响应码 `40003`）会使当前授权失效并返回 null 或 false。
 

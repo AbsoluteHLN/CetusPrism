@@ -536,21 +536,19 @@ export class TeamRoster {
       }
     }
     const hostPolicy = this.hostModelPolicy()
-    const requestedModelSelection = request.model !== undefined
-      || request.agentOptions?.provider !== undefined
-      || request.agentOptions?.model !== undefined
-      || request.agentOptions?.reasoningEffort !== undefined
-      || teamPolicy.defaultModel !== undefined
-      || teamPolicy.allowedModels.length > 0
-    if (requestedModelSelection) {
-      if (hostPolicy === undefined) {
-        throw new TeamError('model selection requires the Host-owned model-selection policy service', 'TEAM_HOST_MODEL_SELECTION_UNAVAILABLE')
-      }
-      if (!hostPolicy.enabled) {
-        throw new TeamError('model selection is disabled by the Host', 'TEAM_HOST_MODEL_SELECTION_DISABLED')
-      }
-      if (route === undefined || !hostPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
-        throw new TeamError('the selected model route is outside the Host-authorized list', 'TEAM_HOST_MODEL_NOT_ALLOWED')
+    if (hostPolicy !== undefined) {
+      if (hostPolicy.enabled) {
+        if (route === undefined || !hostPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
+          throw new TeamError('the selected model route is outside the Host-authorized list', 'TEAM_HOST_MODEL_NOT_ALLOWED')
+        }
+      } else {
+        const explicitSelection = request.model !== undefined
+          || request.agentOptions?.provider !== undefined
+          || request.agentOptions?.model !== undefined
+          || request.agentOptions?.reasoningEffort !== undefined
+        if (explicitSelection) {
+          throw new TeamError('model selection is disabled by the Host', 'TEAM_HOST_MODEL_SELECTION_DISABLED')
+        }
       }
     }
     if (route?.reasoningEffort !== undefined) {
@@ -713,7 +711,7 @@ export class TeamRoster {
     const provider = leadOptions.provider?.trim()
     const model = leadOptions.model?.trim()
     return provider !== undefined && provider.length > 0 && model !== undefined && model.length > 0
-      ? { provider, model }
+      ? { provider, model, ...leadOptions.reasoningEffort === undefined ? {} : { reasoningEffort: leadOptions.reasoningEffort } }
       : undefined
   }
 

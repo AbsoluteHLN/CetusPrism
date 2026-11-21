@@ -1,0 +1,604 @@
+/* ProjectHLN UI System v4 - Folio Base Layer (base.css)
+   The shared component grammar: root, surfaces, controls, fields, scrollbars,
+   resize handles, one-shot motion, and the static ambient surface presets.
+
+   Every colour, radius, spacing, duration and easening in this file comes from
+   a token. No literal hex value appears here. */
+
+/* ==========================================================================
+   1. Root & box model
+   ========================================================================== */
+[data-hln-ui-root][data-hln-ui-version="v4"] {
+  min-height: 100%;
+  color: var(--hln-ui-text);
+  background-color: var(--hln-ui-bg-0);
+  font-family: var(--hln-ui-font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  letter-spacing: var(--hln-ui-cjk-tracking, 0.01em);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+[data-hln-ui-root][data-hln-ui-version="v4"] *,
+[data-hln-ui-root][data-hln-ui-version="v4"] *::before,
+[data-hln-ui-root][data-hln-ui-version="v4"] *::after {
+  box-sizing: border-box;
+}
+
+[data-hln-ui-root][data-hln-ui-version="v4"] :where(h1, h2, h3, h4, h5, h6) {
+  margin: 0;
+  font-family: var(--hln-ui-font-title);
+  font-weight: var(--hln-ui-cjk-heading-weight, 600);
+  letter-spacing: var(--hln-ui-cjk-heading-tracking, 0.015em);
+  color: var(--hln-ui-text);
+  line-height: 1.35;
+}
+
+[data-hln-ui-root][data-hln-ui-version="v4"] :where(p, ul, ol) {
+  margin: 0;
+}
+
+[data-hln-ui-bar] {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  background: var(--hln-ui-panel-bg);
+  backdrop-filter: blur(var(--hln-ui-blur));
+  -webkit-backdrop-filter: blur(var(--hln-ui-blur));
+}
+
+/* ==========================================================================
+   2. Surfaces
+   ========================================================================== */
+[data-hln-ui-surface] {
+  position: relative;
+  min-width: 0;
+  background: var(--hln-ui-bg-1);
+  border: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-lg);
+  box-shadow: var(--hln-ui-shadow-sm);
+  transition:
+    border-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    background-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    box-shadow var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+[data-hln-ui-surface="panel"] {
+  background: var(--hln-ui-bg-1);
+}
+
+[data-hln-ui-surface="glass"] {
+  background: var(--hln-ui-panel-bg);
+  backdrop-filter: blur(var(--hln-ui-blur));
+  -webkit-backdrop-filter: blur(var(--hln-ui-blur));
+  border-color: color-mix(in srgb, var(--hln-ui-line) 70%, transparent);
+}
+
+[data-hln-ui-surface="glass-strong"] {
+  background: var(--hln-ui-panel-bg);
+  backdrop-filter: blur(var(--hln-ui-blur));
+  -webkit-backdrop-filter: blur(var(--hln-ui-blur));
+  border-color: var(--hln-ui-line);
+  box-shadow: var(--hln-ui-shadow-md);
+}
+
+[data-hln-ui-surface="quiet"] {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* ==========================================================================
+   3. Controls — the Wash is the selected state
+   ========================================================================== */
+[data-hln-ui-control] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hln-ui-space-2);
+  min-height: var(--hln-ui-control-height);
+  padding: 0 var(--hln-ui-space-3);
+  border: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-sm);
+  background: var(--hln-ui-bg-2);
+  color: var(--hln-ui-text);
+  font-family: var(--hln-ui-font-form);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  position: relative;
+  touch-action: manipulation;
+  user-select: none;
+  transition:
+    border-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    background-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+[data-hln-ui-control]:hover {
+  border-color: var(--hln-ui-line-strong);
+  background: color-mix(in srgb, var(--hln-ui-text) 5%, var(--hln-ui-bg-2));
+  color: var(--hln-ui-text);
+}
+
+[data-hln-ui-control]:focus-visible {
+  outline: 2px solid var(--hln-ui-focus);
+  outline-offset: 2px;
+}
+
+/* The engine owns its focus ring.
+   A host chrome rule such as
+   `.shell :is(button, input, [tabindex]):focus-visible` scores (0,2,1) — above
+   the unscoped (0,2,0) rule — and repaints the ring with `currentColor`. On a
+   solid accent fill that colour is the on-accent text, i.e. the same colour as
+   the page, so the ring disappears exactly where the user most needs it.
+   The version-scoped selector below restores the token without reaching into
+   another engine's controls. */
+[data-hln-ui-root][data-hln-ui-version="v4"] [data-hln-ui-control]:focus-visible {
+  outline: 2px solid var(--hln-ui-focus);
+  outline-offset: 2px;
+}
+
+[data-hln-ui-control]:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Selected state — the Wash: pigment tint + accent text, never a flat fill. */
+[data-hln-ui-control][data-active="true"] {
+  border-color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 10%, var(--hln-ui-bg-2));
+  color: var(--hln-ui-accent);
+}
+
+[data-hln-ui-control][data-variant="accent"] {
+  border-color: var(--hln-ui-accent);
+  background: var(--hln-ui-accent);
+  color: var(--hln-ui-on-accent);
+  font-weight: 600;
+}
+
+[data-hln-ui-control][data-variant="accent"]:hover {
+  background: color-mix(in srgb, var(--hln-ui-accent) 88%, var(--hln-ui-text));
+  color: var(--hln-ui-on-accent);
+}
+
+[data-hln-ui-control][data-variant="ghost"] {
+  background: transparent;
+  border-color: transparent;
+}
+
+[data-hln-ui-control][data-variant="ghost"]:hover {
+  background: color-mix(in srgb, var(--hln-ui-text) 6%, transparent);
+  border-color: var(--hln-ui-line);
+}
+
+[data-hln-ui-control][data-variant="quiet"] {
+  background: transparent;
+  border-color: transparent;
+  color: var(--hln-ui-text-muted);
+  padding: 0 var(--hln-ui-space-2);
+}
+
+[data-hln-ui-control][data-variant="quiet"]:hover {
+  color: var(--hln-ui-text);
+  background: color-mix(in srgb, var(--hln-ui-text) 6%, transparent);
+}
+
+[data-hln-ui-control][data-variant="danger"] {
+  border-color: color-mix(in srgb, var(--hln-ui-danger) 45%, var(--hln-ui-line));
+  color: var(--hln-ui-danger);
+}
+
+[data-hln-ui-control][data-variant="danger"]:hover {
+  background: color-mix(in srgb, var(--hln-ui-danger) 12%, var(--hln-ui-bg-2));
+  border-color: var(--hln-ui-danger);
+}
+
+/* ==========================================================================
+   4. The Wash helpers — the signature selected state
+   ========================================================================== */
+.hln-v4-wash {
+  border-color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 10%, var(--hln-ui-bg-2));
+  color: var(--hln-ui-accent);
+}
+
+.hln-v4-wash-bar {
+  position: relative;
+}
+
+.hln-v4-wash-bar::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  border-radius: var(--hln-ui-radius-pill);
+  background: var(--hln-ui-accent);
+}
+
+/* ==========================================================================
+   5. Fields
+   ========================================================================== */
+[data-hln-ui-field] {
+  width: 100%;
+  min-height: var(--hln-ui-field-height);
+  padding: 0 10px;
+  border: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-sm);
+  background: var(--hln-ui-bg-0);
+  color: var(--hln-ui-text);
+  font-family: var(--hln-ui-font-form);
+  font-size: 13px;
+  line-height: 1.5;
+  outline: none;
+  transition:
+    border-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    box-shadow var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+[data-hln-ui-field]::placeholder {
+  color: var(--hln-ui-text-faint);
+}
+
+[data-hln-ui-field]:focus {
+  border-color: var(--hln-ui-focus);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hln-ui-focus) 18%, transparent);
+}
+
+[data-hln-ui-field]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+select[data-hln-ui-field] {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: var(--hln-ui-space-4);
+  background-image: linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position: right 14px center, right 9px center;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  color: var(--hln-ui-text);
+  cursor: pointer;
+}
+
+textarea[data-hln-ui-field] {
+  padding: var(--hln-ui-space-2) 10px;
+  resize: vertical;
+}
+
+/* ==========================================================================
+   6. Scrollbars — the custom contract, never the browser default
+   ========================================================================== */
+[data-hln-ui-scroll] {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hln-ui-line) transparent;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar-thumb {
+  background: var(--hln-ui-line);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--hln-ui-radius-pill);
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar-thumb:hover {
+  background: var(--hln-ui-line-strong);
+  background-clip: content-box;
+}
+
+[data-hln-ui-scroll]::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ==========================================================================
+   7. Resize handles — 14px hit target, 1px visible rule
+   ========================================================================== */
+[data-hln-ui-resize-handle="vertical"] {
+  position: relative;
+  flex: 0 0 14px;
+  width: 14px;
+  align-self: stretch;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+[data-hln-ui-resize-handle="vertical"]::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: var(--hln-ui-hairline);
+  transform: translateX(-50%);
+  background: var(--hln-ui-line);
+}
+
+[data-hln-ui-resize-handle="vertical"]:hover::after {
+  background: var(--hln-ui-accent);
+}
+
+[data-hln-ui-resize-handle="horizontal"] {
+  position: relative;
+  height: 14px;
+  cursor: row-resize;
+  touch-action: none;
+}
+
+[data-hln-ui-resize-handle="horizontal"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: var(--hln-ui-hairline);
+  transform: translateY(-50%);
+  background: var(--hln-ui-line);
+}
+
+[data-hln-ui-resize-handle="horizontal"]:hover::after {
+  background: var(--hln-ui-accent);
+}
+
+/* ==========================================================================
+   8. Motion — one-shot, opacity + transform only
+   ========================================================================== */
+[data-hln-motion] {
+  will-change: transform, opacity;
+}
+
+[data-hln-motion="panel"] {
+  --hln-ui-motion-duration: var(--hln-ui-duration-standard);
+  --hln-ui-motion-ease: var(--hln-ui-ease);
+}
+
+[data-hln-motion="item"] {
+  --hln-ui-motion-duration: var(--hln-ui-duration-fast);
+  --hln-ui-motion-ease: var(--hln-ui-ease);
+}
+
+[data-hln-motion="control"] {
+  --hln-ui-motion-duration: var(--hln-ui-duration-fast);
+  --hln-ui-motion-ease: var(--hln-ui-ease);
+}
+
+[data-hln-motion][data-hln-motion-state="enter"] {
+  animation-duration: var(--hln-ui-motion-duration, var(--hln-ui-duration-standard));
+  animation-timing-function: var(--hln-ui-motion-ease, var(--hln-ui-ease));
+  animation-fill-mode: both;
+  animation-delay: calc(var(--hln-ui-motion-index, 0) * var(--hln-ui-motion-stagger));
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="rise"] {
+  animation-name: hln-v4-rise;
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="unfold"] {
+  animation-name: hln-v4-unfold;
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="spring"] {
+  animation-name: hln-v4-spring;
+  animation-timing-function: var(--hln-ui-ease-spring);
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="slide-left"] {
+  animation-name: hln-v4-slide-left;
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="slide-right"] {
+  animation-name: hln-v4-slide-right;
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="type-in"] {
+  animation-name: hln-v4-type-in;
+}
+
+[data-hln-motion][data-hln-motion-state="enter"][data-hln-motion-variant="page-shift"] {
+  animation-name: hln-v4-page-shift;
+}
+
+@keyframes hln-v4-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hln-v4-unfold {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes hln-v4-spring {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hln-v4-slide-left {
+  0% {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes hln-v4-slide-right {
+  0% {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes hln-v4-type-in {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hln-v4-page-shift {
+  0% {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ==========================================================================
+   9. Ambient surfaces — static by design. No repeating effect anywhere.
+   ========================================================================== */
+[data-hln-ui-root][data-hln-bg-motion] {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+[data-hln-ui-root][data-hln-bg-motion]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+[data-hln-ui-root][data-hln-bg-motion] > :not(.hln-stochastic-canvas) {
+  position: relative;
+  z-index: 1;
+}
+
+[data-hln-ui-root] > .hln-stochastic-canvas {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  pointer-events: none !important;
+  z-index: 0 !important;
+}
+
+/* 01. paper-grain — fine warm fibre grain */
+[data-hln-ui-root][data-hln-bg-motion="paper-grain"]::before {
+  background-image:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--hln-ui-text) 5%, transparent) 1px, transparent 1.5px),
+    radial-gradient(circle at 2px 3px, color-mix(in srgb, var(--hln-ui-text) 4%, transparent) 1px, transparent 1.5px);
+  background-size: 3px 3px, 7px 7px;
+  opacity: 0.55;
+}
+
+/* 02. margin-rule — one vertical margin hairline, one horizontal writing rule */
+[data-hln-ui-root][data-hln-bg-motion="margin-rule"]::before {
+  background-image:
+    linear-gradient(var(--hln-ui-line), var(--hln-ui-line)),
+    linear-gradient(var(--hln-ui-line), var(--hln-ui-line));
+  background-size: 1px 100%, 100% 1px;
+  background-position: 12% 0, 0 78%;
+  background-repeat: no-repeat;
+  opacity: 0.8;
+}
+
+/* 03. tint-wash — one broad pigment wash */
+[data-hln-ui-root][data-hln-bg-motion="tint-wash"]::before {
+  background-image: radial-gradient(
+    120% 90% at 12% 6%,
+    color-mix(in srgb, var(--hln-ui-accent) 9%, transparent) 0%,
+    transparent 62%
+  );
+}
+
+/* 04. ruled-lines — 32px writing rules */
+[data-hln-ui-root][data-hln-bg-motion="ruled-lines"]::before {
+  background-image: repeating-linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--hln-ui-line) 70%, transparent) 0 1px,
+    transparent 1px 32px
+  );
+}
+
+/* 05. folio-grid — 40px baseline grid */
+[data-hln-ui-root][data-hln-bg-motion="folio-grid"]::before {
+  background-image:
+    linear-gradient(90deg, color-mix(in srgb, var(--hln-ui-line) 60%, transparent) 1px, transparent 1px),
+    linear-gradient(180deg, color-mix(in srgb, var(--hln-ui-line) 60%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* 06. vellum-fiber — soft vertical fibre streaks at two frequencies */
+[data-hln-ui-root][data-hln-bg-motion="vellum-fiber"]::before {
+  background-image:
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--hln-ui-text) 3%, transparent) 0 1px, transparent 1px 6px),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--hln-ui-text) 2%, transparent) 0 1px, transparent 1px 13px);
+}
+
+/* 07. quiet — no ornament at all */
+[data-hln-ui-root][data-hln-bg-motion="quiet"]::before {
+  display: none;
+}
+
+/* ==========================================================================
+   10. Reduced motion — disables every animation and transition in v4
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  [data-hln-ui-root][data-hln-ui-version="v4"] *,
+  [data-hln-ui-root][data-hln-ui-version="v4"] *::before,
+  [data-hln-ui-root][data-hln-ui-version="v4"] *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

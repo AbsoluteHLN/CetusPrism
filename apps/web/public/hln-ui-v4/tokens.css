@@ -1,0 +1,172 @@
+/* ProjectHLN UI System v4 - Folio Tokens (tokens.css)
+   Calm minimal multi-pigment edition. Paper-and-ink design language:
+   warm neutral canvas, 4/6/8px geometry, one primary + one secondary pigment
+   per theme, static ambient surfaces, one-shot motion.
+
+   Token layers
+   -------------
+   1. Structure      spacing / radii / heights / durations  (engine constants)
+   2. Elevation      soft shadow scale                       (engine constants)
+   3. Typography     Latin x CJK paired stacks              (engine constants)
+   4. Colour roles   the semantic --hln-ui-* surface roles  (theme scoped)
+
+   Nothing in layer 1-3 is theme dependent. Everything in layer 4 is defined
+   once per theme in themes.css; the root block below mirrors the default
+   theme (folio-porcelain) so the engine is valid without a theme applied. */
+
+:root,
+[data-hln-ui-root] {
+  /* ==========================================================================
+     1. Structure — spacing, radii, heights, durations
+     ========================================================================== */
+  --hln-ui-space-1: 4px;
+  --hln-ui-space-2: 8px;
+  --hln-ui-space-3: 12px;
+  --hln-ui-space-4: 16px;
+  --hln-ui-space-5: 24px;
+  --hln-ui-space-6: 32px;
+
+  --hln-ui-radius-xs: 3px;
+  --hln-ui-radius-sm: 4px;
+  --hln-ui-radius-md: 6px;
+  --hln-ui-radius-lg: 8px;
+  --hln-ui-radius-pill: 999px;
+
+  --hln-ui-hairline: 1px;
+  --hln-ui-blur: 12px;
+  --hln-ui-topbar-height: 56px;
+  --hln-ui-control-height: 34px;
+  --hln-ui-field-height: 34px;
+
+  --hln-ui-duration-fast: 140ms;
+  --hln-ui-duration-standard: 220ms;
+  --hln-ui-duration-slow: 300ms;
+  --hln-ui-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --hln-ui-ease-spring: cubic-bezier(0.34, 1.46, 0.64, 1);
+  --hln-ui-motion-stagger: 40ms;
+
+  /* ==========================================================================
+     2. Elevation — soft, low-contrast. No hard offset shadows, no glow.
+     ========================================================================== */
+  --hln-ui-shadow-sm: 0 1px 2px rgba(16, 18, 22, 0.06);
+  --hln-ui-shadow-md: 0 1px 2px rgba(16, 18, 22, 0.06), 0 8px 20px rgba(16, 18, 22, 0.07);
+  --hln-ui-shadow-lg: 0 2px 4px rgba(16, 18, 22, 0.07), 0 18px 44px rgba(16, 18, 22, 0.1);
+
+  /* ==========================================================================
+     3. Typography — paired Latin x CJK stacks
+     ========================================================================== */
+
+  /* 3.1 Curated Chinese (CJK Hanzi) stacks ------------------------------- */
+  --hln-ui-font-cjk-hei: "HarmonyOS Sans SC", "MiSans", "PingFang SC", "Hiragino Sans GB", "Source Han Sans SC", "Noto Sans SC", "Microsoft YaHei UI", "Microsoft YaHei";
+  --hln-ui-font-cjk-display: "Alibaba PuHuiTi 3.0", "HarmonyOS Sans SC", "MiSans", "OPPOSans", "PingFang SC", "Source Han Sans SC", "Noto Sans SC", "Microsoft YaHei UI";
+  --hln-ui-font-cjk-song: "Source Han Serif SC", "Noto Serif SC", "Songti SC", "STZhongsong", "FZNewShuSong-Z10S", "SimSun";
+  --hln-ui-font-cjk-kai: "LXGW WenKai", "LXGW WenKai Screen", "Kaiti SC", "STKaiti", "FangSong_GB2312", "KaiTi";
+  --hln-ui-font-cjk-mono: "Sarasa Mono SC", "Sarasa Term SC", "HarmonyOS Sans SC", "Source Han Sans Mono SC", "Noto Sans Mono CJK SC", "PingFang SC", "Microsoft YaHei UI";
+  --hln-ui-font-cjk-fangsong: "FZFSJW--GB1-0", "FangSong_GB2312", "STFangsong", "FangSong", "LXGW WenKai", "Noto Serif SC";
+
+  --hln-ui-font-cjk-active: var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-hei));
+  --hln-ui-cjk-tracking: 0.01em;
+  --hln-ui-cjk-heading-tracking: 0.015em;
+  --hln-ui-cjk-heading-weight: 600;
+
+  /* 3.2 Latin x CJK profiles (the six selectable v4 font modes) ---------- */
+  --hln-ui-font-neo-grotesque: "Inter", "Helvetica Neue", "Arial", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-hei)), sans-serif;
+  --hln-ui-font-editorial: "Aptos Display", "Optima", "Georgia", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-song)), serif;
+  --hln-ui-font-display: "Bahnschrift", "DIN Alternate", "Arial Narrow", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-display)), sans-serif;
+  --hln-ui-font-technical: "JetBrains Mono", "Cascadia Code", "SF Mono", "Consolas", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-mono)), monospace;
+  --hln-ui-font-label: "Bahnschrift", "Inter", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-hei)), sans-serif;
+  --hln-ui-font-fangsong: "Georgia", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-fangsong)), serif;
+
+  /* 3.3 Companion stacks kept for host compatibility --------------------- */
+  --hln-ui-font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-hei)), sans-serif;
+  --hln-ui-font-geometric: "Space Grotesk", "Futura", "Century Gothic", "Bahnschrift", "Inter", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-hei)), sans-serif;
+  --hln-ui-font-cyber-mono: "JetBrains Mono", "Share Tech Mono", "Cascadia Code", "Consolas", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-mono)), monospace;
+  --hln-ui-font-berlin: "Space Grotesk", "Eurostile", "Bank Gothic", "Bahnschrift", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-kai)), sans-serif;
+  --hln-ui-font-condensed: "Bahnschrift Condensed", "Arial Narrow", "Roboto Condensed", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-display)), sans-serif;
+  --hln-ui-font-classic: "Palatino Linotype", "Book Antiqua", "Georgia", var(--hln-ui-font-cjk-override, var(--hln-ui-font-cjk-song)), serif;
+
+  /* 3.4 Role bindings ---------------------------------------------------- */
+  --hln-ui-font-title: var(--hln-ui-font-editorial);
+  --hln-ui-font-form: var(--hln-ui-font-neo-grotesque);
+  --hln-ui-font-current: var(--hln-ui-font-neo-grotesque);
+
+  /* ==========================================================================
+     4. Colour roles — default theme: folio-porcelain (瓷白)
+     Mirrors themes.css; every theme block redefines this set.
+     ========================================================================== */
+  color-scheme: light;
+  --hln-ui-bg-0: #f7f5f1;
+  --hln-ui-bg-1: #fdfcfa;
+  --hln-ui-bg-2: #eeebe5;
+  --hln-ui-panel-bg: rgba(253, 252, 250, 0.88);
+  --hln-ui-text: #1f2328;
+  --hln-ui-text-muted: #5c646e;
+  --hln-ui-text-faint: #596069;
+  --hln-ui-line: #e2ded6;
+  --hln-ui-line-strong: #cdc7bc;
+  --hln-ui-accent: #2f4b7c;
+  --hln-ui-accent-cool: #3f7d6e;
+  --hln-ui-on-accent: #fdfcfa;
+  --hln-ui-focus: #2f4b7c;
+  --hln-ui-success: #366c47;
+  --hln-ui-warning: #8a5819;
+  --hln-ui-danger: #a63b32;
+  --hln-ui-shadow: 0 1px 2px rgba(31, 35, 40, 0.06), 0 8px 22px rgba(31, 35, 40, 0.07);
+}
+
+/* ==========================================================================
+   5. Font profile selection
+   Each profile repoints --hln-ui-font-current. The body face follows the
+   selected profile so a host can switch one attribute and restyle the whole
+   surface without touching its own CSS.
+   ========================================================================== */
+[data-hln-font="grotesque"] {
+  --hln-ui-font-current: var(--hln-ui-font-neo-grotesque);
+}
+[data-hln-font="editorial"] {
+  --hln-ui-font-current: var(--hln-ui-font-editorial);
+}
+[data-hln-font="display"] {
+  --hln-ui-font-current: var(--hln-ui-font-display);
+}
+[data-hln-font="technical"] {
+  --hln-ui-font-current: var(--hln-ui-font-technical);
+}
+[data-hln-font="label"] {
+  --hln-ui-font-current: var(--hln-ui-font-label);
+}
+[data-hln-font="fangsong"] {
+  --hln-ui-font-current: var(--hln-ui-font-fangsong);
+}
+
+/* ==========================================================================
+   6. CJK mode overrides
+   ========================================================================== */
+[data-hln-cjk-font="hei"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-hei);
+  font-size-adjust: from-font;
+}
+[data-hln-cjk-font="display"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-display);
+  font-size-adjust: from-font;
+}
+[data-hln-cjk-font="song"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-song);
+  font-size-adjust: from-font;
+}
+[data-hln-cjk-font="kai"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-kai);
+  font-size-adjust: from-font;
+}
+[data-hln-cjk-font="mono"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-mono);
+  font-size-adjust: from-font;
+}
+[data-hln-cjk-font="fangsong"] {
+  --hln-ui-font-cjk-override: var(--hln-ui-font-cjk-fangsong);
+  font-size-adjust: from-font;
+}
+[data-hln-cjk-font="auto"] {
+  --hln-ui-font-cjk-override: initial;
+  font-size-adjust: from-font;
+}

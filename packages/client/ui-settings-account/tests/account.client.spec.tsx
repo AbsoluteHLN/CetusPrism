@@ -524,11 +524,16 @@ it.each(['failed', 'expired'] as const)('allows a new sign-in after the attempt 
   expect(screen.getByRole('button', { name: en.signIn }).hasAttribute('disabled')).toBe(false)
 })
 
-it('shows unavailable details and keeps external Platform links usable in a browser', () => {
-  mount({ status: 'credential-stored', attempt: null }, en, {
+it('shows unavailable details and keeps external Platform links usable in a browser', async () => {
+  const operations = mount({ status: 'credential-stored', attempt: null }, en, {
     profile: { status: 'failed' }, balance: { status: 'failed' },
   })
-  expect(screen.getByText(en.profileUnavailable)).toBeTruthy()
+  expect(screen.getByText(en.profileFailed)).toBeTruthy()
+  // A failed read is recoverable: the account page offers a fresh sign-in.
+  const relogin = screen.getByRole('button', { name: en.relogin })
+  expect(relogin.hasAttribute('disabled')).toBe(false)
+  await act(async () => { fireEvent.click(relogin) })
+  expect(operations.start).toHaveBeenCalledOnce()
   // The failed read keeps its copy in both balance rows, now as links into Platform.
   const unavailable = screen.getAllByRole('link', { name: en.balanceUnavailable })
   expect(unavailable).toHaveLength(2)
@@ -538,6 +543,14 @@ it('shows unavailable details and keeps external Platform links usable in a brow
     screen.getAllByRole('link', { name })[0]!.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(false)
   }
+})
+
+it('keeps the re-login entry out of the way while the account details are readable', () => {
+  mount({ status: 'credential-stored', attempt: null }, en, {
+    profile: { status: 'ready', value: { id: null, name: 'Ready User', contact: '138****0000' } },
+  })
+  expect(screen.queryByRole('button', { name: en.relogin })).toBeNull()
+  expect(screen.queryByText(en.profileFailed)).toBeNull()
 })
 
 it('opens the embedded Platform page from a failed balance row on Desktop', async () => {

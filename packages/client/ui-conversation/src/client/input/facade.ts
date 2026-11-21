@@ -20,10 +20,11 @@ import type {
   SessionInput, SubmitAttempt, SubmitAttachment, SubmitOutcome,
 } from '../contract/input.ts'
 import type {
-  ArbitrateKey, ArbitrateOutcome, ComposerKeyboard, DraftInput, DraftSnapshot, Occurrence, ReferenceInsert, TokenSpan,
+  ArbitrateKey, ArbitrateOutcome, ComposerKeyboard, DraftInput, DraftSnapshot, Occurrence, PromptHistoryDirection, ReferenceInsert, TokenSpan,
 } from '../contract/draft-editor.ts'
 import type { InputSubmitMode, MessageSubmission, MessageSubmissionState } from '../contract/composer-submission.ts'
 import { SubmitMachine } from './machine.ts'
+import { PromptHistory } from './prompt-history.ts'
 import { resolveDraftInput, snapshotDraft } from '../draft.ts'
 import { DraftEditorRuntime } from './editor/runtime.ts'
 import type { EditorProjection } from './editor/projection.ts'
@@ -72,6 +73,12 @@ export interface SessionInputDeps {
     /** Localized composer notice for a claimed command that does not accept attachments. */
     unsupportedNotice(token: string): string
   }
+  /**
+   * The Session's prompt history; the hub supplies one instance per Session so
+   * the record survives the shell's own lifetime. Absent = the shell keeps a
+   * private history for its lifetime.
+   */
+  promptHistory?: PromptHistory
 }
 
 /** Guard tier from the machine phase. */
@@ -137,6 +144,8 @@ export class SessionInputShell implements SessionInput {
 
   private readonly core = new SubmitMachine()
   private readonly draftEditor: DraftEditorRuntime
+  /** The prompts this Session sent, and the cursor that walks them. */
+  private readonly history: PromptHistory
   private get projection(): EditorProjection {
     return this.draftEditor.projection
   }
@@ -177,6 +186,7 @@ export class SessionInputShell implements SessionInput {
       resolveLexicon: () => this.deps.inputTriggers?.()?.lexicon,
     })
     this.unregister = this.draftEditor.register()
+    this.history = deps.promptHistory ?? new PromptHistory()
     this.state = createSnapshotStore<InputState>(this.compose())
     this.unsubscribeInbox = deps.inbox?.subscribe(() => { this.publish() })
   }
@@ -428,6 +438,44 @@ export class SessionInputShell implements SessionInput {
     return inputTriggers.onSpace()
     // No re-track here: applying the claim/insert mutates the editor, and the
     // update listener re-tracks at the settled caret on its own.
+  }
+
+  /**
+   * Recall one previously sent prompt into the draft.
+   *
+   * The gesture is the terminal one: the older prompt, or the newer one, with
+   * the draft that stood before the walk restored when the walk leaves the
+   * newest end. A ranged selection is left alone (the gesture would throw the
+   * selection away), and a walk starts only with the caret on the draft's
+   * first line — a caret below the first line means the user is editing
+   * there, not browsing.
+   * @param direction - which way the gesture walks the history.
+   * @returns true when a prompt was placed in the draft.
+   */
+  recall(direction: PromptHistoryDirection): boolean {
+    if (this.disposed) return false
+    const phase = this.core.state.phase
+    if (phase !== 'plain' && phase !== 'claimed') return false
+    const selection = this.projection.selection
+    if (selection !== null && selection.start !== selection.end) return false
+    const current = this.projection.clipboardText
+    const next = direction === 'older'
+      ? this.history.older(current, this.caretAtTop())
+      : this.history.newer()
+    if (next === undefined) return false
+    this.setDraft(next)
+    return true
+  }
+
+  /**
+   * Whether the caret sits on the draft's first line (an absent caret counts
+   * as the top: the composer has no selection to move).
+   * @returns true when the caret is on the first line.
+   */
+  private caretAtTop(): boolean {
+    const caret = this.projection.caret
+    if (caret === null) return true
+    return !this.projection.detectText.slice(0, caret).includes('\n')
   }
 
   /** Dismiss the popupSelect shell (any interaction outside the box). */
@@ -762,7 +810,10 @@ export class SessionInputShell implements SessionInput {
           this.settleDetachedFailure(attempt, outcome.text)
           return
         }
+        const record = this.detachedDrafts.get(attempt.seq)
         this.detachedDrafts.delete(attempt.seq)
+        // The prompt landed: it joins the history the composer recalls from.
+        if (record !== undefined) this.history.record(record.draft)
         this.dispatchRun(({ type: 'sink-settled', attempt, ok: true, outcome }))
       },
       (error: unknown) => {

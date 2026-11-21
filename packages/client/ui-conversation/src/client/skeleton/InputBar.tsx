@@ -50,7 +50,7 @@ export const InputBar = memo(function InputBar({
   renderSlot, useBusyEnter, useFileUploads, useNotices, useLexicon, useMenuLauncher, useStopShortcut,
   useProjection, sessionId, variant, disabled: inert = false, blocked,
   workspacePickerOpen = false, onRequestWorkspace,
-  placeholder, accessory,
+  placeholder, accessory, compact = false,
 }: InputBarProps) {
   const input = useInput(s => s)
   const notice = useNotices(s => s)
@@ -475,27 +475,41 @@ export const InputBar = memo(function InputBar({
               hidden
               onChange={onPickFiles}
             />
-            <div className={css.modes}>
-              {sessionId === undefined ? null : renderSlot('conversation.input.permission', { locked })}
-              {sessionId === undefined ? null : renderSlot('conversation.input.computerDelivery', { locked })}
-              {sessionId === undefined ? null : renderSlot('conversation.input.agentPreset', { locked })}
-              {sessionId === undefined ? null : renderSlot('conversation.input.agentBackend', { locked })}
-              {sessionId === undefined ? null : renderSlot('conversation.input.plan', { locked })}
-            </div>
+            {compact
+              ? null
+              : (
+                <div className={css.modes}>
+                  {sessionId === undefined ? null : renderSlot('conversation.input.permission', { locked })}
+                  {sessionId === undefined ? null : renderSlot('conversation.input.computerDelivery', { locked })}
+                  {sessionId === undefined ? null : renderSlot('conversation.input.agentPreset', { locked })}
+                  {sessionId === undefined ? null : renderSlot('conversation.input.agentBackend', { locked })}
+                  {sessionId === undefined ? null : renderSlot('conversation.input.plan', { locked })}
+                </div>
+              )}
             {input === undefined || sessionId === undefined
               ? null
               : renderSlot('conversation.input.left', {})}
           </div>
           <div className={clsx(css.trailing, activity && css.trailingActive)}>
-            <div className={css.standardControls} hidden={activity}>
-              {input === undefined || sessionId === undefined
-                ? null
-                : renderSlot('conversation.input.right', {})}
-              {sessionId === undefined ? null : renderSlot('conversation.input.model', { locked: modelSeatLocked })}
-            </div>
-            {input === undefined || sessionId === undefined ? null : <div className={activity ? css.activityExpanded : css.activity}>
-              {renderSlot('conversation.input.activity', { locked, onActiveChange: setActivity })}
-            </div>}
+            {/* The reduced composer owns no ambient controls at all: the seats
+                are not dispatched, so nothing mounts behind the reduced bar. */}
+            {compact
+              ? null
+              : (
+                <>
+                  <div className={css.standardControls} hidden={activity}>
+                    {input === undefined || sessionId === undefined
+                      ? null
+                      : renderSlot('conversation.input.right', {})}
+                    {sessionId === undefined ? null : renderSlot('conversation.input.model', { locked: modelSeatLocked })}
+                  </div>
+                  {input === undefined || sessionId === undefined
+                    ? null
+                    : <div className={activity ? css.activityExpanded : css.activity}>
+                      {renderSlot('conversation.input.activity', { locked, onActiveChange: setActivity })}
+                    </div>}
+                </>
+              )}
             {interruptible && (
               <Tooltip label={t('input.stop')} shortcutKeys={stopKeys} side="top" delayMs={500} disabled={stop === undefined}>
                 <button
@@ -536,10 +550,10 @@ export const InputBar = memo(function InputBar({
         </div>
       </div>
       <div className={css.dock} data-composer-dock>
-        {variant === 'composer' && input !== undefined && sessionId !== undefined
+        {variant === 'composer' && input !== undefined && sessionId !== undefined && !compact
           ? renderSlot('conversation.composer.dock', {})
           : null}
-        {activity ? null : <ContextMeter useProjection={useProjection} t={t} />}
+        {activity || compact ? null : <ContextMeter useProjection={useProjection} t={t} />}
       </div>
     </div>
   )

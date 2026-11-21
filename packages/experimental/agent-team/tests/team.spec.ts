@@ -620,6 +620,20 @@ describe('Team identity and provisioning', () => {
     })
     expect(leadSelected.member.model).toBe('mock')
     expect(durable(leadRoute.lead).members.find(member => member.id === leadSelected.member.id)?.model).toBe('mock')
+
+    const defaultOnly = await setup([], {
+      defaultModel: { provider: 'mock', model: 'default-only' },
+    }, { enabled: false, allowedModels: [] })
+    const defaultOnlySelected = await defaultOnly.ctx.agentTeams.spawnTeammate(defaultOnly.lead, {
+      name: 'default-only-route',
+      description: 'default route without allowedModels',
+      prompt: content('default only'),
+      context: 'fresh',
+      provider: 'spawn',
+      signal: SIGNAL,
+    })
+    expect(defaultOnlySelected.member.model).toBe('default-only')
+    expect(durable(defaultOnly.lead).members.find(member => member.id === defaultOnlySelected.member.id)?.model).toBe('default-only')
   })
 
   it('rejects incomplete or disallowed explicit LLM routes', async () => {

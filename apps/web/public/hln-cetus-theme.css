@@ -56,6 +56,7 @@ html body {
   /* Brand: accent fills, on-accent ink is the theme's own base plane (the
      v3.5 control contract colors primary controls with --hln-ui-bg-0). */
   --dsw-alias-brand-primary: var(--hln-ui-accent) !important;
+  --dsw-alias-brand-secondary: var(--hln-ui-accent-cool, #6f9dd1) !important;
   --dsw-alias-brand-primary-new-colorprimary-new-color: var(--hln-ui-accent) !important;
   --dsw-alias-brand-text: var(--hln-ui-text) !important;
   --dsw-alias-brand-primary-invert: var(--hln-ui-bg-0) !important;
@@ -194,24 +195,63 @@ html body #root[data-hln-ui-root] {
    --dsw-specific-sidebar-fill, so each preset reads through the glass while
    text and panels stay crisp. */
 
-/* Full v3.5 ambience. Each preset owns two animated layers on the #root
-   pseudos: the ::before scene and the ::after pulse that paints a full-width
-   hairline at 38% height crossing a full-height line at 61.8% width. Both stay
-   as shipped by KalciriteUI so the catalogue shown in Appearance matches the
-   composition; the reduced-motion block below is the only blanket override. */
+/* Ensure single-layer glass translucency so background motion is genuinely visible */
+html body #root .centerCol,
+html body #root [data-conversation-scroll],
+html body #root div[class*='ConversationRoot'] {
+  background: transparent !important;
+}
 
-/* ---------- Control alignment (v3.5 control contract) ---------- */
+/* Luminous background motion enhancements:
+   Genuinely visible data-stream with high-compositor performance */
+html body #root[data-hln-ui-root][data-hln-bg-motion='tensor-stream']::before {
+  background-image:
+    linear-gradient(90deg, color-mix(in srgb, var(--hln-ui-line) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(180deg, color-mix(in srgb, var(--hln-ui-line) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, transparent 0%, color-mix(in srgb, var(--hln-ui-accent) 26%, transparent) 50%, transparent 100%);
+  background-size: 48px 48px, 48px 48px, 360px 100%;
+  opacity: 0.72;
+}
 
-/* App markup does not carry [data-hln-ui-control]; these rules align native
-   controls with it: square corners, hairline hover, 1.5px focus outline.
-   aria-checked controls (switches) keep their round shape; component classes
-   outrank the element selectors, so styled buttons keep their own fills. */
+html body #root[data-hln-ui-root][data-hln-bg-motion='tensor-stream']::after {
+  background-image:
+    linear-gradient(180deg, transparent 38%, color-mix(in srgb, var(--hln-ui-accent) 20%, transparent) 38.2%, transparent 38.5%),
+    linear-gradient(90deg, transparent 61.6%, color-mix(in srgb, var(--hln-ui-accent-cool, var(--hln-ui-accent)) 22%, transparent) 61.8%, transparent 62%);
+  opacity: 0.8;
+}
+
+/* Full v4 ambience & control alignment (KalciriteUI v4 soft geometry) */
+
+/* Controls take soft 4px corners, cards 6px, dialogs 8px */
 html body button:not([aria-checked]),
 html body [role="button"]:not([aria-checked]),
 html body input,
 html body textarea,
 html body select {
-  border-radius: 0 !important;
+  border-radius: var(--hln-ui-radius-sm, 4px) !important;
+}
+
+html body [role='dialog'],
+html body [data-modal] {
+  border-radius: var(--hln-ui-radius-lg, 8px) !important;
+}
+
+html body [data-card],
+html body div[class*='card']:not([class*='cards']),
+html body div[class*='Card'] {
+  border-radius: var(--hln-ui-radius-md, 6px) !important;
+}
+
+/* KalciriteUI v4 Signature: The Wash */
+html body [data-active='true'],
+html body button[aria-pressed='true'],
+html body [role='button'][aria-pressed='true'],
+html body [aria-current='page'],
+html body [aria-current='true'] {
+  border-color: var(--hln-ui-accent) !important;
+  background: color-mix(in srgb, var(--hln-ui-accent) 12%, var(--hln-ui-bg-2, #1f242c)) !important;
+  color: var(--hln-ui-accent) !important;
+  box-shadow: inset 3px 0 0 0 var(--hln-ui-accent);
 }
 
 html body button:not([aria-checked]),

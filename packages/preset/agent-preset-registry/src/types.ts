@@ -83,6 +83,8 @@ export interface AgentBackendRow {
 export interface AgentBackendCatalog {
   /** Every backend, DSH first. */
   readonly backends: readonly AgentBackendRow[]
+  /** The backend the next created session runs on. */
+  readonly current?: string
 }
 
 /** One preset's declared composition, rendered for reading. */
@@ -105,16 +107,21 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     'agent-preset/invalid': { readonly agentPreset: string; readonly reason: string }
     /** The session's conversation has started, so its composition is fixed. */
     'agent-preset/locked': { readonly sessionId: SessionId; readonly agentPreset: string }
+    /** The requested execution backend is unknown or cannot start a session. */
+    'agent-backend/unavailable': { readonly agentBackend: string }
   }
 }
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionStateMap {
     agentPreset: string | null
+    agentBackend: string | null
   }
   interface SessionProjectionMap {
     /** Preset the Session runs, or null when the deployment composes none. */
     agentPreset: string | null
+    /** Execution backend the Session runs, or null when it runs on the native one. */
+    agentBackend: string | null
   }
 }
 

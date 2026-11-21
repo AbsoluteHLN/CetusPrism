@@ -90,6 +90,9 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
   const [failed, setFailed] = useState(false)
   const [busy, setBusy] = useState(false)
   const profile = details?.profile?.status === 'ready' ? details.profile.value : undefined
+  // A failed read is not an empty account: the credential is stored, but Platform did not
+  // answer. The copy says so and offers a fresh sign-in instead of a dead end.
+  const profileFailed = details?.profile?.status === 'failed'
   const wallets = details?.balance?.status === 'ready' ? details.balance.value : undefined
   const bonusWallets = details?.balance?.status === 'ready'
     ? details.balance.bonusWallets.filter(wallet => new Big(wallet.balance).gt(0)) : []
@@ -136,7 +139,9 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
   const status = failed || streamFailed || attempt?.phase === 'failed' ? t('failed')
     : attempt?.phase === 'expired' ? t('expired')
       : active ? t(attempt.phase === 'initializing' ? 'initializing' : attempt.phase === 'waiting-browser' ? 'waiting' : 'completing')
-        : signedIn ? profile?.contact ?? t(details?.profile === undefined ? 'loading' : 'profileUnavailable') : t('signInDescription')
+        : signedIn
+          ? profile?.contact ?? t(details?.profile === undefined ? 'loading' : profileFailed ? 'profileFailed' : 'profileUnavailable')
+          : t('signInDescription')
   if (!signedIn && !active) return (
     <section className={css.signedOut} aria-label={t('nav')}>
       <div className={css.signedOutContent}>
@@ -159,6 +164,8 @@ export function AccountSection({ t, useAccount, useTheme, start, cancel, openPla
           <div className={css.identityCopy}>
             <span className={css.name}>{signedIn ? profile?.name ?? t('signedIn') : t('signedOut')}</span>
             <span className={css.status} role="status">{status}</span>
+            {signedIn && profileFailed && <Button variant="outline" className={css.reloginButton}
+              disabled={busy} onClick={() => { void run(start) }}>{t('relogin')}</Button>}
           </div>
         </div>
         {signedIn && <a className={css.accountInfo} href={new URL('/', state.links.usageUrl).href} target="_blank" rel="noopener noreferrer">

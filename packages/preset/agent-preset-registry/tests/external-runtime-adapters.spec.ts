@@ -123,6 +123,37 @@ process.stdin.on('data', (chunk) => {
 });
 `
 
+/**
+ * A fake ZCode runtime whose turn FAILS: the host must learn the reason
+ * instead of reading the settle as an ordinary idle.
+ */
+const ZCODE_FAIL_SCRIPT = `
+let buffer = '';
+const send = (record) => process.stdout.write(JSON.stringify(record) + '\\n');
+send({ method: 'startup/storageState', params: { ready: true } });
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (chunk) => {
+  buffer += chunk;
+  let index;
+  while ((index = buffer.indexOf('\\n')) >= 0) {
+    const line = buffer.slice(0, index);
+    buffer = buffer.slice(index + 1);
+    if (!line.trim()) continue;
+    const frame = JSON.parse(line);
+    if (frame.method === 'session/create') {
+      send({ id: frame.id, result: { sessionId: 'session-1', stateRevision: 1 } });
+    } else if (frame.method === 'session/send') {
+      send({ method: 'turn.started', params: { turnNumber: 1 } });
+      send({ method: 'model.streaming', params: { kind: 'text_delta', delta: 'partial', assistantMessageId: 'm1', partId: 'p1' } });
+      send({ method: 'turn.failed', params: { resultType: 'error', message: 'upstream refused' } });
+      send({ id: frame.id, result: { sessionId: 'session-1', accepted: true, stateRevision: 2 } });
+    } else if (frame.method === 'session/stop') {
+      send({ id: frame.id, result: {} });
+    }
+  }
+});
+`
+
 function fakeRuntime(script: string): { command: string; args: string[] } {
   return { command: process.execPath, args: ['-e', script] }
 }
@@ -240,6 +271,26 @@ describe('ZCodeRuntimeAdapter', () => {
     }
   })
 
+  it('rejects a failed turn with the runtime reason instead of settling it as an ordinary idle', async () => {
+    // A turn that FAILED is not a turn that completed: settling it as a plain
+    // idle made the driver record a successful turn for work that never ran.
+    const adapter = new ZCodeRuntimeAdapter(fakeRuntime(ZCODE_FAIL_SCRIPT))
+    try {
+      await adapter.start()
+      const events = await collect(adapter, async () => {
+        await expect(adapter.runTurn('Hello', new AbortController().signal))
+          .rejects.toThrow('ZCode turn failed: error: upstream refused')
+      })
+      expect(events).toContainEqual({
+        type: 'idle',
+        aborted: false,
+        failure: 'ZCode turn failed: error: upstream refused',
+      })
+    } finally {
+      await adapter.stop()
+    }
+  })
+
   it('rejects a protocol error frame with its code and message', async () => {
     const adapter = new ZCodeRuntimeAdapter(fakeRuntime(ZCODE_SCRIPT))
     try {
@@ -347,6 +398,44 @@ describe('request timeout', () => {
       const result = adapter.request('session/send', { sessionId: 's1' })
       const settled = expect(result).rejects.toThrow(/did not answer within 40ms/)
       await settled
+    } finally {
+      await adapter.stop()
+    }
+  })
+})
+
+describe('PiRuntimeAdapter notices', () => {
+  it('describes a bare auto-retry notice with unknown placeholders', async () => {
+    const adapter = new PiRuntimeAdapter(fakeRuntime(`
+      process.stdin.setEncoding('utf8');
+      let buffer = '';
+      process.stdin.on('data', chunk => {
+        buffer += chunk;
+        for (const line of buffer.split('\\n').filter(Boolean)) {
+          const record = JSON.parse(line);
+          const send = event => process.stdout.write(JSON.stringify(event) + '\\n');
+          if (record.type === 'get_state') {
+            send({ id: record.id, type: 'response', command: 'get_state', success: true, data: { id: 'session-1' } });
+          } else if (record.type === 'prompt') {
+            send({ type: 'auto_retry_start' });
+            send({ type: 'agent_settled', aborted: false });
+            send({ id: record.id, type: 'response', command: 'prompt', success: true, data: { disposition: 'started' } });
+          } else if (record.id !== undefined) {
+            send({ id: record.id, type: 'response', command: record.type, success: true, data: {} });
+          }
+        }
+      });
+    `))
+    try {
+      await adapter.start()
+      const events = await collect(adapter, async () => {
+        await adapter.request('prompt', { message: 'Hello' })
+      })
+      expect(events).toContainEqual({
+        type: 'notice',
+        level: 'warn',
+        message: 'Pi auto-retry ?/? in ?ms: ',
+      })
     } finally {
       await adapter.stop()
     }

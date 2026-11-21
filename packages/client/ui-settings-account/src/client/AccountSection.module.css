@@ -56,6 +56,17 @@
   font-weight: 500;
 }
 
+/* The recovery entry for a failed account read: a compact outline button that
+   starts a fresh sign-in without leaving the account page. */
+.reloginButton {
+  align-self: flex-start;
+  height: 28px;
+  min-width: 0;
+  padding: 0 12px;
+  font-size: 13px;
+  line-height: 22px;
+}
+
 .status,
 .secondary,
 .unavailable {

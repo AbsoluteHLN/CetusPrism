@@ -19,7 +19,10 @@
   padding-top: 4px;
 }
 
-.hero .dock:empty {
+/* An empty dock carries no row: the reduced composer hides the metric row
+   and the statistic pills, so the strip collapses instead of leaving a
+   4px hole under the card. */
+.dock:empty {
   display: none;
 }
 

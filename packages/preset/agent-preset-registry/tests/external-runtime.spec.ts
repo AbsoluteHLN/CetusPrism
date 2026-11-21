@@ -96,6 +96,7 @@ describe('locateExternalRuntime', () => {
   it('reports an uninstalled runtime with the place to install it from', () => {
     const probe = locateExternalRuntime('pi', { command: 'cetusprism-no-such-runtime' })
     expect(probe.compatible).toBe(false)
+    expect(probe.installed).toBe(false)
     expect(probe.version).toBe('unknown')
     expect(probe.reason).toContain('not installed')
     expect(probe.source).toBe('https://github.com/earendil-works/pi')
@@ -107,6 +108,7 @@ describe('locateExternalRuntime', () => {
       version: '0.0.1',
     })
     expect(probe.compatible).toBe(false)
+    expect(probe.installed).toBe(true)
     expect(probe.reason).toContain('older than the supported floor')
   })
 
@@ -116,6 +118,7 @@ describe('locateExternalRuntime', () => {
       version: '1.4.0',
     })
     expect(probe.compatible).toBe(true)
+    expect(probe.installed).toBe(true)
     expect(probe.version).toBe('1.4.0')
   })
 })

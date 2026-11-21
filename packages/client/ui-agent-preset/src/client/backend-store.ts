@@ -151,7 +151,9 @@ export class AgentBackendSeatController {
       status: 'ready',
       error: null,
       options,
-      current: DEFAULT_AGENT_BACKEND,
+      // The host owns the selection: a chip that showed its own idea of the
+      // current backend would disagree with the one the next session binds.
+      current: catalog.value.current ?? DEFAULT_AGENT_BACKEND,
       refusal: null,
     })
   }
@@ -161,7 +163,10 @@ export class AgentBackendSeatController {
    *
    * A backend that cannot start a session is refused with the reason the host
    * published, so the composer explains the limitation instead of silently
-   * falling back to DSH.
+   * falling back to DSH. A backend that CAN start one is committed on the
+   * host: the backend owns the Agent lifecycle, so the choice belongs where
+   * the next session is bound — a chip that only remembered it locally would
+   * promise a runtime the session never runs on.
    * @param id - the requested backend identity.
    * @returns the refusal text, or undefined once the pick settled.
    */
@@ -178,11 +183,19 @@ export class AgentBackendSeatController {
       this.set({ refusal })
       return refusal
     }
-    if (backend.id !== DEFAULT_AGENT_BACKEND) {
-      // An external runtime answered, but sessions still bind to DSH: the
-      // session-level backend binding is not part of this build, so the pick
-      // is refused rather than recorded where nothing would honor it.
-      const refusal = `${backend.name} sessions are not supported by this build yet`
+    try {
+      // EVERY ready pick — DSH included — commits on the host: the selection
+      // decides what the next session binds, and the host is where sessions
+      // are bound. Skipping the call for DSH would leave the host on a
+      // runtime the chip had already abandoned.
+      const result = await this.ctx.remote.agentPresets.selectBackend(backend.id)
+      if (!result.ok) {
+        const refusal = result.error.message
+        this.set({ refusal })
+        return refusal
+      }
+    } catch (error: unknown) {
+      const refusal = error instanceof Error ? error.message : String(error)
       this.set({ refusal })
       return refusal
     }

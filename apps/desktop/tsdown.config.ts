@@ -46,6 +46,19 @@ export default defineConfig([
     clean: false,
     deps: { neverBundle: ['electron'] },
   },
+  {
+    // The packaged runtime spawns this worker with the bundled Node, so it ships
+    // as its own ESM bundle beside main.js instead of living inside it.
+    entry: { 'command-manager-entry': 'lib/types/command-manager-entry.js' },
+    outDir: 'lib',
+    format: ['esm'],
+    platform: 'node',
+    target: 'es2024',
+    fixedExtension: false,
+    dts: false,
+    clean: false,
+    deps: { neverBundle: ['electron'] },
+  },
   ...(['preload-app', 'preload-welcome', 'preload-platform-account', 'preload-mandatory', 'preload-update-dialog'] as const).map(name => ({
     // Sandboxed Electron preloads run as CommonJS even though the application package is ESM.
     entry: { [name]: `lib/types/${name}.js` },

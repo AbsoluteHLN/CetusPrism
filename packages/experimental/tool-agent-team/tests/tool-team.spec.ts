@@ -75,6 +75,7 @@ async function setup(
   teamModelSelection = false,
   teamAllowedModels: { provider: string; model: string }[] = [],
   teamProfiles: AgentProfile[] = [],
+  teamDefaultModel?: { provider: string; model: string },
 ) {
   const ctx = new Context()
   contexts.add(ctx)
@@ -94,7 +95,11 @@ async function setup(
       allowedModels: [{ provider: 'selected-provider', model: 'selected-model' }],
     })
   }
-  await ctx.plugin(TeamService, { allowedModels: teamAllowedModels, profiles: teamProfiles })
+  await ctx.plugin(TeamService, {
+    allowedModels: teamAllowedModels,
+    profiles: teamProfiles,
+    ...teamDefaultModel ? { defaultModel: teamDefaultModel } : {},
+  })
   const fiber = await ctx.plugin(toolTeam, { modelSelectionSettings: teamModelSelection })
   const adapter = new MockAdapter(script)
   ctx.llm.registerAdapter(['mock'], adapter)
@@ -234,6 +239,21 @@ describe('dsh-tool-team', () => {
     expect(denied.isError).toBe(true)
     expect(text(denied)).toContain("outside this Team's additional restriction list")
     expect(ctx.agentTeams.listMembers(lead)).toHaveLength(1)
+  })
+
+  it('allows spawning teammates with team defaultModel when modelSelectionSettings is disabled', async () => {
+    const { ctx, lead } = await setup([], false, false, [], [], { provider: 'mock', model: 'mock' })
+    const member = {
+      id: SessionId('default-member'), name: 'default-teammate', role: 'teammate' as const,
+      status: 'provisioning' as const, description: 'default model', diagnostics: [],
+    }
+    const spawn = vi.spyOn(ctx.agentTeams, 'spawnTeammate').mockResolvedValue({ member })
+
+    const result = await execute(ctx, lead, 'spawn_teammate', {
+      name: 'default-teammate', description: 'default model', prompt: 'work',
+    })
+    expect(result.isError, text(result)).toBe(false)
+    expect(spawn).toHaveBeenCalledTimes(1)
   })
 
   it.each(['running', 'inactive', 'provisioning', 'failed'] as const)(

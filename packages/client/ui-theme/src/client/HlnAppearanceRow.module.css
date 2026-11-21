@@ -1,60 +1,150 @@
-/* KalciriteUI v3.5 owns panel and control treatments; this sheet owns layout. */
+/* KalciriteUI v4 component and layout grammar with soft geometry and The Wash */
 .group {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   padding: 16px 0;
 }
 
 .title {
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 22px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: var(--hln-ui-cjk-heading-tracking, 0.015em);
+  color: var(--hln-ui-text);
 }
 
 .panel {
   min-width: 0;
+  border-radius: var(--hln-ui-radius-lg);
+  border: var(--hln-ui-hairline, 1px) solid var(--hln-ui-line);
+  background: var(--hln-ui-bg-1);
+  padding: 16px;
+  box-shadow: var(--hln-ui-shadow-sm);
 }
 
-.panel :global(.hln-v35-panel__index),
+.panel :global(.hln-v35-panel__index) {
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 11px;
+  color: var(--hln-ui-accent);
+  margin-right: 8px;
+  font-weight: 600;
+}
+
 .panel :global(.hln-v35-panel__title h3) {
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--hln-ui-text);
+  margin-bottom: 12px;
 }
 
 .cardGrid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .card {
   min-width: 0;
-  min-height: 44px;
-  padding: 10px 12px;
+  min-height: 46px;
+  padding: 10px 14px;
   justify-content: flex-start;
   text-align: left;
+  border-radius: var(--hln-ui-radius-sm, 4px);
+  border: var(--hln-ui-hairline, 1px) solid var(--hln-ui-line);
+  background: var(--hln-ui-bg-2);
+  color: var(--hln-ui-text);
+  transition:
+    border-color var(--hln-ui-duration-fast, 140ms) var(--hln-ui-ease),
+    background-color var(--hln-ui-duration-fast, 140ms) var(--hln-ui-ease),
+    color var(--hln-ui-duration-fast, 140ms) var(--hln-ui-ease),
+    box-shadow var(--hln-ui-duration-fast, 140ms) var(--hln-ui-ease);
 }
 
-.card[aria-pressed='true'] {
+.card:hover {
+  border-color: var(--hln-ui-line-strong);
+  background: color-mix(in srgb, var(--hln-ui-text) 5%, var(--hln-ui-bg-2));
+}
+
+/* KalciriteUI v4 Signature: The Wash */
+.card[aria-pressed='true'],
+.card[data-active='true'] {
+  border-color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 12%, var(--hln-ui-bg-2));
+  color: var(--hln-ui-accent);
+  box-shadow: inset 3px 0 0 0 var(--hln-ui-accent);
   font-weight: 500;
 }
 
-.cardLabel {
-  overflow-wrap: anywhere;
+.themeCard {
+  align-items: center;
+  gap: 12px;
 }
 
-/* Picker colors come from the official registry, independent of the live theme. */
+.themeInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schemeBadge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--hln-ui-text) 8%, transparent);
+  color: var(--hln-ui-text-muted);
+}
+
+.fontBadge {
+  font-family: var(--hln-ui-font-technical, monospace);
+  font-size: 10px;
+  color: var(--hln-ui-text-muted);
+}
+
+.cardLabel {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Dual-pigment swatch preview */
 .swatchPair {
   display: inline-flex;
   flex: none;
-  width: 22px;
-  height: 14px;
+  width: 28px;
+  height: 16px;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: 0 0 0 1px var(--hln-ui-line);
 }
 
-.swatchShade,
+.swatchShade {
+  display: inline-block;
+  flex: 1.2;
+}
+
 .swatchAccent {
   display: inline-block;
   flex: 1;
+}
+
+.swatchAccentCool {
+  display: inline-block;
+  flex: 0.8;
 }
 
 .fontCard {
@@ -64,10 +154,11 @@
 .fontSample {
   margin-left: auto;
   font-size: 12px;
+  color: var(--hln-ui-text-muted);
 }
 
 @media (max-width: 680px) {
   .cardGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }

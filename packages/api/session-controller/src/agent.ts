@@ -4,10 +4,13 @@ import { mkdir } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import { installModelSelection } from '@deepseek-ai/dsh-agent'
 import type {
-  Agent, AgentOptions, AgentSetup, ModelSelection as AgentModelSelection, ModelSelectionRef,
+  Agent, AgentDriverFactory, AgentOptions, AgentSetup, ModelSelection as AgentModelSelection, ModelSelectionRef,
 } from '@deepseek-ai/dsh-agent'
 import type {} from '@deepseek-ai/dsh-agent-default-model'
+// Type-only: pulls the ctx.remote merge into this program.
+import type { BuiltinAgentBackendId } from '@deepseek-ai/dsh-agent-preset-registry'
 import type {} from '@deepseek-ai/dsh-agent-preset-registry'
+import { parseBuiltinAgentBackend } from '@deepseek-ai/dsh-agent-preset-registry'
 import { ReasoningEffortId } from '@deepseek-ai/dsh-llm'
 import type { Session, SessionId } from '@deepseek-ai/dsh-session'
 import type { SessionInspection } from '@deepseek-ai/dsh-session-persistence'
@@ -374,24 +377,43 @@ export class ApiSessionAgentController {
   }
 
   /**
-   * Resolve the preset id and pre-publication Agent setup for a create or resume.
+   * Resolve the preset id, the execution backend and the pre-publication Agent
+   * setup for a create or resume.
+   *
+   * The backend decides WHICH driver owns the Agent's lifecycle: the native
+   * backend leaves the driver unset, so the factory builds its default React
+   * loop, while an external backend hands the lifecycle to its own runtime.
+   * The binding is recorded in the session's own log, so a resume rebuilds the
+   * very same driver instead of letting another one claim a foreign history.
    * @param presetId - requested preset or the configured default when omitted.
-   * @returns the resolved preset identity and Agent setup callback.
+   * @param backendId - the backend this session runs on; the host's current
+   * selection when omitted.
+   * @returns the resolved preset identity, the driver factory and the Agent
+   * setup callback.
    */
-  async composeAgent(presetId: string | undefined): Promise<{
+  async composeAgent(presetId: string | undefined, backendId?: BuiltinAgentBackendId): Promise<{
     readonly agentPreset?: string
+    readonly driver?: AgentDriverFactory
     readonly setup: AgentSetup
   }> {
     const presets = this.ctx.get('agentPresets')
+    const backend = backendId ?? presets?.currentBackend() ?? 'dsh'
+    const driver = presets?.backendDriver(backend)
     if (presets === undefined) {
       return { setup: (_agentCtx, agent) => { this.installSelection(agent) } }
     }
     const resolvedId = (await presets.resolve(presetId)).id
     return {
       agentPreset: resolvedId,
+      ...(driver === undefined ? {} : { driver }),
       setup: async (agentCtx, agent) => {
         this.installSelection(agent)
         await presets.mount(agentCtx, resolvedId)
+        // The binding is durable: the log is the only place that says which
+        // driver wrote this session's history.
+        if (backend !== 'dsh') {
+          agent.session.append('agent-backend/selected', { agentBackend: backend })
+        }
       },
     }
   }
@@ -428,7 +450,7 @@ export class ApiSessionAgentController {
     if (hasApiSessionSubagentOwner(this.ctx, { header: observation.header }, undefined)) {
       throw new ApiSessionSubagentOwnership(sessionId)
     }
-    const composition = await this.composeAgent(this.presetForObservation(observation))
+    const composition = await this.composeAgent(this.presetForObservation(observation), this.backendForObservation(observation))
     const published = this.ctx.sessions.get(sessionId)
     const live = this.ctx.agents.get(sessionId)
     if (published !== undefined && hasApiSessionSubagentOwner(this.ctx, published, live)) {
@@ -437,6 +459,7 @@ export class ApiSessionAgentController {
     return (await this.ctx.agents.resume({
       resumeSessionId: sessionId,
       agentOptions: this.agentOptions(),
+      ...(composition.driver === undefined ? {} : { driver: composition.driver }),
       setup: composition.setup,
     })).agent
   }
@@ -465,10 +488,11 @@ export class ApiSessionAgentController {
         }
         const storedPreset = this.presetForObservation(observation)
         this.assertPresetUnchanged(sessionId, presetId, storedPreset)
-        const composition = await this.composeAgent(storedPreset)
+        const composition = await this.composeAgent(storedPreset, this.backendForObservation(observation))
         return (await this.ctx.agents.resume({
           resumeSessionId: sessionId,
           agentOptions: this.agentOptions(),
+          ...(composition.driver === undefined ? {} : { driver: composition.driver }),
           setup: composition.setup,
         })).agent
       } catch (error: unknown) {
@@ -486,6 +510,7 @@ export class ApiSessionAgentController {
     return (await this.ctx.agents.create({
       sessionId,
       agentOptions: this.agentOptions(),
+      ...(composition.driver === undefined ? {} : { driver: composition.driver }),
       meta: {
         cwd,
         ...(composition.agentPreset === undefined ? {} : { agentPreset: composition.agentPreset }),
@@ -513,6 +538,31 @@ export class ApiSessionAgentController {
       throw new Error('api-session: Agent activation requires a projected Session observation')
     }
     return observation.projections.values.agentPreset ?? undefined
+  }
+
+  /**
+   * Read the execution backend from an all-projections observation.
+   *
+   * The backend a session runs on is recorded in its OWN log, so a resume
+   * rebuilds the driver that wrote that history instead of the one the host
+   * currently prefers. A session without a record ran on the native loop.
+   * @param observation - exact Session observation carrying its projection snapshot.
+   * @returns the recorded backend, or undefined when the session ran natively.
+   */
+  backendForObservation(observation: SessionObservation): BuiltinAgentBackendId | undefined {
+    if (observation.projections === undefined) {
+      throw new Error('api-session: Agent activation requires a projected Session observation')
+    }
+    const backend = observation.projections.values.agentBackend
+    if (backend === undefined || backend === null) return undefined
+    try {
+      // The record was written by a validated selection, but the log outlives
+      // the writer: an unknown id falls back to the native loop instead of
+      // failing the resume.
+      return parseBuiltinAgentBackend(backend)
+    } catch {
+      return undefined
+    }
   }
 
   private assertPresetUnchanged(

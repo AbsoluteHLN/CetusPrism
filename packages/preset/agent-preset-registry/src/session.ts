@@ -26,6 +26,13 @@ declare module '@deepseek-ai/dsh-session/types' {
      * the header's creation-time value.
      */
     'agent-preset/selected': { agentPreset: string }
+    /**
+     * The session's execution backend was chosen. Log-only: the backend owns
+     * the Agent lifecycle and the turn vocabulary, so a resume that restored a
+     * different backend would let another driver claim a foreign history. The
+     * record is what lets the resume rebuild the very same driver.
+     */
+    'agent-backend/selected': { agentBackend: string }
   }
 }
 
@@ -42,3 +49,25 @@ export const agentPresetProjectionDefinition = {
   wire: { viewSchema: agentPresetSchema, view: state => state },
   stateVersion: 1,
 } satisfies ProjectionDefinition<'agentPreset', string | null>
+
+const agentBackendSchema = z.union([z.string(), z.null()])
+
+/**
+ * Current Session execution backend.
+ *
+ * The backend is NOT a header field: the header records what a session was
+ * born as, while the binding is chosen with the composer and can only be
+ * honoured by the driver that was already bound at creation. The log record
+ * is therefore the single place the binding lives, and the resume path reads
+ * it back through this projection.
+ */
+export const agentBackendProjectionDefinition = {
+  key: 'agentBackend',
+  stateSchema: agentBackendSchema,
+  init: () => null,
+  apply: (state, event) => event.type === 'agent-backend/selected'
+    ? event.data.agentBackend
+    : state,
+  wire: { viewSchema: agentBackendSchema, view: state => state },
+  stateVersion: 1,
+} satisfies ProjectionDefinition<'agentBackend', string | null>

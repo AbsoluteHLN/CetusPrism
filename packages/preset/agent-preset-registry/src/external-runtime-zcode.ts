@@ -10,7 +10,7 @@
  * session-event envelopes, normalized into the shared external-runtime face.
  */
 
-import { EXTERNAL_RUNTIME_UPSTREAMS, parseRuntimeFrame, type ExternalRuntimeAdapter, type ExternalRuntimeCapabilities, type ExternalRuntimeEvent } from './external-runtime.ts'
+import { awaitRuntimeIdle, EXTERNAL_RUNTIME_UPSTREAMS, parseRuntimeFrame, raceAbortSignal, runtimeAbortError, type ExternalRuntimeAdapter, type ExternalRuntimeCapabilities, type ExternalRuntimeEvent } from './external-runtime.ts'
 import { openRuntimeTransport, RuntimeRequests, type RuntimeTransport } from './external-runtime-transport.ts'
 
 /** Construction options for the ZCode adapter. */
@@ -143,14 +143,16 @@ export class ZCodeRuntimeAdapter implements ExternalRuntimeAdapter {
    * requests and the settle wait are raced against the turn signal.
    */
   async runTurn(input: string, signal: AbortSignal): Promise<void> {
-    if (signal.aborted) throw abortError(signal)
+    if (signal.aborted) throw runtimeAbortError(signal)
     if (this.sessionId === undefined) {
-      const created = await raceAbort(
+      const created = await raceAbortSignal(
         this.request('session/create', {}),
         signal,
-      ) as unknown
-      const sessionId = (created as Record<string, unknown> | null)?.sessionId
-      if (typeof sessionId !== 'string' || sessionId === '') {
+      )
+      const sessionId = typeof created === 'object' && created !== null && 'sessionId' in created && typeof created.sessionId === 'string'
+        ? created.sessionId
+        : undefined
+      if (sessionId === undefined || sessionId === '') {
         throw new Error('ZCode session/create returned no sessionId')
       }
       this.sessionId = sessionId
@@ -161,7 +163,7 @@ export class ZCodeRuntimeAdapter implements ExternalRuntimeAdapter {
     settled.catch(() => {})
     const sent = this.request('session/send', { sessionId: this.sessionId, content: input })
       .catch((error: unknown) => { if (!signal.aborted) throw error })
-    await raceAbort(sent, signal)
+    await raceAbortSignal(sent, signal)
     await settled
   }
 
@@ -172,27 +174,12 @@ export class ZCodeRuntimeAdapter implements ExternalRuntimeAdapter {
   }
 
   /**
-   * Resolve on the next `idle` event; reject on signal abort or when the
-   * runtime reports an aborted settle the host did not ask for.
+   * Resolve on the next `idle` event; reject on signal abort, on a turn the
+   * runtime failed, or when the runtime reports an aborted settle the host
+   * did not ask for.
    */
   private awaitIdle(signal: AbortSignal): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const unsubscribe = this.subscribe((event) => {
-        if (event.type !== 'idle') return
-        unsubscribe()
-        signal.removeEventListener('abort', onAbort)
-        if (event.aborted && !signal.aborted) {
-          reject(new Error('ZCode runtime aborted the turn unexpectedly'))
-          return
-        }
-        resolve()
-      })
-      const onAbort = (): void => {
-        unsubscribe()
-        reject(abortError(signal))
-      }
-      signal.addEventListener('abort', onAbort, { once: true })
-    })
+    return awaitRuntimeIdle({ subscribe: listener => this.subscribe(listener), signal, runtimeName: 'ZCode' })
   }
 
   private emit(event: ExternalRuntimeEvent): void {
@@ -290,10 +277,17 @@ export class ZCodeRuntimeAdapter implements ExternalRuntimeAdapter {
       case 'turn.completed':
         this.emit({ type: 'idle', aborted: payload.resultType === 'cancelled' })
         return
-      case 'turn.failed':
-        this.emit({ type: 'notice', level: 'error', message: `ZCode turn failed: ${String(payload.resultType ?? 'unknown')}` })
-        this.emit({ type: 'idle', aborted: false })
+      case 'turn.failed': {
+        const reason = String(payload.resultType ?? 'unknown')
+        const detail = typeof payload.message === 'string' && payload.message !== '' ? `: ${payload.message}` : ''
+        this.emit({ type: 'notice', level: 'error', message: `ZCode turn failed: ${reason}${detail}` })
+        // A failed turn settles WITH its reason. Settling it as an ordinary
+        // idle made the driver record a successful turn for work that never
+        // completed, and the durable log then claimed a result that the
+        // runtime never produced.
+        this.emit({ type: 'idle', aborted: false, failure: `ZCode turn failed: ${reason}${detail}` })
         return
+      }
       default:
         return
     }
@@ -313,28 +307,6 @@ export class ZCodeRuntimeAdapter implements ExternalRuntimeAdapter {
     this.requests.failAll(new Error('ZCode runtime exited with outstanding requests'))
     this.emit({ type: 'idle', aborted: true })
   }
-}
-
-/** Normalize a signal reason into the Error runTurn rejects with. */
-function abortError(signal: AbortSignal): Error {
-  return signal.reason instanceof Error ? signal.reason : new Error('turn aborted', { cause: signal.reason })
-}
-
-/**
- * Race one promise against turn-signal abort. The promise keeps settling in
- * the background; callers that swallow its late rejection attach their own
- * catch, so an abort never surfaces as an unhandled error.
- */
-function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(abortError(signal))
-  return new Promise<T>((resolve, reject) => {
-    const onAbort = (): void => { reject(abortError(signal)) }
-    signal.addEventListener('abort', onAbort, { once: true })
-    promise.then(
-      (value) => { signal.removeEventListener('abort', onAbort); resolve(value) },
-      (error: unknown) => { signal.removeEventListener('abort', onAbort); reject(error) },
-    )
-  })
 }
 
 /** Pull the model identity out of a state patch, when the patch carries one. */

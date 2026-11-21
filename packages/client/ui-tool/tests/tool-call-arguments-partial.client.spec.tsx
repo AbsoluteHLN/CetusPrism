@@ -101,7 +101,7 @@ describe('tool argument prefix Hook', () => {
     const usePartial = bindToolCallArgumentsPartial(standard, { assistant, callId: 'first' })
     const props = {
       phase: 'preparing', toolName, callId: 'first', useToolCallArgumentsPartial: usePartial,
-      block: { phase: 'preparing', callId: 'first', name: toolName, turn: 1, step: 1, time: 1, subCalls: [] },
+      block: { phase: 'preparing', callId: 'first', name: toolName, turn: 1, step: 1, time: 1, subCalls: [], args: PartialArguments.EMPTY },
       useDisclosure, openFile: vi.fn(), loadImage: vi.fn(), t: makeTranslate(dictionary),
     } as Parameters<typeof FileMutationRow>[0]
     const view = render(<FileMutationRow {...props} />)

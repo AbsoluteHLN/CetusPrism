@@ -31,6 +31,8 @@ export type { AgentBackendRow as BuiltinAgentBackendDescriptor }
 export interface BuiltinAgentBackendProbe {
   readonly version: string
   readonly source: string
+  /** Whether a runtime is installed at all; an absent runtime is unconfigured, not incompatible. */
+  readonly installed: boolean
   readonly compatible: boolean
   readonly reason?: string
 }
@@ -77,6 +79,10 @@ const DSH_BACKEND: AgentBackendRow = {
  * The provider locates the runtime the operator installed from the upstream's
  * own repository and reports what it found — it never downloads, bundles or
  * reconfigures the runtime.
+ *
+ * The probe spawns the runtime to read its version, so the answer is cached
+ * for a short while: a catalog read must not block the host on a process
+ * launch every time the composer refreshes.
  * @param id - the upstream identity.
  * @param options - an explicit executable path and the environment to probe with.
  * @returns a provider that answers the probe for that upstream.
@@ -85,19 +91,28 @@ export function createExternalRuntimeProvider(
   id: ExternalRuntimeId,
   options: ExternalRuntimeLocatorOptions = {},
 ): BuiltinAgentBackendProvider {
+  let cached: { readonly at: number; readonly probe: BuiltinAgentBackendProbe } | undefined
   return {
     id,
     describe(): BuiltinAgentBackendProbe {
+      const now = Date.now()
+      if (cached !== undefined && now - cached.at < PROBE_CACHE_MS) return cached.probe
       const probe = locateExternalRuntime(id, options)
-      return {
+      const answer: BuiltinAgentBackendProbe = {
         version: probe.version,
         source: probe.source,
+        installed: probe.installed,
         compatible: probe.compatible,
         ...probe.reason === undefined ? {} : { reason: probe.reason },
       }
+      cached = { at: now, probe: answer }
+      return answer
     },
   }
 }
+
+/** How long one external-runtime probe stays fresh. */
+const PROBE_CACHE_MS = 30_000
 
 /**
  * Build the user-visible catalog without discovering credentials or private files.
@@ -151,6 +166,22 @@ export function parseBuiltinAgentBackend(value: unknown): BuiltinAgentBackendId 
  */
 export class BuiltinAgentBackendRegistry {
   private readonly providers = new Map<'pi' | 'zcode', BuiltinAgentBackendProvider>()
+  /** The deployment's own discovery providers, shadowed by an explicit registration. */
+  private readonly fallbacks = new Map<'pi' | 'zcode', BuiltinAgentBackendProvider>()
+  /** The backend the next created session runs on. */
+  private selected: BuiltinAgentBackendId = 'dsh'
+
+  /**
+   * Register the deployment's own discovery provider for one backend.
+   *
+   * Discovery is the DEFAULT answer: a plugin that registers an adapter
+   * shadows it, and releasing that adapter hands the backend back to
+   * discovery instead of leaving the backend unconfigured.
+   * @param provider - the provider that finds the installed runtime.
+   */
+  discover(provider: BuiltinAgentBackendProvider): void {
+    this.fallbacks.set(provider.id, provider)
+  }
 
   /**
    * Register an installed runtime as one execution backend.
@@ -180,7 +211,9 @@ export class BuiltinAgentBackendRegistry {
    */
   catalog(): readonly AgentBackendRow[] {
     const probes: Partial<Record<'pi' | 'zcode', BuiltinAgentBackendProbe>> = {}
-    for (const [id, provider] of this.providers) {
+    const providers = new Map(this.fallbacks)
+    for (const [id, provider] of this.providers) providers.set(id, provider)
+    for (const [id, provider] of providers) {
       try {
         probes[id] = provider.describe()
       } catch (error) {
@@ -189,6 +222,7 @@ export class BuiltinAgentBackendRegistry {
         probes[id] = {
           version: 'unknown',
           source: 'external-runtime',
+          installed: true,
           compatible: false,
           reason: error instanceof Error ? error.message : String(error),
         }
@@ -202,7 +236,7 @@ export class BuiltinAgentBackendRegistry {
    * @returns the wire shape of the current catalog.
    */
   wireCatalog(): AgentBackendCatalog {
-    return { backends: this.catalog() }
+    return { backends: this.catalog(), current: this.selected }
   }
 
   /**
@@ -213,6 +247,35 @@ export class BuiltinAgentBackendRegistry {
    */
   resolve(id: string): AgentBackendRow {
     return resolveBuiltinAgentBackend(id, this.catalog())
+  }
+
+  /**
+   * The backend the next created session runs on.
+   *
+   * The selection lives with the registry, not in the session: a session binds
+   * its backend when it is created, and the binding it records in its log is
+   * what a resume reads back. This selection therefore only decides what the
+   * NEXT session binds.
+   * @returns the selected backend identity.
+   */
+  current(): BuiltinAgentBackendId {
+    return this.selected
+  }
+
+  /**
+   * Choose the backend the next created session runs on.
+   *
+   * The pick is refused when the backend cannot start a session, so the
+   * composer explains the limitation instead of recording a choice nothing
+   * would honour.
+   * @param id - requested backend identity.
+   * @returns the selected backend.
+   * @throws when the id is unknown or the backend cannot start a session.
+   */
+  select(id: string): AgentBackendRow {
+    const backend = this.resolve(id)
+    this.selected = backend.id
+    return backend
   }
 }
 
@@ -229,6 +292,19 @@ function externalBackend(
       source: 'external-runtime',
       availability: 'unconfigured',
       reason: `${name} runtime is not configured`,
+      capabilities: { cancel: false, resume: false, tools: false, modelRouting: 'external-runtime' },
+    }
+  }
+  if (!probe.installed) {
+    // No runtime on this machine: the deployment installed nothing, so the
+    // choice stays hidden instead of offering a backend that cannot start.
+    return {
+      id,
+      name,
+      version: 'unconfigured',
+      source: 'external-runtime',
+      availability: 'unconfigured',
+      ...(probe.reason === undefined ? {} : { reason: probe.reason }),
       capabilities: { cancel: false, resume: false, tools: false, modelRouting: 'external-runtime' },
     }
   }

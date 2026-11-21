@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-root",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -139,6 +139,7 @@
     "verify-application-entrypoints": "tsx scripts/verify-application-entrypoints.ts",
     "verify-package-dependencies": "tsx scripts/verify-package-dependencies.ts",
     "verify-npm-install-layout": "tsx scripts/verify-npm-install-layout.ts",
+    "verify-dependency-boundary": "tsx scripts/check-dependency-boundary.ts",
     "verify-client-packages": "tsx scripts/verify-client-packages.ts",
     "verify-client-ui-i18n": "tsx scripts/verify-client-ui-i18n.ts",
     "verify-client-route-resolution": "tsx scripts/verify-client-route-resolution.ts",

@@ -12,8 +12,8 @@
  * correlated by id, streaming events as notifications, capability probing
  * instead of a handshake, no auth token because the process boundary IS the
  * trust boundary — they are ONE mode with two adapters, not two modes with
- * two底座. The differences that remain (envelope shape, event vocabulary,
- * terminal signal) live inside the adapters, not in the product.
+ * two foundations. The differences that remain (envelope shape, event
+ * vocabulary, terminal signal) live inside the adapters, not in the product.
  *
  * What this module deliberately does NOT do:
  *   · it does not bundle, vendor or repackage either upstream;
@@ -168,6 +168,11 @@ export function parseRuntimeFrame(line: string): RuntimeFrame | undefined {
 
 /**
  * Serialize one normalized request into a protocol line.
+ *
+ * Neither upstream speaks this envelope on the wire — both flatten their
+ * params into one record keyed by their own method field — so the adapters
+ * serialize their own records and this helper stays with `parseRuntimeFrame`
+ * for the normalized frame vocabulary the host tests and tooling speak.
  * @param frame - the request to write.
  * @returns the line, including its LF terminator.
  */
@@ -181,6 +186,16 @@ export interface ExternalRuntimeProbe {
   readonly version: string
   /** Where the runtime came from: its repository, or the path it was found at. */
   readonly source: string
+  /**
+   * Whether a runtime is installed at all.
+   *
+   * A runtime that is NOT installed and a runtime that is installed but speaks
+   * an incompatible protocol are different facts: the first is an
+   * unconfigured deployment, the second a real runtime CetusPrism cannot
+   * drive. The composer treats them differently — the first hides the choice,
+   * the second explains it.
+   */
+  readonly installed: boolean
   /** Whether CetusPrism can speak to this runtime. */
   readonly compatible: boolean
   /** Why it cannot, when it cannot. */
@@ -291,13 +306,14 @@ export function locateExternalRuntime(
     const reason = attempt.code === 'ENOENT'
       ? `${upstream.name} runtime is not installed (${command} not found); install it from ${upstream.repo}`
       : `${upstream.name} runtime could not be probed: ${attempt.message}`
-    return { version: 'unknown', source: upstream.repo, compatible: false, reason }
+    return { version: 'unknown', source: upstream.repo, installed: false, compatible: false, reason }
   }
   const version = options.version ?? readVersion(command, env)
   if (version === undefined) {
     return {
       version: 'unknown',
       source: upstream.repo,
+      installed: true,
       compatible: false,
       reason: `${upstream.name} runtime did not report a version`,
     }
@@ -306,11 +322,12 @@ export function locateExternalRuntime(
     return {
       version,
       source: upstream.repo,
+      installed: true,
       compatible: false,
       reason: `${upstream.name} runtime ${version} is older than the supported floor ${upstream.minVersion}`,
     }
   }
-  return { version, source: upstream.repo, compatible: true }
+  return { version, source: upstream.repo, installed: true, compatible: true }
 }
 
 /** The capabilities a runtime reported, normalized. */
@@ -339,7 +356,15 @@ export interface ExternalRuntimeCapabilities {
 export type ExternalRuntimeEvent =
   | { readonly type: 'run_started' }
   | { readonly type: 'run_ended' }
-  | { readonly type: 'idle'; readonly aborted: boolean }
+  /**
+   * The runtime settled the turn.
+   *
+   * `aborted` marks a turn the runtime stopped on its own. `failure` carries
+   * the reason a turn ENDED in an error: a settled turn is not a successful
+   * one, and a driver that cannot tell the two apart would settle a failed
+   * turn as `completed` in the durable log.
+   */
+  | { readonly type: 'idle'; readonly aborted: boolean; readonly failure?: string }
   | { readonly type: 'message_started'; readonly message: unknown }
   | { readonly type: 'message_delta'; readonly delta: string; readonly kind: 'text' | 'thinking' }
   | { readonly type: 'message_finished'; readonly message: unknown }
@@ -378,4 +403,69 @@ export interface ExternalRuntimeAdapter {
   runTurn(input: string, signal: AbortSignal): Promise<void>
   /** Interrupt the turn the runtime is currently executing, if any. */
   abortTurn(): Promise<void>
+}
+
+/**
+ * Normalize a signal reason into the Error a turn rejects with.
+ * @param signal - the aborted turn signal.
+ * @returns the signal's reason as an Error, or a generic abort Error.
+ */
+export function runtimeAbortError(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new Error('turn aborted', { cause: signal.reason })
+}
+
+/**
+ * Race one promise against turn-signal abort. The promise keeps settling in
+ * the background; callers that swallow its late rejection attach their own
+ * catch, so an abort never surfaces as an unhandled error.
+ * @param promise - the turn work to race.
+ * @param signal - the turn's cancellation signal.
+ * @returns the promise's outcome, or a rejection once the signal aborts.
+ */
+export function raceAbortSignal<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) return Promise.reject(runtimeAbortError(signal))
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = (): void => { reject(runtimeAbortError(signal)) }
+    signal.addEventListener('abort', onAbort, { once: true })
+    promise.then(
+      (value) => { signal.removeEventListener('abort', onAbort); resolve(value) },
+      (error: unknown) => { signal.removeEventListener('abort', onAbort); reject(error) },
+    )
+  })
+}
+
+/**
+ * Resolve on the next `idle` event; reject on signal abort, on a turn the
+ * runtime failed, or when the runtime reports an aborted settle the host did
+ * not ask for (a crash or transport loss surfaced as an unexpected settle).
+ * @param options - the adapter's event stream, the turn signal and the runtime's display name.
+ * @returns once the runtime settled the turn without a failure.
+ */
+export function awaitRuntimeIdle(options: {
+  subscribe: (listener: (event: ExternalRuntimeEvent) => void) => () => void
+  signal: AbortSignal
+  runtimeName: string
+}): Promise<void> {
+  const { subscribe, signal, runtimeName } = options
+  return new Promise((resolve, reject) => {
+    const unsubscribe = subscribe((event) => {
+      if (event.type !== 'idle') return
+      unsubscribe()
+      signal.removeEventListener('abort', onAbort)
+      if (event.failure !== undefined) {
+        reject(new Error(event.failure))
+        return
+      }
+      if (event.aborted && !signal.aborted) {
+        reject(new Error(`${runtimeName} runtime aborted the turn unexpectedly`))
+        return
+      }
+      resolve()
+    })
+    const onAbort = (): void => {
+      unsubscribe()
+      reject(runtimeAbortError(signal))
+    }
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
 }

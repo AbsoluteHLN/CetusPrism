@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createLayoutStore } from '../src/client/stores.ts'
+import { createLayoutStore, sidebarCollapsedOf } from '../src/client/stores.ts'
 import type { MainPanelId } from '../src/client/service.ts'
 
 beforeEach(() => { vi.stubGlobal('innerWidth', 1920) })
@@ -63,8 +63,28 @@ describe('createLayoutStore', () => {
     expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: false })
   })
 
-  it('clears the manual override only when crossing 1024px', () => {
+  it('collapses and restores the wide sidebar on request', () => {
     const { store, actions } = createLayoutStore().create()
+    actions.setSidebar(400)
+    actions.setSidebarCollapsed(true)
+    expect(store.getSnapshot().layoutInfo.sidebar).toBe(0)
+    actions.setSidebarCollapsed(false)
+    // The default width comes back, not the dragged one: the column's width
+    // IS its preference.
+    expect(store.getSnapshot().layoutInfo.sidebar).toBe(280)
+  })
+
+  it('flips the narrow override on request without touching the width preference', () => {
+    const { store, actions } = createLayoutStore().create()
+    actions.setSidebar(400)
+    actions.setViewportWidth(980)
+    actions.setSidebarCollapsed(true)
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: false })
+    actions.setSidebarCollapsed(false)
+    expect(store.getSnapshot().layoutInfo).toMatchObject({ sidebar: 400, narrowExpanded: true })
+  })
+
+  it('clears the manual override only when crossing 1024px', () => {    const { store, actions } = createLayoutStore().create()
     actions.setViewportWidth(980)
     actions.toggleSidebar()
     actions.setViewportWidth(980)
@@ -74,6 +94,20 @@ describe('createLayoutStore', () => {
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
     actions.setViewportWidth(980)
     expect(store.getSnapshot().layoutInfo.narrowExpanded).toBe(false)
+  })
+})
+
+describe('the sidebar collapse report', () => {
+  it('follows the width on a wide frame and the override on a narrow one', () => {
+    const { store, actions } = createLayoutStore().create()
+    expect(sidebarCollapsedOf(store.getSnapshot())).toBe(false)
+    actions.setSidebarCollapsed(true)
+    expect(sidebarCollapsedOf(store.getSnapshot())).toBe(true)
+    // The narrow frame is collapsed by default, whatever the width says.
+    actions.setViewportWidth(980)
+    expect(sidebarCollapsedOf(store.getSnapshot())).toBe(true)
+    actions.setSidebarCollapsed(false)
+    expect(sidebarCollapsedOf(store.getSnapshot())).toBe(false)
   })
 })
 
@@ -119,7 +153,7 @@ describe('main panel selection', () => {
     expect(store.getSnapshot().layoutInfo).toBe(selected.layoutInfo)
   })
 
-  it.each(['setSidebar', 'toggleSidebar', 'setViewportWidth', 'setRightbar', 'openRightbar', 'closeRightbar'] as const)(
+  it.each(['setSidebar', 'toggleSidebar', 'setSidebarCollapsed', 'setViewportWidth', 'setRightbar', 'openRightbar', 'closeRightbar'] as const)(
     'preserves panelInfo identity when %s changes layoutInfo', (action) => {
       const { store, actions } = createLayoutStore().create()
       actions.selectPanel(panelA)
@@ -128,6 +162,7 @@ describe('main panel selection', () => {
       switch (action) {
         case 'setSidebar': actions.setSidebar(400); break
         case 'toggleSidebar': actions.toggleSidebar(); break
+        case 'setSidebarCollapsed': actions.setSidebarCollapsed(true); break
         case 'setViewportWidth': actions.setViewportWidth(980); break
         case 'setRightbar': actions.setRightbar(500); break
         case 'openRightbar': actions.openRightbar(true, true); break

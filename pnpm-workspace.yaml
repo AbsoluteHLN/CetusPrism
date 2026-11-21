@@ -1,4 +1,4 @@
-packages:
+﻿packages:
   - vendor/*
   - packages/*/*
   # The Landlock launcher is developed with its harness consumers but keeps
@@ -21,6 +21,16 @@ packages:
 # and no longer from the user .npmrc. The Linux side build overrides the pin
 # explicitly through scripts/bootstrap-linux.sh --config.store-dir.
 storeDir: E:\dependency-cache\pnpm\store
+
+# The package CONTENT (the `.pnpm` virtual store) must not live in the project
+# tree either: without this pin pnpm materializes it at
+# `<workspace>/node_modules/.pnpm`, which puts the whole closure inside the
+# repository. `virtualStoreDir` points that payload at the machine's shared
+# pnpm ecosystem root, so the project keeps only the link farm and every byte
+# of package content stays under E:\dependency-cache (the same rule the E-drive
+# dependency boundary states for CetusPrism). scripts/bootstrap-linux.sh
+# overrides this pin explicitly through --config.virtual-store-dir.
+virtualStoreDir: E:\dependency-cache\pnpm\vstore
 
 # scripts/bootstrap-linux.sh explicitly selects the shared dependency root,
 # store and virtual store. Machine paths belong to that invocation rather than
@@ -67,7 +77,7 @@ allowBuilds:
   node-pty: true
   # Pulled in by @earendil-works/pi-ai (optional LLM API backend). pnpm lists
   # them only because they ship lifecycle scripts, but those are no-ops we don't
-  # need, so we deny them — install still succeeds.
+  # need, so we deny them 鈥?install still succeeds.
   '@google/genai': false
   protobufjs: false
   node-addon-require-builtin: false

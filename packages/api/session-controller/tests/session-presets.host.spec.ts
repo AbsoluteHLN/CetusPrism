@@ -44,6 +44,9 @@ function roster(ids: readonly string[]): unknown {
       return Promise.resolve(presetOf(wanted))
     },
     mount: (_ctx: Context, id?: string) => Promise.resolve(presetOf(id ?? ids[0] ?? '')),
+    // The execution backend the host selected for the next session.
+    currentBackend: () => 'dsh' as const,
+    backendDriver: () => undefined,
   }
 }
 

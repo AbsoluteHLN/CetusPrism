@@ -302,6 +302,12 @@
     - id: ui-sidebar-files
       name: '@deepseek-ai/dsh-client-ui-sidebar-files'
 
+    # The IDE coding surface: the central panel plus the sidebar entry that
+    # opens it. The workspace's file source is deployment-supplied, so the
+    # plugin itself carries no Remote or filesystem knowledge.
+    - id: ui-ide
+      name: '@deepseek-ai/dsh-client-ui-ide'
+
     - id: ui-settings
       name: '@deepseek-ai/dsh-client-ui-settings'
 

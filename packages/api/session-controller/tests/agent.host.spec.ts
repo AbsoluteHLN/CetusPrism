@@ -423,6 +423,8 @@ describe('ApiSession create or adoption', () => {
     ctx.provide('agentPresets', {
       resolve: (id?: string) => Promise.resolve({ id: id ?? 'minimal' }),
       mount: () => Promise.resolve(),
+      currentBackend: () => 'dsh' as const,
+      backendDriver: () => undefined,
     } as never)
     const resumed = {
       id: meta.id,
@@ -460,6 +462,8 @@ describe('ApiSession create or adoption', () => {
         return Promise.resolve({ id: 'standard' })
       },
       mount: () => Promise.resolve(),
+      currentBackend: () => 'dsh' as const,
+      backendDriver: () => undefined,
     } as never)
     await expect(child.agents.resolveAgent(childMeta.id)).resolves.toMatchObject({
       error: { code: 'session/agent-busy' },

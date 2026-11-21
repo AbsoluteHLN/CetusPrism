@@ -87,7 +87,10 @@ class OverflowRecoveryAdapter extends LlmAdapter {
       provider,
       id: model,
       name: model,
-      context: { contextWindow: 128 },
+      // Declared window only feeds the advisory overflow precheck; the overflow
+      // itself is an explicit CONTEXT_WINDOW_EXCEEDED error independent of it.
+      // 4096 keeps region + instruction + maxTokens(64) within budget.
+      context: { contextWindow: 4_096 },
     })
   }
 

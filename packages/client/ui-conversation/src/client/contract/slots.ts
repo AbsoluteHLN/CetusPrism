@@ -367,6 +367,12 @@ export interface ConversationSessionHeaderInjected {
 export interface ComposerBarOwnerProps {
   /** Hero uses centered placement; composer uses the active bottom placement. */
   variant: 'hero' | 'composer'
+  /**
+   * Reduced form: the mode chips, the model selector and the metric row are
+   * withheld. The session keeps the values they carried — the composer bar
+   * only stops offering a second editing surface for them.
+   */
+  compact?: boolean
   /** A feature-owned reason that makes message input inert while leaving model selection live. */
   blocked?: { readonly reason: string }
   /** Lock all message actions while preserving the resident composer surface. */
@@ -473,6 +479,14 @@ export interface ConversationContentInputProps {
   variant: 'main' | 'embedded'
   phase: 'settling' | 'hero' | 'active'
   hero: boolean
+  /**
+   * Render the composer in its reduced form: the text surface, the command
+   * button and the submit action only — no mode chips, no model selector, no
+   * metric row. A host that shows the conversation beside something else (the
+   * IDE's assistant column) asks for it; the main panel never does, so the
+   * product's own composer keeps every control it owns.
+   */
+  compact?: boolean
 }
 
 /** Values passed from shared content to its occurrence-selected width controls. */

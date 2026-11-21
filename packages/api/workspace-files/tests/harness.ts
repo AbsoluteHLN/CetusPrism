@@ -35,6 +35,13 @@ export interface Harness {
    * global to the Context, so a second call with caps is a defect in the test.
    */
   endpoint(caps?: Partial<Config>): WorkspaceFiles
+  /**
+   * Switch the mode the sandbox policy resolves to.
+   *
+   * The policy is resolved per call, so a test may move a live Session from
+   * `workspace-write` to `read-only` and watch the refusal change with it.
+   */
+  setMode(mode: 'read-only' | 'workspace-write'): void
   dispose(): Promise<void>
 }
 
@@ -52,9 +59,10 @@ export async function openWorkspace(prefix: string): Promise<Harness> {
   await mkdir(outside, { recursive: true })
   const ctx = new Context()
   const fiber = await ctx.plugin(LocalFileSystem, { cwd: workspace })
+  let mode: 'read-only' | 'workspace-write' = 'workspace-write'
   ctx.provide('sandboxPolicy', {
     workspaceRoot: workspace,
-    resolve: () => ({ mode: 'workspace-write', workspaceRoot: workspace }),
+    resolve: () => ({ mode, workspaceRoot: workspace }),
   } as never)
   let service: WorkspaceFiles | undefined
   return {
@@ -75,6 +83,7 @@ export async function openWorkspace(prefix: string): Promise<Harness> {
       })
       return service
     },
+    setMode: (next) => { mode = next },
     dispose: async () => {
       await fiber.dispose()
       await rm(root, { recursive: true, force: true })

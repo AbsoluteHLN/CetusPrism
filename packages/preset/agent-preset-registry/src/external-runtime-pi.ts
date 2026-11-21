@@ -10,7 +10,7 @@
  * this adapter.
  */
 
-import { EXTERNAL_RUNTIME_UPSTREAMS, type ExternalRuntimeAdapter, type ExternalRuntimeCapabilities, type ExternalRuntimeEvent } from './external-runtime.ts'
+import { awaitRuntimeIdle, EXTERNAL_RUNTIME_UPSTREAMS, raceAbortSignal, runtimeAbortError, type ExternalRuntimeAdapter, type ExternalRuntimeCapabilities, type ExternalRuntimeEvent } from './external-runtime.ts'
 import { openRuntimeTransport, RuntimeRequests, type RuntimeTransport } from './external-runtime-transport.ts'
 
 /** Construction options for the Pi adapter. */
@@ -138,14 +138,14 @@ export class PiRuntimeAdapter implements ExternalRuntimeAdapter {
    * the send and the settle are both raced against the turn signal.
    */
   async runTurn(input: string, signal: AbortSignal): Promise<void> {
-    if (signal.aborted) throw abortError(signal)
+    if (signal.aborted) throw runtimeAbortError(signal)
     const settled = this.awaitIdle(signal)
     // Observed up front: when the abort race below wins, `settled` rejects
     // later with the same reason and must never surface as unhandled.
     settled.catch(() => {})
     const sent = this.request('prompt', { message: { role: 'user', content: [{ type: 'text', text: input }], display: true } })
       .catch((error: unknown) => { if (!signal.aborted) throw error })
-    await raceAbort(sent, signal)
+    await raceAbortSignal(sent, signal)
     await settled
   }
 
@@ -155,28 +155,12 @@ export class PiRuntimeAdapter implements ExternalRuntimeAdapter {
   }
 
   /**
-   * Resolve on the next `idle` event; reject on signal abort or when the
-   * runtime reports an aborted settle the host did not ask for (a crash or
-   * transport loss surfaced as an unexpected settle).
+   * Resolve on the next `idle` event; reject on signal abort, on a turn the
+   * runtime failed, or when the runtime reports an aborted settle the host did
+   * not ask for (a crash or transport loss surfaced as an unexpected settle).
    */
   private awaitIdle(signal: AbortSignal): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const unsubscribe = this.subscribe((event) => {
-        if (event.type !== 'idle') return
-        unsubscribe()
-        signal.removeEventListener('abort', onAbort)
-        if (event.aborted && !signal.aborted) {
-          reject(new Error('Pi runtime aborted the turn unexpectedly'))
-          return
-        }
-        resolve()
-      })
-      const onAbort = (): void => {
-        unsubscribe()
-        reject(abortError(signal))
-      }
-      signal.addEventListener('abort', onAbort, { once: true })
-    })
+    return awaitRuntimeIdle({ subscribe: listener => this.subscribe(listener), signal, runtimeName: 'Pi' })
   }
 
   private emit(event: ExternalRuntimeEvent): void {
@@ -208,9 +192,15 @@ export class PiRuntimeAdapter implements ExternalRuntimeAdapter {
       case 'agent_start':
         this.emit({ type: 'run_started' })
         return
-      case 'agent_settled':
-        this.emit({ type: 'idle', aborted: record.aborted === true })
+      case 'agent_settled': {
+        // A settled turn is not a successful one: Pi reports the failure on the
+        // settling record, and the driver must be able to tell them apart.
+        const failure = record.error === undefined || record.error === null
+          ? undefined
+          : String(record.error)
+        this.emit({ type: 'idle', aborted: record.aborted === true, ...(failure === undefined ? {} : { failure }) })
         return
+      }
       case 'message_start':
         this.emit({ type: 'message_started', message: record.message })
         return
@@ -257,26 +247,4 @@ export class PiRuntimeAdapter implements ExternalRuntimeAdapter {
     this.requests.failAll(new Error('Pi runtime exited with outstanding requests'))
     this.emit({ type: 'idle', aborted: true })
   }
-}
-
-/** Normalize a signal reason into the Error runTurn rejects with. */
-function abortError(signal: AbortSignal): Error {
-  return signal.reason instanceof Error ? signal.reason : new Error('turn aborted', { cause: signal.reason })
-}
-
-/**
- * Race one promise against turn-signal abort. The promise keeps settling in
- * the background; callers that swallow its late rejection attach their own
- * catch, so an abort never surfaces as an unhandled error.
- */
-function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(abortError(signal))
-  return new Promise<T>((resolve, reject) => {
-    const onAbort = (): void => { reject(abortError(signal)) }
-    signal.addEventListener('abort', onAbort, { once: true })
-    promise.then(
-      (value) => { signal.removeEventListener('abort', onAbort); resolve(value) },
-      (error: unknown) => { signal.removeEventListener('abort', onAbort); reject(error) },
-    )
-  })
 }

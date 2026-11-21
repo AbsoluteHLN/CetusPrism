@@ -114,6 +114,11 @@ function classifyPiAiError(message: string): string {
   // the route's own effort declaration is what the endpoint rejected, so the
   // code is what tells the operator which field to change.
   if (refusesReasoningEffort(message)) return REASONING_EFFORT_REJECTED_CODE
+  // A provider-confirmed context overflow (400/413 wording that names the
+  // model's context window) must classify as the recoverable overflow code
+  // before the generic rejected-request matches below, or the overflow
+  // recovery path never engages.
+  if (isContextWindowExceededError(message)) return CONTEXT_WINDOW_EXCEEDED_CODE
   // A rejected request body (gateway or provider size cap): resending the
   // same request cannot succeed, so it is invalid, not transient.
   if (/\b413\b|failed to buffer the request body:\s*length limit exceeded|payload too large|request body too large/i.test(message)) return 'INVALID_REQUEST'
@@ -217,8 +222,9 @@ export function classifyFailure(message: string, facts: HttpFacts): string {
   if (status === 408) return 'TIMEOUT'
   if (status >= 500) return 'SERVER'
   // The remaining 4xx are rejected requests; the text sub-classification
-  // (rejected `developer` role, refused reasoning effort) still tells the
-  // operator which configuration line to change.
+  // (context overflow, rejected `developer` role, refused reasoning effort)
+  // still tells the operator which configuration line to change.
+  if (isContextWindowExceededError(message)) return CONTEXT_WINDOW_EXCEEDED_CODE
   if (isDeveloperRoleRejectedError(message)) return DEVELOPER_ROLE_REJECTED_CODE
   if (refusesReasoningEffort(message)) return REASONING_EFFORT_REJECTED_CODE
   return 'INVALID_REQUEST'

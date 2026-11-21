@@ -59,7 +59,7 @@ async function bench() {
   const layout = new LayoutController(layoutStore.actions, id => id === 'plugins', {
     getSnapshot: () => layoutStore.getSnapshot().panelInfo,
     subscribe: listener => layoutStore.subscribe(listener),
-  })
+  }, () => layoutStore.getSnapshot().layoutInfo.sidebar === 0)
   ctx.provide('layout', layout)
   ctx.provide('sessions', { list })
   ctx.provide('shortcuts', { register: (command: ShortcutCommand) => { commands.set(command.id, command); return () => { commands.delete(command.id) } }, catalog: createSnapshotStore([]) })

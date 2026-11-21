@@ -97,7 +97,31 @@ function spawnRuntime(options: RuntimeTransportOptions): ChildProcess {
   // Windows .cmd shim (EINVAL): the discarded child reports its launch error
   // asynchronously, so swallow it and route the same command through cmd.exe.
   child.on('error', () => {})
-  return spawn('cmd.exe', ['/c', options.command, ...options.args], { env, stdio })
+  // cmd.exe parses the command line itself, so the tokens are quoted here and
+  // handed over as ONE verbatim command string: a runtime installed under a
+  // path with spaces ("C:\Program Files\pi\pi.cmd") reached cmd.exe as two
+  // arguments before and never started.
+  const commandLine = [options.command, ...options.args].map(quoteForCmd).join(' ')
+  return spawn('cmd.exe', ['/d', '/s', '/c', `"${commandLine}"`], {
+    env,
+    stdio,
+    windowsVerbatimArguments: true,
+  })
+}
+
+/**
+ * Quote one token for a cmd.exe command line.
+ *
+ * cmd.exe owns the parsing of the line it receives, so a token carrying
+ * spaces or shell metacharacters must be quoted here. Quotes inside the token
+ * are escaped the way cmd expects, and a trailing backslash run is doubled so
+ * it cannot escape the closing quote.
+ * @param token - one command or argument.
+ * @returns the token as cmd.exe must read it.
+ */
+function quoteForCmd(token: string): string {
+  if (token.length > 0 && !/[\s"&|<>^()]/.test(token)) return token
+  return `"${token.replace(/(\\*)"/g, '$1$1\\"').replace(/(\\*)$/, '$1$1')}"`
 }
 
 /**

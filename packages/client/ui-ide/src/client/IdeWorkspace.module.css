@@ -1,0 +1,804 @@
+/* The IDE workspace surface: the project tree on the left, the code in the
+   middle and the assistant conversation on the right.
+
+   THE SURFACE IS A CetusPrism PANEL, NOT A SECOND PRODUCT. Every shape here
+   is taken from the application's own central panel (ui-conversation
+   ConversationRoot.module.css) and from the Sidebar's rows (ui-workspace
+   Rows.module.css):
+
+   - the title bar is the conversation header's geometry: one 40px row, the
+     20/28px side padding, a 0.5px l3 rule under it, the session title as the
+     CURRENT CRUMB (500, label-primary) and the project path as its ancestor
+     crumbs (label-tertiary, "/" separators);
+   - a column header is a section label, not a toolbar: 13px secondary text, a
+     14px outline glyph, ghost icon buttons on the right, no band, no rule;
+   - the file tree rows are the Sidebar's rows: radius-md, the interactive
+     hover fill for hover AND for the current row, no accent bar;
+   - the tab strip is the conversation's view tabs: 13px/500, tertiary, the
+     active one business-primary with a 2px underline;
+   - the status bar is the composer's metric row: flat, 12px, tertiary.
+
+   Nothing here invents a colour or a radius: the skin rides the same --dsw-*
+   token layer as the rest of the app, so the IDE follows the active theme.
+
+   THE CODE COLUMN IS AN EDITOR, NOT A CARD. The pane IS the source: no
+   floating code block, no margin around the text, no wrapped words and no
+   clipped line numbers. The gutter is a column of its own, wide enough for
+   the file's own line count, and it scrolls with the text. */
+
+/* ── The frame ──────────────────────────────────────────────────────────── */
+
+.workspace {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-columns:
+    var(--ide-files-width, 260px)
+    1px
+    minmax(0, 1fr)
+    1px
+    var(--ide-assistant-width, 420px);
+  height: 100%;
+  min-height: 0;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--dsw-alias-font-family);
+}
+
+/* ── The title bar: the conversation header's own geometry ──────────────── */
+
+.titleBar {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  height: 40px;
+  padding: 0 28px 0 20px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l3);
+  background: transparent;
+}
+
+/* The panel's own mark: a chip of the product's kind — an outline glyph and a
+   13px tertiary label on a transparent, hover-filled pill. The product has no
+   filled brand block anywhere, so the IDE does not grow one either. */
+.titleBrand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--dsw-radius-md);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.titleBrandIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.titleBrandName {
+  white-space: nowrap;
+}
+
+/* The session title and the project path share one breadcrumb run: the
+   session is the current crumb, the path its ancestors, separated by "/". */
+.titleCrumbs {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.titleSession {
+  flex: none;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.titlePath {
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.titlePathPart {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: var(--dsw-radius-md);
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.titlePathPart > span:not(.titlePathSep) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.titlePathSep {
+  color: var(--dsw-alias-label-caption);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.titlePathLast {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.titleActions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+/* The product's ghost control: no border, no fill, a hover wash. */
+.titleButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  cursor: pointer;
+}
+
+.titleButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+/* ── The header every column carries: a section label ───────────────────── */
+
+.paneHeader {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 34px;
+  padding: 0 12px;
+}
+
+.paneIcon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.paneTitle {
+  flex: none;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The middle column names its DOCUMENT, the way the app's header names the
+   session: the current crumb's weight and colour. */
+.paneTitleCurrent {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.paneActions {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+}
+
+.paneButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.paneButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+/* The detail takes the slack, so the controls sit at the column's far edge. */
+.paneDetail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  text-align: end;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The language rides as plain secondary text: the product labels such facts
+   with type, not with a boxed badge. */
+.languageChip {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+}
+
+/* ── The separators between the columns ─────────────────────────────────── */
+
+.splitter {
+  position: relative;
+  z-index: 2;
+  cursor: col-resize;
+  background: var(--dsw-alias-border-l2);
+  touch-action: none;
+}
+
+/* The resting seam is the column border itself; the handle announces itself
+   with the business accent while it is hovered or dragged. */
+.splitter::after {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 1px;
+  background: transparent;
+  content: '';
+}
+
+.splitter:hover::after,
+.splitter:focus-visible::after {
+  width: 2px;
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.splitter:focus-visible {
+  outline: none;
+}
+
+/* ── Left column: the project tree ─────────────────────────────────────── */
+
+.treePane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.treePane[data-collapsed='true'] {
+  align-items: center;
+  padding-top: 8px;
+}
+
+.railButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.railButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.treeSearchRow {
+  flex: none;
+  padding: 0 12px 8px;
+}
+
+.treeSearch {
+  width: 100%;
+  padding: 5px 8px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.treeSearch:focus-visible {
+  border-color: var(--dsw-alias-state-business-primary);
+  outline: none;
+}
+
+.treeRows {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+}
+
+/* The Sidebar's row: a radius-md pill that washes on hover, and washes again
+   for the row that is current. No accent bar — the product marks the current
+   row with the fill alone. */
+.treeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.treeRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.treeRow:focus-visible {
+  outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -1px;
+}
+
+/* An open document keeps the primary label; the current one also washes. */
+.treeRow[data-open='true'] {
+  color: var(--dsw-alias-label-primary);
+}
+
+.treeRow[data-active='true'] {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.treeMark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.treeRow[data-kind='directory'] .treeMark {
+  color: var(--dsw-alias-label-secondary);
+}
+
+.treeName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.treeSpinner {
+  margin-inline-start: auto;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+}
+
+.treeEmpty,
+.treeError {
+  margin: 8px 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+}
+
+.treeError {
+  color: var(--dsw-alias-label-primary);
+}
+
+/* The Session row's hover button: the IDE's own entry beside the row. */
+.rowAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  cursor: pointer;
+}
+
+.rowAction:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+/* ── Middle column: the header, the tab strip, the editor and the status ── */
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--dsw-alias-bg-base);
+}
+
+/* The view tabs of the product: text, tertiary, with a 2px business-primary
+   underline on the active one. The strip scrolls sideways rather than
+   letting two tabs overlap. */
+.tabBar {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l3);
+  background: transparent;
+}
+
+.tabs {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  gap: 20px;
+  padding: 0 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0 9px;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tab::after {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: 2px;
+  background: transparent;
+  content: '';
+}
+
+.tab[data-active='true'] {
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.tab[data-active='true']::after {
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.tabName {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tabLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The unsaved marker: a dot, the way every editor says "this differs". */
+.tabDirty {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dsw-alias-state-business-primary);
+}
+
+.tabClose {
+  padding: 0 4px;
+  border: 0;
+  border-radius: var(--dsw-radius-sm, 4px);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tabClose:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+/* Saving is an ordinary product button: a quiet outlined pill. */
+.saveButton {
+  flex: none;
+  align-self: center;
+  margin-inline-end: 12px;
+  padding: 3px 10px;
+  border: 0.5px solid var(--dsw-alias-border-l2);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-secondary);
+  font: inherit;
+  font-size: 12px;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.saveButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.saveButton:disabled {
+  color: var(--dsw-alias-label-caption);
+  cursor: default;
+}
+
+/* ── The code surface: the pane IS the source ──────────────────────────── */
+
+.codeEditor {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--dsw-alias-bg-base);
+}
+
+/* The gutter is a column of its own: wide enough for the file's own line
+   count, so a two- or three-digit number is never clipped. */
+.gutter {
+  flex: none;
+  width: 58px;
+  overflow: hidden;
+  border-inline-end: 0.5px solid var(--dsw-alias-border-l2);
+  background: var(--dsw-alias-bg-layer-1);
+  user-select: none;
+}
+
+.gutterInner {
+  display: flex;
+  flex-direction: column;
+  padding-block: 8px;
+  will-change: transform;
+}
+
+.gutterLine {
+  display: block;
+  height: 20px;
+  padding-inline-end: 12px;
+  color: var(--dsw-alias-label-caption);
+  font-family: var(--dsw-alias-font-family-mono, ui-monospace, monospace);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 20px;
+  text-align: end;
+}
+
+.codeSurface {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* The highlighted layer sits UNDER the text area and follows its scroll: the
+   browser keeps the caret, the selection and the undo stack. */
+.codeLayer {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 8px 16px;
+  overflow: visible;
+  color: var(--dsw-alias-label-primary);
+  font-family: var(--dsw-alias-font-family-mono, ui-monospace, monospace);
+  font-size: 13px;
+  font-variant-ligatures: none;
+  line-height: 20px;
+  pointer-events: none;
+  tab-size: 2;
+  white-space: pre;
+}
+
+/* The UA gives <code> its own monospace family; the layer's own metrics are
+   what the text area is measured against, so the inner element inherits. */
+.codeLayer code {
+  font: inherit;
+}
+
+.codeInput {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  caret-color: var(--dsw-alias-label-primary);
+  color: transparent;
+  font-family: var(--dsw-alias-font-family-mono, ui-monospace, monospace);
+  font-size: 13px;
+  font-variant-ligatures: none;
+  line-height: 20px;
+  outline: none;
+  overflow: auto;
+  resize: none;
+  tab-size: 2;
+  white-space: pre;
+}
+
+.codeInput::selection {
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 28%, transparent);
+}
+
+/* The caret is the editor's focus, but the surface still says where the
+   keyboard is: the product's own focus ring, drawn inside the column. */
+.codeSurface:focus-within {
+  outline: var(--dsw-focus-ring-width, 1px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: -1px;
+}
+
+/* The product's empty states are type, not a framed badge. */
+.empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--dsw-alias-label-tertiary);
+  text-align: center;
+}
+
+.emptyIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.emptyTitle {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 14px;
+}
+
+.emptyHint {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* ── Right column: the assistant conversation ───────────────────────────── */
+
+.assistantPane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+/* Folded, the column is an icon rail: one control, the column's own. */
+.assistantPane[data-collapsed='true'] {
+  align-items: center;
+  padding-top: 8px;
+}
+
+/* The embedded Conversation OWNS this column's scrolling, exactly as the
+   Sidebar's subagent chat does (ui-subagent SidebarChat.module.css). The
+   conversation body (.body in ui-conversation) only becomes a scrollport when
+   its host gives it a definite height: it is a flex column whose .scrollBody
+   child carries `overflow-y: auto` and whose composer seat is
+   `position: sticky; bottom: 0`. Without a flex host the body is height-auto,
+   .scrollBody never overflows, and the sticky composer has no scrollport to
+   stick to — the whole column (transcript, composer, footer) then scrolls as
+   one block, and the composer rides away with the messages. */
+.assistantBody {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.assistantEmpty {
+  margin: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 13px;
+}
+
+/* ── The status bar: the composer's metric row ─────────────────────────── */
+
+/* The status bar belongs to the CODE column: it says where the file is and
+   how big it is, and it sits under the code it describes — not across the
+   whole frame, where it would claim the tree's and the assistant's space. */
+.statusBar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  height: 28px;
+  padding: 0 20px;
+  border-top: 0.5px solid var(--dsw-alias-border-l2);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+}
+
+.statusPath {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--dsw-alias-font-family-mono, ui-monospace, monospace);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusItems {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 14px;
+}
+
+.statusItem {
+  white-space: nowrap;
+}
+
+/* A refused write says so, in the product's error colour. */
+.statusConflict {
+  overflow: hidden;
+  color: var(--dsw-alias-state-error-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

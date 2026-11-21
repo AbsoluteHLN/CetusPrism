@@ -5,12 +5,18 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { contentHasImage, BlockAssembler, LlmError } from '@deepseek-ai/dsh-llm'
+import { contentHasImage, BlockAssembler, LlmError, createUserMessage } from '@deepseek-ai/dsh-llm'
 import { deepFreeze } from '@deepseek-ai/dsh-util-values'
 import type {
-  ContentBlock, FinishReason, GenerateOptions, Message, RequestMessage, TokenUsage, ToolSchema,
+  ContentBlock, FinishReason, GenerateOptions, LlmCallConfig, Message, RequestMessage, TokenUsage, ToolSchema,
 } from '@deepseek-ai/dsh-llm'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { Session } from '@deepseek-ai/dsh-session'
+import type { TokenMeter } from '@deepseek-ai/dsh-token-meter'
+// Type-only: makes the session-projection service available to `ctx.get()`.
+import type {} from '@deepseek-ai/dsh-session-projection'
+// Type-only: activates the `modelSelection` projection-state augmentation.
+import type {} from '@deepseek-ai/dsh-api-session-controller/src/types.ts'
 
 interface SummaryConfig {
   readonly summarizationProvider: string
@@ -71,6 +77,59 @@ const CHECKPOINT_PREAMBLE =
   'This is an automatically generated checkpoint condensing an earlier span of the conversation to free up context. Treat the captured context as established background and build on it without restating it. Continue the task directly from the messages that follow, without acknowledging this checkpoint.'
 
 /**
+ * The compaction instruction, delivered as the final replayed user message.
+ * @returns the instruction message.
+ */
+export function compactionInstructionMessage(): RequestMessage {
+  return deepFreeze({
+    role: 'user',
+    content: [{ type: 'text', text: COMPACTION_INSTRUCTION }],
+  }) as RequestMessage
+}
+
+/**
+ * Price the compaction instruction exactly as the summarization request will
+ * carry it: an identified user message whose content is the instruction text.
+ * The token meter reads only role and content, so the generated id and source
+ * kind do not affect the estimate. Used by the overflow preflight so it
+ * overestimates neither the request nor the fit check.
+ * @param meter - the token meter that prices the instruction.
+ * @returns the instruction's token count.
+ */
+export function estimateCompactionInstructionTokens(meter: TokenMeter): number {
+  const instructionMessage = createUserMessage({
+    content: [{ type: 'text', text: COMPACTION_INSTRUCTION }],
+    source: { kind: 'user' },
+  })
+  return meter.estimateMessage(instructionMessage)
+}
+
+/**
+ * Resolve the compaction routing target: the session controller's persisted
+ * model-selection projection (`pending ?? lastUsed`) wins so routing follows
+ * the user's latest model switch; fall back to the latest durable request
+ * header when the projection or registry is absent.
+ * @param ctx - the context holding the session projections.
+ * @param session - the session whose routing target is resolved.
+ * @returns the provider and model to route to, or undefined when neither source names one.
+ */
+export function routedTarget(
+  ctx: Context,
+  session: Session,
+): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
+  const state = ctx.get('sessionProjections')?.stateOf(session, 'modelSelection')
+  const next = state?.pending ?? state?.lastUsed
+  if (next !== undefined && next !== null && next.provider.length > 0 && next.model.length > 0) {
+    return { provider: next.provider, model: next.model }
+  }
+  const config = session.requestHeader()?.config
+  if (config === undefined || config.provider.length === 0 || config.model.length === 0) {
+    return undefined
+  }
+  return { provider: config.provider, model: config.model }
+}
+
+/**
  * The replayed conversation surface the summarizer condenses. Reproducing the
  * last routed request's system prompt, tools, and leading messages verbatim
  * lets the auxiliary call reuse the provider's warm prefix cache; the trailing
@@ -124,7 +183,7 @@ export async function summarizeWithLlm(
   agent: Agent,
   signal?: AbortSignal,
 ): Promise<SummaryResult> {
-  const latest = agent.session.requestHeader()?.config
+  const latest = routedTarget(ctx, agent.session)
   const configured = config.summarizationProvider.length === 0
     ? undefined
     : { provider: config.summarizationProvider, model: config.summarizationModel }
@@ -142,13 +201,7 @@ export async function summarizeWithLlm(
   }
 
   const assembler = new BlockAssembler()
-  const messages: RequestMessage[] = [
-    ...input.messages,
-    deepFreeze({
-      role: 'user',
-      content: [{ type: 'text', text: COMPACTION_INSTRUCTION }],
-    }),
-  ]
+  const messages: RequestMessage[] = [...input.messages, compactionInstructionMessage()]
   const options: GenerateOptions = {
     provider: target.provider,
     model: target.model,

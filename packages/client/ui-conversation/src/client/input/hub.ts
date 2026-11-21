@@ -24,6 +24,7 @@ import type { ComposerKeyboard } from '../contract/draft-editor.ts'
 import type { InputSubmitMode } from '../contract/composer-submission.ts'
 import type { PopupDismissFace } from './facade.ts'
 import { SessionInputShell } from './facade.ts'
+import { PromptHistory } from './prompt-history.ts'
 import { reportMessageSubmission } from './submission-analytics.ts'
 import { readConversationDraft } from '../stores.ts'
 
@@ -51,9 +52,17 @@ interface ConversationAttachmentFace {
   releaseDraftAttachment(id: DraftAttachmentId): void
 }
 
-/** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */
-export class InputHub implements SessionInputResolver {
+/** How many Sessions keep a prompt history at once. */
+const HISTORY_SESSIONS = 32
+
+/** Session-addressed input facade registry (SessionInputResolver face + composer-layer extras). */export class InputHub implements SessionInputResolver {
   private readonly shells = new WeakMap<SessionBinding, SessionInputShell>()
+  /**
+   * One prompt history per Session, kept by the hub so the record outlives the
+   * shell: a Session that is released and opened again keeps the prompts it
+   * sent. The map is bounded — the oldest Session's history is dropped first.
+   */
+  private readonly histories = new Map<SessionId, PromptHistory>()
 
   /**
    * @param ctx - client root context (services resolved lazily per call — boot order stays free).
@@ -138,6 +147,7 @@ export class InputHub implements SessionInputResolver {
           command: token.trim().replace(/^\//u, ''),
         }),
       },
+      promptHistory: this.historyFor(binding.sessionId),
     })
     this.shells.set(binding, shell)
     // The one teardown axis: listeners, shell, and map entries all ride the
@@ -264,6 +274,24 @@ export class InputHub implements SessionInputResolver {
       shell.notify('error', this.t('queue.steerFailed'))
       return
     }
+  }
+
+  /**
+   * The prompt history of one Session, minted on first use.
+   * @param id - the Session identity.
+   * @returns the Session's history.
+   */
+  private historyFor(id: SessionId): PromptHistory {
+    const existing = this.histories.get(id)
+    if (existing !== undefined) return existing
+    const history = new PromptHistory()
+    this.histories.set(id, history)
+    // Bounded: the oldest Session's history goes first.
+    if (this.histories.size > HISTORY_SESSIONS) {
+      const oldest = this.histories.keys().next()
+      if (oldest.done !== true) this.histories.delete(oldest.value)
+    }
+    return history
   }
 
   private controller(actx: Context): InputTriggerController | undefined {

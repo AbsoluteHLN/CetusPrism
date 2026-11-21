@@ -1,0 +1,224 @@
+/* ProjectHLN UI System v4 - Folio Themes (themes.css)
+   Eight curated themes. Every theme carries TWO pigments from different hue
+   families — one primary (--hln-ui-accent) and one secondary
+   (--hln-ui-accent-cool) — so a theme reads as its own place rather than one
+   template with a different hex.
+
+   Four light paper themes, four lifted dark themes. No pure black canvas.
+   All themes: --hln-ui-blur 12px, --hln-ui-focus equals --hln-ui-accent. */
+
+/* ==========================================================================
+   Theme 01: folio-porcelain · 瓷白 · 靛蓝与青瓷
+   Warm porcelain paper, indigo ink primary, celadon secondary.
+   ========================================================================== */
+[data-hln-theme="folio-porcelain"],
+[data-hln-ui-root][data-hln-theme="folio-porcelain"] {
+  color-scheme: light;
+  --hln-ui-bg-0: #f7f5f1;
+  --hln-ui-bg-1: #fdfcfa;
+  --hln-ui-bg-2: #eeebe5;
+  --hln-ui-panel-bg: rgba(253, 252, 250, 0.88);
+  --hln-ui-text: #1f2328;
+  --hln-ui-text-muted: #5c646e;
+  --hln-ui-text-faint: #596069;
+  --hln-ui-line: #e2ded6;
+  --hln-ui-line-strong: #cdc7bc;
+  --hln-ui-accent: #2f4b7c;
+  --hln-ui-accent-cool: #3f7d6e;
+  --hln-ui-on-accent: #fdfcfa;
+  --hln-ui-focus: #2f4b7c;
+  --hln-ui-success: #366c47;
+  --hln-ui-warning: #8a5819;
+  --hln-ui-danger: #a63b32;
+  --hln-ui-blur: 12px;
+  --hln-ui-shadow: 0 1px 2px rgba(31, 35, 40, 0.06), 0 8px 22px rgba(31, 35, 40, 0.07);
+}
+
+/* ==========================================================================
+   Theme 02: folio-sage · 苔青 · 松绿与陶土
+   Pale sage paper, deep pine primary, fired clay secondary.
+   ========================================================================== */
+[data-hln-theme="folio-sage"],
+[data-hln-ui-root][data-hln-theme="folio-sage"] {
+  color-scheme: light;
+  --hln-ui-bg-0: #eef1ec;
+  --hln-ui-bg-1: #f7f9f5;
+  --hln-ui-bg-2: #e3e8e0;
+  --hln-ui-panel-bg: rgba(247, 249, 245, 0.88);
+  --hln-ui-text: #20261f;
+  --hln-ui-text-muted: #5b6559;
+  --hln-ui-text-faint: #596155;
+  --hln-ui-line: #dde3d9;
+  --hln-ui-line-strong: #c6cebf;
+  --hln-ui-accent: #2d664b;
+  --hln-ui-accent-cool: #a8593f;
+  --hln-ui-on-accent: #f7f9f5;
+  --hln-ui-focus: #2d664b;
+  --hln-ui-success: #2d674c;
+  --hln-ui-warning: #7d561c;
+  --hln-ui-danger: #a33d33;
+  --hln-ui-blur: 12px;
+  --hln-ui-shadow: 0 1px 2px rgba(32, 38, 31, 0.06), 0 8px 22px rgba(32, 38, 31, 0.07);
+}
+
+/* ==========================================================================
+   Theme 03: folio-apricot · 杏色 · 赭石与黛青
+   Warm apricot cream, burnt sienna primary, dusty teal secondary.
+   ========================================================================== */
+[data-hln-theme="folio-apricot"],
+[data-hln-ui-root][data-hln-theme="folio-apricot"] {
+  color-scheme: light;
+  --hln-ui-bg-0: #faf3ec;
+  --hln-ui-bg-1: #fffaf5;
+  --hln-ui-bg-2: #f3e8dd;
+  --hln-ui-panel-bg: rgba(255, 250, 245, 0.88);
+  --hln-ui-text: #2a211c;
+  --hln-ui-text-muted: #6b5c51;
+  --hln-ui-text-faint: #6c5d55;
+  --hln-ui-line: #ecdfd2;
+  --hln-ui-line-strong: #dcc6b4;
+  --hln-ui-accent: #974725;
+  --hln-ui-accent-cool: #35707a;
+  --hln-ui-on-accent: #fffaf5;
+  --hln-ui-focus: #974725;
+  --hln-ui-success: #436a3c;
+  --hln-ui-warning: #805c21;
+  --hln-ui-danger: #a83d2d;
+  --hln-ui-blur: 12px;
+  --hln-ui-shadow: 0 1px 2px rgba(42, 33, 28, 0.06), 0 8px 22px rgba(42, 33, 28, 0.07);
+}
+
+/* ==========================================================================
+   Theme 04: folio-lilac · 藕荷 · 靛紫与玫褐
+   Cool lilac-grey paper, indigo violet primary, dusty rose secondary.
+   ========================================================================== */
+[data-hln-theme="folio-lilac"],
+[data-hln-ui-root][data-hln-theme="folio-lilac"] {
+  color-scheme: light;
+  --hln-ui-bg-0: #f2f1f6;
+  --hln-ui-bg-1: #faf9fd;
+  --hln-ui-bg-2: #e8e6f0;
+  --hln-ui-panel-bg: rgba(250, 249, 253, 0.88);
+  --hln-ui-text: #231f2e;
+  --hln-ui-text-muted: #615b70;
+  --hln-ui-text-faint: #615c69;
+  --hln-ui-line: #e2dfec;
+  --hln-ui-line-strong: #cbc6da;
+  --hln-ui-accent: #5b4b9e;
+  --hln-ui-accent-cool: #a85571;
+  --hln-ui-on-accent: #faf9fd;
+  --hln-ui-focus: #5b4b9e;
+  --hln-ui-success: #40674e;
+  --hln-ui-warning: #775a25;
+  --hln-ui-danger: #9d3f45;
+  --hln-ui-blur: 12px;
+  --hln-ui-shadow: 0 1px 2px rgba(35, 31, 46, 0.06), 0 8px 22px rgba(35, 31, 46, 0.07);
+}
+
+/* ==========================================================================
+   Theme 05: folio-graphite · 石墨 · 琥珀与灰蓝
+   Lifted cool graphite, warm amber primary, slate blue secondary.
+   ========================================================================== */
+[data-hln-theme="folio-graphite"],
+[data-hln-ui-root][data-hln-theme="folio-graphite"] {
+  color-scheme: dark;
+  --hln-ui-bg-0: #16181b;
+  --hln-ui-bg-1: #1c1f23;
+  --hln-ui-bg-2: #24282d;
+  --hln-ui-panel-bg: rgba(28, 31, 35, 0.9);
+  --hln-ui-text: #eceef1;
+  --hln-ui-text-muted: #9aa1aa;
+  --hln-ui-text-faint: #979ca4;
+  --hln-ui-line: #2b3036;
+  --hln-ui-line-strong: #3d444c;
+  --hln-ui-accent: #d9a441;
+  --hln-ui-accent-cool: #6f9dd1;
+  --hln-ui-on-accent: #1c1f23;
+  --hln-ui-focus: #d9a441;
+  --hln-ui-success: #66a67c;
+  --hln-ui-warning: #c9973f;
+  --hln-ui-danger: #d68179;
+  --hln-ui-blur: 12px;
+  --hln-ui-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 22px rgba(0, 0, 0, 0.34);
+}
+
+/* ==========================================================================
+   Theme 06: folio-pine · 苍松 · 暖沙与翠玉
+   Deep desaturated pine, warm sand primary, jade secondary.
+   ========================================================================== */
+[data-hln-theme="folio-pine"],
+[data-hln-ui-root][data-hln-theme="folio-pine"] {
+  color-scheme: dark;
+  --hln-ui-bg-0: #101613;
+  --hln-ui-bg-1: #161e1a;
+  --hln-ui-bg-2: #1e2823;
+  --hln-ui-panel-bg: rgba(22, 30, 26, 0.9);
+  --hln-ui-text: #e6efea;
+  --hln-ui-text-muted: #93a89d;
+  --hln-ui-text-faint: #8da195;
+  --hln-ui-line: #243029;
+  --hln-ui-line-strong: #35473c;
+  --hln-ui-accent: #cbb27a;
+  --hln-ui-accent-cool: #4f9e83;
+  --hln-ui-on-accent: #161e1a;
+  --hln-ui-focus: #cbb27a;
+  --hln-ui-success: #54a88b;
+  --hln-ui-warning: #c0a05a;
+  --hln-ui-danger: #d38075;
+  --hln-ui-blur: 12px;
+  --hln-ui-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 22px rgba(0, 0, 0, 0.34);
+}
+
+/* ==========================================================================
+   Theme 07: folio-plum · 墨梅 · 紫铜与兰紫
+   Deep aubergine, copper primary, orchid secondary.
+   ========================================================================== */
+[data-hln-theme="folio-plum"],
+[data-hln-ui-root][data-hln-theme="folio-plum"] {
+  color-scheme: dark;
+  --hln-ui-bg-0: #161219;
+  --hln-ui-bg-1: #1d1822;
+  --hln-ui-bg-2: #26202d;
+  --hln-ui-panel-bg: rgba(29, 24, 34, 0.9);
+  --hln-ui-text: #f0e9f2;
+  --hln-ui-text-muted: #a89cb0;
+  --hln-ui-text-faint: #9c91a4;
+  --hln-ui-line: #2c2534;
+  --hln-ui-line-strong: #40364b;
+  --hln-ui-accent: #cf8a5a;
+  --hln-ui-accent-cool: #a87bc4;
+  --hln-ui-on-accent: #1d1822;
+  --hln-ui-focus: #cf8a5a;
+  --hln-ui-success: #60a07d;
+  --hln-ui-warning: #c79a4e;
+  --hln-ui-danger: #d2797f;
+  --hln-ui-blur: 12px;
+  --hln-ui-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 22px rgba(0, 0, 0, 0.34);
+}
+
+/* ==========================================================================
+   Theme 08: folio-slate · 靛青 · 长春花与海绿
+   Deep blue-grey slate, periwinkle primary, sea green secondary.
+   ========================================================================== */
+[data-hln-theme="folio-slate"],
+[data-hln-ui-root][data-hln-theme="folio-slate"] {
+  color-scheme: dark;
+  --hln-ui-bg-0: #111418;
+  --hln-ui-bg-1: #171b21;
+  --hln-ui-bg-2: #1f242c;
+  --hln-ui-panel-bg: rgba(23, 27, 33, 0.9);
+  --hln-ui-text: #e9edf3;
+  --hln-ui-text-muted: #96a0ad;
+  --hln-ui-text-faint: #8f98a4;
+  --hln-ui-line: #262b33;
+  --hln-ui-line-strong: #39404a;
+  --hln-ui-accent: #7f9be0;
+  --hln-ui-accent-cool: #4f9e94;
+  --hln-ui-on-accent: #171b21;
+  --hln-ui-focus: #7f9be0;
+  --hln-ui-success: #52a583;
+  --hln-ui-warning: #c19a48;
+  --hln-ui-danger: #d27d7a;
+  --hln-ui-blur: 12px;
+  --hln-ui-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 22px rgba(0, 0, 0, 0.34);
+}

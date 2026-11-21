@@ -144,6 +144,9 @@ export function ConversationContent(props: ConversationContentProps) {
   const blocked = !inert && composerBlock !== undefined
   const inputBar = renderSlot('conversation.composer.bar', {
     variant: hero ? 'hero' : 'composer',
+    // A reduced host asks for the reduced composer; the main panel never does,
+    // so its chips, model selector and metric row stay exactly where they are.
+    ...(props.compact === true ? { compact: true } : {}),
     ...(inert
       ? {
         disabled: true,

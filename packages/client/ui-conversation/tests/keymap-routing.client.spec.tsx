@@ -25,6 +25,7 @@ describe('keymap keydown routing', () => {
     const unregister = registerComposerKeymap(editor, {
       arbitrate: () => 'pass', space: () => false, dismissPopup: () => {},
       canSubmit: () => false, submit: () => {}, intakeFiles: () => {}, pasteText: () => {},
+      recall: () => false,
     })
     onTestFinished(unregister)
     fireEvent.compositionStart(first)
@@ -60,6 +61,7 @@ describe('keymap keydown routing', () => {
       submit,
       intakeFiles: () => {},
       pasteText: () => {},
+      recall: () => false,
     })
     fireEvent.keyDown(root, { key: 'Enter' })
     expect(submit).toHaveBeenCalledWith(false)
@@ -88,6 +90,7 @@ describe('keymap keydown routing', () => {
     onTestFinished(registerComposerKeymap(editor, {
       arbitrate, space: () => false, dismissPopup: () => {}, canSubmit: () => true,
       submit, intakeFiles: () => {}, pasteText: () => {},
+      recall: () => false,
     }))
     editor.update(() => {
       const paragraph = $createParagraphNode().append($createTextNode('unsent draft'))
@@ -128,6 +131,7 @@ describe('keymap keydown routing', () => {
       submit: () => {},
       intakeFiles: () => {},
       pasteText: () => {},
+      recall: () => false,
     })
     const consumed = fireEvent.keyDown(root, { key: 'Tab', keyCode: 9 })
     expect(arbitrate).toHaveBeenCalledWith('tab', false)

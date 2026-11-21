@@ -73,16 +73,23 @@ interface TeamModelSelectionSettings {
  */
 function teamDiscoveryPolicy(ctx: Context): { readonly routes: readonly AllowedModelRoute[] } {
   const settings: TeamModelSelectionSettings | undefined = ctx.get('subagentModelSelection')
+  const teamPolicy = currentTeamModelPolicy(ctx)
+  if (settings !== undefined) {
+    const current = settings.current()
+    if (current.enabled) {
+      return {
+        routes: current.allowedModels.filter(route => teamPolicy.allowedModels.length === 0
+          || teamPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)),
+      }
+    }
+  }
+  if (teamPolicy.allowedModels.length > 0) {
+    return { routes: teamPolicy.allowedModels }
+  }
   if (settings === undefined) {
     throw new Error('Team model selection is unavailable because its settings service is not loaded')
   }
-  const current = settings.current()
-  if (!current.enabled) throw new Error('Team model selection is disabled in settings')
-  const teamPolicy = currentTeamModelPolicy(ctx)
-  return {
-    routes: current.allowedModels.filter(route => teamPolicy.allowedModels.length === 0
-      || teamPolicy.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)),
-  }
+  throw new Error('Team model selection is disabled in settings')
 }
 
 /** Resolve an explicit Team member route against the Host-owned allowlist. */
@@ -102,11 +109,14 @@ function resolveTeamAgentOptions(
     throw new Error('Team model selection requires provider and model together')
   }
   const settings: TeamModelSelectionSettings | undefined = ctx.get('subagentModelSelection')
-  if (settings === undefined) {
-    throw new Error('Team model selection is unavailable because its settings service is not loaded')
+  if (hasExplicitSelection) {
+    if (settings === undefined) {
+      throw new Error('Team model selection is unavailable because its settings service is not loaded')
+    }
+    const current = settings.current()
+    if (!current.enabled) throw new Error('Team model selection is disabled in settings')
   }
-  const current = settings.current()
-  if (!current.enabled) throw new Error('Team model selection is disabled in settings')
+  const current = settings?.current()
   const leadOptions = parentAgentOptionsForDelegation(parent)
   const leadRoute = { provider: leadOptions.provider ?? '', model: leadOptions.model ?? '' }
   const route: AllowedModelRoute = {
@@ -114,7 +124,7 @@ function resolveTeamAgentOptions(
     model: model ?? (reasoningEffort !== undefined ? leadRoute.model : teamPolicy.defaultModel?.model ?? leadRoute.model),
   }
   if (!route.provider || !route.model) throw new Error('Team model selection needs an effective provider and model')
-  if (!current.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
+  if (current?.enabled && !current.allowedModels.some(candidate => candidate.provider === route.provider && candidate.model === route.model)) {
     throw new Error(`Team model route "${route.provider}/${route.model}" is not authorized in settings`)
   }
   if (teamPolicy.allowedModels.length > 0
@@ -429,11 +439,6 @@ function install(agent: Agent, ctx: Context, config: Required<Config>): () => vo
         if (!config.modelSelectionSettings
             && (args.provider !== undefined || args.model !== undefined || args.reasoning_effort !== undefined)) {
           throw new Error('Team model selection is disabled in settings')
-        }
-        const teamModelPolicy = currentTeamModelPolicy(ctx)
-        if (!config.modelSelectionSettings
-            && (teamModelPolicy.allowedModels.length > 0 || teamModelPolicy.defaultModel !== undefined)) {
-          throw new Error('Team-specific model restrictions require model selection to be enabled in settings')
         }
         const agentOptions = config.modelSelectionSettings
           ? resolveTeamAgentOptions(ctx, args.provider, args.model, args.reasoning_effort, agent)

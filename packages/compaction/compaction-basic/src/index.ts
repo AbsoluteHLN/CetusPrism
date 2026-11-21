@@ -11,6 +11,7 @@ import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compa
 import type { Session, SessionSeq } from '@deepseek-ai/dsh-session'
 import { CONTEXT_WINDOW_EXCEEDED_CODE } from '@deepseek-ai/dsh-llm'
 import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
+import type { TokenMeasurement } from '@deepseek-ai/dsh-token-meter'
 import { assertNever } from '@deepseek-ai/dsh-util-values'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
@@ -27,12 +28,13 @@ import {
   compactSurfaceRegion,
   selectCompactableRange,
 } from './region.ts'
-import { summarizeWithLlm } from './summarizer.ts'
+import { estimateCompactionInstructionTokens, routedTarget, summarizeWithLlm } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
 import type {
   BasicCompactionConfig,
   ModelCompactPolicyConfig,
   ResolvedConfig,
+  ResolvedTargetPolicy,
 } from './types.ts'
 
 export type {
@@ -44,17 +46,6 @@ export type {
   ResolvedRetention,
   ResolvedTargetPolicy,
 } from './types.ts'
-
-/** Resolve the exact provider/model durably routed for the latest request. */
-function routedTarget(
-  session: Session,
-): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
-  const config = session.requestHeader()?.config
-  if (config === undefined || config.provider.length === 0 || config.model.length === 0) {
-    return undefined
-  }
-  return { provider: config.provider, model: config.model }
-}
 
 /**
  * Output tokens the routed request reserves, which the provider charges to the
@@ -69,9 +60,10 @@ function reservedCompletionTokens(agent: Agent, defaultMaxTokens: number | undef
 
 /** Resolve the conversation target used to select an optional policy override. */
 function conversationTarget(
+  ctx: Context,
   agent: Agent,
 ): Pick<LlmCallConfig, 'provider' | 'model'> | undefined {
-  const routed = routedTarget(agent.session)
+  const routed = routedTarget(ctx, agent.session)
   if (routed !== undefined) return routed
   if (agent.options.provider === undefined || agent.options.provider.length === 0
     || agent.options.model === undefined || agent.options.model.length === 0) return undefined
@@ -193,7 +185,7 @@ export class BasicCompactionEngine extends CompactionEngine {
     ) => {
       if (failure.code !== CONTEXT_WINDOW_EXCEEDED_CODE || signal.aborted) return next()
       this.overflowAgents.set(agent.session, agent)
-      const target = routedTarget(agent.session)
+      const target = routedTarget(ctx, agent.session)
       if (target === undefined) return next()
       const policy = resolveTargetPolicy(this.config, target)
       const retries = this.overflowRetries.get(agent) ?? 0
@@ -249,7 +241,7 @@ export class BasicCompactionEngine extends CompactionEngine {
     agent: Agent,
     signal?: AbortSignal,
   ): Promise<SummaryResult> {
-    const target = conversationTarget(agent)
+    const target = conversationTarget(this.ctx, agent)
     const config = target === undefined
       ? this.config
       : resolveTargetPolicy(this.config, target)
@@ -271,7 +263,7 @@ export class BasicCompactionEngine extends CompactionEngine {
     trigger: CompactionTrigger,
     signal: AbortSignal,
   ): Promise<CompactionResult | null> {
-    const target = routedTarget(agent.session)
+    const target = routedTarget(this.ctx, agent.session)
     if (target === undefined) return null
     const policy = resolveTargetPolicy(this.config, target)
     const meter = this.ctx.tokenMeter
@@ -298,6 +290,7 @@ export class BasicCompactionEngine extends CompactionEngine {
       }
       const range = selectCompactableRange(agent.session, measurement, 0)
       if (range === null) return null
+      await this.assertRegionCompactionFits(range, measurement, policy, signal)
       return this.compactRegion(range.start, range.end, agent, signal)
     }
 
@@ -343,6 +336,53 @@ export class BasicCompactionEngine extends CompactionEngine {
     throw new Error(
       `compaction still above threshold after ${spec.compactionRetries + 1} compaction attempts `
       + `(${measurement.totalTokens} estimated tokens >= threshold ${spec.thresholdTokens})`,
+    )
+  }
+
+  /**
+   * Resolve the compaction target's declared context window, or `undefined`
+   * when the adapter cannot resolve one: the precheck is advisory, and the
+   * provider's own overflow error remains the authoritative signal.
+   */
+  private async resolveDeclaredContextWindow(
+    target: Pick<LlmCallConfig, 'provider' | 'model'>,
+    signal: AbortSignal,
+  ): Promise<number | undefined> {
+    try {
+      const info = await this.ctx.llm.resolveModelInfo(target.provider, target.model, signal)
+      return info.context?.contextWindow
+    } catch {
+      return undefined
+    }
+  }
+
+  /**
+   * Fail loud before an overflow compaction whose region plus compaction
+   * instruction plus output budget cannot fit the target's declared context
+   * window, so recovery cannot deadlock against the same window twice.
+   */
+  private async assertRegionCompactionFits(
+    range: { start: SessionSeq; end: SessionSeq },
+    measurement: TokenMeasurement,
+    policy: ResolvedTargetPolicy,
+    signal: AbortSignal,
+  ): Promise<void> {
+    const target = policy.summarizationProvider.length > 0
+      ? { provider: policy.summarizationProvider, model: policy.summarizationModel }
+      : policy.target
+    const contextWindow = await this.resolveDeclaredContextWindow(target, signal)
+    if (contextWindow === undefined) return
+    const regionTokens = measurement.nodes
+      .filter(node => node.seq >= range.start && node.seq <= range.end)
+      .reduce((total, node) => total + node.tokens, 0)
+    const instructionTokens = estimateCompactionInstructionTokens(this.ctx.tokenMeter)
+    const required = regionTokens + instructionTokens + policy.maxTokens
+    if (required <= contextWindow) return
+    throw new Error(
+      `compaction-basic: overflow compaction for ${target.provider}/${target.model} cannot fit the declared `
+      + `context window: region seqs ${range.start}-${range.end} priced ${regionTokens} tokens, `
+      + `compaction instruction ${instructionTokens} tokens, maxTokens ${policy.maxTokens} `
+      + `=> required ${required} > contextWindow ${contextWindow}`,
     )
   }
 

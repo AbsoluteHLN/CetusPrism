@@ -297,7 +297,7 @@ export class TeamService extends Service {
   modelPolicy(): { allowedModels: TeamModelSelection[]; defaultModel?: TeamModelSelection } {
     const allowedModels = normalizeModels(readConfigValue(this.config.allowedModels, []))
     const defaultModel = normalizeModel(readConfigValue(this.config.defaultModel, undefined))
-    if (defaultModel && !allowedModels.some(route => route.provider === defaultModel.provider && route.model === defaultModel.model)) {
+    if (defaultModel && allowedModels.length > 0 && !allowedModels.some(route => route.provider === defaultModel.provider && route.model === defaultModel.model)) {
       throw new TeamError('Team default model must be included in the Team allowed-model list', 'TEAM_DEFAULT_MODEL_NOT_ALLOWED')
     }
     return { allowedModels, ...defaultModel ? { defaultModel } : {} }

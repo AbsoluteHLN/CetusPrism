@@ -5,19 +5,21 @@ import { Remote, RemoteError, TypertRemoteService } from '@deepseek-ai/dsh-typer
 import { bindScopeParent, createScope, scopeOf, scopeParentOf, type Scope, type ScopeKey, type ScopeParentBinding } from '@deepseek-ai/dsh-scope'
 import { entryListSchema } from '@deepseek-ai/cordis-plugin-include'
 import { dump } from 'js-yaml'
-import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { Agent, AgentDriverFactory } from '@deepseek-ai/dsh-agent'
 // Type-only: the optional `settings` service this registry keeps off the generated pages.
 import type {} from '@deepseek-ai/dsh-settings'
 import type {} from '@deepseek-ai/dsh-tools'
 import type { AgentBackendCatalog, AgentPresetDocument, AgentPresetRoster } from './types.ts'
 import { entryListProblem, type PresetDefinition } from './definition.ts'
 import type { AgentPreset, Config } from './preset.ts'
-import { agentPresetProjectionDefinition } from './session.ts'
+import { agentBackendProjectionDefinition, agentPresetProjectionDefinition } from './session.ts'
 import { auditRows, leakedServices, mountPreset, serviceForMount, type PresetMount } from './mount.ts'
 import { activeCompositionModules, definitionComposition, mountedCompositionRows, type AgentPresetComposition, type AgentPresetInspection } from './composition-inventory.ts'
-import { BuiltinAgentBackendRegistry, type BuiltinAgentBackendProvider } from './backend.ts'
+import { BuiltinAgentBackendRegistry, createExternalRuntimeProvider, type BuiltinAgentBackendId, type BuiltinAgentBackendProvider } from './backend.ts'
+import type { ExternalRuntimeId, ExternalRuntimeLocatorOptions } from './external-runtime.ts'
+import { externalBackendDriver } from './backend-driver.ts'
 
-export { agentPresetProjectionDefinition } from './session.ts'
+export { agentBackendProjectionDefinition, agentPresetProjectionDefinition } from './session.ts'
 export { entryListProblem, type PresetDefinition } from './definition.ts'
 export { auditRows, leakedServices, livePresetMounts, type PresetMount, type RowAudit } from './mount.ts'
 export type { AgentPresetInspection } from './composition-inventory.ts'
@@ -71,9 +73,25 @@ export {
   type RuntimeTransportOptions,
 } from './external-runtime-transport.ts'
 export {
+  BaseExternalAgentDriver,
   ExternalAgentDriver,
+  type BaseExternalAgentDriverOptions,
   type ExternalAgentDriverOptions,
 } from './external-agent-driver.ts'
+export {
+  createPiLoopDriver,
+  PiAgentDriver,
+  PiLoopAgent,
+  type PiAgentDriverOptions,
+  type PiLoopAgentOptions,
+} from './pi-loop-agent.ts'
+export {
+  createZCodeLoopDriver,
+  ZCodeAgentDriver,
+  ZCodeLoopAgent,
+  type ZCodeAgentDriverOptions,
+  type ZCodeLoopAgentOptions,
+} from './zcode-loop-agent.ts'
 export {
   BUILTIN_AGENT_PROTOCOL_VERSION,
   BUILTIN_AGENT_RELEASE,
@@ -138,6 +156,10 @@ export class AgentPresetRegistry extends TypertRemoteService {
   static Config = z.object({
     default: z.string().required(),
     selectedDefault: z.string().volatile(),
+    externalRuntimes: z.object({
+      pi: z.string(),
+      zcode: z.string(),
+    }).default({}),
   })
   private readonly owner: Context
   private readonly definitions = new Map<string, Definition>()
@@ -146,15 +168,29 @@ export class AgentPresetRegistry extends TypertRemoteService {
   private readonly switches = new Map<string, Promise<unknown>>()
   /** Execution backends: DSH plus every registered external runtime. */
   private readonly backends = new BuiltinAgentBackendRegistry()
+  /** The locator options each external runtime was discovered with; the driver spawns with the same executable. */
+  private readonly runtimeOptions = new Map<ExternalRuntimeId, ExternalRuntimeLocatorOptions>()
 
   constructor(ctx: Context, public config: Config) {
     super(ctx, 'agentPresets')
     this.owner = ctx
     ctx.sessionProjections.register(agentPresetProjectionDefinition)
+    ctx.sessionProjections.register(agentBackendProjectionDefinition)
     ctx.inject(['settings'], (child) => { child.effect(() => child.settings.configure({ auto: false }, ctx.fiber)) })
     ctx.on('session/event', (session, event) => {
       if (event.type === 'agent-preset/selected') ctx.emit('agent-preset/selected', session.id, event.data.agentPreset)
     })
+    // The external runtimes are DISCOVERED, never fetched: the operator
+    // installs them from their own repositories. Registering them here is what
+    // makes the catalog tell the truth — without a registration Pi and ZCode
+    // stayed permanently `unconfigured` and the composer never offered them.
+    const commands = this.config.externalRuntimes ?? {}
+    for (const id of ['pi', 'zcode'] as const) {
+      const command = commands[id]
+      const options: ExternalRuntimeLocatorOptions = command === undefined ? {} : { command }
+      this.runtimeOptions.set(id, options)
+      this.backends.discover(createExternalRuntimeProvider(id, options))
+    }
   }
 
   /** Default preset for a subsequently created session. */
@@ -180,6 +216,59 @@ export class AgentPresetRegistry extends TypertRemoteService {
   @Remote('backends')
   remoteExportBackends(): AgentBackendCatalog {
     return this.backends.wireCatalog()
+  }
+
+  /**
+   * The backend the next created session runs on.
+   *
+   * A session binds its backend when it is created, and the binding it
+   * records in its own log is what a resume reads back. This selection
+   * therefore decides what the NEXT session binds, nothing else.
+   * @returns the selected backend identity.
+   */
+  currentBackend(): BuiltinAgentBackendId {
+    return this.backends.current()
+  }
+
+  /**
+   * Choose the backend the next created session runs on.
+   *
+   * The pick is refused when the backend cannot start a session: the composer
+   * explains the limitation instead of recording a choice nothing would
+   * honour.
+   * @param agentBackend - requested backend identity.
+   * @returns the committed backend identity.
+   */
+  @Remote('selectBackend')
+  selectBackend(agentBackend: string): string {
+    try {
+      return this.backends.select(agentBackend).id
+    } catch (error: unknown) {
+      throw new RemoteError('agent-backend/unavailable', error instanceof Error ? error.message : String(error), { agentBackend })
+    }
+  }
+
+  /**
+   * The Agent driver factory for one execution backend.
+   *
+   * The native backend owns no driver factory: omitting the driver builds the
+   * factory's default React loop, which IS the DSH backend. An external
+   * backend hands the Agent lifecycle to its own runtime, and the returned
+   * factory is what the session factory binds for the session's whole life.
+   * @param backend - the backend identity.
+   * @returns the driver factory, or undefined for the native backend.
+   */
+  backendDriver(backend: BuiltinAgentBackendId): AgentDriverFactory | undefined {
+    if (backend === 'dsh') return undefined
+    const row = this.backends.catalog().find(candidate => candidate.id === backend)
+    // A backend that cannot start a session owns no driver: the composer
+    // refuses the pick, and a resume falls back instead of spawning a runtime
+    // the probe already reported as missing or incompatible.
+    if (row === undefined || row.availability !== 'ready') return undefined
+    return externalBackendDriver(backend, {
+      ...this.runtimeOptions.get(backend),
+      ...(row.version === undefined || row.version === 'unknown' ? {} : { version: row.version }),
+    })
   }
 
   /** Register and eagerly load a definition; activation failure remains visible in the roster.

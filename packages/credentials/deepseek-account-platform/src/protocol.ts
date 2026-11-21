@@ -73,7 +73,21 @@ export function platformHeaders(values: Record<string, string>): Record<string, 
   return Object.fromEntries(headers)
 }
 
-const envelope = z.object({ code: z.literal(0), data: z.object({ biz_code: z.number().int(), biz_data: z.unknown() }) })
+// Platform answers every request with `{code, msg, data}`. A DSH deployment wraps the
+// payload in a business envelope under `data`; the public account endpoints return it
+// directly. Both shapes carry the same payload, so the reader accepts either.
+const envelope = z.object({ code: z.number().int(), data: z.unknown() })
+const businessEnvelope = z.object({ biz_code: z.number().int(), biz_data: z.unknown() })
+
+/**
+ * Report whether a payload is a plain object, so a malformed business envelope is
+ * recognized instead of being read as an ordinary payload.
+ * @param value - parsed response payload.
+ * @returns whether the payload is a non-null object.
+ */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
 /** Successful initialization response. */
 export const initialization = z.object({
   authorize_url: z.url(), authorize_id: z.string().min(1), expires_in: z.number().positive(),
@@ -203,25 +217,39 @@ async function platformRequest(url: string, init: RequestInit, signal: AbortSign
     if (authorization.success && new Headers(init.headers).has('x-dsh-auth-token')) {
       throw new AccountUnauthorizedError()
     }
-    const codes = z.object({ code: z.number().int(), data: z.object({ biz_code: z.number().int() }).optional() }).safeParse(payload)
-    if (codes.success) console.info('[deepseek-account] response codes', {
-      path, code: codes.data.code, bizCode: codes.data.data?.biz_code,
-    })
     stage = 'envelope'
     const parsed = envelope.safeParse(payload)
-    if (!parsed.success) {
+    if (!parsed.success || parsed.data.data === undefined) {
       console.info('[deepseek-account] envelope rejected', {
-        path, issues: parsed.error.issues.map(issue => ({ path: issue.path, code: issue.code })),
+        path, issues: parsed.success
+          ? [{ path: ['data'], code: 'invalid_type' }]
+          : parsed.error.issues.map(issue => ({ path: issue.path, code: issue.code })),
       })
       throw new PlatformAuthError('protocol')
     }
-    stage = 'business-code'
-    if (parsed.data.data.biz_code !== 0) {
-      // TODO(product-error-ui): Apply product-defined copy and UI behavior for the supplied biz_code values.
+    console.info('[deepseek-account] response code', { path, code: parsed.data.code })
+    if (parsed.data.code !== 0) {
+      // TODO(product-error-ui): Apply product-defined copy and UI behavior for the supplied code values.
       // Business failures use the existing generic failure UI until then; backend messages stay Host-only.
       throw new PlatformAuthError('protocol')
     }
-    return parsed.data.data.biz_data
+    stage = 'business-code'
+    const business = businessEnvelope.safeParse(parsed.data.data)
+    if (business.success) {
+      if (business.data.biz_code !== 0) {
+        console.info('[deepseek-account] business code', { path, bizCode: business.data.biz_code })
+        throw new PlatformAuthError('protocol')
+      }
+      return business.data.biz_data
+    }
+    // A business envelope that failed validation is a protocol failure, never a plain payload.
+    if (isRecord(parsed.data.data) && 'biz_code' in parsed.data.data) {
+      console.info('[deepseek-account] envelope rejected', {
+        path, issues: business.error.issues.map(issue => ({ path: issue.path, code: issue.code })),
+      })
+      throw new PlatformAuthError('protocol')
+    }
+    return parsed.data.data
   } catch (error) {
     console.info('[deepseek-account] response rejected', { path, stage,
       errorCode: error instanceof PlatformAuthError ? error.code : 'protocol' })

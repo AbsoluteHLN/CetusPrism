@@ -1,10 +1,11 @@
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { Context } from '@deepseek-ai/cordis'
+import { installModelSelectionProjection } from '@deepseek-ai/dsh-api-session-controller/src/model-selection-projection.ts'
 import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import BasicCompactionEngine from '@deepseek-ai/dsh-compaction-basic'
 import type { BasicCompactionConfig } from '@deepseek-ai/dsh-compaction-basic'
 import { selectCompactableRange } from '@deepseek-ai/dsh-compaction-basic/src/region.ts'
-import { frameSummary } from '@deepseek-ai/dsh-compaction-basic/src/summarizer.ts'
+import { frameSummary, routedTarget } from '@deepseek-ai/dsh-compaction-basic/src/summarizer.ts'
 import type { SummarizationInput, SummaryResult } from '@deepseek-ai/dsh-compaction-basic/src/summarizer.ts'
 import { CompactionId, toolPairingBalancedAfter, toolPairingBalancedBefore } from '@deepseek-ai/dsh-compaction'
 import {
@@ -1883,7 +1884,9 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('continues overflow recovery with summarization on the pruned surface', async () => {
-    const ctx = createContext(10_000)
+    // A 100,000-token window keeps the overflow pre-check advisory so this
+    // case exercises prune-then-summarize, not the window-fit guard.
+    const ctx = createContext(100_000)
     void new ToolResultPruner(ctx, {
       thresholdChars: 100,
       headChars: 20,
@@ -1952,7 +1955,9 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('preserves the newest whole tool-call/result pair during forced overflow compaction', async () => {
-    const ctx = createContext()
+    // A 100,000-token window keeps the overflow pre-check advisory so this
+    // case exercises the pruning behavior, not the window-fit guard.
+    const ctx = createContext(100_000)
     void new TestCompactionEngine(ctx, {
       headroomTokens: 0,
       maxTokens: 8192,
@@ -2013,7 +2018,8 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('preserves the original provider error when recovery throws', async () => {
-    const ctx = createContext()
+    // The default 65,536-token output reserve needs a window that fits it.
+    const ctx = createContext(100_000)
     const warnings: string[] = []
     ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
     const compact = new TestCompactionEngine(ctx)
@@ -2028,8 +2034,43 @@ describe('automatic listener and loader composition', () => {
     expect(warnings).toContainEqual(expect.stringContaining('preserving the original request error'))
   })
 
-  it('delegates once when overflow recovery throws a non-Error value', async () => {
+  it('fails loud when overflow compaction cannot fit the declared context window', async () => {
+    // The 1,000-token window cannot hold the default 65,536-token output
+    // reserve: the pre-check must reject the compaction instead of deadlocking
+    // the same window again, and the original error must survive.
     const ctx = createContext()
+    const warnings: string[] = []
+    ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
+    const compact = new TestCompactionEngine(ctx)
+    const session = conversation(3)
+    const generation = session.surface.replaceGeneration
+    const original = overflow('original provider overflow')
+    let delegations = 0
+
+    const decision = await recover(ctx, agent(session, MODEL), original, SIGNAL, () => {
+      delegations += 1
+      return Promise.resolve(undefined)
+    })
+
+    expect(decision).toBe(false)
+    expect(delegations).toBe(1)
+    expect(session.surface.replaceGeneration).toBe(generation)
+    expect(compact.calls).toHaveLength(0)
+    expect(session.snapshotEvents().some(event => event.type === 'compaction/start')).toBe(false)
+    expect(warnings).toContainEqual(expect.stringContaining('context-overflow compaction failed'))
+    expect(warnings).toContainEqual(expect.stringContaining('cannot fit the declared context window'))
+    expect(warnings).toContainEqual(expect.stringContaining('maxTokens 65536'))
+    expect(warnings).toContainEqual(expect.stringContaining('contextWindow 1000'))
+    expect(warnings).toContainEqual(expect.stringContaining('preserving the original request error'))
+    expect(original).toMatchObject({
+      message: 'original provider overflow',
+      code: CONTEXT_WINDOW_EXCEEDED_CODE,
+    })
+  })
+
+  it('delegates once when overflow recovery throws a non-Error value', async () => {
+    // The default 65,536-token output reserve needs a window that fits it.
+    const ctx = createContext(100_000)
     const warnings: string[] = []
     ctx.logger.warn = ((message: string) => void warnings.push(message)) as typeof ctx.logger.warn
     const compact = new TestCompactionEngine(ctx)
@@ -2066,6 +2107,25 @@ describe('automatic listener and loader composition', () => {
       .toBe(true)
   })
 
+  it('routes overflow compaction through the projected model selection', async () => {
+    // 10,000 tokens fit the explicit 8192-token output reserve.
+    const ctx = createContext(10_000)
+    const compact = new TestCompactionEngine(ctx, { maxTokens: 8192 })
+    installModelSelectionProjection(ctx)
+    const session = conversation(3)
+    session.append('model/selection', { provider: 'projected-provider', model: 'projected-model' })
+    const resolveSpy = vi.spyOn(ctx.llm, 'resolveModelInfo').mockResolvedValue({
+      provider: 'projected-provider',
+      id: 'projected-model',
+      name: 'projected-model',
+      context: { contextWindow: 100_000 },
+    })
+    expect(await recover(ctx, agent(session, MODEL), overflow())).toBe(true)
+    expect(resolveSpy.mock.calls[0]?.[0]).toBe('projected-provider')
+    expect(resolveSpy.mock.calls[0]?.[1]).toBe('projected-model')
+    expect(compact.calls).toHaveLength(1)
+  })
+
   it('delegates canonical overflow when no durable routed target exists', async () => {
     const ctx = createContext()
     void new TestCompactionEngine(ctx)
@@ -2078,7 +2138,8 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('honors retry caps and ignores non-context failures', async () => {
-    const ctx = createContext()
+    // The default 65,536-token output reserve needs a window that fits it.
+    const ctx = createContext(100_000)
     const compact = new TestCompactionEngine(ctx, { maxOverflowRetries: 1 })
     const compactSpy = vi.spyOn(compact, 'compactIfNeeded')
     const owner = agent(conversation(3), MODEL)
@@ -2091,7 +2152,8 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('applies the routed model override to the overflow retry cap', async () => {
-    const ctx = createContext()
+    // 10,000 tokens fit the explicit 8192-token output reserve.
+    const ctx = createContext(10_000)
     const compact = new TestCompactionEngine(ctx, {
       headroomTokens: 0,
       maxTokens: 8192,
@@ -2112,7 +2174,8 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('does not retry when cancellation lands during an awaited compaction', async () => {
-    const ctx = createContext()
+    // The default 65,536-token output reserve needs a window that fits it.
+    const ctx = createContext(100_000)
     const compact = new TestCompactionEngine(ctx)
     const controller = new AbortController()
     compact.mutateDuringSummary = () => { controller.abort('cancelled during summary') }
@@ -2185,6 +2248,43 @@ describe('automatic listener and loader composition', () => {
     await preStep(ctx, agent(session, MODEL))
     expect(session.snapshotEvents().some(event => event.type === 'compaction/start')).toBe(false)
     expect(await recover(ctx, agent(session, MODEL), overflow())).toBe(false)
+  })
+})
+
+describe('routed compaction model selection projection', () => {
+  it('prefers the pending model selection over the durable request header', () => {
+    const ctx = createContext()
+    installModelSelectionProjection(ctx)
+    const session = conversation(2)
+    session.append('request/header', {
+      header: { config: { provider: 'header-provider', model: 'header-model' } },
+      reason: 'resume',
+    })
+    session.append('model/selection', { provider: 'pending-provider', model: 'pending-model' })
+    expect(routedTarget(ctx, session)).toEqual({ provider: 'pending-provider', model: 'pending-model' })
+  })
+
+  it('falls back to the last used request header when no selection is pending', () => {
+    const ctx = createContext()
+    installModelSelectionProjection(ctx)
+    const session = conversation(2)
+    session.append('request/header', {
+      header: { config: { provider: 'header-provider', model: 'header-model' } },
+      reason: 'resume',
+    })
+    expect(routedTarget(ctx, session)).toEqual({ provider: 'header-provider', model: 'header-model' })
+  })
+
+  it('falls back to the request header when the selection projection is not installed', () => {
+    const ctx = createContext()
+    const session = conversation(2)
+    expect(routedTarget(ctx, session)).toEqual({ provider: MODEL, model: MODEL })
+  })
+
+  it('returns undefined without a projection registry or request header', () => {
+    const ctx = new Context()
+    const session = Session.create(SessionId('selectionless'))
+    expect(routedTarget(ctx, session)).toBeUndefined()
   })
 })
 

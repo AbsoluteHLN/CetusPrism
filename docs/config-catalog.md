@@ -115,7 +115,7 @@ export interface Config {
 
 Depends on: [`AgentOptions`](subsystems/core.md) · [`SessionId`](subsystems/core.md) · `Volatile` (`@deepseek-ai/cosmokit`)
 
-Source: [`packages/core/agent-loop/src/index.ts:292`](../packages/core/agent-loop/src/index.ts)
+Source: [`packages/core/agent-loop/src/index.ts:295`](../packages/core/agent-loop/src/index.ts)
 
 <a id="deepseek-aidsh-agent-preset"></a>
 
@@ -145,6 +145,23 @@ export interface Config {
   default: string
   /** User-selected default; edited through Settings. */
   selectedDefault: Volatile<string | undefined>
+  /**
+   * Explicit runtime executables, for the operators who installed an external
+   * runtime outside the PATH. A runtime that is not named here is discovered
+   * on the PATH, exactly like the upstream's own command.
+   */
+  externalRuntimes?: {
+    /**
+     * Absolute path or command name of the Pi runtime executable; the
+     * deployment's own PATH lookup applies when this is omitted.
+     */
+    pi?: string
+    /**
+     * Absolute path or command name of the ZCode runtime executable; the
+     * deployment's own PATH lookup applies when this is omitted.
+     */
+    zcode?: string
+  }
 }
 ```
 
@@ -1571,10 +1588,31 @@ export interface Config {
   compressionLevel?: number
   /** Minimum known response length eligible for gzip; unknown-length streams are eligible. @default 1024 */
   compressionThresholdBytes?: number
+  /**
+   * Mutual-TLS mode. Present = HTTPS with mandatory client certificates:
+   * the server verifies every peer against `ca`, presents `cert`/`key`,
+   * and terminates connections whose certificate serial is revoked.
+   * Absent = plain HTTP (the historical behavior, unchanged).
+   */
+  tls?: TlsConfig | undefined
+}
+
+/** Mutual-TLS identities and revocation. All files are PEM. */
+export interface TlsConfig {
+  /** Server certificate chain file (leaf first). */
+  cert: string
+  /** Server private key file. */
+  key: string
+  /** CA bundle used to verify client certificates. */
+  ca: string
+  /** Hex serial numbers revoked before expiry. @default [] */
+  revokedSerials?: string[]
+  /** JSON file (array of hex serial strings) read at activation; merged over `revokedSerials`. */
+  revokedSerialsFile?: string | undefined
 }
 ```
 
-Source: [`packages/host/webserver/src/index.ts:59`](../packages/host/webserver/src/index.ts)
+Source: [`packages/host/webserver/src/index.ts:62`](../packages/host/webserver/src/index.ts)
 
 <a id="deepseek-aidsh-invariants"></a>
 
@@ -4334,6 +4372,7 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-client-ui-directory-picker-browse` ([`packages/client/ui-directory-picker-browse/src/index.ts`](../packages/client/ui-directory-picker-browse/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-directory-picker-native` ([`packages/client/ui-directory-picker-native/src/index.ts`](../packages/client/ui-directory-picker-native/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-goal` ([`packages/client/ui-goal/src/index.ts`](../packages/client/ui-goal/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-ide` ([`packages/client/ui-ide/src/index.ts`](../packages/client/ui-ide/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-input-trigger` ([`packages/client/ui-input-trigger/src/index.ts`](../packages/client/ui-input-trigger/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-jobs` ([`packages/client/ui-jobs/src/index.ts`](../packages/client/ui-jobs/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-layout` ([`packages/client/ui-layout/src/index.ts`](../packages/client/ui-layout/src/index.ts))

@@ -1,0 +1,879 @@
+/* ProjectHLN UI System v4 - Folio Showcase Layout (folio.css)
+   The v4 "Reading Desk" layout: a masthead, then three columns of panels.
+   A conversation with its composer, a control desk, and a document-like
+   readout card. Every class is namespaced hln-v4- and every value comes from
+   a token. */
+
+/* ==========================================================================
+   1. Layout root
+   ========================================================================== */
+.hln-v4-desk {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 100%;
+  background: var(--hln-ui-bg-0);
+  color: var(--hln-ui-text);
+}
+
+/* ==========================================================================
+   2. Masthead — the running head of the desk
+   ========================================================================== */
+.hln-v4-masthead {
+  display: flex;
+  align-items: center;
+  gap: var(--hln-ui-space-4);
+  height: var(--hln-ui-topbar-height);
+  padding: 0 var(--hln-ui-space-5);
+  border-bottom: var(--hln-ui-hairline) solid var(--hln-ui-line);
+}
+
+.hln-v4-masthead__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+  padding: 0 var(--hln-ui-space-2);
+  border: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-sm);
+  background: var(--hln-ui-bg-1);
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--hln-ui-accent);
+  white-space: nowrap;
+}
+
+.hln-v4-masthead__runhead {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--hln-ui-text-faint);
+  white-space: nowrap;
+}
+
+.hln-v4-masthead__title {
+  margin: 0;
+  font-family: var(--hln-ui-font-title);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--hln-ui-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hln-v4-masthead__meta {
+  margin-left: auto;
+  font-family: var(--hln-ui-font-technical);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--hln-ui-text-muted);
+  white-space: nowrap;
+}
+
+.hln-v4-masthead__rule {
+  height: var(--hln-ui-hairline);
+  background: var(--hln-ui-line);
+  border: 0;
+  margin: 0;
+}
+
+/* ==========================================================================
+   3. Column grid
+   ========================================================================== */
+.hln-v4-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--hln-ui-space-4);
+  align-items: start;
+  padding: var(--hln-ui-space-4) var(--hln-ui-space-5) var(--hln-ui-space-5);
+}
+
+.hln-v4-col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hln-ui-space-4);
+  min-width: 0;
+}
+
+/* ==========================================================================
+   4. Panel — the frame every column block sits in
+   ========================================================================== */
+.hln-v4-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.hln-v4-panel__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--hln-ui-space-3);
+  padding: var(--hln-ui-space-3) var(--hln-ui-space-4);
+  border-bottom: var(--hln-ui-hairline) solid var(--hln-ui-line);
+}
+
+.hln-v4-panel__title {
+  margin: 0;
+  font-family: var(--hln-ui-font-title);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--hln-ui-text);
+}
+
+.hln-v4-panel__body {
+  padding: var(--hln-ui-space-4);
+  min-width: 0;
+}
+
+.hln-v4-panel__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hln-ui-space-3);
+  padding: var(--hln-ui-space-3) var(--hln-ui-space-4);
+  border-top: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  font-size: 12px;
+  color: var(--hln-ui-text-muted);
+}
+
+/* ==========================================================================
+   5. Column 1 — conversation & composer
+   ========================================================================== */
+.hln-v4-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hln-ui-space-3);
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: var(--hln-ui-space-1);
+  padding-bottom: var(--hln-ui-space-2);
+  scroll-padding-bottom: var(--hln-ui-space-4);
+  /* The thread scrolls. Fade the lower edge so the cut reads as "more below"
+     instead of a line of text sliced through the middle. */
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 40px), transparent 100%);
+}
+
+.hln-v4-msg {
+  padding: var(--hln-ui-space-3);
+  border-radius: var(--hln-ui-radius-md);
+  background: var(--hln-ui-bg-2);
+  border: var(--hln-ui-hairline) solid transparent;
+}
+
+.hln-v4-msg--user {
+  background: color-mix(in srgb, var(--hln-ui-accent) 8%, var(--hln-ui-bg-2));
+  border-left: 2px solid var(--hln-ui-accent);
+  border-radius: var(--hln-ui-radius-xs) var(--hln-ui-radius-md) var(--hln-ui-radius-md) var(--hln-ui-radius-xs);
+}
+
+.hln-v4-msg__meta {
+  margin-bottom: var(--hln-ui-space-1);
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hln-ui-text-faint);
+}
+
+.hln-v4-msg__body {
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--hln-ui-text);
+}
+
+.hln-v4-composer {
+  display: flex;
+  flex-direction: column;
+  background: var(--hln-ui-bg-1);
+  border: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-lg);
+  box-shadow: var(--hln-ui-shadow);
+  overflow: hidden;
+}
+
+.hln-v4-composer__field {
+  width: 100%;
+  min-height: 76px;
+  padding: var(--hln-ui-space-3);
+  border: 0;
+  background: transparent;
+  color: var(--hln-ui-text);
+  font-family: var(--hln-ui-font-body);
+  font-size: 13px;
+  line-height: 1.6;
+  outline: none;
+  resize: vertical;
+}
+
+.hln-v4-composer__field::placeholder {
+  color: var(--hln-ui-text-faint);
+}
+
+.hln-v4-composer__field:focus {
+  box-shadow: inset 0 0 0 2px var(--hln-ui-focus);
+}
+
+.hln-v4-composer__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hln-ui-space-3);
+  padding: var(--hln-ui-space-2) var(--hln-ui-space-3);
+  border-top: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  background: color-mix(in srgb, var(--hln-ui-bg-2) 60%, transparent);
+}
+
+.hln-v4-composer__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--hln-ui-space-1);
+}
+
+/* ==========================================================================
+   6. Column 2 — control desk
+   ========================================================================== */
+.hln-v4-fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hln-ui-space-2);
+}
+
+.hln-v4-fieldset__label {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hln-ui-text-muted);
+}
+
+/* A label and its read-out share one baseline; the control follows below. */
+.hln-v4-fieldset__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hln-ui-space-3);
+}
+
+.hln-v4-seg {
+  display: inline-flex;
+  align-self: flex-start;
+  max-width: 100%;
+  overflow: hidden;
+  background: var(--hln-ui-bg-2);
+  border: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-sm);
+}
+
+.hln-v4-seg__opt {
+  padding: 6px var(--hln-ui-space-3);
+  border-right: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  background: transparent;
+  color: var(--hln-ui-text-muted);
+  font-family: var(--hln-ui-font-form);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v4-seg__opt:last-child {
+  border-right: 0;
+}
+
+.hln-v4-seg__opt:hover {
+  color: var(--hln-ui-text);
+}
+
+.hln-v4-seg__opt[data-active="true"] {
+  background: color-mix(in srgb, var(--hln-ui-accent) 12%, transparent);
+  color: var(--hln-ui-accent);
+  font-weight: 600;
+}
+
+.hln-v4-switch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  align-self: flex-start;
+  gap: var(--hln-ui-space-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--hln-ui-text);
+  font-family: var(--hln-ui-font-form);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.hln-v4-switch__track {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  flex: 0 0 32px;
+  border-radius: var(--hln-ui-radius-pill);
+  background: var(--hln-ui-line-strong);
+  transition: background-color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v4-switch__dot {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--hln-ui-radius-pill);
+  background: var(--hln-ui-bg-1);
+  box-shadow: var(--hln-ui-shadow);
+  transition: transform var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v4-switch[aria-checked="true"] .hln-v4-switch__track,
+.hln-v4-switch[data-active="true"] .hln-v4-switch__track {
+  background: var(--hln-ui-accent);
+}
+
+.hln-v4-switch[aria-checked="true"] .hln-v4-switch__dot,
+.hln-v4-switch[data-active="true"] .hln-v4-switch__dot {
+  transform: translateX(14px);
+}
+
+.hln-v4-switch:focus-visible {
+  outline: 2px solid var(--hln-ui-focus);
+  outline-offset: 2px;
+  border-radius: var(--hln-ui-radius-sm);
+}
+
+/* The switch carries its own on/off signal in the track. The generic control
+   wash would double-signal it, so the button shell stays neutral. */
+.hln-v4-switch[data-hln-ui-control][data-active="true"],
+.hln-v4-switch[data-hln-ui-control][aria-checked="true"] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--hln-ui-text);
+}
+
+.hln-v4-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hln-ui-space-2);
+}
+
+.hln-v4-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hln-ui-space-1);
+  padding: 2px 10px;
+  border: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-pill);
+  background: var(--hln-ui-bg-2);
+  color: var(--hln-ui-text-muted);
+  font-size: 11px;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.hln-v4-chip[data-tone="accent"] {
+  border-color: color-mix(in srgb, var(--hln-ui-accent) 40%, var(--hln-ui-line));
+  color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 8%, var(--hln-ui-bg-2));
+}
+
+.hln-v4-chip[data-tone="success"] {
+  border-color: color-mix(in srgb, var(--hln-ui-success) 40%, var(--hln-ui-line));
+  color: var(--hln-ui-success);
+  background: color-mix(in srgb, var(--hln-ui-success) 8%, var(--hln-ui-bg-2));
+}
+
+.hln-v4-chip[data-tone="warning"] {
+  border-color: color-mix(in srgb, var(--hln-ui-warning) 40%, var(--hln-ui-line));
+  color: var(--hln-ui-warning);
+  background: color-mix(in srgb, var(--hln-ui-warning) 8%, var(--hln-ui-bg-2));
+}
+
+.hln-v4-chip[data-tone="danger"] {
+  border-color: color-mix(in srgb, var(--hln-ui-danger) 40%, var(--hln-ui-line));
+  color: var(--hln-ui-danger);
+  background: color-mix(in srgb, var(--hln-ui-danger) 8%, var(--hln-ui-bg-2));
+}
+
+/* The slider keeps a 4px visual track but a 24px hit area, so the control is
+   actually grabbable. The UA's 2px margin is reset so the track sits flush
+   with the field and the field never scrolls sideways. */
+.hln-v4-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 24px;
+  margin: 0;
+  border: 0;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+
+.hln-v4-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--hln-ui-radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--hln-ui-accent) 0 var(--fill, 0%),
+    var(--hln-ui-bg-2) var(--fill, 0%) 100%
+  );
+}
+
+.hln-v4-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: var(--hln-ui-hairline) solid var(--hln-ui-accent);
+  border-radius: var(--hln-ui-radius-pill);
+  background: var(--hln-ui-bg-1);
+  cursor: pointer;
+  transition: transform var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v4-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.12);
+}
+
+.hln-v4-slider::-moz-range-track {
+  height: 4px;
+  border-radius: var(--hln-ui-radius-pill);
+  background: linear-gradient(
+    to right,
+    var(--hln-ui-accent) 0 var(--fill, 0%),
+    var(--hln-ui-bg-2) var(--fill, 0%) 100%
+  );
+}
+
+.hln-v4-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: var(--hln-ui-hairline) solid var(--hln-ui-accent);
+  border-radius: var(--hln-ui-radius-pill);
+  background: var(--hln-ui-bg-1);
+  cursor: pointer;
+}
+
+.hln-v4-field:focus-visible {
+  outline: 2px solid var(--hln-ui-focus);
+  outline-offset: 2px;
+}
+
+/* Same reason as the base layer: the host chrome's focus rule out-specifies the
+   unscoped selector above and repaints the ring with `currentColor`. */
+[data-hln-ui-root][data-hln-ui-version="v4"] .hln-v4-slider:focus-visible {
+  outline: 2px solid var(--hln-ui-focus);
+  outline-offset: 4px;
+}
+
+/* The title field is the one control the host also paints an outline on. The
+   engine already draws its documented indicator — accent border plus a 3px
+   accent halo — so the ring is re-coloured rather than added. */
+[data-hln-ui-root][data-hln-ui-version="v4"] .hln-v4-field:focus-visible {
+  outline: 2px solid var(--hln-ui-focus);
+  outline-offset: 2px;
+}
+
+/* The composer container clips overflow, so an outline drawn outside the
+   textarea is cut away entirely — the indicator has to be an inset ring. And
+   it has to be solid: a 26% accent wash measures 1.54:1 against the paper,
+   well under the 3:1 a focus indicator needs. */
+.hln-v4-composer__field:focus-visible,
+[data-hln-ui-root][data-hln-ui-version="v4"] .hln-v4-composer__field:focus-visible {
+  outline: none;
+}
+
+.hln-v4-slider__readout {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--hln-ui-text-muted);
+}
+
+.hln-v4-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hln-ui-space-2);
+}
+
+/* Ordinary control — a button. Radius stays inside the 8px contract cap;
+   only status chips are allowed to use the pill radius. */
+.hln-v4-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hln-ui-space-2);
+  min-height: var(--hln-ui-control-height);
+  padding: 0 var(--hln-ui-space-3);
+  border: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-sm);
+  background: var(--hln-ui-bg-2);
+  color: var(--hln-ui-text);
+  font-family: var(--hln-ui-font-form);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    border-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    background-color var(--hln-ui-duration-fast) var(--hln-ui-ease),
+    color var(--hln-ui-duration-fast) var(--hln-ui-ease);
+}
+
+.hln-v4-btn:hover {
+  border-color: var(--hln-ui-line-strong);
+  background: color-mix(in srgb, var(--hln-ui-text) 5%, var(--hln-ui-bg-2));
+}
+
+.hln-v4-btn:focus-visible {
+  outline: 2px solid var(--hln-ui-focus);
+  outline-offset: 2px;
+}
+
+.hln-v4-btn[data-active="true"] {
+  border-color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 10%, var(--hln-ui-bg-2));
+  color: var(--hln-ui-accent);
+}
+
+.hln-v4-btn[data-variant="accent"] {
+  border-color: var(--hln-ui-accent);
+  background: var(--hln-ui-accent);
+  color: var(--hln-ui-on-accent);
+  font-weight: 600;
+}
+
+.hln-v4-btn[data-variant="accent"]:hover {
+  background: color-mix(in srgb, var(--hln-ui-accent) 88%, var(--hln-ui-text));
+}
+
+/* Ghost stays recessive but keeps a hairline, so a tertiary action still
+   reads as a control rather than as body text. */
+.hln-v4-btn[data-variant="ghost"] {
+  background: transparent;
+  border-color: var(--hln-ui-line);
+  color: var(--hln-ui-text-muted);
+}
+
+.hln-v4-btn[data-variant="ghost"]:hover {
+  color: var(--hln-ui-text);
+  background: color-mix(in srgb, var(--hln-ui-text) 6%, transparent);
+  border-color: var(--hln-ui-line-strong);
+}
+
+.hln-v4-btn[data-variant="danger"] {
+  border-color: color-mix(in srgb, var(--hln-ui-danger) 45%, var(--hln-ui-line));
+  color: var(--hln-ui-danger);
+}
+
+.hln-v4-btn[data-variant="danger"]:hover {
+  background: color-mix(in srgb, var(--hln-ui-danger) 12%, var(--hln-ui-bg-2));
+  border-color: var(--hln-ui-danger);
+}
+
+/* ==========================================================================
+   7. Column 3 — readout / folio card
+   ========================================================================== */
+.hln-v4-card {
+  position: relative;
+  padding: var(--hln-ui-space-5);
+  background: var(--hln-ui-bg-1);
+  border: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-lg);
+  box-shadow: var(--hln-ui-shadow);
+}
+
+.hln-v4-card__folio {
+  position: absolute;
+  top: var(--hln-ui-space-4);
+  right: var(--hln-ui-space-5);
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--hln-ui-text-faint);
+}
+
+.hln-v4-card__title {
+  margin: 0;
+  max-width: 88%;
+  font-family: var(--hln-ui-font-title);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--hln-ui-text);
+}
+
+.hln-v4-card__lede {
+  margin: var(--hln-ui-space-2) 0 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--hln-ui-text-muted);
+}
+
+.hln-v4-spec {
+  margin: var(--hln-ui-space-4) 0 0;
+}
+
+.hln-v4-spec__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hln-ui-space-4);
+  padding: 7px 0;
+  border-bottom: var(--hln-ui-hairline) solid var(--hln-ui-line);
+}
+
+.hln-v4-spec__row:last-child {
+  border-bottom: 0;
+}
+
+.hln-v4-spec__k {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--hln-ui-text-faint);
+  white-space: nowrap;
+}
+
+.hln-v4-spec__v {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 12px;
+  color: var(--hln-ui-text);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.hln-v4-pigments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hln-ui-space-3);
+  margin-top: var(--hln-ui-space-4);
+}
+
+.hln-v4-pigment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--hln-ui-space-1);
+}
+
+.hln-v4-pigment__chip {
+  width: 28px;
+  height: 28px;
+  border: var(--hln-ui-hairline) solid color-mix(in srgb, var(--hln-ui-text) 26%, transparent);
+  border-radius: var(--hln-ui-radius-sm);
+  background: var(--pigment, var(--hln-ui-bg-2));
+}
+
+.hln-v4-pigment__name {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hln-ui-text-faint);
+}
+
+.hln-v4-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: var(--hln-ui-space-4);
+}
+
+.hln-v4-bar {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: var(--hln-ui-space-3);
+}
+
+.hln-v4-bar__label {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--hln-ui-text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hln-v4-bar__track {
+  display: block;
+  height: 6px;
+  border-radius: var(--hln-ui-radius-pill);
+  background: var(--hln-ui-bg-2);
+  overflow: hidden;
+}
+
+.hln-v4-bar__fill {
+  display: block;
+  height: 100%;
+  width: var(--fill, 0%);
+  border-radius: var(--hln-ui-radius-pill);
+  background: var(--hln-ui-accent);
+}
+
+.hln-v4-bar__fill[data-tone="cool"] {
+  background: var(--hln-ui-accent-cool);
+}
+
+/* The bar names the thing it measures, so it wears that thing's colour:
+   neutral for whitespace, ink for ink. */
+.hln-v4-bar__fill[data-tone="neutral"] {
+  background: color-mix(in srgb, var(--hln-ui-text) 22%, transparent);
+}
+
+.hln-v4-bar__fill[data-tone="ink"] {
+  background: color-mix(in srgb, var(--hln-ui-text) 78%, transparent);
+}
+
+.hln-v4-steps {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hln-ui-space-2);
+  margin-top: var(--hln-ui-space-4);
+}
+
+/* A rail, not three loose dots: each step draws the hairline that leads to
+   the next one. The 8px gap between steps cancels the dot inset exactly, so
+   the rule lands on the next dot's edge. */
+.hln-v4-step {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.hln-v4-step:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: calc(50% + 4px);
+  width: 100%;
+  height: 1px;
+  background: var(--hln-ui-line);
+}
+
+.hln-v4-step__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: var(--hln-ui-radius-pill);
+  background: var(--hln-ui-line-strong);
+}
+
+.hln-v4-step[data-state="done"] .hln-v4-step__dot,
+.hln-v4-step[data-state="current"] .hln-v4-step__dot {
+  background: var(--hln-ui-accent);
+}
+
+.hln-v4-step[data-state="current"] .hln-v4-step__dot {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--hln-ui-accent) 20%, transparent);
+}
+
+.hln-v4-step__label {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--hln-ui-text-faint);
+  text-align: center;
+}
+
+.hln-v4-step[data-state="current"] .hln-v4-step__label {
+  color: var(--hln-ui-accent);
+}
+
+/* ==========================================================================
+   8. Shared showcase utilities
+   ========================================================================== */
+.hln-v4-rule {
+  height: var(--hln-ui-hairline);
+  background: var(--hln-ui-line);
+  border: 0;
+  margin: var(--hln-ui-space-2) 0;
+}
+
+/* The Running Head — the mono uppercase eyebrow that opens every panel. */
+.hln-v4-runhead {
+  font-family: var(--hln-ui-font-technical);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--hln-ui-text-faint);
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   9. Responsive — 3 / 2 / 1 columns, no horizontal overflow at 320px
+   ========================================================================== */
+@media (max-width: 1199px) {
+  .hln-v4-cols {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hln-v4-col:last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 899px) {
+  .hln-v4-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hln-v4-col:last-child {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 899px) {
+  .hln-v4-masthead {
+    gap: var(--hln-ui-space-3);
+    padding: 0 var(--hln-ui-space-4);
+  }
+
+  .hln-v4-masthead__meta {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .hln-v4-cols {
+    gap: var(--hln-ui-space-3);
+    padding: var(--hln-ui-space-3) var(--hln-ui-space-3) var(--hln-ui-space-4);
+  }
+
+  .hln-v4-panel__body {
+    padding: var(--hln-ui-space-3);
+  }
+
+  .hln-v4-card {
+    padding: var(--hln-ui-space-4);
+  }
+}

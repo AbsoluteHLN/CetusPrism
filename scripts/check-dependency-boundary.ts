@@ -20,6 +20,7 @@
  */
 
 import { existsSync, readdirSync, readFileSync, readlinkSync } from 'node:fs'
+import type { Dirent } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
 
 /** The machine's dependency cache: the only home for package payloads. */
@@ -86,7 +87,7 @@ function insideDependencyCache(path: string): boolean {
 export function scanDependencyBoundary(root: string): Finding[] {
   const findings: Finding[] = []
   const walk = (directory: string): void => {
-    let entries: ReturnType<typeof readdirSync>
+    let entries: Dirent[]
     try {
       entries = readdirSync(directory, { withFileTypes: true })
     } catch {
@@ -125,7 +126,7 @@ export function scanDependencyBoundary(root: string): Finding[] {
  */
 function inspectNodeModules(root: string, directory: string): Finding[] {
   const findings: Finding[] = []
-  let entries: ReturnType<typeof readdirSync>
+  let entries: Dirent[]
   try {
     entries = readdirSync(directory, { withFileTypes: true })
   } catch {

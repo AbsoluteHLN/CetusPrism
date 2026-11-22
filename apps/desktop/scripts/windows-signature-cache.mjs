@@ -1,6 +1,7 @@
 /** Cache complete signed files; corrupt entries stop the caller before hardware access. */
 import { createHash, randomUUID } from 'node:crypto'
 import { copyFile, lstat, mkdir, mkdtemp, readFile, readdir, realpath, rename, rm, rmdir, unlink, writeFile } from 'node:fs/promises'
+import { setTimeout } from 'node:timers/promises'
 import { basename, dirname, join, resolve, toNamespacedPath } from 'node:path'
 
 const digest = bytes => createHash('sha256').update(bytes).digest('hex')
@@ -47,6 +48,44 @@ async function readCacheEntry(entry, key) {
   return record
 }
 
+/** How often a transient rename refusal is retried before it is reported. */
+const RENAME_ATTEMPTS = 5
+
+/** The pause between two rename attempts. */
+const RENAME_RETRY_MS = 100
+
+/**
+ * Whether a cache entry path exists.
+ * @param {string} entry The entry path to probe.
+ * @returns {Promise<boolean>} True when the path exists.
+ */
+async function entryExists(entry) {
+  try { await lstat(entry); return true }
+  catch (error) { if (error.code !== 'ENOENT') throw error; return false }
+}
+
+/**
+ * Move a staged entry directory onto its final cache path.
+ *
+ * Windows refuses the move with EPERM while a scanner still holds the freshly
+ * written staging directory, so a refusal that no competing entry explains is
+ * retried before it is reported. A destination that already exists is a real
+ * conflict and is reported at once.
+ * @param {string} staging The staged entry directory.
+ * @param {string} entry The final cache entry path.
+ * @returns {Promise<void>} Resolves once the staging directory became the entry.
+ */
+async function moveIntoPlace(staging, entry) {
+  for (let attempt = 1; ; attempt += 1) {
+    try { await rename(staging, entry); return }
+    catch (error) {
+      if (error.code !== 'EPERM' || attempt >= RENAME_ATTEMPTS) throw error
+      if (await entryExists(entry)) throw error
+      await setTimeout(RENAME_RETRY_MS)
+    }
+  }
+}
+
 /**
  * Import complete integrity-checked entries while the caller holds the signing-stage lock.
  * @param {import('./windows-signature-cache.mjs').SignatureCacheMigrationOptions} options Validated source, private destination and audit sink.
@@ -80,8 +119,16 @@ export async function migrateSignatureCache(options) {
       await copyFile(join(source, 'record.json'), join(staging, 'record.json'))
       await copyFile(join(source, 'payload'), join(staging, 'payload'))
       await readCacheEntry(staging, key)
-      await rename(staging, target)
-      counts.published++
+      try { await moveIntoPlace(staging, target); counts.published++ }
+      catch (error) {
+        if (!['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code)) throw error
+        // A destination that appeared meanwhile is the entry to trust; a move
+        // that failed for its own reasons has no destination to read, and
+        // reporting the missing file would hide the real fault.
+        if (!(await entryExists(target))) throw error
+        await readCacheEntry(target, key)
+        counts.retained++
+      }
     } finally { await rm(staging, { recursive: true, force: true }) }
   }
   return counts
@@ -195,9 +242,13 @@ export function createCachedSigner(options) {
       if (signedDigest !== digest(await regularFile(configuration.path))) throw new Error('signature cache: signed file changed during publication')
       await writeFile(join(staging, 'record.json'), JSON.stringify({ version: 1, key, inputDigest, identity: options.identity, signedDigest }), { flag: 'wx', flush: true })
       let published = false
-      try { await rename(staging, entry); published = true }
+      try { await moveIntoPlace(staging, entry); published = true }
       catch (error) {
         if (!['EEXIST', 'ENOTEMPTY', 'EPERM'].includes(error.code)) throw error
+        // A publisher that won the destination leaves an entry to trust. A
+        // rename that failed for its own reasons has no entry to read, and
+        // reporting the missing file would hide the real fault.
+        if (!(await entryExists(entry))) throw error
         try { await readEntry(entry, key, inputDigest) }
         catch (validationError) {
           statistics.validationFailures++

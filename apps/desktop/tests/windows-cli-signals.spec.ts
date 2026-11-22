@@ -9,7 +9,13 @@ import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
 import ts from 'typescript'
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+
+// The fixture compiles a native console probe with the MSVC toolchain and the
+// test then waits for a real console event from the spawned Electron process.
+// Both steps take longer than the default budgets on a loaded host, where the
+// pre-push typecheck build runs beside this suite.
+vi.setConfig({ hookTimeout: 60_000, testTimeout: 60_000 })
 
 const execute = promisify(execFile)
 const require = createRequire(import.meta.url)

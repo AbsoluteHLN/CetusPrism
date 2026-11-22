@@ -134,8 +134,11 @@ function inspectNodeModules(root: string, directory: string): Finding[] {
   }
   for (const entry of entries) {
     // The virtual store is the payload: pnpm materializes the whole closure
-    // there, so its presence means the packages live in the project.
+    // there, so its presence means the packages live in the project. pnpm
+    // also keeps its own bookkeeping lockfile beside the store; a directory
+    // that holds nothing else carries no dependency bytes.
     if (entry.name === '.pnpm') {
+      if (!holdsPackagePayload(join(directory, entry.name))) continue
       findings.push({
         kind: 'payload',
         path: relative(root, join(directory, entry.name)),
@@ -158,6 +161,26 @@ function inspectNodeModules(root: string, directory: string): Finding[] {
     })
   }
   return findings
+}
+
+/**
+ * Whether a pnpm virtual store directory holds package payload.
+ *
+ * pnpm writes its own bookkeeping lockfile next to the store it manages, and
+ * that file carries no dependency bytes. A store directory that holds
+ * nothing else is bookkeeping, not a placement violation; anything else in
+ * it means the packages themselves live in the project.
+ * @param directory - the virtual store directory to inspect.
+ * @returns true when the directory holds more than pnpm's own lockfile.
+ */
+function holdsPackagePayload(directory: string): boolean {
+  let entries: Dirent[]
+  try {
+    entries = readdirSync(directory, { withFileTypes: true })
+  } catch {
+    return false
+  }
+  return entries.some(entry => entry.name !== 'lock.yaml')
 }
 
 /**

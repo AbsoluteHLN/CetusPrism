@@ -195,7 +195,8 @@ it.each([false, true])('starts welcome onboarding without carrying update focus 
   state.beforeRead.mockReturnValueOnce(reading.promise)
   state.beforeWelcome.mockReturnValueOnce(loading.promise)
   const activate = () => {
-    state.appListeners.get('second-instance')!()
+    // Electron's second-instance event carries the later launch's argv.
+    state.appListeners.get('second-instance')!({}, [])
     state.appListeners.get('open-url')!({ preventDefault: vi.fn() }, 'dsh://open')
   }
   await import('../src/main.ts')

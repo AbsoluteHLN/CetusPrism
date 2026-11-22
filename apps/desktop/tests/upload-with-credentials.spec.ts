@@ -5,6 +5,7 @@ import { dirname, delimiter, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { afterEach, describe, expect, it } from 'vitest'
+import { resolvePwshPath } from '@deepseek-ai/dsh-pwsh-local'
 import { resolveCredentialUploadEnvironment } from '../scripts/upload-target.ts'
 
 const execute = promisify(execFile)
@@ -49,6 +50,10 @@ async function check(mode: 'valid' | 'plaintext' | 'blank' | 'missing' | 'upload
   `
   const script = `
     $ErrorActionPreference = 'Stop'
+    # Module auto-load reports its progress as a serialized record on stderr
+    # under Windows PowerShell 5.1; the host must not colour the launcher's
+    # own output, so the progress stream is silenced for the whole session.
+    $ProgressPreference = 'SilentlyContinue'
     ${setup}
     $env:DOWNLOAD_PROD_COS_SECRET_ID = 'parent-sentinel'
     $env:DOWNLOAD_TEST_COS_SECRET_KEY = 'unrelated-test-key'
@@ -67,7 +72,10 @@ async function check(mode: 'valid' | 'plaintext' | 'blank' | 'missing' | 'upload
   const pathKey = Object.keys(env).find(name => name.toLowerCase() === 'path') ?? 'PATH'
   env[pathKey] = `${dirname(process.execPath)}${delimiter}${env[pathKey] ?? ''}`
   try {
-    const result = await execute('pwsh', [
+    // The launcher declares `#requires -Version 5.1`, so the repository's own
+    // PowerShell resolution finds a usable host: PowerShell 7 when installed,
+    // Windows PowerShell 5.1 otherwise. A bare `pwsh` is not on every host.
+    const result = await execute(resolvePwshPath(), [
       '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64'),
     ], { env, timeout: 30_000 })
     return { code: 0, output: result.stdout + result.stderr }

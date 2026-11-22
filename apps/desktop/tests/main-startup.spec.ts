@@ -381,6 +381,16 @@ function invoke(channel: string, origin = channel === DESKTOP_IPC.boot ? 'app' :
   return handler({ senderFrame: { url: `dsh-app://${origin}/index.html` } }, ...args)
 }
 
+/**
+ * Electron's `second-instance` event carries the later launch's argv; the
+ * harness emits that documented shape, so the single-instance listener reads a
+ * real argv for the installer-quit flag instead of an absent argument.
+ * @param argv - the later launch's command line.
+ */
+function emitSecondInstance(argv: string[] = []): void {
+  harness.app.emit('second-instance', {}, argv)
+}
+
 function applicationMenuItems(): MenuItemConstructorOptions[] {
   const native = harness.menu.mock.calls[0]?.[0][0]?.submenu
   if (Array.isArray(native)) return native
@@ -1075,7 +1085,7 @@ describe('desktop main startup', () => {
       expect(window.show.mock.invocationCallOrder[0]).toBeLessThan(window.moveTop.mock.invocationCallOrder[0]!)
     }
     window.destroy()
-    harness.app.emit('second-instance')
+    emitSecondInstance()
     const replacement = harness.windows[1]!
     await replacement.shown.promise
     expect(replacement.show).toHaveBeenCalledOnce()
@@ -1116,7 +1126,7 @@ describe('desktop main startup', () => {
     expect(harness.dialog.showMessageBox).not.toHaveBeenCalled()
     expect(window.hide).toHaveBeenCalledOnce()
     await host.stopping.promise
-    harness.app.emit('second-instance')
+    emitSecondInstance()
     expect(window.show).not.toHaveBeenCalled()
     expect(window.focus).not.toHaveBeenCalled()
     host.exited.resolve()
@@ -1140,7 +1150,7 @@ describe('desktop main startup', () => {
     harness.trays[0]!.emit('click')
     expect(window.show).toHaveBeenCalledOnce()
     expect(window.focus).toHaveBeenCalled()
-    harness.app.emit('second-instance')
+    emitSecondInstance()
     expect(window.show).toHaveBeenCalledTimes(2)
     // Locale changes relabel the tray together with the application menu.
     const relabels = harness.trays[0]!.setContextMenu.mock.calls.length

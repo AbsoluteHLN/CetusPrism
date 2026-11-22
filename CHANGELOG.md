@@ -3,7 +3,7 @@
 所有显著变更记录于此。格式参考 Keep a Changelog；版本号遵循 SemVer。
 本文件自 1.7.3 起建立——此前的版本历史以 git tag 与提交记录为准。
 
-## [2.0.2] - 2026-11-11
+## [2.0.2-prelease-2026-11-22-A] - 2026-11-22
 
 版本线说明：产品版本 `1.8.1` → `2.0.2`；workspace 包版本 `0.2.1-alpha.1` 保持不变
 （`docs/UPSTREAM.alignment.json` 的 `productVersion` 同步调整为 `2.0.2`）；这是 `v2.0.1` 预留的「含 IDE 模式」大版本线的延续。

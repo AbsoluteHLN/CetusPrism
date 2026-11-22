@@ -50,7 +50,7 @@ int wmain(int count, wchar_t** args) {
   FreeConsole();
   FILE* report = nullptr;
   _wfopen_s(&report, args[5], L"w");
-  if (report) { fprintf(report, "ready=%d signalled=%d completed=%d code=%lu\n", ready, signalled, completed, code); fclose(report); }
+  if (report) { fprintf(report, "ready=%d signalled=%d completed=%d code=%lu marker=%d\n", ready, signalled, completed, code, GetFileAttributesW(args[3]) != INVALID_FILE_ATTRIBUTES ? 1 : 0); fclose(report); }
   CloseHandle(child.hProcess);
   CloseHandle(job);
   return completed && code == (event == CTRL_C_EVENT ? 130u : 131u) ? 0 : 5;

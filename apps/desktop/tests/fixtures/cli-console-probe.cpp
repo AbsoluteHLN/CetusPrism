@@ -30,14 +30,20 @@ int wmain(int count, wchar_t** args) {
   ResumeThread(child.hThread);
   CloseHandle(child.hThread);
   bool ready = false;
-  for (int attempt = 0; attempt < 1500; ++attempt) {
+  // The child boots Electron and loads koffi before it reports readiness; on a
+  // loaded host that takes far longer than the default budget, so the probe
+  // waits a minute before giving up on the child.
+  for (int attempt = 0; attempt < 6000; ++attempt) {
     if (GetFileAttributesW(args[4]) != INVALID_FILE_ATTRIBUTES) { ready = true; break; }
     if (WaitForSingleObject(child.hProcess, 10) != WAIT_TIMEOUT) break;
   }
   const DWORD event = static_cast<DWORD>(wcstoul(args[6], nullptr, 10));
   const bool signalled = ready && SetConsoleCtrlHandler(ignoreInterrupt, TRUE) && GenerateConsoleCtrlEvent(event, 0);
   DWORD code = 0;
-  const bool completed = signalled && WaitForSingleObject(child.hProcess, 15000) == WAIT_OBJECT_0
+  // The console event reaches the JavaScript thread through the native
+  // handler, so the shutdown completes only after that queue is drained; a
+  // loaded host can take a while to get there.
+  const bool completed = signalled && WaitForSingleObject(child.hProcess, 60000) == WAIT_OBJECT_0
     && GetExitCodeProcess(child.hProcess, &code);
   if (!completed) { TerminateProcess(child.hProcess, 1); WaitForSingleObject(child.hProcess, INFINITE); }
   FreeConsole();

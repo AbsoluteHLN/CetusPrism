@@ -50,6 +50,11 @@ pre-merge-commit:
       run: node_modules/.bin/tsx scripts/verify-archived-agent-notes.ts
 
 pre-push:
+  # The two gates each need the whole machine: the typecheck job rebuilds the
+  # library tree, and the focused suites include a native console probe that
+  # has to compile and deliver a real console event inside its own budget.
+  # Sharing the CPU between them turns that probe into a false timeout.
+  parallel: false
   jobs:
     - name: typecheck
       run: pnpm run typecheck

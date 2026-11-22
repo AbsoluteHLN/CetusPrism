@@ -4,6 +4,7 @@ import { resolvePwshPath } from '../packages/shell/pwsh-local/src/resolve.ts'
 import { defineConfig } from 'vitest/config'
 import { standardDecoratorPlugin, vitestExecArgv, workspaceAliases } from './vitest.shared.ts'
 import { COVERAGE_EXEMPT_ENV, coverageExemptHeavySuites } from '../scripts/coverage-exempt.ts'
+import { CHECKPOINT_EXEMPT_ENV, checkpointExemptSuites } from '../scripts/checkpoint-exempt.ts'
 import { COVERAGE_PARTITION_MODE_ENV, COVERAGE_TEST_TIMEOUT_ENV, coverageTestTimeoutOptions } from '../scripts/coverage-partitions.ts'
 
 // Prints exact `path:line:col` records for every uncovered statement, branch
@@ -127,6 +128,16 @@ const coverageExemptExcludes = coverageExemptRaw === '1'
   ? coverageExemptHeavySuites.map(suite => suite.exclude)
   : []
 
+// The local pre-push checkpoint sets this env; the named suites then stay in
+// the ordinary test run and in CI, but the bulk checkpoint leaves them out
+// (membership contract in scripts/checkpoint-exempt.ts). A set-but-not-'1'
+// value is a misconfiguration, not a silent no-op.
+const checkpointExemptRaw = process.env[CHECKPOINT_EXEMPT_ENV]
+if (checkpointExemptRaw !== undefined && checkpointExemptRaw !== '' && checkpointExemptRaw !== '1') {
+  throw new Error(`vitest config: ${CHECKPOINT_EXEMPT_ENV} must be '1' or unset, got ${JSON.stringify(checkpointExemptRaw)}.`)
+}
+const checkpointExemptExcludes = checkpointExemptRaw === '1' ? [...checkpointExemptSuites] : []
+
 const coveragePartitionRaw = process.env[COVERAGE_PARTITION_MODE_ENV]
 if (coveragePartitionRaw !== undefined && coveragePartitionRaw !== '' && coveragePartitionRaw !== '1') {
   throw new Error(`vitest config: ${COVERAGE_PARTITION_MODE_ENV} must be '1' or unset, got ${JSON.stringify(coveragePartitionRaw)}.`)
@@ -165,7 +176,7 @@ export default defineConfig({
     setupFiles: ['./scripts/test-proxy-environment.ts', './scripts/test-invariants.ts', './scripts/test-dom-environment.ts'],
     // .tsx: client component specs (jsdom via per-file @vitest-environment pragma).
     include: testIncludes,
-    exclude: platformUnsupportedTests,
+    exclude: [...platformUnsupportedTests, ...checkpointExemptExcludes],
     // One coverage invocation aggregates both projects. Every suite forks for
     // Node stability; process-bound suites stay separate for inventory control.
     projects: [
@@ -185,7 +196,8 @@ export default defineConfig({
           exclude: [
             ...platformUnsupportedTests,
             ...processBoundTests,
-            ...coverageExemptExcludes],
+            ...coverageExemptExcludes,
+            ...checkpointExemptExcludes],
         },
       },
       {
@@ -200,7 +212,8 @@ export default defineConfig({
           include: processBoundTests,
           exclude: [
             ...platformUnsupportedTests,
-            ...coverageExemptExcludes],
+            ...coverageExemptExcludes,
+            ...checkpointExemptExcludes],
         },
       }],
     coverage: {

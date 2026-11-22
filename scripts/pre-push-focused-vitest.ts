@@ -1,6 +1,7 @@
 import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, relative, resolve, sep } from 'node:path'
+import { CHECKPOINT_EXEMPT_ENV, checkpointExemptSuites } from './checkpoint-exempt.ts'
 
 /**
  * Pre-push focused vitest gate (lefthook).
@@ -14,6 +15,10 @@ import { dirname, relative, resolve, sep } from 'node:path'
  * Budget: 5 minutes. A timeout downgrades to a warning and never blocks the
  * push (the shared-runner stall class belongs to CI's lane budget); a real
  * suite failure exits non-zero and does block it.
+ *
+ * Suites whose verdict depends on host-level behaviour are left to CI
+ * (membership contract in scripts/checkpoint-exempt.ts): they still run in
+ * the ordinary test run, but the bulk checkpoint does not fail on them.
  */
 
 const VITEST_TIMEOUT_MS = 5 * 60 * 1000
@@ -71,6 +76,8 @@ if (changed === null) {
 const targets = new Set<string>()
 for (const file of changed) {
   if (file === '' || !existsSync(resolve(repoRoot, file))) continue
+  // A suite the checkpoint leaves to CI is not a target here either.
+  if (checkpointExemptSuites.includes(file.replaceAll('\\', '/'))) continue
   if (specIncludePatterns.some(pattern => pattern.test(file))) {
     // A changed spec runs by itself; its package may be huge and its own
     // failure is exactly the focused signal the gate exists for.
@@ -104,7 +111,14 @@ console.log(`pre-push focused vitest: ${orderedTargets.join(', ')}`)
 const child = spawn(
   'npx',
   ['vitest', 'run', '--config', 'configs/vitest.config.ts', '--passWithNoTests', ...orderedTargets],
-  { cwd: repoRoot, stdio: 'inherit', shell: process.platform === 'win32', signal: AbortSignal.timeout(VITEST_TIMEOUT_MS) },
+  {
+    cwd: repoRoot,
+    stdio: 'inherit',
+    shell: process.platform === 'win32',
+    signal: AbortSignal.timeout(VITEST_TIMEOUT_MS),
+    // The suites whose verdict depends on host-level behaviour stay with CI.
+    env: { ...process.env, [CHECKPOINT_EXEMPT_ENV]: '1' },
+  },
 )
 
 child.on('exit', (code, signal) => {

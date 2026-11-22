@@ -42,7 +42,8 @@ int wmain(int count, wchar_t** args) {
   DWORD code = 0;
   // The console event reaches the JavaScript thread through the native
   // handler, so the shutdown completes only after that queue is drained; a
-  // loaded host can take a while to get there.
+  // loaded host can take a while to get there. The budget stays below the
+  // suite's own timeout so a give-up still produces this report.
   const bool completed = signalled && WaitForSingleObject(child.hProcess, 60000) == WAIT_OBJECT_0
     && GetExitCodeProcess(child.hProcess, &code);
   if (!completed) { TerminateProcess(child.hProcess, 1); WaitForSingleObject(child.hProcess, INFINITE); }

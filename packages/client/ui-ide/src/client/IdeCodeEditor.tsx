@@ -127,8 +127,7 @@ export function IdeCodeEditor(props: IdeCodeEditorProps): ReactNode {
 
   useLayoutEffect(() => {
     syncScroll()
-    reportCursor()
-  }, [content, syncScroll, reportCursor])
+  }, [content, syncScroll])
 
   return (
     <div className={css.codeEditor} data-ide-editor="">

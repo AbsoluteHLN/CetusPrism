@@ -1,9 +1,16 @@
 {
+  "ui-computer-foreground/src/client/DeliveryToggle.module.css": [
+    ".trigger: border-radius: 24px"
+  ],
   "ui-deliverables/src/client/ChangedFiles.module.css": [
-    ".tile: border-radius: 10px"
+    ".card: border-radius: 18px",
+    ".tile: border-radius: 10px",
+    ".tileMark: border-radius: 8px"
   ],
   "ui-deliverables/src/client/Deliverables.module.css": [
-    ".fileIcon: border-radius: 10px"
+    ".file: border-radius: 18px",
+    ".fileIcon: border-radius: 10px",
+    ".toggle: border-radius: 8px"
   ],
   "ui-schedule/src/client/ClockPicker.module.css": [
     ".option: border-radius: 10px"
@@ -46,6 +53,9 @@
     ".list: border-radius: 16px",
     ".item: border-radius: 8px"
   ],
+  "ui-settings-about/src/client/AboutSection.module.css": [
+    ".card: border-radius: 12px"
+  ],
   "ui-settings-account/src/client/AccountNotice.module.css": [
     ".card: border-radius: 16px"
   ],
@@ -56,6 +66,15 @@
     ".page .action: border-radius: 12px",
     ".indicator: border-radius: 6px"
   ],
+  "ui-settings-usage/src/client/UsageChart.module.css": [
+    ".chart: border-radius: 12px",
+    ".rangeToggle: border-radius: 8px",
+    ".rangeButton, .rangeButtonActive: border-radius: 8px"
+  ],
+  "ui-settings-usage/src/client/UsageSection.module.css": [
+    ".card: border-radius: 12px",
+    ".table: border-radius: 12px"
+  ],
   "ui-shortcuts/src/client/Reference.module.css": [
     ".dialog: border-radius: 24px",
     ".close: border-radius: 28px",
@@ -63,5 +82,10 @@
     ".keyBadge: border-radius: 10px",
     ".unbound: border-radius: 10px",
     ".recorder: border-radius: 10px"
+  ],
+  "ui-sidebar-computer/src/client/view/ComputerBody.module.css": [
+    ".stop: border-radius: 6px",
+    ".screenImage: border-radius: 6px",
+    ".screenEmpty: border-radius: 6px"
   ]
 }

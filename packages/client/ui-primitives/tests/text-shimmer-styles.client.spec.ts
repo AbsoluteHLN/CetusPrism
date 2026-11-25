@@ -6,11 +6,11 @@ const css = readFileSync(new URL('../src/TextShimmer.module.css', import.meta.ur
 
 describe('TextShimmer styles', () => {
   it('animates active text and disables motion and transparent fill for reduced motion', () => {
-    expect(css).toMatch(/\.root\[data-text-shimmer\]\s*\{[^}]*animation: dsh-text-shimmer/s)
-    expect(css).toMatch(/@keyframes dsh-text-shimmer\s*\{[^}]*background-position: 0% center/s)
-    const reduced = /@media \(prefers-reduced-motion: reduce\)\s*\{\s*\.root\[data-text-shimmer\]\s*\{([^}]+)\}/.exec(css)?.[1]
-    expect(reduced).toContain('background-image: none;')
-    expect(reduced).toContain('-webkit-text-fill-color: currentColor;')
-    expect(reduced).toContain('animation: none;')
+    expect(css).toMatch(/\.sweep\s*\{[^}]*animation-name: dsh-row-shimmer-sweep/s)
+    expect(css).toMatch(/@keyframes dsh-row-shimmer-sweep\s*\{[^}]*transform: translateX\(-100%\)/s)
+    const reduced = /@media \(prefers-reduced-motion: reduce\)\s*\{([\s\S]+)\}\s*$/.exec(css)?.[1]
+    expect(reduced).toContain('.decoration')
+    expect(reduced).toContain('display: none')
+    expect(reduced).toContain('animation: none')
   })
 })

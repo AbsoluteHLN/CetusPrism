@@ -57,7 +57,7 @@
   max-width: var(--dsh-composer-card-max-width);
   padding-top: 8px;
   /* Input stroke: 1px hairline border. Fill: input surface token. */
-  border: 1px solid var(--dsw-alias-border-l2);
+  border: 0;
   --dsw-elevation-stroke-color: var(--dsw-alias-border-l2);
   border-radius: var(--dsw-radius-panel);
   background: var(--dsw-specific-input-major);
@@ -339,7 +339,7 @@
   flex: none;
   width: 28px;
   height: 28px;
-  border: 1px solid var(--dsw-alias-border-l1);
+  border: 0.5px solid var(--dsw-alias-border-l1);
   border-radius: var(--dsw-radius-sm);
   background: var(--dsw-specific-selector);
   color: var(--dsw-alias-label-primary);

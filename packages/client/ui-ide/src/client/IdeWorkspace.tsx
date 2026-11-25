@@ -168,6 +168,9 @@ export function IdeWorkspace(props: IdeWorkspaceProps): ReactNode {
   const [layout, setLayout] = useState<IdeLayout>(readLayout)
   const [container, setContainer] = useState(0)
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
+  const reportCursor = useCallback((line: number, column: number) => {
+    setCursor(prev => (prev.line === line && prev.column === column ? prev : { line, column }))
+  }, [])
   const [pathFolded, setPathFolded] = useState(false)
   const surfaceRef = useRef<HTMLElement>(null)
   const crumbsRef = useRef<HTMLElement>(null)
@@ -455,7 +458,7 @@ export function IdeWorkspace(props: IdeWorkspaceProps): ReactNode {
                   file={file}
                   onChange={(content) => { edit(file.path, content) }}
                   onSave={() => { save(file.path) }}
-                  onCursor={(line, column) => { setCursor({ line, column }) }}
+                  onCursor={reportCursor}
                   t={t}
                 />
               )}

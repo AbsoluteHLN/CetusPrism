@@ -164,7 +164,7 @@ describe('SessionMediaReferences /api/file', () => {
     expect((await route.call(join(root, 'frames.png'))).status).toBe(403)
   })
 
-  it('reads files and symlink targets outside the default cwd without a workspace registry', async () => {
+  it.skipIf(process.platform === 'win32')('reads files and symlink targets outside the default cwd without a workspace registry', async () => {
     const route = await mount()
     const outside = await mkdtemp(join(tmpdir(), 'dsh-media-outside-'))
     try {

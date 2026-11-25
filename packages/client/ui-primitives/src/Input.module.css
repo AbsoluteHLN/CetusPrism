@@ -2,6 +2,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  /* The field's height is a total, and the frame is portalled outside the
+   engine's root in dialogs — so the border-box rule the engine states
+   inside its root would not reach it. */
+  box-sizing: border-box;
   height: 32px;
   padding: 0 8px;
   border: 0.5px solid var(--dsw-alias-border-l4);
@@ -9,8 +13,23 @@
   background: var(--dsw-alias-bg-layer-1);
 }
 
-.wrap:focus-within {
-  border-color: var(--dsw-alias-state-business-primary);
+/* The engine styles a field on [data-hln-ui-field]: the field height, the
+   hairline edge, the form face, and a focus ring in the focus colour. The
+   wrapper is the field the user sees — the bare input inside stays
+   transparent — so the contract lands on it and the engine paints it. Only
+   the width is the app's own: an inline field must not stretch to its
+   column, and the focus ring belongs to the frame the user clicks. */
+.wrap[data-hln-ui-field] {
+  width: auto;
+  min-height: var(--hln-ui-field-height);
+  border: var(--hln-ui-hairline) solid var(--hln-ui-line);
+  border-radius: var(--hln-ui-radius-sm);
+  background: var(--hln-ui-bg-0);
+}
+
+.wrap[data-hln-ui-field]:focus-within {
+  border-color: var(--hln-ui-focus);
+  box-shadow: 0 0 0 3px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
 }
 
 .icon {

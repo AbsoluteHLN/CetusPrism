@@ -17,7 +17,7 @@
  * selection and undo stack stay in charge of the text.
  */
 
-import { Fragment, useCallback, useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { useCodeHighlighter } from '@deepseek-ai/dsh-client-ui-primitives'
 import css from './IdeWorkspace.module.css'
 
@@ -117,19 +117,18 @@ export function IdeCodeEditor(props: IdeCodeEditorProps): ReactNode {
 
   const body = highlighted === undefined
     ? lines.map((line, index) => (
-      <Fragment key={index}>
-        {index > 0 && '\n'}
-        <span className="line">{line}</span>
-      </Fragment>
+      <span key={index} className={css.codeLine}>{line}</span>
     ))
     : highlighted.map((line, index) => (
-      <Fragment key={index}>
-        {index > 0 && '\n'}
-        <span className="line">
-          {line.map((span, spanIndex) => <span key={spanIndex} style={span.style}>{span.text}</span>)}
-        </span>
-      </Fragment>
+      <span key={index} className={css.codeLine}>
+        {line.map((span, spanIndex) => <span key={spanIndex} style={span.style}>{span.text}</span>)}
+      </span>
     ))
+
+  useLayoutEffect(() => {
+    syncScroll()
+    reportCursor()
+  }, [content, syncScroll, reportCursor])
 
   return (
     <div className={css.codeEditor} data-ide-editor="">
@@ -154,6 +153,7 @@ export function IdeCodeEditor(props: IdeCodeEditorProps): ReactNode {
           aria-label={ariaLabel}
           onChange={(event) => { onChange(event.target.value) }}
           onScroll={syncScroll}
+          onSelect={reportCursor}
           onKeyUp={reportCursor}
           onClick={reportCursor}
           onKeyDown={onKeyDown}

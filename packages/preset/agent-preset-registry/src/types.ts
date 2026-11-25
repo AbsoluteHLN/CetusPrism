@@ -67,6 +67,19 @@ export interface AgentBackendRow {
   readonly id: 'dsh' | 'pi' | 'zcode'
   /** Display name of the backend. */
   readonly name: string
+  /**
+   * The executable this backend probes.
+   *
+   * Absent for the native backend, which runs no executable at all.
+   */
+  readonly command?: string
+  /**
+   * Whether the deployment named that executable itself.
+   *
+   * A named executable is an explicit choice; an unnamed one is the
+   * upstream's own command, found on the PATH.
+   */
+  readonly configured?: boolean
   /** Installed runtime version, or `unconfigured` when no runtime answered. */
   readonly version: string
   /** Where the backend runs: CetusPrism itself, or an installed external runtime. */

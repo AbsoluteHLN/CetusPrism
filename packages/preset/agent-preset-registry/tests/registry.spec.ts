@@ -378,6 +378,31 @@ describe('execution backends', () => {
     expect(catalog.backends[1]).toMatchObject({ availability: 'unconfigured' })
   })
 
+  it('names the executable it probes and marks a deployment-chosen one', async () => {
+    const ctx = await setup()
+    const catalog = ctx.agentPresets.remoteExportBackends().backends
+    // The harness pins both runtimes to a command that does not exist, so the
+    // deployment named them itself.
+    expect(catalog.find(backend => backend.id === 'pi'))
+      .toMatchObject({ command: 'cetusprism-no-such-runtime', configured: true, availability: 'unconfigured' })
+    // The native backend runs no executable at all.
+    expect(catalog.find(backend => backend.id === 'dsh')?.command).toBeUndefined()
+  })
+
+  it('re-probes an external runtime when the deployment names another executable', async () => {
+    const ctx = await harness({ live: true })
+    contexts.push(ctx)
+    const live = liveRegistries.get(ctx)!
+    // Nothing named yet: the upstream's own command is what gets probed.
+    expect(ctx.agentPresets.remoteExportBackends().backends.find(backend => backend.id === 'pi'))
+      .toMatchObject({ command: 'pi', configured: false })
+    await live.update({ externalRuntimes: { pi: 'cetusprism-no-such-runtime' } })
+    // The named executable replaces it without a restart, and the catalog says
+    // so: the deployment chose this one.
+    expect(ctx.agentPresets.remoteExportBackends().backends.find(backend => backend.id === 'pi'))
+      .toMatchObject({ command: 'cetusprism-no-such-runtime', configured: true, availability: 'unconfigured' })
+  })
+
   it('marks a registered runtime ready and releases it on dispose', async () => {
     const ctx = await setup()
     const dispose = ctx.agentPresets.registerBackend({

@@ -1,6 +1,6 @@
 /** Upload validated Desktop update artifacts or a fixed installer to Tencent COS. */
 
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import type { DesktopPackageTargetName } from './package-target.ts'
 import { createDesktopCos } from './desktop-cos.ts'
@@ -9,6 +9,8 @@ import { loadDesktopPackageEnvironment } from './desktop-package-environment.mjs
 import { createDesktopUploadPlan, type DesktopUploadPlan } from './desktop-upload-plan.ts'
 import { desktopReleaseTag, tagDesktopRelease } from './desktop-release-tag.ts'
 import { uploadDesktopRelease } from './desktop-upload-run.ts'
+import { ensureDesktopBuildLink } from './desktop-build-cache.mjs'
+import { desktopBuildRoot } from './desktop-build-paths.mjs'
 
 const SUPPORTED_TARGETS = new Set<DesktopPackageTargetName>(['mac-arm64', 'mac-x64', 'win-x64'])
 
@@ -91,7 +93,8 @@ export async function uploadDesktopTarget(args: string[]): Promise<void> {
     secretKey: requiredEnvironmentValue(environment, plan.secretKeyEnvName),
   })
   process.stdout.write(`desktop upload: ${plan.target} ${plan.version} -> ${plan.publicUrl}\n`)
-  await uploadDesktopRelease(plan, cos, resolve(import.meta.dirname, '../.desktop-build/upload-records'))
+  ensureDesktopBuildLink()
+  await uploadDesktopRelease(plan, cos, join(desktopBuildRoot(), 'upload-records'))
   if (plan.environment === 'production' && !values.latest) recordProductionRelease(plan)
 }
 

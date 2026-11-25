@@ -101,22 +101,22 @@ function resolveTeamAgentOptions(
   parent: Agent,
 ): TeamAgentSelection | undefined {
   const teamPolicy = currentTeamModelPolicy(ctx)
+  const settings: TeamModelSelectionSettings | undefined = ctx.get('subagentModelSelection')
+  const current = settings?.current()
   const hasExplicitSelection = provider !== undefined || model !== undefined || reasoningEffort !== undefined
   const hasTeamSelection = teamPolicy.defaultModel !== undefined || teamPolicy.allowedModels.length > 0
-  if (!hasExplicitSelection && !hasTeamSelection) return undefined
+  const hostEnabled = current?.enabled === true
+  if (!hasExplicitSelection && !hasTeamSelection && !hostEnabled) return undefined
   if ((provider === undefined) !== (model === undefined)
       || provider?.trim() === '' || model?.trim() === '' || reasoningEffort?.trim() === '') {
     throw new Error('Team model selection requires provider and model together')
   }
-  const settings: TeamModelSelectionSettings | undefined = ctx.get('subagentModelSelection')
   if (hasExplicitSelection) {
     if (settings === undefined) {
       throw new Error('Team model selection is unavailable because its settings service is not loaded')
     }
-    const current = settings.current()
-    if (!current.enabled) throw new Error('Team model selection is disabled in settings')
+    if (!current?.enabled) throw new Error('Team model selection is disabled in settings')
   }
-  const current = settings?.current()
   const leadOptions = parentAgentOptionsForDelegation(parent)
   const leadRoute = { provider: leadOptions.provider ?? '', model: leadOptions.model ?? '' }
   const route: AllowedModelRoute = {

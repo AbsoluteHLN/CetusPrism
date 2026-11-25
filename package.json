@@ -1,6 +1,6 @@
 {
   "name": "@deepseek-ai/dsh-root",
-  "version": "2.0.2-prelease-2026-11-22-A",
+  "version": "2.0.2-prelease-2026-11-24-A",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -27,6 +27,7 @@
     "build:web": "pnpm --filter @deepseek-ai/dsh-web-frontend run build",
     "build:electron": "pnpm --filter @deepseek-ai/dsh-electron run build",
     "dist:win": "tsx scripts/build.ts && pnpm --filter @deepseek-ai/dsh-electron run dist:win",
+    "package:win": "pnpm run dist:win",
     "dist:linux": "pnpm --filter @deepseek-ai/dsh-electron run dist:linux",
     "build:desktop": "pnpm --filter @deepseek-ai/dsh-desktop run build",
     "dev:desktop": "pnpm --filter @deepseek-ai/dsh-desktop run dev",

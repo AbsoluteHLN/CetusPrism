@@ -3,7 +3,7 @@
 param([string]$OutputDirectory, [switch]$TestProgress, [switch]$CompileProgressOnly)
 $ErrorActionPreference = 'Stop'
 $installerRoot = Join-Path $PSScriptRoot '../installer'
-if (-not $OutputDirectory) { $OutputDirectory = Join-Path $PSScriptRoot '../.desktop-build/targets/win-x64/installer-ui' }
+if (-not $OutputDirectory) { $OutputDirectory = Join-Path $PSScriptRoot '../.build-cache/targets/win-x64/installer-ui' }
 $output = [IO.Path]::GetFullPath($OutputDirectory)
 New-Item -ItemType Directory -Force $output | Out-Null
 $source = Join-Path $installerRoot 'window-frame.cpp'

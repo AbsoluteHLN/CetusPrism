@@ -41,7 +41,8 @@ import {
   unbindSession,
   type IdeWorkspaceState,
 } from './ide-model.ts'
-import { ideLanguage, type IdeFilesPort } from './ide-files.ts'
+import { ideLanguage, ideViewKind, ideViewUsesTextRead, type IdeFileContent, type IdeFilesPort } from './ide-files.ts'
+import type { IdeFile } from './ide-model.ts'
 
 /** The IDE workspace service the client talks to. */
 export interface IIdeWorkspace {
@@ -82,6 +83,26 @@ export interface IIdeWorkspace {
  */
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/**
+ * Drop one file's blob URL when the tab no longer needs it.
+ * @param file - the file being closed or replaced.
+ */
+function revokeMediaUrl(file: IdeFile | undefined): void {
+  const url = file?.mediaUrl
+  if (url !== undefined && url.startsWith('blob:')) URL.revokeObjectURL(url)
+}
+
+/**
+ * Build an object URL for one binary preview.
+ * @param data - the file bytes.
+ * @param mime - the MIME type.
+ * @returns the URL the viewer should load.
+ */
+function mediaUrlFromBytes(data: Uint8Array, mime: string): string {
+  const copy = new Uint8Array(data)
+  return URL.createObjectURL(new Blob([copy], { type: mime }))
 }
 
 /**
@@ -220,17 +241,22 @@ export function createIdeWorkspace(files?: IdeFilesPort): IIdeWorkspace {
   const readFile = (path: string, name: string): void => {
     const sessionId = store.getSnapshot().sessionId
     if (sessionId === undefined || files === undefined) return
+    const prior = store.getSnapshot().files.find(candidate => candidate.path === path)
+    revokeMediaUrl(prior)
     reads.get(path)?.abort()
     const controller = new AbortController()
     reads.set(path, controller)
+    const viewKind = ideViewKind(path)
     store.set(openFile(store.getSnapshot(), {
       path,
       name,
       language: ideLanguage(path),
       content: '',
+      viewKind,
       loading: true,
+      mediaUrl: undefined,
     }))
-    void files.read(sessionId, path, controller.signal).then((result) => {
+    const settleText = (result: IdeFileContent): void => {
       if (controller.signal.aborted) return
       reads.delete(path)
       store.set(openFile(store.getSnapshot(), {
@@ -239,9 +265,11 @@ export function createIdeWorkspace(files?: IdeFilesPort): IIdeWorkspace {
         language: ideLanguage(path),
         content: result.content,
         truncated: result.truncated,
-        version: result.version,
+        ...(result.version !== undefined ? { version: result.version } : {}),
+        viewKind,
       }))
-    }).catch((error: unknown) => {
+    }
+    const settleError = (error: unknown): void => {
       if (controller.signal.aborted) return
       reads.delete(path)
       store.set(openFile(store.getSnapshot(), {
@@ -249,9 +277,32 @@ export function createIdeWorkspace(files?: IdeFilesPort): IIdeWorkspace {
         name,
         language: ideLanguage(path),
         content: '',
+        viewKind,
         error: messageOf(error),
       }))
-    })
+    }
+    if (ideViewUsesTextRead(viewKind)) {
+      void files.read(sessionId, path, controller.signal).then(settleText).catch(settleError)
+      return
+    }
+    const readBytes = files.readBytes
+    if (readBytes === undefined) {
+      settleError(new Error('Binary preview is unavailable'))
+      return
+    }
+    void readBytes(sessionId, path, controller.signal).then((result) => {
+      if (controller.signal.aborted) return
+      reads.delete(path)
+      store.set(openFile(store.getSnapshot(), {
+        path,
+        name,
+        language: ideLanguage(path),
+        content: '',
+        version: result.version,
+        viewKind,
+        mediaUrl: mediaUrlFromBytes(result.data, result.mime),
+      }))
+    }).catch(settleError)
   }
 
   return {
@@ -273,6 +324,7 @@ export function createIdeWorkspace(files?: IdeFilesPort): IIdeWorkspace {
     unbind() {
       abortAll()
       stopWatches()
+      for (const file of store.getSnapshot().files) revokeMediaUrl(file)
       store.set(unbindSession(store.getSnapshot()))
     },
     toggleDirectory(path) {
@@ -288,6 +340,8 @@ export function createIdeWorkspace(files?: IdeFilesPort): IIdeWorkspace {
       readFile(path, name)
     },
     closeFile(path) {
+      const file = store.getSnapshot().files.find(candidate => candidate.path === path)
+      revokeMediaUrl(file)
       store.set(closeFile(store.getSnapshot(), path))
     },
     activateFile(path) {

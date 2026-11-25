@@ -5,8 +5,9 @@ import { createReadStream } from 'node:fs'
 import { mkdir, mkdtemp, realpath, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { resolveWindowsUpdatePublisher } from './windows-sign.mjs'
+import { ensureDesktopBuildLink } from './desktop-build-cache.mjs'
+import { desktopBuildRoot } from './desktop-build-paths.mjs'
 
 assert.equal(process.platform, 'win32', 'Authenticode qualification requires Windows')
 const [certificateFile, signedFile, unsignedFile] = process.argv.slice(2)
@@ -21,7 +22,8 @@ const publisherName = resolveWindowsUpdatePublisher(certificateFile)
 const signed = await realpath(signedFile)
 const unsigned = await realpath(unsignedFile)
 assert.notEqual(signed, unsigned, 'Signed and unsigned controls must be distinct files')
-const qualification = fileURLToPath(new URL('../.desktop-build/qualification/', import.meta.url))
+ensureDesktopBuildLink()
+const qualification = join(desktopBuildRoot(), 'qualification')
 await mkdir(qualification, { recursive: true })
 const root = await mkdtemp(join(qualification, 'windows-update-signature-'))
 const report = { publisherName, installerExecuted: false, cases: [], passed: false }

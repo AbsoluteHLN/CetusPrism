@@ -18,16 +18,40 @@
     { id: "singularity-cyan", label: "奇点 Singularity Cyan", accent: "#00f0ff", accentCool: "#38bdf8", swatch: "#0f1622", colorScheme: "dark" },
     { id: "tensor-amber", label: "张量 Tensor Amber", accent: "#ffb800", accentCool: "#00f0ff", swatch: "#141922", colorScheme: "dark" },
   ]
-  var THEMES = THEME_REGISTRY.map(function (theme) { return theme.id })
-  var FONTS = ["grotesque", "display", "editorial", "technical", "geometric", "cyber", "label", "fangsong"]
+  // The v3.5 planes this app still ships beside the folio set. Their
+  // palettes live in the v3.5 stylesheet, which roots them on
+  // :root[data-hln-theme] and on [data-hln-ui-root][data-hln-theme] as well,
+  // so they are applied to the DOM exactly like a folio theme.
+  var LEGACY_THEMES = [
+    "veridian-stream",
+    "synapse-violet",
+    "cobalt-manifold",
+    "titanium-oxide",
+    "alabaster-studio",
+    "bauhaus-compiler"
+  ]
+  var THEMES = THEME_REGISTRY.map(function (theme) { return theme.id }).concat(LEGACY_THEMES)
+  var FONTS = ["grotesque", "display", "editorial", "technical", "geometric", "cyber", "berlin", "label", "fangsong"]
   var CJK_FONTS = ["auto", "hei", "display", "song", "kai", "mono", "fangsong"]
+  // The six algorithmic presets plus the seven static ambient surfaces the
+  // v4 layer draws. Every id the Appearance panel offers has to be listed
+  // here: an id the shim does not know is a card that does nothing.
   var BG_MOTIONS = [
     "tensor-stream", "neural-dag", "fourier-harmonics", "procedural-matrix",
-    "simplex-contour", "clock-bus", "swiss-vector", "paper-grain", "tint-wash", "folio-grid", "quiet",
+    "simplex-contour", "clock-bus", "swiss-vector",
+    "paper-grain", "margin-rule", "tint-wash", "ruled-lines", "folio-grid", "vellum-fiber", "quiet",
   ]
   var MOTION_VARIANTS = [
     "panel", "item", "rise", "unfold", "spring", "slide-left", "slide-right", "type-in", "page-shift",
   ]
+  // The engine's control vocabulary. A variant names a state the engine
+  // styles ([data-hln-ui-control][data-variant="…"]); "wash" is the
+  // selected state the engine paints through [data-active="true"]. The
+  // application asks for a variant by name and the shim refuses an unknown
+  // one the same way it refuses an unknown theme, so no surface grows a
+  // private branch of its own.
+  var CONTROL_VARIANTS = ["accent", "ghost", "quiet", "danger"]
+  var CONTROL_STATES = ["wash"]
 
   // Legacy mappings to v4 successors
   var THEME_MIGRATIONS = {
@@ -47,7 +71,6 @@
   }
   var FONT_MIGRATIONS = {
     condensed: "grotesque",
-    berlin: "geometric",
   }
   var BG_MOTION_MIGRATIONS = {
     "horizon-rule": "swiss-vector",
@@ -56,6 +79,96 @@
     "fine-grain-line": "procedural-matrix",
   }
 
+  // The engine's runtime skin layer: an allowlisted token set painted over
+  // the stylesheet theme. The canonical implementation is the ESM runtime
+  // entry (createHlnSkin / applyHlnSkin); this shim loads it and drives it,
+  // so the application never re-implements the allowlist and the engine
+  // keeps validating what a skin may carry.
+  var SELF_SRC = (document.currentScript && document.currentScript.src) || ""
+  var DIST_URL = SELF_SRC ? new URL("index.js", SELF_SRC).href : new URL("hln-ui-v4/index.js", document.baseURI).href
+  var distPromise = undefined
+
+  function loadDist() {
+    if (!distPromise) {
+      distPromise = import(DIST_URL).catch(function () { return undefined })
+    }
+    return distPromise
+  }
+
+  function themeById(id) {
+    for (var i = 0; i < THEME_REGISTRY.length; i++) {
+      if (THEME_REGISTRY[i].id === id) return THEME_REGISTRY[i]
+    }
+    return undefined
+  }
+
+  // The pigment set one theme carries into the runtime skin: its primary
+  // accent, the cool companion, the focus ring, and the ink that sits on
+  // the accent. The planes stay with the stylesheet; the skin carries the
+  // identity, which is what a theme the stylesheet has no block for needs.
+  function skinForTheme(id) {
+    var theme = themeById(id)
+    if (!theme) return undefined
+    return {
+      id: theme.id,
+      tokens: {
+        "--hln-ui-accent": theme.accent,
+        "--hln-ui-accent-cool": theme.accentCool,
+        "--hln-ui-focus": theme.accent,
+        "--hln-ui-on-accent": "var(--hln-ui-bg-0)",
+      },
+    }
+  }
+
+  var restoreSkin = undefined
+  var activeSkin = undefined
+
+  // Apply one skin through the engine's own API. The engine validates the
+  // token names and the colour values; a skin it refuses leaves the
+  // surface on the stylesheet theme instead of failing the switch.
+  function applySkin(skin) {
+    return loadDist().then(function (mod) {
+      if (!mod || typeof mod.applyHlnSkin !== "function") return false
+      var root = rootEl()
+      if (!root) return false
+      if (restoreSkin) { restoreSkin(); restoreSkin = undefined }
+      try {
+        restoreSkin = mod.applyHlnSkin(root, skin)
+        activeSkin = skin
+        return true
+      } catch (err) {
+        return false
+      }
+    })
+  }
+
+  function currentSkin() {
+    return activeSkin
+  }
+
+  function applyThemeSkin(id) {
+    var skin = skinForTheme(id)
+    if (!skin) return false
+    void applySkin(skin)
+    return true
+  }
+
+  function isControlVariant(variant) {
+    return CONTROL_VARIANTS.indexOf(variant) !== -1 || CONTROL_STATES.indexOf(variant) !== -1
+  }
+
+  // Mark one element with an engine control state. The wash is the engine's
+  // selected state; the other four are the engine's variant vocabulary.
+  function applyControlVariant(element, variant) {
+    if (!element || !element.dataset || !isControlVariant(variant)) return false
+    element.dataset.hlnUiControl = ""
+    if (CONTROL_STATES.indexOf(variant) !== -1) {
+      element.dataset.active = "true"
+      return true
+    }
+    element.dataset.variant = variant
+    return true
+  }
   function resolve(target) {
     return target || document.body
   }
@@ -83,6 +196,7 @@
       body.dataset.hlnUiVersion = VERSION
     }
     stampRoot("hlnTheme", theme)
+    applyThemeSkin(theme)
     return true
   }
 
@@ -170,6 +284,12 @@
     cjkFonts: Object.freeze(CJK_FONTS.slice()),
     bgMotions: Object.freeze(BG_MOTIONS.slice()),
     motionVariants: Object.freeze(MOTION_VARIANTS.slice()),
+    controlVariants: Object.freeze(CONTROL_VARIANTS.slice()),
+    controlStates: Object.freeze(CONTROL_STATES.slice()),
+    isControlVariant: isControlVariant,
+    applyControlVariant: applyControlVariant,
+    applySkin: applySkin,
+    currentSkin: currentSkin,
     currentTheme: currentTheme,
     applyTheme: applyTheme,
     isTheme: isTheme,

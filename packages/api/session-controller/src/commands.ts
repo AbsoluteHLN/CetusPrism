@@ -30,6 +30,7 @@ import {
   ApiSessionNotFound,
   ApiSessionPresetConflict,
   ApiSessionSubagentOwnership,
+  ApiSessionBackendUnavailable,
   apiSessionSubagentOwnershipError,
   hasApiSessionSubagentOwner,
   inspectApiSession,
@@ -551,6 +552,12 @@ export class SessionCommandController {
     }
     if (error instanceof ApiSessionSubagentOwnership) {
       throw apiSessionSubagentOwnershipError(error.sessionId)
+    }
+    if (error instanceof ApiSessionBackendUnavailable) {
+      throw new RemoteError('session/backend-unavailable', error.message, {
+        sessionId,
+        agentBackend: error.agentBackend,
+      })
     }
     throw new RemoteError('gateway/internal', `failed to create session "${sessionId}": ${String(error)}`, {})
   }

@@ -211,6 +211,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     }
     'session/projections-unavailable': Record<string, never>
     'session/writer-held': { readonly sessionId: SessionId }
+    'session/backend-unavailable': { readonly sessionId: SessionId; readonly agentBackend: string }
     'session/agent-busy': { readonly reason: string }
     'session/invalid-time-zone': { readonly value: string }
     'session/workspace-attach-failed': { readonly sessionId: SessionId; readonly workspaceId: string }

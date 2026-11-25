@@ -29,9 +29,19 @@ Users switch the color scheme and content font size from two rows in Settings (G
 
 ### Appearance and font size
 
-CetusPrism exposes its bundled KalciriteUI v3.5 catalogs in Settings → Appearance: eight themes, eight font modes, seven Chinese font modes, and eight background presets. Numbered panels, corner markers, control hover traces, and selected states use the canonical v3.5 artifacts; feature CSS only arranges the gallery. The CetusPrism settings modal uses the opaque theme base fill so conversation text does not show through. The existing browser-local selection key remains unchanged, so saved choices survive upgrades. The font-size setting still writes through the Host settings API.
+CetusPrism exposes its bundled KalciriteUI catalogs in Settings → Appearance: sixteen themes, nine Latin font modes, seven Chinese font modes, and fourteen background presets. Numbered panels, corner markers, control hover traces, and selected states use the canonical v3.5 artifacts; feature CSS only arranges the gallery. Every card changes the surface: a Latin profile repoints the v4 `--hln-ui-font-current` reference the app's own face reads, the Chinese mode repoints the CJK override every stack carries, and each background preset is one the shell accepts — the six algorithmic v3.5 motions and the seven static v4 ambient surfaces. The enter motion plays the v4 Folio family rather than the v3.5 cascade the two layers would otherwise fall back to. The CetusPrism settings modal uses the opaque theme base fill so conversation text does not show through. The existing browser-local selection key remains unchanged, so saved choices survive upgrades. The font-size setting still writes through the Host settings API.
 
 The plugin registers Appearance preference cubes and a font-size stepper in the General section. The stepper accepts integer values from 10 to 22 px and defaults to 14 px. It changes conversation headings and base text by the same increment, including the user bubble and composer draft; flow-row titles, summaries, and tables follow one step under the body size, while small text and code keep fixed sizes. Each accepted change writes through the Host settings API. Rapid changes serialize in gesture order with namespace revisions, and a rejected latest write reloads the durable values. Non-loopback pages keep both choices process-local.
+
+### The v4 engine contracts
+
+The appearance page is where the Kalcirite v4 engine's contracts meet the application, and each one is enforced in the surface rather than described here.
+
+- **Field contract** — an input's frame carries `data-hln-ui-field`, so the engine paints the field height, the hairline edge, and the focus ring; a bare text field consumes the same tokens (`--hln-ui-field-height`, `--hln-ui-radius-sm`, `--hln-ui-font-form`).
+- **Scroll contract** — the application's own scroll surfaces carry `data-hln-ui-scroll` (the transcript, the settings navigation and options, menus, hover cards, the inline editor), so one scrollbar track governs the shell instead of a private rail beside it.
+- **Selected state** — the engine paints the Wash on `[data-hln-ui-control][data-active="true"]`, and the appearance cards are engine controls, so the application keeps no private copy of the selected state. The runtime publishes the control vocabulary (`accent`, `ghost`, `quiet`, `danger`, plus the `wash` state) that a surface asks for by name; an unknown name is refused the way an unknown theme is.
+- **Radius** — the engine-aligned layer uses exactly three tracks: `radius-sm` for controls and inline frames, `radius-md` for cards and panels, `radius-lg` for dialogs and other large surfaces. The square override and the private 2px literal that used to run beside them are gone.
+- **Runtime skin** — a theme card also drives the engine's skin layer through the dist's own `createHlnSkin` / `applyHlnSkin`, so a theme the stylesheet has no block for still paints its pigments on the application root. The engine validates the token names and the colour values; a skin it refuses leaves the stylesheet theme in place.
 
 ### Registering a theme
 

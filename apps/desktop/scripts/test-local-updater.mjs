@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import electron from 'electron'
+import { ensureDesktopBuildLink } from './desktop-build-cache.mjs'
+import { desktopBuildRoot } from './desktop-build-paths.mjs'
 
 if (process.platform !== 'win32') throw new Error('Local NSIS updater qualification requires Windows')
 const root = await mkdtemp(join(tmpdir(), 'dsh-local-updater-'))
@@ -24,7 +26,8 @@ try {
     if (timedOut) throw new Error('Local updater qualification exceeded its 120-second deadline')
     if (result.signal !== null) throw new Error(`Electron exited on ${result.signal}`)
     if (result.code !== 0) throw new Error(`Local updater qualification failed: exit=${result.code}`)
-    const evidenceRoot = fileURLToPath(new URL('../.desktop-build/qualification/', import.meta.url))
+    ensureDesktopBuildLink()
+    const evidenceRoot = join(desktopBuildRoot(), 'qualification')
     await mkdir(evidenceRoot, { recursive: true })
     const evidence = await mkdtemp(join(evidenceRoot, 'local-updater-'))
     const report = JSON.parse(await readFile(join(root, 'result.json'), 'utf8'))

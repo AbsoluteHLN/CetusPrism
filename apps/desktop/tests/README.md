@@ -23,10 +23,10 @@ On macOS, reuse the cached Electron runtime after compiling the Desktop Host sou
 
 ```sh
 pnpm exec tsc -b apps/desktop/tsconfig.host.json
-apps/desktop/.desktop-build/targets/mac-arm64/electron/Electron.app/Contents/MacOS/Electron apps/desktop/tests/fixtures/update-overlay-visibility.mjs
+apps/desktop/.build-cache/targets/mac-arm64/electron/Electron.app/Contents/MacOS/Electron apps/desktop/tests/fixtures/update-overlay-visibility.mjs
 ```
 
-The fixture owns a unique profile and writes `result.json` under `.desktop-build/qualification/update-overlay-*`. It compares native visibility, unfiltered parent content, and listener cleanup with the owner-local expected output for parent hide/show and document readiness while the parent is hidden. It uses no network, product login, or dsh Host. This qualifies native window restoration rather than the full first-login flow.
+The fixture owns a unique profile and writes `result.json` under `.build-cache/qualification/update-overlay-*`. It compares native visibility, unfiltered parent content, and listener cleanup with the owner-local expected output for parent hide/show and document readiness while the parent is hidden. It uses no network, product login, or dsh Host. This qualifies native window restoration rather than the full first-login flow.
 
 <a id="verification-interactive"></a>
 
@@ -40,7 +40,7 @@ With Host, client, and Desktop artifacts built, run `node --import tsx apps/desk
 
 ## Evidence
 
-The local command builds Desktop and executes Electron 44 with the actual HTTP updater, policy client, sandboxed preload, and mandatory renderer. It records each scenario and preserves its report under `.desktop-build/qualification/local-updater-*`. The installer call, external browser, and clipboard are observation substitutes; downloaded bytes are not an executable installer.
+The local command builds Desktop and executes Electron 44 with the actual HTTP updater, policy client, sandboxed preload, and mandatory renderer. It records each scenario and preserves its report under `.build-cache/qualification/local-updater-*`. The installer call, external browser, and clipboard are observation substitutes; downloaded bytes are not an executable installer.
 
 Packaging supervision fixtures control their Git metadata and use real file hashes with inert child processes. Git-head and worktree changes still refuse packaging; concurrent tests cannot change the fixture’s recorded Git inputs.
 
@@ -59,7 +59,7 @@ Packaging supervision fixtures control their Git metadata and use real file hash
 
 The focused dialog, main-entry, settings, and sidebar run passes 119 regression cases. Five carrier tests cover all statements, branches, functions, and lines of the shared update-status source. The real-Electron command passes 17 scenarios and captures ordinary-ready, task-warning, and mandatory-error dialogs. These isolated checks do not certify the complete workspace or a release. Full-repository gate results and environment limitations remain separate from this focused evidence.
 
-Chromium headless shell revision 1228 is installed in the ignored `.desktop-build/playwright` directory. The assembled settings and sidebar browser suites pass 18 cases. The [Desktop workspace browser scenario](../../web/tests/desktop-updates.e2e.ts) passes both Chinese and English cases, captures six screenshots per locale, and verifies bottom-row placement, compact progress with duplicate-click rejection, a top-toggle badge, persistent red retry with error tooltip, and a separate ready action. The presentation function, Host Web composition, client plugins, and CSS are real; the Desktop carrier is substituted. These cases do not exercise Electron IPC, menus, task authorization, or installation.
+Chromium headless shell revision 1228 is installed in the ignored `.build-cache/playwright` directory. The assembled settings and sidebar browser suites pass 18 cases. The [Desktop workspace browser scenario](../../web/tests/desktop-updates.e2e.ts) passes both Chinese and English cases, captures six screenshots per locale, and verifies bottom-row placement, compact progress with duplicate-click rejection, a top-toggle badge, persistent red retry with error tooltip, and a separate ready action. The presentation function, Host Web composition, client plugins, and CSS are real; the Desktop carrier is substituted. These cases do not exercise Electron IPC, menus, task authorization, or installation.
 
 The [built Host scenario](fixtures/host-update-qualification.mjs) uses the actual profile Loader, standard agent preset, task services, and Node background processes. It verifies queued turns/steps, a running model request, pending questions/approvals, global and agent jobs in running/stopping states, admission locking without cancellation, restored admission, and rejected inspection after Host disposal. Only model responses and human answers are substituted. Two independent invocations pass concurrently with private profiles and session data; all owned agents, jobs, and Hosts finish before a success report is written.
 

@@ -29,6 +29,16 @@ export type { AgentBackendRow as BuiltinAgentBackendDescriptor }
 
 /** A probe result supplied by an external runtime adapter. */
 export interface BuiltinAgentBackendProbe {
+  /** The executable this probe ran. */
+  readonly command?: string
+  /**
+   * Whether the deployment named that executable itself.
+   *
+   * A named executable is an explicit choice — the operator pointed at a
+   * runtime the PATH does not carry — and a missing one is an answer the
+   * composer has to explain rather than hide.
+   */
+  readonly configured?: boolean
   readonly version: string
   readonly source: string
   /** Whether a runtime is installed at all; an absent runtime is unconfigured, not incompatible. */
@@ -99,6 +109,10 @@ export function createExternalRuntimeProvider(
       if (cached !== undefined && now - cached.at < PROBE_CACHE_MS) return cached.probe
       const probe = locateExternalRuntime(id, options)
       const answer: BuiltinAgentBackendProbe = {
+        command: probe.command,
+        // A named executable is the deployment's own choice; the upstream's
+        // own command is a discovery answer.
+        configured: options.command !== undefined,
         version: probe.version,
         source: probe.source,
         installed: probe.installed,
@@ -298,9 +312,13 @@ function externalBackend(
   if (!probe.installed) {
     // No runtime on this machine: the deployment installed nothing, so the
     // choice stays hidden instead of offering a backend that cannot start.
+    // A NAMED executable is the exception: the operator pointed at a runtime
+    // that is not there, and that gap has to be explained, not hidden.
     return {
       id,
       name,
+      ...(probe.command === undefined ? {} : { command: probe.command }),
+      ...(probe.configured === undefined ? {} : { configured: probe.configured }),
       version: 'unconfigured',
       source: 'external-runtime',
       availability: 'unconfigured',
@@ -311,6 +329,8 @@ function externalBackend(
   return {
     id,
     name,
+    ...(probe.command === undefined ? {} : { command: probe.command }),
+    ...(probe.configured === undefined ? {} : { configured: probe.configured }),
     version: probe.version,
     source: probe.source,
     availability: probe.compatible ? 'ready' : 'incompatible',

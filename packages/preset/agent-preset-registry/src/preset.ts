@@ -20,7 +20,7 @@ export interface Config {
    * runtime outside the PATH. A runtime that is not named here is discovered
    * on the PATH, exactly like the upstream's own command.
    */
-  externalRuntimes?: {
+  externalRuntimes: Volatile<{
     /**
      * Absolute path or command name of the Pi runtime executable; the
      * deployment's own PATH lookup applies when this is omitted.
@@ -31,5 +31,5 @@ export interface Config {
      * deployment's own PATH lookup applies when this is omitted.
      */
     zcode?: string
-  }
+  } | undefined>
 }

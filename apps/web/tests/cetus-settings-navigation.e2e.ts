@@ -58,7 +58,7 @@ it('exposes Team model settings and canonical appearance controls with aligned s
   await settings.getByRole('button', { name: '外观与皮肤', exact: true }).click()
   const gallery = settings.locator('[data-hln-appearance]')
   expect(await gallery.locator('[data-hln-ui-surface]').count()).toBe(4)
-  expect(await gallery.locator('[data-hln-ui-control]').count()).toBe(31)
+  expect(await gallery.locator('[data-hln-ui-control]').count()).toBe(46)
   await gallery.getByRole('button', { name: '雪花石膏', exact: true }).click()
   await expect.poll(() => page.locator('html').getAttribute('data-hln-theme')).toBe('alabaster-studio')
   expect(await gallery.locator('[data-hln-ui-control][data-active="true"]').count()).toBe(4)
@@ -67,9 +67,29 @@ it('exposes Team model settings and canonical appearance controls with aligned s
   await page.screenshot({ path: join(evidence, 'cetus-appearance-light.png') })
   await gallery.getByRole('button', { name: '奇点青', exact: true }).click()
   await page.screenshot({ path: join(evidence, 'cetus-appearance-dark.png') })
+  // The Latin profile card has to reach the surface: the v4 layer repoints
+  // --hln-ui-font-current at the chosen profile, and the app's own face
+  // reads that reference. A card that only repoints a variable nothing
+  // consumes leaves the user looking at the same typeface.
+  const rootFace = () => page.locator('#root').evaluate(node => getComputedStyle(node).fontFamily)
+  const beforeFace = await rootFace()
+  await gallery.getByRole('button', { name: 'editorial', exact: true }).click()
+  await expect.poll(() => rootFace()).not.toBe(beforeFace)
+  // The editorial profile is Aptos Display/Optima/Georgia; that stack on the
+  // root is what proves the profile reached the surface and not a variable
+  // nothing reads.
+  expect(await rootFace()).toContain('Optima')
   await page.setViewportSize({ width: 640, height: 800 })
   expect(await gallery.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true)
   await page.setViewportSize({ width: 1280, height: 900 })
+  // The execution-backend page is where a deployment names the runtime an
+  // upstream runs on; it must render one row per external runtime, with
+  // the executable field the operator types into.
+  await settings.getByRole('button', { name: '执行底座', exact: true }).click()
+  const piRuntime = settings.locator('[data-agent-runtime-id="pi"]')
+  await piRuntime.waitFor({ timeout: 15_000 })
+  expect(await piRuntime.locator('input').count()).toBe(1)
+  expect(await piRuntime.locator('input').getAttribute('placeholder')).toBe('pi')
   await settings.getByRole('button', { name: '关闭', exact: true }).click()
   // The preset seat is session-scoped: it renders in the composer tool row
   // once a session exists, so the workspace (and with it the blank session)

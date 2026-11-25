@@ -118,7 +118,7 @@
 
 .titlePathPart {
   display: inline-flex;
-  min-width: 0;
+  flex: 0 0 auto;
   align-items: center;
   gap: 4px;
   padding: 4px 8px;
@@ -126,6 +126,23 @@
   color: var(--dsw-alias-label-tertiary);
   font-size: 14px;
   line-height: 20px;
+}
+
+/* A segment is a CRUMB, not a letter: it keeps its own width and is never
+   squeezed down to a single character. When the run no longer fits, the
+   MIDDLE segments fold into one "…" crumb and the last segment — the one that
+   names the project — keeps its own width; only then may it shrink, and it ends
+   in an ellipsis rather than a clipped letter. */
+.titlePath[data-collapsed='true'] .titlePathPart[data-middle='true'] {
+  max-width: 0;
+  margin-inline-end: -4px;
+  padding-inline: 0;
+  overflow: hidden;
+}
+
+.titlePath[data-collapsed='true'] .titlePathPart[data-last='true'] {
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .titlePathPart > span:not(.titlePathSep) {
@@ -615,7 +632,7 @@
   padding-inline-end: 12px;
   color: var(--dsw-alias-label-caption);
   font-family: var(--dsw-alias-font-family-mono, ui-monospace, monospace);
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
   line-height: 20px;
   text-align: end;
@@ -633,6 +650,7 @@
 .codeLayer {
   position: absolute;
   inset: 0;
+  box-sizing: border-box;
   margin: 0;
   padding: 8px 16px;
   overflow: visible;
@@ -646,6 +664,15 @@
   white-space: pre;
 }
 
+/* One source line per block: the highlight layer must match the textarea line
+   box, without extra newline nodes that would skew the caret. */
+.codeLine {
+  display: block;
+  height: 20px;
+  line-height: 20px;
+  white-space: pre;
+}
+
 /* The UA gives <code> its own monospace family; the layer's own metrics are
    what the text area is measured against, so the inner element inherits. */
 .codeLayer code {
@@ -655,6 +682,7 @@
 .codeInput {
   position: absolute;
   inset: 0;
+  box-sizing: border-box;
   width: 100%;
   height: 100%;
   margin: 0;
@@ -671,6 +699,7 @@
   outline: none;
   overflow: auto;
   resize: none;
+  scrollbar-gutter: stable;
   tab-size: 2;
   white-space: pre;
 }
@@ -684,6 +713,103 @@
 .codeSurface:focus-within {
   outline: var(--dsw-focus-ring-width, 1px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: -1px;
+}
+
+/* ── Center column: media viewer and rich-text preview ─────────────────── */
+
+.filePane {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--dsw-alias-bg-base);
+}
+
+.viewerToolbar {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l3);
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.viewerMode {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--dsw-radius-md);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+  cursor: pointer;
+}
+
+.viewerMode[data-active='true'] {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.viewerMode:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+.markdownPreview {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 20px 20px;
+  overflow: auto;
+  color: var(--dsw-alias-label-primary);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.htmlPreview,
+.viewerEmbed {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  background: var(--dsw-alias-bg-base);
+}
+
+.viewerFit {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--dsw-alias-label-caption) 16%, transparent) 1px, transparent 0);
+  background-size: 16px 16px;
+}
+
+.viewerImage {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--dsw-radius-md);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-bg-invert, #000) 12%, transparent);
+}
+
+.viewerAudioShell {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.viewerAudio {
+  width: min(480px, 100%);
 }
 
 /* The product's empty states are type, not a framed badge. */

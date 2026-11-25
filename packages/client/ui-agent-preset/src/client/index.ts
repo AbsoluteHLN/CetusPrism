@@ -43,6 +43,9 @@ import type { AgentPresetSectionInjected } from './AgentPresetSection.tsx'
 import { AgentBackendSeat } from './AgentBackendSeat.tsx'
 import type { AgentBackendSeatInjected } from './AgentBackendSeat.tsx'
 import { AgentBackendSeatController } from './backend-store.ts'
+import { AgentRuntimeSection } from './AgentRuntimeSection.tsx'
+import type { AgentRuntimeSectionInjected } from './AgentRuntimeSection.tsx'
+import { AgentRuntimeController } from './runtime-store.ts'
 import { AgentPresetSeatController, type AgentPresetStage } from './seat-store.ts'
 import { AgentPresetSectionController } from './section-store.ts'
 import { en, zh, type AgentPresetSettingsKey } from './locales.ts'
@@ -60,6 +63,8 @@ export type { AgentPresetSeatInjected, AgentPresetSeatProps } from './AgentPrese
 export type { AgentPresetSectionInjected, AgentPresetSectionProps } from './AgentPresetSection.tsx'
 export type { AgentBackendSeatInjected, AgentBackendSeatProps } from './AgentBackendSeat.tsx'
 export type { AgentBackendOption, AgentBackendSeatState } from './backend-store.ts'
+export type { AgentRuntimeSectionInjected, AgentRuntimeSectionProps } from './AgentRuntimeSection.tsx'
+export type { AgentRuntimeId, AgentRuntimeOption, AgentRuntimeState } from './runtime-store.ts'
 export { DEFAULT_AGENT_BACKEND, backendOptions, readBackendCatalog } from './backend-store.ts'
 export type { AgentPresetSeatState } from './seat-store.ts'
 export type { AgentPresetSectionState, PresetView } from './section-store.ts'
@@ -111,6 +116,10 @@ export function apply(ctx: ClientContext): void {
   // The execution-backend catalog is a deployment fact, not a session fact: one
   // controller serves every surface, and a reconnect re-reads it.
   const backends = new AgentBackendSeatController(ctx)
+  // The external runtimes the deployment may point at an executable. They are
+  // a deployment fact too, so one controller serves the settings page and
+  // the composer chip alike.
+  const runtimes = new AgentRuntimeController(ctx)
   const mainBlankSeat = (): AgentPresetSeatController | undefined => {
     const summary = Object.values(ctx.sessions.list.getSnapshot().byId)
       .find((session) => {
@@ -134,6 +143,7 @@ export function apply(ctx: ClientContext): void {
       void unboundSeat.load()
       for (const seat of seats.values) void seat.load()
       void backends.load()
+      void runtimes.load()
     }
     const disposers = [
       ctx.remote.$on('settings/document-updated', (ns) => {
@@ -254,4 +264,19 @@ export function apply(ctx: ClientContext): void {
     locale: 'settings.agentPreset',
     inject: sectionInjected,
   }, AgentPresetSection))
+
+  // The execution backends, right after the presets they run alongside: the
+  // preset says what the agent does, this one says what runs it.
+  ctx.slots.inject('settings.section', () => ctx.slots.register({
+    name: 'settings.section',
+    id: 'agent-runtimes',
+    order: 25,
+    label: () => ctx.locale.bind('settings.agentPreset')('runtimeNav'),
+    locale: 'settings.agentPreset',
+    inject: (): AgentRuntimeSectionInjected => ({
+      hooks: { agentRuntime: runtimes.store },
+      load: () => runtimes.load(),
+      save: (id, command) => runtimes.save(id, command),
+    }),
+  }, AgentRuntimeSection))
 }

@@ -9,6 +9,8 @@ import { promisify } from 'node:util'
 import { createWindowsTokenSigner, installWindowsNsisBootstrapSigner, scrubWindowsSigningEnvironment } from './windows-sign.mjs'
 import { loadDesktopPackageEnvironment } from './desktop-package-environment.mjs'
 import { createPackagingRun } from './packaging-run.mjs'
+import { ensureDesktopBuildLink } from './desktop-build-cache.mjs'
+import { desktopBuildRoot } from './desktop-build-paths.mjs'
 
 if (process.platform !== 'win32' || process.arch !== 'x64') {
   throw new Error('Installer UI checks require an interactive Windows x64 desktop')
@@ -24,7 +26,8 @@ const productName = `Harness Installer Test ${id.slice(0, 8)}`
 // Scoped like the shipped package so Electron user data nests under a scope directory; the scope is unique per run.
 const packageName = `@harness-installer-test-${id.slice(0, 8)}/app-${id}`
 const uninstallOnly = process.argv.includes('--uninstall-only')
-const outputRoot = join(appRoot, '.desktop-build', 'installer-tests')
+ensureDesktopBuildLink()
+const outputRoot = join(desktopBuildRoot(), 'installer-tests')
 await mkdir(outputRoot, { recursive: true })
 const output = await mkdtemp(join(outputRoot, 'run-'))
 const payload = join(output, 'payload')

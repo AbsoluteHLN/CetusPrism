@@ -60,6 +60,13 @@ const distDir = process.env.CETUS_DIST_DIR
     ? 'E:/dependency-cache/cetusprism/dist'
     : join(repoRoot, 'apps', 'electron', 'dist'))
 
+/** @type {string} */
+let defaultWinUnpacked = join(distDir, 'win-unpacked')
+if (process.platform === 'win32') {
+  const { resolveWinUnpackedDir } = await import(join(repoRoot, 'apps', 'electron', 'scripts', 'cetus-win-paths.mjs'))
+  defaultWinUnpacked = resolveWinUnpackedDir()
+}
+
 /**
  * Absolute path fragments that must never appear in a shipped binary
  * (lowercase comparison; both slash spellings are checked).
@@ -110,7 +117,7 @@ const SUPPLY_CHAIN_LINE = /against supply-chain policies/
 
 function parseArgs(argv) {
   const options = {
-    artifacts: join(distDir, 'win-unpacked'),
+    artifacts: defaultWinUnpacked,
     exe: undefined,
     packScript: join(repoRoot, 'apps', 'electron', 'scripts', 'pack-tauri.mjs'),
     buildScript: join(repoRoot, 'apps', 'electron', 'scripts', 'build-shell.mjs'),

@@ -5,6 +5,8 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promi
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import electron from 'electron'
+import { ensureDesktopBuildLink } from './desktop-build-cache.mjs'
+import { desktopBuildRoot } from './desktop-build-paths.mjs'
 
 assert.equal(process.platform, 'win32', 'Signed NSIS download qualification requires Windows')
 const [certificate, signed, unsigned, old] = process.argv.slice(2)
@@ -12,7 +14,8 @@ assert.ok(certificate && signed && unsigned,
   'Usage: node apps/desktop/scripts/test-signed-updates.mjs <public.cer> <signed.exe> <unsigned.exe> [old.exe]')
 const paths = await Promise.all([certificate, signed, unsigned, ...(old ? [old, `${signed}.blockmap`, `${old}.blockmap`] : [])]
   .map(file => realpath(file)))
-const evidence = fileURLToPath(new URL('../.desktop-build/qualification/', import.meta.url))
+ensureDesktopBuildLink()
+const evidence = join(desktopBuildRoot(), 'qualification')
 await mkdir(evidence, { recursive: true })
 const root = await mkdtemp(join(evidence, 'signed-downloads-'))
 await mkdir(join(root, 'runtime'))

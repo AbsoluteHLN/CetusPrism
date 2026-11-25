@@ -7,6 +7,7 @@
     - button "用量统计"
     - button "内置插件"
     - button "Agent 预设"
+    - button "执行底座"
     - button "关于与鸣谢"
     - button "智能体团队"
   - button "打开配置文件"

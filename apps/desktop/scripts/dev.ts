@@ -7,14 +7,15 @@ import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
 import type { DesktopRelease } from '../src/release.ts'
-import { developmentRuntimeDirectory, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
+import { ensureDesktopBuildLink } from './desktop-build-cache.mjs'
+import { desktopBuildRoot, developmentRuntimeDirectory, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
 import { prepareDevelopmentProject } from './development-project.ts'
 import { prepareDevelopmentApp } from './development-app.ts'
 import { preparePrimaryRuntime } from './prepare-primary-runtime.ts'
 
 const APP_ROOT = resolve(import.meta.dirname, '..')
 const REPOSITORY_ROOT = resolve(APP_ROOT, '..', '..')
-const BUILD_ROOT = join(APP_ROOT, '.desktop-build')
+const BUILD_ROOT = desktopBuildRoot()
 const DEVELOPMENT_ROOT = join(BUILD_ROOT, 'development')
 
 interface PackageManifest {
@@ -91,6 +92,7 @@ async function launchElectron(): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  ensureDesktopBuildLink()
   const { values } = parseArgs({ options: { 'skip-build': { type: 'boolean', default: false } } })
   if (!values['skip-build']) {
     await runPackageScript('build', REPOSITORY_ROOT)
@@ -102,7 +104,11 @@ async function main(): Promise<void> {
   ]) {
     if (!existsSync(path)) throw new Error(`desktop development: missing built artifact ${path}`)
   }
-  const version = packageVersion(join(APP_ROOT, 'package.json'), 'desktop package')
+  const version = packageVersion(join(REPOSITORY_ROOT, 'apps', 'cli', 'package.json'), 'cli dsh package')
+  const hostVersion = packageVersion(join(REPOSITORY_ROOT, 'apps', 'desktop-host', 'package.json'), 'desktop-host package')
+  if (version !== hostVersion) {
+    throw new Error(`desktop development: @deepseek-ai/dsh ${version} must match @deepseek-ai/dsh-desktop-host ${hostVersion}`)
+  }
   const pnpmVersion = packageVersion(join(APP_ROOT, 'node_modules', 'pnpm', 'package.json'), 'pnpm package')
   const release: DesktopRelease = {
     schemaVersion: 1,

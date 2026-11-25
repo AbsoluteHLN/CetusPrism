@@ -17,6 +17,12 @@ export interface DesktopTargetBuildPaths {
 }
 
 /**
+ * Resolve the root of the Desktop build tree.
+ * @returns Absolute build tree root.
+ */
+export function desktopBuildRoot(): string
+
+/**
  * Resolve the fixed build target selected by a packaging environment.
  * @param env - Packaging environment.
  * @param hostPlatform - Build-host platform used when no target override exists.

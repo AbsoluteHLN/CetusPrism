@@ -1,10 +1,20 @@
 /** Resolve build-owned Desktop paths without sharing mutable state across release targets. */
 
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
+import { desktopBuildLinkPath } from './desktop-build-cache.mjs'
 
-const APP_ROOT = resolve(import.meta.dirname, '..')
-const BUILD_ROOT = join(APP_ROOT, '.desktop-build')
+const BUILD_ROOT = desktopBuildLinkPath()
 const SUPPORTED_TARGETS = new Set(['mac-arm64', 'mac-x64', 'win-x64'])
+
+/**
+ * Resolve the root of the Desktop build tree.
+ *
+ * The tree is a link into the shared cache, so the repository keeps no build bytes.
+ * @returns {string} Absolute build tree root.
+ */
+export function desktopBuildRoot() {
+  return BUILD_ROOT
+}
 
 /**
  * Resolve the fixed build target selected by a packaging environment.

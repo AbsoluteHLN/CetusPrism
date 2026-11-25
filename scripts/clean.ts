@@ -68,7 +68,7 @@ export class RepositoryCleaner {
     const canonicalRoot = await realpath(this.root)
 
     await this.addIfPresent(targets, join(this.root, '.dsh-build'), canonicalRoot)
-    await this.addIfPresent(targets, join(this.root, 'apps/desktop/.desktop-build'), canonicalRoot)
+    await this.addIfPresent(targets, join(this.root, 'apps/desktop/.build-cache'), canonicalRoot)
 
     // These checks cover legacy root-level incremental state emitted by older configs,
     // plus the current aggregate-face cache location (tsconfig.host.json / tsconfig.client.json).

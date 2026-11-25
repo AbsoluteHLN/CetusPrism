@@ -16,6 +16,7 @@
 
 import type { SessionReference } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { IdeViewKind } from './ide-view-kind.ts'
 
 /** One child of a listed directory. */
 export interface IdeTreeNode {
@@ -51,6 +52,14 @@ export interface IdeFile {
   readonly saving?: boolean | undefined
   /** The refusal of the last write; the edits stay in the editor. */
   readonly conflict?: string | undefined
+  /** How the center column presents this file. */
+  readonly viewKind?: IdeViewKind | undefined
+  /**
+   * Object URL for a binary preview; revoked when the tab closes.
+   *
+   * Callers must treat the URL as owned by the workspace service.
+   */
+  readonly mediaUrl?: string | undefined
 }
 
 /** The workspace's current state. */
@@ -235,7 +244,13 @@ export function openFile(state: IdeWorkspaceState, file: IdeFile): IdeWorkspaceS
   // A file that is already open keeps its EDITS: re-reading it must not throw
   // away what the user typed while the tab stayed open.
   const merged: IdeFile = existing?.dirty === true
-    ? { ...existing, name: file.name, language: file.language, loading: file.loading }
+    ? {
+      ...existing,
+      name: file.name,
+      language: file.language,
+      loading: file.loading,
+      viewKind: file.viewKind ?? existing.viewKind,
+    }
     : file
   const known = existing !== undefined
   const files = known

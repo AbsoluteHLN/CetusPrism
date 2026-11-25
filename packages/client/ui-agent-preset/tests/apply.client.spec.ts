@@ -23,6 +23,7 @@ import { AgentPresetSeat } from '../src/client/AgentPresetSeat.tsx'
 import type { AgentPresetSeatInjected } from '../src/client/AgentPresetSeat.tsx'
 import { AgentBackendSeat } from '../src/client/AgentBackendSeat.tsx'
 import type { AgentBackendSeatInjected } from '../src/client/AgentBackendSeat.tsx'
+import { AgentRuntimeSection } from '../src/client/AgentRuntimeSection.tsx'
 import { AgentPresetSeatController } from '../src/client/seat-store.ts'
 import { CreatePluginMenuItem, type CreatePluginMenuItemInjected } from '../src/client/CreatePluginMenuItem.tsx'
 import { apply as hostApply } from '../src/index.ts'
@@ -386,7 +387,7 @@ describe('ui-agent-preset apply', () => {
 
     declareRoot(slots)
 
-    await vi.waitFor(() => { expect(slots.entries('settings.section')).toHaveLength(1) })
+    await vi.waitFor(() => { expect(slots.entries('settings.section')).toHaveLength(2) })
   })
 
   it('binds the Add plugin menu item to the roster and Creator flow and removes it with the feature', async () => {
@@ -446,6 +447,19 @@ describe('ui-agent-preset apply', () => {
     expect(section.hooks.agentPresetSection.getSnapshot().view).toBeNull()
   })
 
+  it('registers the execution-backend settings section', async () => {
+    const { ctx, slots } = await bench()
+    ctx.provide('sessions', sessionsDouble(ctx, { byId: {} }) as never)
+    declareRoot(slots)
+    await ctx.plugin({ inject: [...inject], apply }).await()
+
+    const entry = slots.entries('settings.section').find(row => row.options.id === 'agent-runtimes')!
+    expect(entry.component).toBe(AgentRuntimeSection)
+    // The face itself is erased by the slot registry; the controller behind
+    // it is exercised in runtime-store.client.spec.ts.
+    expect(entry.inject).toBeDefined()
+  })
+
   it('refreshes a showing surface when its namespace changes, and ignores others', async () => {
     const { ctx, slots, calls, remote } = await bench()
     ctx.provide('sessions', sessionsDouble(ctx, { byId: {} }) as never)
@@ -456,7 +470,7 @@ describe('ui-agent-preset apply', () => {
     const before = calls.length
 
     remote.emit('settings/document-updated', ['agent-preset-registry', 1])
-    await vi.waitFor(() => { expect(calls.length).toBe(before + 4) })
+    await vi.waitFor(() => { expect(calls.length).toBe(before + 5) })
     const afterRelevant = calls.length
 
     remote.emit('settings/document-updated', ['llm-deepseek', 1])
@@ -482,7 +496,7 @@ describe('ui-agent-preset apply', () => {
     ctx.emit('connection/reset')
 
     // A reconnect can land on a host whose roster changed under the browser.
-    await vi.waitFor(() => { expect(calls.length).toBe(before + 4) })
+    await vi.waitFor(() => { expect(calls.length).toBe(before + 5) })
     conversation()
   })
 
@@ -496,10 +510,10 @@ describe('ui-agent-preset apply', () => {
     remote.emit('settings/document-updated', ['agent-preset-registry', 1])
     await vi.waitFor(() => { expect(calls.length).toBeGreaterThan(before) })
 
-    // The directory, unbound seat and backend catalog reload: a section nobody
-    // opened has nothing to converge, and reading the roster for it would be
-    // wasted.
-    expect(calls.length - before).toBe(3)
+    // The directory, unbound seat, backend catalog and runtime catalog
+    // reload: a section nobody opened has nothing to converge, and reading the
+    // roster for it would be wasted.
+    expect(calls.length - before).toBe(4)
   })
 
   it('registers the new-session chip and the header label, and drops both on disposal', async () => {

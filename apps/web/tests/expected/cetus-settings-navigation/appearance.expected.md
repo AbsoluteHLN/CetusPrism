@@ -1,6 +1,14 @@
 - text: HLN 界面风格
-- heading "主题" [level=3]
-- group "主题":
+- heading "主题（收敛统一风格）" [level=3]
+- group "主题（收敛统一风格）":
+  - button "石墨 (Graphite · 琥珀与灰蓝)"
+  - button "瓷白 (Porcelain · 靛蓝与青瓷)"
+  - button "苍松 (Pine · 暖沙与翠玉)"
+  - button "靛青 (Slate · 长春花与海绿)"
+  - button "杏色 (Apricot · 赭石与黛青)"
+  - button "墨梅 (Plum · 紫铜与兰紫)"
+  - button "苔青 (Sage · 松绿与陶土)"
+  - button "藕荷 (Lilac · 靛紫与玫褐)"
   - button "奇点青"
   - button "张量琥珀"
   - button "翠流"
@@ -11,14 +19,15 @@
   - button "包豪斯编译"
 - heading "字体" [level=3]
 - group "字体":
-  - button "geometric"
-  - button "display" [pressed]
-  - button "technical"
   - button "grotesque"
+  - button "display"
+  - button "editorial" [pressed]
+  - button "technical"
+  - button "geometric"
   - button "cyber"
   - button "berlin"
-  - button "editorial"
   - button "label"
+  - button "fangsong"
 - heading "中文字体" [level=3]
 - group "中文字体":
   - button "自动" [pressed]
@@ -30,11 +39,17 @@
   - button "仿宋"
 - heading "背景效果" [level=3]
 - group "背景效果":
-  - button "张量数据流" [pressed]
+  - button "张量数据流"
   - button "神经格架"
   - button "谐波干涉"
   - button "程序矩阵"
   - button "单纯形等高"
   - button "同步总线"
   - button "瑞士向量"
-  - button "静默"
+  - button "纸纹微粒"
+  - button "页边发丝规线"
+  - button "双颜料漫晕"
+  - button "手迹稿纸横线"
+  - button "典籍基线网格"
+  - button "犊皮纸纵向纤维"
+  - button "静默" [pressed]

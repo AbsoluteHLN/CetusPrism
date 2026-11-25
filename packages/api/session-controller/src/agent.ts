@@ -45,6 +45,18 @@ export class ApiSessionCwdConflict extends Error {
   }
 }
 
+/** The execution backend the host selected cannot start a session. */
+export class ApiSessionBackendUnavailable extends Error {
+  /**
+   * @param agentBackend - the backend the host selected.
+   * @param message - why the backend cannot start a session.
+   */
+  constructor(readonly agentBackend: string, message: string) {
+    super(message)
+    this.name = 'ApiSessionBackendUnavailable'
+  }
+}
+
 /** Explicit-id creation attempted to adopt a Session under another preset. */
 export class ApiSessionPresetConflict extends Error {
   constructor(
@@ -399,6 +411,18 @@ export class ApiSessionAgentController {
     const presets = this.ctx.get('agentPresets')
     const backend = backendId ?? presets?.currentBackend() ?? 'dsh'
     const driver = presets?.backendDriver(backend)
+    // A CREATION binds the host's current selection. When that selection
+    // names an external runtime that can no longer start a session, the
+    // session must say so: running it on the native loop would hand the
+    // user a session that is not the one they chose, with no word about
+    // it. A RESUME keeps the backend its own log recorded, and falls back
+    // when that runtime is gone — the history belongs to it.
+    if (backendId === undefined && backend !== 'dsh' && driver === undefined) {
+      throw new ApiSessionBackendUnavailable(
+        backend,
+        `the ${backend} execution backend cannot start a session`,
+      )
+    }
     if (presets === undefined) {
       return { setup: (_agentCtx, agent) => { this.installSelection(agent) } }
     }
@@ -547,21 +571,24 @@ export class ApiSessionAgentController {
    * rebuilds the driver that wrote that history instead of the one the host
    * currently prefers. A session without a record ran on the native loop.
    * @param observation - exact Session observation carrying its projection snapshot.
-   * @returns the recorded backend, or undefined when the session ran natively.
+   * @returns the recorded backend; the native loop when the session recorded none.
    */
-  backendForObservation(observation: SessionObservation): BuiltinAgentBackendId | undefined {
+  backendForObservation(observation: SessionObservation): BuiltinAgentBackendId {
     if (observation.projections === undefined) {
       throw new Error('api-session: Agent activation requires a projected Session observation')
     }
     const backend = observation.projections.values.agentBackend
-    if (backend === undefined || backend === null) return undefined
+    // A session without a record ran on the native loop. Answering
+    // "whatever the host prefers now" would hand that history to another
+    // driver, which is the one thing the record exists to prevent.
+    if (backend === undefined || backend === null) return 'dsh'
     try {
       // The record was written by a validated selection, but the log outlives
       // the writer: an unknown id falls back to the native loop instead of
       // failing the resume.
       return parseBuiltinAgentBackend(backend)
     } catch {
-      return undefined
+      return 'dsh'
     }
   }
 

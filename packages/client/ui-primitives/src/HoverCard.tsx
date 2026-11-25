@@ -228,6 +228,7 @@ export function HoverCard({
       ref={cardRef}
       className={clsx(css.card, variant === 'preview' && css.preview, inline && css.media, copyable && css.copyable, copied && css.feedback)}
       data-closing={closing || undefined}
+      data-hln-ui-scroll=""
       style={{
         ...pos, minHeight: copied && copyHeightRef.current !== null ? copyHeightRef.current : undefined,
         '--dsh-hover-preview-fade': `${PREVIEW_FADE_MS}ms`,

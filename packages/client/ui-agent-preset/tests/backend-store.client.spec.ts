@@ -187,7 +187,7 @@ describe('backend options', () => {
 })
 
 describe('the one-button rule', () => {
-  const wire = (row: { id: 'dsh' | 'pi' | 'zcode'; name: string; version: string; availability: 'ready' | 'unconfigured' | 'incompatible'; reason?: string }) => row
+  const wire = (row: { id: 'dsh' | 'pi' | 'zcode'; name: string; command?: string; configured?: boolean; version: string; availability: 'ready' | 'unconfigured' | 'incompatible'; reason?: string }) => row
   const dsh = wire({ id: 'dsh', name: 'DSH', version: 'native', availability: 'ready' })
   const piUnconfigured = wire({ id: 'pi', name: 'Pi', version: 'unconfigured', availability: 'unconfigured', reason: 'Pi runtime is not configured' })
   const zcodeUnconfigured = wire({ id: 'zcode', name: 'ZCode', version: 'unconfigured', availability: 'unconfigured', reason: 'ZCode runtime is not configured' })
@@ -196,6 +196,13 @@ describe('the one-button rule', () => {
 
   it('hides the seat while only DSH is installed', () => {
     expect(backendSeatVisible(backendOptions([dsh, piUnconfigured, zcodeUnconfigured]))).toBe(false)
+  })
+
+  it('shows the seat for a runtime the deployment named but that is missing', () => {
+    // The operator pointed at an executable that is not there. The chip is
+    // where that gap is explained, so it cannot stay hidden.
+    const named = wire({ ...piUnconfigured, command: 'C:/tools/pi.cmd', configured: true })
+    expect(backendSeatVisible(backendOptions([dsh, named]))).toBe(true)
   })
 
   it('shows the seat once any external runtime answered a probe', () => {

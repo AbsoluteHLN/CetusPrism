@@ -10,6 +10,8 @@
  *    directory that carries real bytes.
  * 2. A `node_modules` link that points back into the repository instead of
  *    at the shared cache.
+ * 3. A build tree that materialized inside the repository instead of behind
+ *    the Desktop build link.
  *
  * The workspace pins `storeDir` and `virtualStoreDir` in
  * `pnpm-workspace.yaml`; this gate reads those pins and fails when the
@@ -19,7 +21,7 @@
  * @module scripts/check-dependency-boundary
  */
 
-import { existsSync, readdirSync, readFileSync, readlinkSync } from 'node:fs'
+import { existsSync, lstatSync, readdirSync, readFileSync, readlinkSync } from 'node:fs'
 import type { Dirent } from 'node:fs'
 import { join, relative, resolve, sep } from 'node:path'
 
@@ -29,13 +31,21 @@ const DEPENDENCY_ROOT = 'E:\\dependency-cache'
 /** Directories that never hold dependency payloads, wherever they appear. */
 const NON_DEPENDENCY_DIRECTORIES = new Set([
   '.git',
-  '.desktop-build',
   'dist',
   'cxbuild',
   'coverage',
   'snapshots',
   'temp',
 ])
+
+/**
+ * The Desktop build link, relative to the repository root.
+ *
+ * The Desktop build tree holds downloaded archives, prepared runtimes and
+ * packaged artifacts. The repository keeps one link that points at the shared
+ * cache, so the tree itself never holds those bytes.
+ */
+const DESKTOP_BUILD_LINK = 'apps/desktop/.build-cache'
 
 /** Dependency directories whose presence inside the project is a violation. */
 const PAYLOAD_DIRECTORIES = ['node_modules', '.pnpm', '.venv', 'site-packages'] as const
@@ -94,6 +104,8 @@ export function scanDependencyBoundary(root: string): Finding[] {
       return
     }
     for (const entry of entries) {
+      // A link carries no bytes of its own; its target is inspected separately.
+      if (entry.isSymbolicLink()) continue
       if (!entry.isDirectory()) continue
       if (NON_DEPENDENCY_DIRECTORIES.has(entry.name)) continue
       const path = join(directory, entry.name)
@@ -115,7 +127,40 @@ export function scanDependencyBoundary(root: string): Finding[] {
     }
   }
   walk(root)
+  findings.push(...inspectDesktopBuildLink(root))
   return findings
+}
+
+/**
+ * Inspect the Desktop build link for a build tree that stayed inside the repository.
+ * @param root - the repository root.
+ * @returns the violations found at the link.
+ */
+function inspectDesktopBuildLink(root: string): Finding[] {
+  const link = join(root, DESKTOP_BUILD_LINK)
+  let symbolic: boolean
+  try {
+    symbolic = lstatSync(link).isSymbolicLink()
+  } catch {
+    // An absent link holds nothing; the next build recreates it.
+    return []
+  }
+  if (!symbolic) {
+    return [{
+      kind: 'payload',
+      path: DESKTOP_BUILD_LINK,
+      detail: 'the Desktop build link is a real directory; the build tree belongs in the shared cache',
+    }]
+  }
+  const resolved = resolveLinkTarget(link)
+  if (resolved === undefined || !insideDependencyCache(resolved)) {
+    return [{
+      kind: 'link',
+      path: DESKTOP_BUILD_LINK,
+      detail: 'points outside the shared cache',
+    }]
+  }
+  return []
 }
 
 /**

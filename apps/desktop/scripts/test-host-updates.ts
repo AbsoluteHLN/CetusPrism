@@ -6,9 +6,12 @@ import { fileURLToPath } from 'node:url'
 import { createDevelopmentProjectMetadata } from '../src/project-manager.ts'
 import { removeOwnedDirectory } from '../src/owned-directory.ts'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
+import { ensureDesktopBuildLink } from './desktop-build-cache.mjs'
+import { desktopBuildRoot } from './desktop-build-paths.mjs'
 
 const repo = resolve(import.meta.dirname, '../../..')
-const evidenceRoot = join(repo, 'apps/desktop/.desktop-build/qualification')
+ensureDesktopBuildLink()
+const evidenceRoot = join(desktopBuildRoot(), 'qualification')
 await mkdir(evidenceRoot, { recursive: true })
 const root = await mkdtemp(join(evidenceRoot, 'host-updates-'))
 const project = join(root, 'project')

@@ -58,7 +58,7 @@ async function fixture(external: boolean) {
   const root = await mkdtemp(join(tmpdir(), 'windows-asar-'))
   roots.push(root)
   const appDir = join(root, 'app')
-  const source = external ? join(root, 'private', 'dsh') : join(appDir, '.desktop-build', 'dsh')
+  const source = external ? join(root, 'private', 'dsh') : join(appDir, '.build-cache', 'dsh')
   const resources = join(root, 'output', 'resources')
   await mkdir(resources, { recursive: true })
   await mkdir(appDir, { recursive: true })
@@ -174,11 +174,11 @@ it('registers external staging cleanup before a configuration rewrite fails', as
   // The source still passes PE discovery; a destination mapping setter fails after staging is copied.
   Object.defineProperty(input.config, 'files', { get: () => files, set: () => { throw new Error('configuration rejected') } })
   await expect(prepareWindowsAsarUnpack(input.context, input.source)).rejects.toThrow('configuration rejected')
-  const staging = await readdir(join(input.appDir, '.desktop-build'))
+  const staging = await readdir(join(input.appDir, '.build-cache'))
   expect(staging).toHaveLength(1)
   expect(cleanups).toHaveLength(1)
   await cleanups.pop()!()
-  expect(await readdir(join(input.appDir, '.desktop-build'))).toEqual([])
+  expect(await readdir(join(input.appDir, '.build-cache'))).toEqual([])
 })
 
 it.each([true, false])('validates the real builder hook for unsigned=%s', async (unsigned) => {

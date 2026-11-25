@@ -25,15 +25,15 @@
 import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, rmdirSync, rmSync, symlinkSync, statSync } from 'node:fs'
 import { dirname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { resolveWinUnpackedDir } from './cetus-win-paths.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const appRoot = resolve(here, '..')
 const repoRoot = resolve(appRoot, '..', '..')
 // Runtime root defaults to the Windows unpacked tree (pack-tauri flow); the
 // Linux pack passes its linux-unpacked runtime as argv[2].
-const distDir = process.env.CETUS_DIST_DIR
-  ?? (process.platform === 'win32' ? 'E:/dependency-cache/cetusprism/dist' : join(appRoot, 'dist'))
-const runtimeRoot = resolve(process.argv[2] ?? join(distDir, 'win-unpacked', 'resources', 'app', 'backend', 'runtime'))
+
+const runtimeRoot = resolve(process.argv[2] ?? join(resolveWinUnpackedDir(), 'resources', 'app', 'backend', 'runtime'))
 const nm = join(runtimeRoot, 'node_modules')
 const pnpmDir = join(nm, '.pnpm')
 

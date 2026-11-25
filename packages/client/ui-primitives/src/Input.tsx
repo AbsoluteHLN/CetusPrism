@@ -13,10 +13,11 @@ import css from './Input.module.css'
  */
 export const Input = forwardRef<HTMLInputElement, {
   icon?: ReactNode
-  className?: string
+  /** The wrapper class; a CSS-module lookup may legitimately be absent. */
+  className?: string | undefined
 } & InputHTMLAttributes<HTMLInputElement>>(function Input({ icon, className, ...rest }, ref) {
   return (
-    <span className={clsx(css.wrap, className)}>
+    <span className={clsx(css.wrap, className)} data-hln-ui-field>
       {icon != null && <span className={css.icon}>{icon}</span>}
       <input ref={ref} className={css.input} {...rest} />
     </span>

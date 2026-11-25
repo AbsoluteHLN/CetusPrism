@@ -32,7 +32,7 @@
  * inside it.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
 import {
   FileTypeIcon, IconChevronLeftOutlineRegular, IconCodeOutlineRegular,
@@ -44,7 +44,7 @@ import type {
 import { activeFile, type IdeWorkspaceState } from './ide-model.ts'
 import { ideTreeRows } from './ide-tree.ts'
 import { IdeAssistant } from './IdeAssistant.tsx'
-import { IdeCodeEditor } from './IdeCodeEditor.tsx'
+import { IdeFilePane } from './IdeFilePane.tsx'
 import { IdeFileTree } from './IdeFileTree.tsx'
 import { IdePaneHeader } from './IdePaneHeader.tsx'
 import { IdeSplitter } from './IdeSplitter.tsx'
@@ -168,7 +168,22 @@ export function IdeWorkspace(props: IdeWorkspaceProps): ReactNode {
   const [layout, setLayout] = useState<IdeLayout>(readLayout)
   const [container, setContainer] = useState(0)
   const [cursor, setCursor] = useState({ line: 1, column: 1 })
+  const [pathFolded, setPathFolded] = useState(false)
   const surfaceRef = useRef<HTMLElement>(null)
+  const crumbsRef = useRef<HTMLElement>(null)
+  const sessionRef = useRef<HTMLSpanElement>(null)
+  const pathRef = useRef<HTMLSpanElement>(null)
+
+  // The project path is a breadcrumb RUN, not a string to squeeze: every
+  // segment keeps its own width, and the run folds its middle segments into
+  // one "…" crumb when it no longer fits the title bar. The decision is
+  // measured rather than guessed — the browser owns this geometry, and a
+  // folded crumb is the difference between a path that reads and a path
+  // crushed into single letters.
+  const pathParts = useMemo(() => {
+    if (state.root === undefined) return []
+    return state.root.split(/[/\\]+/).filter(part => part !== '')
+  }, [state.root])
 
   // The frame's width decides how much room the editor keeps: a narrow
   // window must not squeeze the code into a column of broken words.
@@ -183,6 +198,46 @@ export function IdeWorkspace(props: IdeWorkspaceProps): ReactNode {
     observer.observe(element)
     return () => { observer.disconnect() }
   }, [])
+
+  // Measure the run against the room it has and fold it when it no longer
+  // fits. The measurement is the same in both states: a segment's own text
+  // width survives the fold, so the run's natural width stays knowable.
+  useLayoutEffect(() => {
+    const crumbs = crumbsRef.current
+    const path = pathRef.current
+    if (crumbs === null || path === null) return
+    const measure = (): void => {
+      const parts = [...path.querySelectorAll<HTMLElement>('[data-ide-path-part]')]
+      const first = parts[0]
+      const last = parts[parts.length - 1]
+      // Fewer than three segments have no middle to fold.
+      if (first === undefined || last === undefined || parts.length < 3) {
+        setPathFolded(false)
+        return
+      }
+      const partStyle = getComputedStyle(first)
+      const padding = Number.parseFloat(partStyle.paddingLeft)
+        + Number.parseFloat(partStyle.paddingRight)
+      const separator = last.querySelector<HTMLElement>('[data-ide-path-sep]')
+      const separatorWidth = separator?.getBoundingClientRect().width ?? 0
+      let natural = 0
+      for (const part of parts) {
+        const text = part.querySelector<HTMLElement>('[data-ide-path-text]')
+        natural += (text?.scrollWidth ?? 0) + padding
+        if (part.querySelector('[data-ide-path-sep]') !== null) natural += separatorWidth
+      }
+      natural += (Number.parseFloat(getComputedStyle(path).columnGap) || 0) * (parts.length - 1)
+      const session = sessionRef.current?.getBoundingClientRect().width ?? 0
+      const gap = Number.parseFloat(getComputedStyle(crumbs).columnGap) || 0
+      setPathFolded(natural > crumbs.clientWidth - session - gap + 1)
+    }
+    measure()
+    // A host without the observer (a test DOM) keeps the measured fold.
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(crumbs)
+    return () => { observer.disconnect() }
+  }, [state.root, state.sessionTitle])
 
   const setFilesWidth = useCallback((filesWidth: number) => {
     setLayout(current => {
@@ -234,18 +289,48 @@ export function IdeWorkspace(props: IdeWorkspaceProps): ReactNode {
           </span>
           <span className={css.titleBrandName}>{t('title.ide')}</span>
         </span>
-        <nav className={css.titleCrumbs} aria-label={t('title.project')}>
-          <span className={css.titleSession} title={state.sessionTitle}>
+        <nav ref={crumbsRef} className={css.titleCrumbs} aria-label={t('title.project')}>
+          <span ref={sessionRef} className={css.titleSession} title={state.sessionTitle}>
             {state.sessionTitle ?? t('empty.session')}
           </span>
-          {state.root !== undefined && (
-            <span className={css.titlePath} title={state.root} data-ide-breadcrumb="">
-              {state.root.split(/[/\\]+/).filter(part => part !== '').map((part, index, all) => (
-                <span key={part} className={css.titlePathPart}>
-                  {index > 0 && <span className={css.titlePathSep} aria-hidden="true">/</span>}
-                  <span className={index === all.length - 1 ? css.titlePathLast : undefined}>{part}</span>
-                </span>
-              ))}
+          {pathParts.length > 0 && (
+            <span
+              ref={pathRef}
+              className={css.titlePath}
+              title={state.root}
+              data-ide-breadcrumb=""
+              data-collapsed={pathFolded ? 'true' : undefined}
+            >
+              {pathParts.map((part, index) => {
+                const last = index === pathParts.length - 1
+                const middle = index > 0 && !last
+                return (
+                  <Fragment key={part}>
+                    {last && pathFolded && (
+                      <span className={css.titlePathPart} data-ide-path-fold="" aria-hidden="true">
+                        <span className={css.titlePathSep}>/</span>
+                        <span>…</span>
+                      </span>
+                    )}
+                    <span
+                      className={css.titlePathPart}
+                      data-ide-path-part=""
+                      data-middle={middle ? 'true' : undefined}
+                      data-last={last ? 'true' : undefined}
+                    >
+                      {index > 0 && (
+                        <span className={css.titlePathSep} data-ide-path-sep="" aria-hidden="true">/</span>
+                      )}
+                      <span
+                        className={last ? css.titlePathLast : undefined}
+                        data-ide-path-text=""
+                      >
+                        {part}
+                      </span>
+                    </span>
+                  </Fragment>
+                )
+              })}
             </span>
           )}
         </nav>
@@ -330,7 +415,7 @@ export function IdeWorkspace(props: IdeWorkspaceProps): ReactNode {
               </div>
             ))}
           </div>
-          {file?.dirty === true && (
+          {file?.dirty === true && (file.viewKind === undefined || file.viewKind === 'text' || file.viewKind === 'markdown' || file.viewKind === 'html') && (
             <button
               type="button"
               className={css.saveButton}
@@ -366,13 +451,12 @@ export function IdeWorkspace(props: IdeWorkspaceProps): ReactNode {
                 </div>
               )
               : (
-                <IdeCodeEditor
-                  content={file.content}
-                  language={file.language}
+                <IdeFilePane
+                  file={file}
                   onChange={(content) => { edit(file.path, content) }}
                   onSave={() => { save(file.path) }}
                   onCursor={(line, column) => { setCursor({ line, column }) }}
-                  ariaLabel={t('code.aria')}
+                  t={t}
                 />
               )}
 
@@ -388,10 +472,16 @@ export function IdeWorkspace(props: IdeWorkspaceProps): ReactNode {
             )}
             {file !== undefined && (
               <>
-                <span className={css.statusItem}>{t('status.editable')}</span>
-                <span className={css.statusItem}>{cursor.line}:{cursor.column}</span>
-                <span className={css.statusItem}>{lineCount} {t('status.lines')}</span>
-                <span className={css.statusItem}>{charCount} {t('status.chars')}</span>
+                {(file.viewKind === undefined || file.viewKind === 'text' || file.viewKind === 'markdown' || file.viewKind === 'html')
+                  ? (
+                    <>
+                      <span className={css.statusItem}>{t('status.editable')}</span>
+                      <span className={css.statusItem}>{cursor.line}:{cursor.column}</span>
+                      <span className={css.statusItem}>{lineCount} {t('status.lines')}</span>
+                      <span className={css.statusItem}>{charCount} {t('status.chars')}</span>
+                    </>
+                  )
+                  : <span className={css.statusItem}>{t('status.preview')}</span>}
               </>
             )}
           </span>

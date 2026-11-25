@@ -44,9 +44,9 @@ kind: "package-library"
 | `Switch` | 36×20 的双态开关。关闭态滑块读取 `--dsw-alias-switch-thumb`，在两种主题下均保持亮色；开启态滑块与品牌色轨道形成对比。禁用控件使用半透明样式。`label` 必填，控件不可能在没有名称的情况下发布。 |
 | `SegmentedControl` | 两段或更多等宽分段加一个滑动指示块的 tablist，用于在几种模式间切换一张卡片或面板；选中项由调用方持有，`label` 为列表命名。`id` 派生每个 tab 的 id（`<id>-<value>`）及其控制的面板 id（`<id>-<value>-panel`），面板由调用方渲染并用 `aria-labelledby` 指回 tab；分段可 `disabled` 并带 `title`，控件级 `disabled` 在当前面板有进行中的操作时锁住全部分段。 |
 | `Checkbox` | 带标签的原生复选框，支持受控状态、键盘交互和禁用样式；调用方提供本地化的 `label` 文本。 |
-| `Input` | 单行文本输入，用于搜索框与行内表单。ref 指向原生输入框，供焦点控制使用，并在卸载时清空。 |
-| `InlineEditor` | 自动聚焦的多行行内编辑器，用于排队消息、goal 等短草稿。它随文本和宽度增高，最多六行，之后滚动；Enter 保存，Shift+Enter 换行，输入法组合中的 Enter 不生效，Escape 取消。调用方提供本地化 `label`，并在 elevated 表面上重绑滚动条。 |
-| `Menu`, `MenuItemButton` | 由 `items` 数据行、分隔线与分组标题构成的下拉菜单，支持嵌套子菜单；`children` 在同一列表中加入组件行，每行一个 `MenuItemButton`（`separatorBefore` 开启新分组）。所有行共享样式、键盘走位与焦点归还；两类行的关闭都是 owner 状态的改变。打开期间 `↑`／`↓`（以及 Home、End）在列表中走位，Tab 选定聚焦行，Escape 或 Shift+Tab 关闭并把焦点还给锚点；选定一行同样把键盘还给锚点——除非拥有者自己移动了焦点。只拦截位于锚点或列表内的键盘，`autoFocus` 仅决定打开时是否聚焦首行。 |
+| `Input` | 单行文本输入，用于搜索框与行内表单。ref 指向原生输入框，供焦点控制使用，并在卸载时清空。外框携带 `data-hln-ui-field`，由 Kalcirite v4 引擎绘制字段高度、发丝描边与聚焦环；内部原生输入框保持透明。外框自行声明 border-box——设置面板 portal 到 body 后它落在引擎根节点之外，引擎自己的 border-box 规则够不到它。 |
+| `InlineEditor` | 自动聚焦的多行行内编辑器，用于排队消息、goal 等短草稿。它随文本和宽度增高，最多六行，之后滚动；Enter 保存，Shift+Enter 换行，输入法组合中的 Enter 不生效，Escape 取消。调用方提供本地化 `label`，并在 elevated 表面上重绑滚动条；编辑器自身的滚动区携带 `data-hln-ui-scroll`，按引擎的轨道滚动。 |
+| `Menu`, `MenuItemButton` | 由 `items` 数据行、分隔线与分组标题构成的下拉菜单，支持嵌套子菜单；`children` 在同一列表中加入组件行，每行一个 `MenuItemButton`（`separatorBefore` 开启新分组）。所有行共享样式、键盘走位与焦点归还；两类行的关闭都是 owner 状态的改变。打开期间 `↑`／`↓`（以及 Home、End）在列表中走位，Tab 选定聚焦行，Escape 或 Shift+Tab 关闭并把焦点还给锚点；选定一行同样把键盘还给锚点——除非拥有者自己移动了焦点。只拦截位于锚点或列表内的键盘，`autoFocus` 仅决定打开时是否聚焦首行。列表的滚动视口携带 `data-hln-ui-scroll`，按引擎的轨道滚动。 |
 | `MenuGroup`、`observeStickyMenuGroups` | 为自定义菜单与列表框提供本地化、可访问的分组，共用吸顶标题样式与原生交叉／尺寸观察；调用方负责观察器的生命周期。 |
 | `Pill` | 可选中的胶囊按钮，用于视图切换与筛选器；接受 `active` 与 `onClick`。 |
 | `SegmentedTabs` | 受控的等宽分段标签，支持滑动指示条及左／右方向键、Home、End 导航。调用方提供文案、标签与面板 id，以及面板内容。 |

@@ -2126,7 +2126,7 @@ describe('desktop main startup', () => {
     await harness.preparing.promise
     harness.prepared.resolve()
     await harness.hostStarted.promise
-    const project = join(harness.app.getAppPath(), '.desktop-build', 'development', 'project')
+    const project = join(harness.app.getAppPath(), '.build-cache', 'development', 'project')
     expect(harness.hosts[0]).toMatchObject({ node: process.execPath, runtime: project,
       primaryRuntime: 'test-primary-runtime', profile: 'desktop-test-profile' })
     expect(harness.applyRelease).toHaveBeenCalledOnce()

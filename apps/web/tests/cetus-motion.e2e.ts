@@ -37,6 +37,22 @@ const PRESETS = [
   'quiet',
 ] as const
 
+/**
+ * The static ambient surfaces the v4 layer draws on the root's ::before.
+ *
+ * They are presets too: the Appearance panel offers every one of them, so
+ * every one of them has to be accepted by the shim and paint something.
+ */
+const AMBIENT_PRESETS = [
+  'paper-grain',
+  'margin-rule',
+  'tint-wash',
+  'ruled-lines',
+  'folio-grid',
+  'vellum-fiber',
+  'quiet',
+] as const
+
 const PRESET_ANIMATIONS: Record<(typeof PRESETS)[number], string> = {
   'tensor-stream': 'hln-v35-bg-stream-glide',
   'neural-dag': 'hln-v35-bg-dag-drift',
@@ -324,6 +340,39 @@ describe('web e2e: Cetus background motion and composer fade', () => {
       expect(reduced.after.willChange, `${preset} ::after will-change`).toBe('auto')
     }
     await page.emulateMedia({ reducedMotion: 'no-preference' })
+  }, 60_000)
+
+  it('accepts every ambient surface and paints it', async () => {
+    onTestFailed(() => saveFailureShot(page, 'web-e2e-cetus-motion-ambient'))
+    for (const preset of AMBIENT_PRESETS) {
+      const sample = await page.evaluate((value) => {
+        // The shim publishes the preset catalog on window.HLN; a preset it
+        // does not know is a card the Appearance panel offers and the shell
+        // then refuses to apply.
+        const shim = Reflect.get(window, 'HLN') as { applyBgMotion: (id: string) => boolean } | undefined
+        if (shim === undefined) throw new Error('the HLN shim is missing')
+        const accepted = shim.applyBgMotion(value)
+        const root = document.querySelector<HTMLElement>('#root')
+        if (root === null) throw new Error('Cetus UI root is missing')
+        const before = getComputedStyle(root, '::before')
+        return {
+          accepted,
+          stamped: root.dataset.hlnBgMotion ?? '',
+          backgroundImage: before.backgroundImage,
+          display: before.display,
+          animationName: before.animationName,
+        }
+      }, preset)
+      expect(sample.accepted, preset + ' is refused by the shim').toBe(true)
+      expect(sample.stamped).toBe(preset)
+      // A static surface paints; it never animates.
+      expect(sample.animationName).toBe('none')
+      if (preset === 'quiet') {
+        expect(sample.display).toBe('none')
+      } else {
+        expect(sample.backgroundImage).not.toBe('none')
+      }
+    }
   }, 60_000)
 
   it('keeps the fade fixed and the final message readable across themes and viewport sizes', async () => {

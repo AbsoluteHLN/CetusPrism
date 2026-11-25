@@ -18,6 +18,9 @@
 # To turn Agent Teams off on the desktop: remove this file from the
 # `--patch` chain in backend/entry.mjs and rebuild the installer.
 - insert:
+    - id: subagent-model-selection-settings
+      name: '@deepseek-ai/dsh-tool-subagent/model-selection-settings'
+
     - id: agent-team
       name: '@deepseek-ai/dsh-experimental-agent-team'
       config:

@@ -1,13 +1,20 @@
 import { join, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
+  desktopBuildRoot,
   desktopTargetBuildPaths,
   desktopTargetPlatform,
   developmentRuntimeDirectory,
   resolveDesktopBuildTarget,
 } from '../scripts/desktop-build-paths.mjs'
+import { desktopBuildLinkPath } from '../scripts/desktop-build-cache.mjs'
 
 describe('desktop build paths', () => {
+  it('roots the build tree at the shared cache link', () => {
+    expect(desktopBuildRoot()).toBe(desktopBuildLinkPath())
+    expect(desktopBuildRoot().endsWith(join('.build-cache'))).toBe(true)
+  })
+
   it('isolates every mutable build directory by complete target', () => {
     const arm64 = desktopTargetBuildPaths('mac-arm64')
     const x64 = desktopTargetBuildPaths('mac-x64')

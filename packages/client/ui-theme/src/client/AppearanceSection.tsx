@@ -15,7 +15,7 @@ export type AppearanceSectionComponentProps =
  * @returns the section element tree.
  */
 export function AppearanceSection({ renderSlot }: AppearanceSectionComponentProps) {
-  const motionScope = useHlnEnterMotion('panel')
+  const motionScope = useHlnEnterMotion('panel', 'rise')
   return (
     <div className={css.section} data-hln-motion="panel" ref={motionScope}>
       {renderSlot('settings.appearance.item', {})}

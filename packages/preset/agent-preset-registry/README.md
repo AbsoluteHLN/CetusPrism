@@ -21,6 +21,8 @@ A backend owns the Agent lifecycle, the request scheduling and the tool executio
 
 The composer chip lists the three backends. A backend that cannot start a session is refused with the reason the host published, rather than silently falling back to DSH.
 
+`externalRuntimes` names the executable of each upstream, for the deployments that installed the runtime outside the PATH. The field is live: it is written from Settings, and a change takes effect without a restart — the registry rebuilds the provider and probes the executable it now names. The catalog publishes that executable and whether the deployment named it, so a runtime the operator pointed at but that is not installed reads as a gap to close instead of a choice to hide. An unnamed runtime is discovered on the PATH under the upstream's own command.
+
 ## Summary
 
 Choose an Agent’s tools, prompt sections and skills through declarative presets. One process can run several compositions. Failed definitions remain visible, while existing Agents retain the composition they already use.
@@ -111,7 +113,8 @@ Existing Agents retain their plugins and prompts. New Agents build their prefixe
 <a id="known-limitations-and-deferred-work"></a>
 
 - Presets are not security sandboxes: YAML and plugins can execute Host code. A user override replaces the complete child list and does not automatically merge future changes to the builtin list. Old revision implementations are not retained across process restarts.
-- Sessions bind to DSH in this build. The session-level backend binding — choosing a registered external runtime for the next session and recording it in the session log — is not part of it, so such a pick is refused explicitly instead of being recorded where nothing would honour it.
+- The session-level backend binding exists: a session binds the backend the host selected when it is created, records that binding in its own log, and a resume rebuilds the same driver from the record. What this package does not ship is the runtime itself — Pi and ZCode are found, never fetched, so a deployment that wants them installs them from the upstream repositories and names the executable in `externalRuntimes`.
+- A session created while the selected runtime cannot start is refused rather than run on the native loop: the pick was made for a runtime, and a session on another driver is not the one that was chosen.
 
 <a id="dev-note"></a>
 ### Dev Note

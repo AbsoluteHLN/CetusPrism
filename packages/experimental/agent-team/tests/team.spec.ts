@@ -677,6 +677,14 @@ describe('Team identity and provisioning', () => {
     })).rejects.toMatchObject({ code: 'TEAM_HOST_MODEL_NOT_ALLOWED' })
     expect(durable(lead).members).toEqual([])
 
+    const authorized = await setup([], {}, { enabled: true, allowedModels: [{ provider: 'mock', model: 'mock' }] })
+    const inherited = await authorized.ctx.agentTeams.spawnTeammate(authorized.lead, {
+      ...request,
+      name: 'host-inherited',
+    })
+    expect(inherited.member.model).toBe('mock')
+    expect(inherited.member.modelProvider).toBe('mock')
+
     const disabled = await setup([], {}, { enabled: false, allowedModels: [allowed] })
     await expect(disabled.ctx.agentTeams.spawnTeammate(disabled.lead, {
       ...request,

@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Pack the desktop shell for Windows: assemble `dist/win-unpacked` from the
+ * Pack the desktop shell for Windows: assemble `win-unpacked` under the
+ * Windows staging directory from the
  * Rust (Tauri/WebView2) shell executable plus the backend runtime closure.
  * The installed layout is:
  *
@@ -28,15 +29,14 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, rmSync, statSync } fr
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { writeCliShims } from '../../../scripts/cli-shims.mjs'
+import { resolveWinUnpackedDir } from './cetus-win-paths.mjs'
 
 const appRoot = dirname(dirname(fileURLToPath(import.meta.url)))
 const repoRoot = join(appRoot, '..', '..')
 // The assembled payload embeds a full dependency closure (~500MB), so on
-// Windows it lives beside the other dependency stores in the dependency
-// cache instead of the project tree; other hosts keep the in-tree dist.
-const distDir = process.env.CETUS_DIST_DIR
-  ?? (process.platform === 'win32' ? 'E:/dependency-cache/cetusprism/dist' : join(appRoot, 'dist'))
-const outDir = join(distDir, 'win-unpacked')
+// Windows it lives in the dependency cache staging tree; other hosts keep
+// the in-tree dist beside this package.
+const outDir = resolveWinUnpackedDir()
 const appDir = join(outDir, 'resources', 'app')
 // Plain Node for the backend child, from the dependency cache like every
 // other runtime input.

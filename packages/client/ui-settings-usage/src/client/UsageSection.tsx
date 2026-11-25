@@ -66,7 +66,7 @@ export function UsageSection({ useSessions, t }: UsageSectionProps) {
   const rows = aggregate.rows.slice(0, TABLE_ROW_LIMIT)
   // The shell's v3.2 enter motion plays over the section's cards, chart, and
   // table; without the shim (outside the CetusPrism web shell) this is inert.
-  const motionScope = useHlnEnterMotion('panel')
+  const motionScope = useHlnEnterMotion('panel', 'rise')
   return (
     <div className={css.section} data-hln-motion="panel" ref={motionScope}>
       <div className={css.cards}>

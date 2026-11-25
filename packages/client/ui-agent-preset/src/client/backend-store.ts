@@ -23,6 +23,16 @@ export interface AgentBackendOption {
   readonly id: 'dsh' | 'pi' | 'zcode'
   /** Display name of the backend. */
   readonly name: string
+  /** The executable this backend probes; absent for the native backend. */
+  readonly command?: string
+  /**
+   * Whether the deployment named that executable itself.
+   *
+   * A named executable is an explicit choice by the operator, so a runtime
+   * that is not installed there is a gap to explain rather than a choice to
+   * hide.
+   */
+  readonly configured?: boolean
   /** Installed runtime version, or `unconfigured` when no runtime answered. */
   readonly version: string
   /** Whether this backend can start a session. */
@@ -78,6 +88,8 @@ export function backendOptions(
   backends: readonly {
     id: 'dsh' | 'pi' | 'zcode'
     name: string
+    command?: string
+    configured?: boolean
     version: string
     availability: 'ready' | 'unconfigured' | 'incompatible'
     reason?: string
@@ -86,6 +98,8 @@ export function backendOptions(
   return backends.map(backend => ({
     id: backend.id,
     name: backend.name,
+    ...backend.command === undefined ? {} : { command: backend.command },
+    ...backend.configured === undefined ? {} : { configured: backend.configured },
     version: backend.version,
     availability: backend.availability,
     ...backend.reason === undefined ? {} : { reason: backend.reason },
@@ -100,11 +114,15 @@ export function backendOptions(
  * chip: a menu with a single working entry is noise, not a choice. Any probe
  * answer from an external runtime — ready or incompatible — means a runtime
  * exists on this machine and the second chip earns its seat.
+ *
+ * A NAMED executable earns it too: the operator pointed CetusPrism at a
+ * runtime that is not there, and the chip is where that gap is explained.
  * @param options - the catalog rows as the composer renders them.
  * @returns whether the backend chip has anything real to offer.
  */
 export function backendSeatVisible(options: readonly AgentBackendOption[]): boolean {
-  return options.some(option => option.id !== 'dsh' && option.availability !== 'unconfigured')
+  return options.some(option => option.id !== 'dsh'
+    && (option.availability !== 'unconfigured' || option.configured === true))
 }
 
 /**

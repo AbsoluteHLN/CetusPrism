@@ -52,7 +52,7 @@
   padding: 10px 14px;
   justify-content: flex-start;
   text-align: left;
-  border-radius: var(--hln-ui-radius-sm, 4px);
+  border-radius: var(--hln-ui-radius-sm);
   border: var(--hln-ui-hairline, 1px) solid var(--hln-ui-line);
   background: var(--hln-ui-bg-2);
   color: var(--hln-ui-text);
@@ -63,18 +63,18 @@
     box-shadow var(--hln-ui-duration-fast, 140ms) var(--hln-ui-ease);
 }
 
-.card:hover {
+.card:hover:not([data-active='true']) {
   border-color: var(--hln-ui-line-strong);
   background: color-mix(in srgb, var(--hln-ui-text) 5%, var(--hln-ui-bg-2));
 }
 
-/* KalciriteUI v4 Signature: The Wash */
+/* The selected card is the engine's Wash: the card carries
+   data-hln-ui-control and data-active, so the v4 layer paints the
+   selected state (pigment tint, accent ink) and the app keeps no private
+   copy of it. Only the weight the engine does not set stays here, and the
+   hover fill steps aside for a selected card so the Wash survives it. */
 .card[aria-pressed='true'],
 .card[data-active='true'] {
-  border-color: var(--hln-ui-accent);
-  background: color-mix(in srgb, var(--hln-ui-accent) 12%, var(--hln-ui-bg-2));
-  color: var(--hln-ui-accent);
-  box-shadow: inset 3px 0 0 0 var(--hln-ui-accent);
   font-weight: 500;
 }
 

@@ -534,7 +534,7 @@ export function Menu({ open, anchor, items = [], children, selectedId, selectedI
       onMouseOver={collapseSubmenuFrom}
       onFocus={collapseSubmenuFrom}
     >
-      <div className={css.viewport} role="presentation">
+      <div className={css.viewport} role="presentation" data-hln-ui-scroll="">
         {items.map(renderEntry)}
         {children}
       </div>

@@ -182,6 +182,14 @@ export function formatRuntimeRequest(frame: RuntimeRequestFrame): string {
 
 /** What a probed upstream reported about itself. */
 export interface ExternalRuntimeProbe {
+  /**
+   * The executable that was probed.
+   *
+   * The deployment may name an executable the PATH does not carry, so the
+   * probed command is part of the answer: the composer shows it, and the
+   * driver spawns the very same one.
+   */
+  readonly command: string
   /** The upstream version, or `unknown` when it did not say. */
   readonly version: string
   /** Where the runtime came from: its repository, or the path it was found at. */
@@ -306,11 +314,12 @@ export function locateExternalRuntime(
     const reason = attempt.code === 'ENOENT'
       ? `${upstream.name} runtime is not installed (${command} not found); install it from ${upstream.repo}`
       : `${upstream.name} runtime could not be probed: ${attempt.message}`
-    return { version: 'unknown', source: upstream.repo, installed: false, compatible: false, reason }
+    return { command, version: 'unknown', source: upstream.repo, installed: false, compatible: false, reason }
   }
   const version = options.version ?? readVersion(command, env)
   if (version === undefined) {
     return {
+      command,
       version: 'unknown',
       source: upstream.repo,
       installed: true,
@@ -320,6 +329,7 @@ export function locateExternalRuntime(
   }
   if (compareVersions(version, upstream.minVersion) < 0) {
     return {
+      command,
       version,
       source: upstream.repo,
       installed: true,
@@ -327,7 +337,7 @@ export function locateExternalRuntime(
       reason: `${upstream.name} runtime ${version} is older than the supported floor ${upstream.minVersion}`,
     }
   }
-  return { version, source: upstream.repo, installed: true, compatible: true }
+  return { command, version, source: upstream.repo, installed: true, compatible: true }
 }
 
 /** The capabilities a runtime reported, normalized. */

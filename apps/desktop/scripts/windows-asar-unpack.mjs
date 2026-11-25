@@ -2,6 +2,7 @@
 import { cp, lstat, mkdir, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { readAsar } from 'app-builder-lib/out/asar/asar.js'
+import { DESKTOP_BUILD_LINK_NAME } from './desktop-build-cache.mjs'
 import { windowsRuntimeCode } from './windows-runtime-signature.mjs'
 
 function inside(root, file) {
@@ -29,7 +30,7 @@ export async function prepareWindowsAsarUnpack(context, sourceRoot) {
   let copyRoot = sourceRoot
   if (!inside(appDir, sourceRoot)) {
     // Builder's source matcher slices the appDir prefix even for external FileSets.
-    const parent = join(appDir, '.desktop-build')
+    const parent = join(appDir, DESKTOP_BUILD_LINK_NAME)
     await mkdir(parent, { recursive: true })
     const stage = await mkdtemp(join(parent, 'asar-source-'))
     copyRoot = join(stage, 'dsh')

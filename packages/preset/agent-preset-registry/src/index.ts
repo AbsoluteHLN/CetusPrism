@@ -159,7 +159,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
     externalRuntimes: z.object({
       pi: z.string(),
       zcode: z.string(),
-    }).default({}),
+    }).default({}).volatile(),
   })
   private readonly owner: Context
   private readonly definitions = new Map<string, Definition>()
@@ -171,8 +171,11 @@ export class AgentPresetRegistry extends TypertRemoteService {
   /** The locator options each external runtime was discovered with; the driver spawns with the same executable. */
   private readonly runtimeOptions = new Map<ExternalRuntimeId, ExternalRuntimeLocatorOptions>()
 
-  constructor(ctx: Context, public config: Config) {
+  public readonly config: Config
+
+  constructor(ctx: Context, config: Config) {
     super(ctx, 'agentPresets')
+    this.config = config
     this.owner = ctx
     ctx.sessionProjections.register(agentPresetProjectionDefinition)
     ctx.sessionProjections.register(agentBackendProjectionDefinition)
@@ -181,20 +184,44 @@ export class AgentPresetRegistry extends TypertRemoteService {
       if (event.type === 'agent-preset/selected') ctx.emit('agent-preset/selected', session.id, event.data.agentPreset)
     })
     // The external runtimes are DISCOVERED, never fetched: the operator
-    // installs them from their own repositories. Registering them here is what
-    // makes the catalog tell the truth — without a registration Pi and ZCode
+    // installs them from their own repositories. Discovering them here is what
+    // makes the catalog tell the truth — without a discovery Pi and ZCode
     // stayed permanently `unconfigured` and the composer never offered them.
-    const commands = this.config.externalRuntimes ?? {}
+    this.syncRuntimes()
+  }
+
+  /**
+   * Bring the discovered providers in line with the deployment's configuration.
+   *
+   * The configuration is live: the operator may point a runtime at an
+   * executable the PATH does not carry, and that change has to take effect
+   * without a restart. A provider is rebuilt whenever the executable it
+   * probes changes, which also drops the probe cache — a freshly named
+   * executable is probed at once, not thirty seconds later.
+   */
+  private syncRuntimes(): void {
+    const raw = this.config.externalRuntimes as unknown
+    const commands = (typeof (raw as { get?: () => unknown })?.get === 'function'
+      ? (raw as { get: () => Record<string, string | undefined> }).get()
+      : raw as Record<string, string | undefined>) ?? {}
     for (const id of ['pi', 'zcode'] as const) {
       const command = commands[id]
-      const options: ExternalRuntimeLocatorOptions = command === undefined ? {} : { command }
+      const named = command !== undefined && command.trim().length > 0
+      const options: ExternalRuntimeLocatorOptions = named ? { command } : {}
+      const current = this.runtimeOptions.get(id)
+      if (current !== undefined && current.command === options.command) continue
       this.runtimeOptions.set(id, options)
       this.backends.discover(createExternalRuntimeProvider(id, options))
     }
   }
 
   /** Default preset for a subsequently created session. */
-  get defaultId(): string { return this.config.selectedDefault.get() ?? this.config.default }
+  get defaultId(): string {
+    const selected = typeof (this.config.selectedDefault as unknown as { get?: () => string })?.get === 'function'
+      ? (this.config.selectedDefault as unknown as { get: () => string }).get()
+      : this.config.selectedDefault as unknown as string
+    return selected ?? this.config.default
+  }
 
   /**
    * Register an installed runtime as an execution backend.
@@ -215,6 +242,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
    */
   @Remote('backends')
   remoteExportBackends(): AgentBackendCatalog {
+    this.syncRuntimes()
     return this.backends.wireCatalog()
   }
 
@@ -241,6 +269,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
    */
   @Remote('selectBackend')
   selectBackend(agentBackend: string): string {
+    this.syncRuntimes()
     try {
       return this.backends.select(agentBackend).id
     } catch (error: unknown) {
@@ -260,6 +289,7 @@ export class AgentPresetRegistry extends TypertRemoteService {
    */
   backendDriver(backend: BuiltinAgentBackendId): AgentDriverFactory | undefined {
     if (backend === 'dsh') return undefined
+    this.syncRuntimes()
     const row = this.backends.catalog().find(candidate => candidate.id === backend)
     // A backend that cannot start a session owns no driver: the composer
     // refuses the pick, and a resume falls back instead of spawning a runtime

@@ -43,7 +43,7 @@ async function fixture(
   temporaryDirectories.push(root)
   const repositoryRoot = join(root, 'repository')
   const appRoot = join(repositoryRoot, 'apps', 'desktop')
-  const artifactsRoot = join(appRoot, '.desktop-build', 'artifacts')
+  const artifactsRoot = join(appRoot, '.build-cache', 'artifacts')
   await mkdir(artifactsRoot, { recursive: true })
   await writeFile(join(repositoryRoot, 'package.json'), `${JSON.stringify({ version })}\n`)
   await writeFile(join(appRoot, 'package.json'), `${JSON.stringify({ version })}\n`)

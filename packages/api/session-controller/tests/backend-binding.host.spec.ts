@@ -38,24 +38,26 @@ const PI_DRIVER: AgentDriverFactory = () => {
 }
 
 /** The roster stub, with the backend selection the host published. */
-function roster(backend: 'dsh' | 'pi' | 'zcode'): unknown {
+function roster(backend: 'dsh' | 'pi' | 'zcode', available = true): unknown {
   return {
     defaultId: 'standard',
     resolve: () => Promise.resolve({ id: 'standard', trust: 'system' }),
     mount: () => Promise.resolve({ id: 'standard', trust: 'system' }),
     currentBackend: () => backend,
-    backendDriver: (id: 'dsh' | 'pi' | 'zcode') => (id === 'dsh' ? undefined : PI_DRIVER),
+    // An unavailable runtime owns no driver: the probe reported it missing
+    // or incompatible, so the registry hands out nothing to spawn.
+    backendDriver: (id: 'dsh' | 'pi' | 'zcode') => (id === 'dsh' || !available ? undefined : PI_DRIVER),
   }
 }
 
-async function harness(backend: 'dsh' | 'pi' | 'zcode') {
+async function harness(backend: 'dsh' | 'pi' | 'zcode', available = true) {
   const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'dsh-session-backend-')))
   tempDirs.push(cwd)
   const ctx = new Context()
   contexts.push(ctx)
   await ctx.plugin(SessionStore)
   await ctx.plugin(AgentRegistry)
-  ctx.provide('agentPresets', roster(backend) as never)
+  ctx.provide('agentPresets', roster(backend, available) as never)
 
   const bound: (AgentDriverFactory | undefined)[] = []
   const factory: AgentFactory = {
@@ -105,6 +107,20 @@ describe('session.create execution backend binding', () => {
     expect(ctx.sessionProjections.stateOf(session!, 'agentBackend')).toBe('pi')
   })
 
+  it('refuses a creation when the selected external backend cannot start', async () => {
+    // The host still prefers the external backend, but its runtime is gone
+    // or incompatible. Creating the session on the native loop instead
+    // would hand the user a session that is not the one they chose.
+    const { remote, bound } = await harness('pi', false)
+
+    const result = await remote.create({ sessionId: SessionId('backend-missing') })
+    expect(result.ok).toBe(false)
+    if (result.ok) throw new Error('the creation was expected to be refused')
+    expect(result.error.message).toContain('the pi execution backend cannot start a session')
+    expect(result.error.code).toBe('session/backend-unavailable')
+    expect(bound).toHaveLength(0)
+  })
+
   it('binds no driver and records nothing for the native backend', async () => {
     const { ctx, remote, bound } = await harness('dsh')
 
@@ -126,10 +142,12 @@ describe('backendForObservation hardening', () => {
 
     expect(controller.backendForObservation(observationWith('pi'))).toBe('pi')
     expect(controller.backendForObservation(observationWith('dsh'))).toBe('dsh')
-    // A session without a record ran on the native loop.
-    expect(controller.backendForObservation(observationWith(null))).toBeUndefined()
-    expect(controller.backendForObservation(observationWith(undefined))).toBeUndefined()
+    // A session without a record ran on the native loop. Answering
+    // "whatever the host prefers now" would hand that history to another
+    // driver, which is the one thing the record exists to prevent.
+    expect(controller.backendForObservation(observationWith(null))).toBe('dsh')
+    expect(controller.backendForObservation(observationWith(undefined))).toBe('dsh')
     // A record the registry never issued falls back instead of failing the resume.
-    expect(controller.backendForObservation(observationWith('quantum-loop'))).toBeUndefined()
+    expect(controller.backendForObservation(observationWith('quantum-loop'))).toBe('dsh')
   })
 })

@@ -707,12 +707,14 @@ export class TeamRoster {
     }
 
     if (teamPolicy.defaultModel !== undefined) return teamPolicy.defaultModel
-    if (teamPolicy.allowedModels.length === 0) return undefined
-    const provider = leadOptions.provider?.trim()
-    const model = leadOptions.model?.trim()
-    return provider !== undefined && provider.length > 0 && model !== undefined && model.length > 0
-      ? { provider, model, ...leadOptions.reasoningEffort === undefined ? {} : { reasoningEffort: leadOptions.reasoningEffort } }
-      : undefined
+    if (teamPolicy.allowedModels.length > 0 || this.hostModelPolicy()?.enabled) {
+      const provider = leadOptions.provider?.trim()
+      const model = leadOptions.model?.trim()
+      return provider !== undefined && provider.length > 0 && model !== undefined && model.length > 0
+        ? { provider, model, ...leadOptions.reasoningEffort === undefined ? {} : { reasoningEffort: leadOptions.reasoningEffort } }
+        : undefined
+    }
+    return undefined
   }
 
   /** Flush the accepted initial inbox item before the Lead can commit `active`. */

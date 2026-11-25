@@ -23,10 +23,10 @@
 
 ```sh
 pnpm exec tsc -b apps/desktop/tsconfig.host.json
-apps/desktop/.desktop-build/targets/mac-arm64/electron/Electron.app/Contents/MacOS/Electron apps/desktop/tests/fixtures/update-overlay-visibility.mjs
+apps/desktop/.build-cache/targets/mac-arm64/electron/Electron.app/Contents/MacOS/Electron apps/desktop/tests/fixtures/update-overlay-visibility.mjs
 ```
 
-夹具使用独立 profile，在 `.desktop-build/qualification/update-overlay-*` 下写入 `result.json`。它对照所属测试目录中的预期输出，检查父窗口隐藏／显示、父窗口隐藏期间文档就绪两种顺序中的原生可见性、父页面不受模糊影响及监听清理。它不使用网络、产品登录或 dsh Host。这项验证覆盖原生窗口恢复，不覆盖完整的首次登录流程。
+夹具使用独立 profile，在 `.build-cache/qualification/update-overlay-*` 下写入 `result.json`。它对照所属测试目录中的预期输出，检查父窗口隐藏／显示、父窗口隐藏期间文档就绪两种顺序中的原生可见性、父页面不受模糊影响及监听清理。它不使用网络、产品登录或 dsh Host。这项验证覆盖原生窗口恢复，不覆盖完整的首次登录流程。
 
 <a id="verification-interactive"></a>
 
@@ -40,7 +40,7 @@ Host、客户端与 Desktop 产物构建完成后，在 Windows 仓库根目录�
 
 ## 验证证据
 
-本地命令构建 Desktop，并在 Electron 44 中运行真实 HTTP updater、策略客户端、沙箱预加载和强更页面。它记录每个场景，并把报告保存在 `.desktop-build/qualification/local-updater-*`。安装器调用、外部浏览器和剪贴板均替换为观测记录；下载字节不是可执行安装器。
+本地命令构建 Desktop，并在 Electron 44 中运行真实 HTTP updater、策略客户端、沙箱预加载和强更页面。它记录每个场景，并把报告保存在 `.build-cache/qualification/local-updater-*`。安装器调用、外部浏览器和剪贴板均替换为观测记录；下载字节不是可执行安装器。
 
 打包监督 fixture 控制自己的 Git 元数据，并使用真实文件哈希和无签名行为的子进程。Git 提交或工作区变化仍会拒绝打包；并发测试不会改变该 fixture 记录的 Git 输入。
 
@@ -59,7 +59,7 @@ Host、客户端与 Desktop 产物构建完成后，在 Windows 仓库根目录�
 
 弹窗、主入口、设置和侧栏的定向运行通过 119 个回归用例。五个载体测试覆盖共享更新状态源的全部语句、分支、函数和代码行。真实 Electron 命令通过 17 个场景，并捕获常规就绪、任务警告和强更错误弹窗。这些隔离检查不认证完整工作区或发布。全仓门禁结果及环境限制与这些定向证据分开记录。
 
-Chromium headless shell revision 1228 已安装在忽略目录 `.desktop-build/playwright` 中。组装后的设置和侧栏浏览器套件通过 18 个用例。[Desktop 工作区浏览器场景](../../web/tests/desktop-updates.e2e.ts) 的中英文用例均通过，每种语言捕获六张截图，并验证底部账户行位置、紧凑进度及重复点击拦截、顶部展开按钮提示、带错误悬停详情的持久红色重试，以及独立的就绪操作。展示函数、Host Web 组合、客户端插件和 CSS 均为真实实现；Desktop 载体使用替身。这些用例不执行 Electron IPC、菜单、任务授权或安装。
+Chromium headless shell revision 1228 已安装在忽略目录 `.build-cache/playwright` 中。组装后的设置和侧栏浏览器套件通过 18 个用例。[Desktop 工作区浏览器场景](../../web/tests/desktop-updates.e2e.ts) 的中英文用例均通过，每种语言捕获六张截图，并验证底部账户行位置、紧凑进度及重复点击拦截、顶部展开按钮提示、带错误悬停详情的持久红色重试，以及独立的就绪操作。展示函数、Host Web 组合、客户端插件和 CSS 均为真实实现；Desktop 载体使用替身。这些用例不执行 Electron IPC、菜单、任务授权或安装。
 
 [构建后 Host 场景](fixtures/host-update-qualification.mjs) 使用真实 profile Loader、standard agent 预设、任务服务和 Node 后台进程。它验证排队的轮次／步骤、运行中的模型请求、等待答复的提问／审批、运行／停止中的全局和 agent job、不会取消任务的准入锁定、准入恢复，以及 Host 释放后的检查拒绝。仅模型响应和人工答复使用替身。两个独立调用使用私有 profile 和会话数据并发通过；全部自有 agent、job 和 Host 完成后才写入成功报告。
 

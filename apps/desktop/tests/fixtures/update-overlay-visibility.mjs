@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { app, BrowserWindow } from 'electron'
 import { DesktopUpdateOverlays } from '../../lib/types/update-overlay.js'
 
-const directory = fileURLToPath(new URL('../../.desktop-build/qualification/', import.meta.url))
+const directory = fileURLToPath(new URL('../../.build-cache/qualification/', import.meta.url))
 mkdirSync(directory, { recursive: true })
 const root = mkdtempSync(join(directory, 'update-overlay-'))
 mkdirSync(join(root, 'profile'))

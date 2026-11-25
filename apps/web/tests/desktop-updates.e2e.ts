@@ -41,7 +41,7 @@ describe('web e2e: Desktop update workspace chrome', () => {
           })
         })
         const tripwire = watchConsole(page)
-        const evidenceRoot = fileURLToPath(new URL('../../desktop/.desktop-build/qualification/', import.meta.url))
+        const evidenceRoot = fileURLToPath(new URL('../../desktop/.build-cache/qualification/', import.meta.url))
         await mkdir(evidenceRoot, { recursive: true })
         const evidence = await mkdtemp(join(evidenceRoot, `workspace-updates-${locale}-`))
         try {

@@ -25,6 +25,7 @@ import {
 } from '../src/core-package-set.ts'
 import { capture } from '../../../scripts/release/process.ts'
 import { tarballFiles } from '../../../scripts/release/tarball.ts'
+import { ensureDesktopBuildLink } from './desktop-build-cache.mjs'
 import { resolveDesktopTargetBuildPaths } from './desktop-build-paths.mjs'
 
 const DSH_PACKAGE = '@deepseek-ai/dsh'
@@ -159,6 +160,7 @@ export function prepareDesktopPackageSet(inputs: readonly string[], output: stri
 }
 
 function main(): void {
+  ensureDesktopBuildLink()
   const buildPaths = resolveDesktopTargetBuildPaths()
   const defaultInputs = [
     buildPaths.packedDsh,

@@ -46,6 +46,18 @@ export interface HlnUiApi {
    * check and the animationend cleanup.
    */
   playMotion(scope: Element, preset?: string, state?: string, variant?: string): void
+  /** The engine's control variants: the `data-variant` names the v4 layer styles. */
+  controlVariants: readonly string[]
+  /** The engine's control states: the selected state the engine paints. */
+  controlStates: readonly string[]
+  /** Whether a variant or state name is one the engine knows. */
+  isControlVariant(variant: unknown): boolean
+  /** Mark one element with an engine control variant, or with the selected state. */
+  applyControlVariant(element: Element, variant: string): boolean
+  /** Apply a runtime skin through the engine's own API (allowlisted tokens only). */
+  applySkin(skin: { id: string; tokens: Record<string, string> }): Promise<boolean>
+  /** The skin currently painted on the application root. */
+  currentSkin(): { id: string; tokens: Record<string, string> } | undefined
 }
 
 declare global {
@@ -62,9 +74,14 @@ export type HlnMotionPreset = 'panel' | 'item' | 'control'
  * The dist's enter variants that override a preset's base animation. The
  * preset base rules (panel/item/control) are also accepted here because the
  * attribute takes either.
+ *
+ * The v4 Folio layer owns the current family — rise, unfold, spring,
+ * slide-left, slide-right, type-in, page-shift — and the v3.5 layer keeps
+ * its own set beside it, so both are accepted.
  */
 export type HlnMotionVariant =
   | 'panel' | 'item' | 'control'
+  | 'rise' | 'unfold' | 'spring' | 'slide-left' | 'slide-right'
   | 'stream-cascade' | 'tensor-fold' | 'compile-lock' | 'wave-propagate'
   | 'vector-construct' | 'golden-iris' | 'rail-draw' | 'type-in' | 'page-shift'
 

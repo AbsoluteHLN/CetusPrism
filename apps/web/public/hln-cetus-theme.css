@@ -158,10 +158,13 @@ html body {
   --dsw-specific-sidebar-nav-item-active: color-mix(in srgb, var(--hln-ui-accent, #38bdf8) 12%, var(--hln-ui-bg-1, #10141a)) !important;
   --dsw-specific-sidebar-nav-item-active-accent: color-mix(in srgb, var(--hln-ui-accent, #38bdf8) 16%, transparent) !important;
 
-  /* Typography: v3.5 display stack for UI, technical stack for code. #root
-     carries the font/CJK modes, so the stacks below it resolve with the
-     selected CJK face. */
-  --dsw-font-family: var(--hln-ui-font-display) !important;
+  /* Typography: the SELECTED Latin profile drives the UI face, and the
+     technical stack stays with the code. The v4 runtime repoints
+     --hln-ui-font-current at the profile the Appearance panel chose, so the
+     font cards change the whole surface instead of a variable nothing
+     reads. #root carries the font/CJK modes, so the stacks below it resolve
+     with the selected CJK face. */
+  --dsw-font-family: var(--hln-ui-font-current, var(--hln-ui-font-display)) !important;
   --ds-font-family-code: var(--hln-ui-font-technical) !important;
 
   /* Kinetics: v3.5 timing and easing */
@@ -184,6 +187,35 @@ html body #root[data-hln-ui-root] {
   background: transparent;
   min-height: 100vh;
   --hln-cetus-composer-fade-size: 36px;
+}
+
+/* ---------- Typography profiles ----------
+   The v4 layer binds the root face to --hln-ui-font-body, a fixed stack, so
+   the Latin profile the Appearance panel offers never reached the screen.
+   The profile's own output is --hln-ui-font-current: these rules read it, so
+   one attribute repoints the whole surface — body, headings and controls —
+   at the face the user chose. */
+html body #root[data-hln-ui-root][data-hln-ui-version='v4'] {
+  font-family: var(--hln-ui-font-current, var(--hln-ui-font-body));
+}
+
+html body #root[data-hln-ui-root][data-hln-ui-version='v4'] :where(h1, h2, h3, h4, h5, h6) {
+  font-family: var(--hln-ui-font-current, var(--hln-ui-font-title));
+}
+
+/* The three companion stacks the v4 layer keeps for host compatibility are
+   selectable profiles here, so every font card the Appearance panel offers
+   changes the surface instead of sitting on a variable nothing reads. */
+html body [data-hln-font='geometric'] {
+  --hln-ui-font-current: var(--hln-ui-font-geometric);
+}
+
+html body [data-hln-font='cyber'] {
+  --hln-ui-font-current: var(--hln-ui-font-cyber-mono);
+}
+
+html body [data-hln-font='berlin'] {
+  --hln-ui-font-current: var(--hln-ui-font-berlin);
 }
 
 /* ---------- Background layering ---------- */
@@ -222,41 +254,75 @@ html body #root[data-hln-ui-root][data-hln-bg-motion='tensor-stream']::after {
 
 /* Full v4 ambience & control alignment (KalciriteUI v4 soft geometry) */
 
-/* Controls take soft 4px corners, cards 6px, dialogs 8px */
+/* ---------- Radius: three tracks ----------
+   The engine ships five radius tokens; the application uses exactly three:
+   controls (buttons, inputs, chips, menu rows) take radius-sm, cards and
+   panels take radius-md, dialogs and other large surfaces take radius-lg.
+   Every surface rule below names one of those three, so a card reads the
+   same wherever it sits. A square corner is left only to a 1px rule (an
+   underline, a section divider), where a radius would show as a rounded
+   rule end rather than a surface corner. */
 html body button:not([aria-checked]),
 html body [role="button"]:not([aria-checked]),
 html body input,
 html body textarea,
 html body select {
-  border-radius: var(--hln-ui-radius-sm, 4px) !important;
+  border-radius: var(--hln-ui-radius-sm) !important;
 }
 
 html body [role='dialog'],
 html body [data-modal] {
-  border-radius: var(--hln-ui-radius-lg, 8px) !important;
+  border-radius: var(--hln-ui-radius-lg) !important;
 }
 
 html body [data-card],
 html body div[class*='card']:not([class*='cards']),
 html body div[class*='Card'] {
-  border-radius: var(--hln-ui-radius-md, 6px) !important;
+  border-radius: var(--hln-ui-radius-md) !important;
 }
 
-/* KalciriteUI v4 Signature: The Wash */
-html body [data-active='true'],
-html body button[aria-pressed='true'],
-html body [role='button'][aria-pressed='true'],
-html body [aria-current='page'],
-html body [aria-current='true'] {
-  border-color: var(--hln-ui-accent) !important;
-  background: color-mix(in srgb, var(--hln-ui-accent) 12%, var(--hln-ui-bg-2, #1f242c)) !important;
-  color: var(--hln-ui-accent) !important;
-  box-shadow: inset 3px 0 0 0 var(--hln-ui-accent);
+/* ---------- Fields: the engine's field contract ----------
+   The v4 layer styles a field on [data-hln-ui-field]: the field height, the
+   hairline edge, the form face, and a focus ring in the focus colour. The
+   application's inputs are composite — a frame around a bare input — so the
+   frame carries the attribute (ui-primitives' Input) and the engine styles
+   the frame. The bare text-entry fields the application renders on its own
+   consume the same tokens here, so a field reads the same everywhere. A
+   dropdown keeps its own chevron treatment; it is a picker, not a field. */
+html body #root[data-hln-ui-root][data-hln-ui-version='v4'] input:not([type='checkbox']):not([type='radio']) {
+  min-height: var(--hln-ui-field-height);
+  border-radius: var(--hln-ui-radius-sm);
+  font-family: var(--hln-ui-font-form);
+}
+
+html body #root[data-hln-ui-root][data-hln-ui-version='v4'] textarea {
+  border-radius: var(--hln-ui-radius-sm);
+  font-family: var(--hln-ui-font-form);
+}
+
+html body #root[data-hln-ui-root][data-hln-ui-version='v4'] input:not([type='checkbox']):not([type='radio']):focus,
+html body #root[data-hln-ui-root][data-hln-ui-version='v4'] textarea:focus {
+  border-color: var(--hln-ui-focus);
+  box-shadow: 0 0 0 3px var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+}
+
+/* ---------- Selected state: the engine's Wash ----------
+   The v4 layer paints the selected state on [data-hln-ui-control][data-active="true"]
+   — a pigment tint with accent ink — and offers the left rail as the engine's
+   .hln-v4-wash-bar. The application keeps no private wash: engine controls
+   keep the engine's own selected state, and the two affordances the engine
+   cannot see (the app's pressed buttons that are not engine controls) reuse
+   the engine's values — the same 10% pigment tint over the base plane. */
+html body button[aria-pressed='true']:not([data-hln-ui-control]),
+html body [role='button'][aria-pressed='true']:not([data-hln-ui-control]) {
+  border-color: var(--hln-ui-accent);
+  background: color-mix(in srgb, var(--hln-ui-accent) 10%, var(--hln-ui-bg-2));
+  color: var(--hln-ui-accent);
 }
 
 html body button:not([aria-checked]),
 html body [role='button']:not([aria-checked]) {
-  font-family: var(--hln-ui-font-form, var(--hln-ui-font-current, inherit));
+  font-family: var(--hln-ui-font-current, var(--hln-ui-font-form, inherit));
   letter-spacing: 0.02em;
   transition:
     border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
@@ -311,11 +377,22 @@ html body textarea {
   caret-color: var(--hln-ui-accent);
 }
 
-/* ---------- Precision linear scrollbar ---------- */
+/* ---------- Scrollbars: the engine's scroll contract ----------
+   The v4 layer styles a scroll surface on [data-hln-ui-scroll]: a 10px
+   track, a pill thumb in the line colour, a transparent corner. The
+   application used to keep a private 4px linear track, so an annotated
+   surface and an unannotated one showed two different scrollbars. The
+   application's own scroll surfaces carry the contract attribute now, and
+   the fallback below repeats the contract's geometry for the surfaces that
+   are not annotated yet, so one track governs the whole shell. */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hln-ui-line) transparent;
+}
 
 html ::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 10px;
+  height: 10px;
 }
 
 html ::-webkit-scrollbar-track {
@@ -324,11 +401,14 @@ html ::-webkit-scrollbar-track {
 
 html ::-webkit-scrollbar-thumb {
   background: var(--hln-ui-line);
-  border-radius: 0;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: var(--hln-ui-radius-pill);
 }
 
 html ::-webkit-scrollbar-thumb:hover {
-  background: var(--hln-ui-accent);
+  background: var(--hln-ui-line-strong);
+  background-clip: content-box;
 }
 
 html ::-webkit-scrollbar-corner {
@@ -355,7 +435,7 @@ html body [role='dialog'] [aria-current='true'] {
    Scoped to the dialog so other surfaces keep their bare composition. */
 
 html body [role='dialog'] button[class*='card']:not([data-hln-ui-control]) {
-  border-radius: 0;
+  border-radius: var(--hln-ui-radius-md);
   border: 1px solid var(--hln-ui-line);
   background: color-mix(in srgb, var(--hln-ui-bg-1) 88%, transparent);
   transition:
@@ -413,7 +493,7 @@ html body [role='dialog'] button[class*='_outline_']:hover {
    never reached them. They join the card family with the same square hairline
    surface, accent hover, and accent selected state as the selection grids. */
 html body [role='dialog'] li[class*='card'] {
-  border-radius: 0;
+  border-radius: var(--hln-ui-radius-md);
   border: 1px solid var(--hln-ui-line);
   background: color-mix(in srgb, var(--hln-ui-bg-1) 88%, transparent);
   transition:
@@ -503,7 +583,7 @@ html body [role='dialog'] {
    themselves take the surface. */
 html body [role='dialog'] div[class*='card']:not([class*='cards']),
 html body [role='dialog'] div[class*='Card'] {
-  border-radius: 0;
+  border-radius: var(--hln-ui-radius-md);
   border: 1px solid var(--hln-ui-line);
   background: color-mix(in srgb, var(--hln-ui-bg-1) 88%, transparent);
 }
@@ -511,7 +591,7 @@ html body [role='dialog'] div[class*='Card'] {
 /* Anchor controls (查询用量 / 充值) escape the global button squaring because
    they render as <a>; they join the official control language here. */
 html body [role='dialog'] a[class*='linkButton'] {
-  border-radius: 0;
+  border-radius: var(--hln-ui-radius-sm);
   border: 1px solid var(--hln-ui-line);
   background: transparent;
   color: var(--hln-ui-text-muted);
@@ -548,14 +628,14 @@ html body [role='dialog'] a[class*='linkButton'][aria-disabled='true'] {
 
 /* 发行版 tag and the usage range toggle join the chip and control family. */
 html body [role='dialog'] [class*='channelTag'] {
-  border-radius: 0;
+  border-radius: var(--hln-ui-radius-sm);
   border: 1px solid color-mix(in srgb, var(--hln-ui-line) 80%, transparent);
   background: color-mix(in srgb, var(--hln-ui-accent) 8%, transparent);
   color: var(--hln-ui-text-muted);
 }
 
 html body [role='dialog'] button[class*='rangeButton'] {
-  border-radius: 0;
+  border-radius: var(--hln-ui-radius-sm);
   border: 1px solid var(--hln-ui-line);
   background: transparent;
   color: var(--hln-ui-text-muted);
@@ -574,7 +654,7 @@ html body [role='dialog'] button[class*='rangeButtonActive'] {
 
 /* The usage session table: square container with hairline row separators. */
 html body [role='dialog'] [class*='table'] {
-  border-radius: 0;
+  border-radius: var(--hln-ui-radius-md);
   border: 1px solid var(--hln-ui-line);
 }
 
@@ -591,7 +671,7 @@ html body [role='dialog'] [class*='table'] [class*='row']:last-child {
 /* The dialog panel takes the v3.5 [data-hln-ui-surface] anatomy: square
    panel fill with a 1px hairline edge, no blur, no shadow. */
 html body [role='dialog'] {
-  border-radius: 0;
+  border-radius: var(--hln-ui-radius-lg);
   border: 1px solid var(--hln-ui-line);
   background: var(--hln-ui-panel-bg, var(--hln-ui-bg-1));
   position: relative;
@@ -613,9 +693,12 @@ html body > [role='dialog'] {
 
 /* Popover surfaces (tooltips, confirm dialogs) square off under the same
    geometry rule as the dialog panel. */
-html body [role='tooltip'],
+html body [role='tooltip'] {
+  border-radius: var(--hln-ui-radius-sm);
+}
+
 html body [role='alertdialog'] {
-  border-radius: 0;
+  border-radius: var(--hln-ui-radius-lg);
 }
 
 /* ---------- Floating menus (v3.5 surface anatomy) ---------- */
@@ -626,10 +709,13 @@ html body [role='alertdialog'] {
    belongs to the same family as the dialog panels. The mapped
    --dsw-specific-menu keeps their fill theme-driven. */
 html body [role='menu'],
-html body [role='listbox'],
+html body [role='listbox'] {
+  border-radius: var(--hln-ui-radius-md);
+}
+
 html body [role='menu'] [role='menuitem'],
 html body [role='menu'] [role='menuitemradio'] {
-  border-radius: 0;
+  border-radius: var(--hln-ui-radius-sm);
 }
 
 html body [role='menu'],
@@ -656,15 +742,23 @@ html body [role='menu'] [role='menuitemradio'][aria-checked='true'] {
    padding reserves that band in scroll flow so the final message can clear it. */
 html body #root [data-content-phase='active'] > [data-conversation-scroll] > [data-composer-seat] {
   padding-block-start: var(--hln-cetus-composer-fade-size);
-  background:
-    linear-gradient(180deg, transparent, var(--hln-ui-bg-0))
-    top / 100% var(--hln-cetus-composer-fade-size) no-repeat;
+  /* The band fades the transcript into the seat, so it must land on the
+     surface the seat actually sits on: --dsw-alias-bg-base is resolved on
+     the body, where the selected theme's plane is in force. The raw
+     --hln-ui-bg-0 answers with the dist's own default plane inside #root
+     and paints a light band across a dark app. The seat keeps that same
+     surface below the band, as the product's own composer rule does. */
+  background-image: linear-gradient(180deg, transparent, var(--dsw-alias-bg-base));
+  background-position: top;
+  background-size: 100% var(--hln-cetus-composer-fade-size);
+  background-repeat: no-repeat;
+  background-color: var(--dsw-alias-bg-base);
 }
 
 /* The composer card takes the v3.5 large-surface anatomy: precision hairline
    vector panel with line-color edge, zero blur, zero elevation shadow. */
 html body #root [data-composer-card] {
-  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  border-radius: var(--hln-ui-radius-sm) !important;
   border: 1px solid var(--hln-ui-line) !important;
   background: var(--dsw-specific-input-major);
   box-shadow: none !important;
@@ -672,18 +766,18 @@ html body #root [data-composer-card] {
 }
 
 html body #root [data-composer-card] button {
-  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  border-radius: var(--hln-ui-radius-sm) !important;
 }
 
 html body #root [data-composer-card] [class*='add'] {
   border: 1px solid var(--hln-ui-line) !important;
-  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  border-radius: var(--hln-ui-radius-sm) !important;
   background: color-mix(in srgb, var(--hln-ui-bg-2) 70%, transparent) !important;
   color: var(--hln-ui-text) !important;
 }
 
 html body #root [data-composer-card] [class*='primary'] {
-  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  border-radius: var(--hln-ui-radius-sm) !important;
   border: 1px solid transparent !important;
   background: var(--hln-ui-accent) !important;
   color: var(--hln-ui-bg-0) !important;
@@ -700,7 +794,7 @@ html body #root [data-composer-card] [class*='primary']:disabled {
 /* The pick-a-workspace dashed ring squares off with the card: same SVG dash
    mask at radius 0. */
 html body #root [data-composer-card]::after {
-  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  border-radius: var(--hln-ui-radius-sm) !important;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='none' stroke='black' stroke-width='2' stroke-dasharray='4 4'/%3E%3C/svg%3E");
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='100%25' height='100%25' fill='none' stroke='black' stroke-width='2' stroke-dasharray='4 4'/%3E%3C/svg%3E");
 }
@@ -717,7 +811,7 @@ html body #root [class*='Pill'],
 html body #root [class*='Tag'],
 html body #root [class*='badge'],
 html body #root [class*='Badge'] {
-  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  border-radius: var(--hln-ui-radius-sm) !important;
   corner-shape: straight !important;
 }
 
@@ -725,14 +819,14 @@ html body #root [class*='Badge'] {
 html body #root [class*='userStack'] [class*='bubble'],
 html body #root [class*='userRow'] [class*='bubble'] {
   border: 1px solid var(--hln-ui-line) !important;
-  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  border-radius: var(--hln-ui-radius-sm) !important;
   box-shadow: none !important;
 }
 
 /* Markdown code blocks: hairline vector frame */
 html body #root .md-code-block {
   border: 1px solid var(--hln-ui-line) !important;
-  border-radius: var(--hln-ui-radius-sm, 2px) !important;
+  border-radius: var(--hln-ui-radius-sm) !important;
   overflow: hidden;
 }
 
@@ -1030,6 +1124,68 @@ html body .dsh-titlebar-btn:hover::after {
   transform: scaleX(1);
 }
 
+/* KalciriteUI v3 / HLN UI system motion enhancements */
+
+/* Tactile micro-interaction on button controls */
+html body button:active:not(:disabled),
+html body [role='button']:active:not([aria-disabled='true']) {
+  transform: scale(0.98);
+  transition: transform var(--hln-ui-duration-fast, 120ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* Chat conversation message rise-in transition */
+html body #root [data-conversation-scroll] [class*='userRow'],
+html body #root [data-conversation-scroll] [class*='AssistantNodeView'] {
+  animation: hln-cetus-msg-rise var(--hln-ui-duration-standard, 240ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)) backwards;
+}
+
+@keyframes hln-cetus-msg-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Menu, dropdown and popover unfold motion */
+html body [role='menu'],
+html body [role='listbox'] {
+  animation: hln-cetus-menu-in var(--hln-ui-duration-fast, 160ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)) backwards;
+  transform-origin: top center;
+}
+
+@keyframes hln-cetus-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Tab and segmented control transition */
+html body #root [role='tab'],
+html body #root [data-tab-key] {
+  transition:
+    background-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
+/* Smooth input focus transitions */
+html body input,
+html body textarea {
+  transition:
+    border-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    box-shadow var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1)),
+    background-color var(--hln-ui-duration-fast, 180ms) var(--hln-ui-ease, cubic-bezier(0.16, 1, 0.3, 1));
+}
+
 @media (prefers-reduced-motion: reduce) {
   html body .dsh-titlebar,
   html body .dsh-titlebar * {
@@ -1038,5 +1194,15 @@ html body .dsh-titlebar-btn:hover::after {
   }
   html body .dsh-titlebar-btn::after {
     content: none;
+  }
+  html body button:active,
+  html body [role='button']:active {
+    transform: none !important;
+  }
+  html body [role='menu'],
+  html body [role='listbox'],
+  html body #root [data-conversation-scroll] [class*='userRow'],
+  html body #root [data-conversation-scroll] [class*='AssistantNodeView'] {
+    animation: none !important;
   }
 }

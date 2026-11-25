@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Stamp the desktop shell executable with the product icon and build the
- * Windows NSIS installer from the packed `dist/win-unpacked` tree.
+ * Windows NSIS installer from the packed staging `win-unpacked` tree.
  *
  * Windows derives the window, taskbar, and shortcut icons from the
  * executable's icon resource, so one rcedit pass covers the whole program;
@@ -17,14 +17,12 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, readdirSync, renameSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { finalizeCetusDistInstaller } from './cetus-dist-finish.mjs'
+import { readCetusElectronVersion, resolveCetusDistDir, resolveWinUnpackedDir } from './cetus-win-paths.mjs'
 
 const appRoot = dirname(dirname(fileURLToPath(import.meta.url)))
-// The payload and installer are build artifacts with an embedded dependency
-// closure: on Windows they live in the dependency cache (matching pack-tauri);
-// other hosts keep the in-tree dist.
-const distDir = process.env.CETUS_DIST_DIR
-  ?? (process.platform === 'win32' ? 'E:/dependency-cache/cetusprism/dist' : join(appRoot, 'dist'))
-const unpackedDir = join(distDir, 'win-unpacked')
+const distDir = resolveCetusDistDir()
+const unpackedDir = resolveWinUnpackedDir()
 const iconPath = join(appRoot, 'build', 'icon.ico')
 
 const builderCache = process.env.ELECTRON_BUILDER_CACHE ?? 'E:/dependency-cache/electron-builder/Cache'
@@ -72,4 +70,8 @@ execFileSync(process.execPath, [
   '-c.directories.output=' + distDir,
 ], { cwd: appRoot, stdio: 'inherit' })
 
-console.log(`make-installer: installer ready in ${distDir}`)
+const installer = finalizeCetusDistInstaller({
+  distDir,
+  version: readCetusElectronVersion(),
+})
+console.log(`make-installer: installer ready at ${installer}`)

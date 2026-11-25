@@ -71,6 +71,8 @@ An edit makes the file DIRTY: its tab carries a dot, and the column offers a sav
 
 Above the columns sits the title bar: the IDE's mark, the bound session's title, the project root as breadcrumb steps, and the two verbs that leave the surface — refresh and back to the conversation. Under it, `IdePaneHeader` gives each column the same header shape: an icon, the column's name, and the detail that column knows best — the project root, the open file's language, the session's title.
 
+The path is a crumb RUN, not a string to squeeze: every step keeps its own width, and when the title bar no longer has room for it the middle steps fold into a single `…` crumb, so the project name — the last step — stays readable instead of collapsing into single letters.
+
 The tree reads like an IDE's file tree: folders carry a folder icon that follows their state, files carry their own type icon, and a file that is open in the tab strip keeps a marker, with the current one wearing the accent.
 
 The columns are not welded shut. A separator sits on each edge of the middle column and drags that column's width — with the pointer or the arrow keys — and the tree column collapses to an icon rail. The WIDTHS are the editor's first: the code column is what the workbench exists for, so each side column is capped by its share of the frame, and the code keeps its minimum while any side column can still give way. The tree gives way first, the assistant second, and the code never. The assistant folds to its own icon rail with one click. The layout is remembered locally, so the widths a user settles on are the widths they get back.

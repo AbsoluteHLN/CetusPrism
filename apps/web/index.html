@@ -13,12 +13,17 @@
     <link rel="stylesheet" href="/hln-cetus-theme.css" />
   </head>
   <body>
-    <!-- The theme attribute stands on <html>: the v4 theme layer roots its
-         palettes on :root[data-hln-theme] so the body-level alias mapping
-         resolves the selected theme. #root repeats the font/CJK modes: the
-         v4 base layer rebinds its font stacks with the active CJK override
-         only on [data-hln-ui-root]. -->
-    <div id="root" data-hln-ui-root data-hln-ui-version="v4" data-hln-bg-motion="tensor-stream" data-hln-font="grotesque" data-hln-cjk-font="auto"></div>
+    <!-- The theme attribute stands on <html> AND on the app root. Both dist
+         layers root their palettes on :root[data-hln-theme] and on
+         [data-hln-ui-root][data-hln-theme], and #root matches
+         [data-hln-ui-root] on its own — so without the attribute it falls
+         back to the dist's default (light) plane and every --hln-ui-* token
+         read inside it (the composer's fade, the accent, the hairlines)
+         answers with the wrong palette. The runtime keeps the two in step:
+         the shim stamps the root whenever a theme is applied. #root also
+         repeats the font/CJK modes: the v4 base layer rebinds its font stacks
+         with the active CJK override only on [data-hln-ui-root]. -->
+    <div id="root" data-hln-ui-root data-hln-theme="folio-graphite" data-hln-ui-version="v4" data-hln-bg-motion="tensor-stream" data-hln-font="grotesque" data-hln-cjk-font="auto"></div>
     <script type="module" src="/src/main.ts"></script>
     <script src="/hln-ui-v4/hln-v4-fix.js"></script>
   </body>

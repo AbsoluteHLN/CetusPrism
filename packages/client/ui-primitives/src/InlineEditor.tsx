@@ -60,6 +60,7 @@ export function InlineEditor({ value, label, onChange, onSave, onCancel, classNa
       autoFocus
       rows={1}
       className={clsx(css.editor, className)}
+      data-hln-ui-scroll=""
       aria-label={label}
       value={value}
       onChange={(event) => { onChange(event.currentTarget.value) }}

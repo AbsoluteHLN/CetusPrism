@@ -9,6 +9,7 @@ import { resolveWindowsPackageSettings } from './windows-package-settings.mjs'
 import { prepareWindowsSignatureCacheDirectory, resolveWindowsSignatureCacheDirectory } from './windows-signature-cache-directory.mjs'
 import { withWindowsSigningStage } from './windows-signing-stage.mjs'
 import { failPackagingRun, recordPackagingEvent } from './packaging-run.mjs'
+import { ensureDesktopBuildLink } from './desktop-build-cache.mjs'
 import { resolveDesktopBuildTarget, resolveDesktopTargetBuildPaths } from './desktop-build-paths.mjs'
 import { smokePrimaryRuntime } from './prepare-primary-runtime.ts'
 import { verifyDesktopRuntime, writeDesktopRuntime, type DesktopRuntimeDescriptor } from '../src/runtime-tree.ts'
@@ -57,7 +58,8 @@ async function main(): Promise<void> {
   const record = (event: object): void => { recordPackagingEvent(runDirectory, event) }
   try {
     await withWindowsSigningStage({ stage: process.argv.includes('--dsh') ? 'dsh-runtime' : 'primary-runtime', record }, async () => {
-      const paths = resolveDesktopTargetBuildPaths()
+      ensureDesktopBuildLink()
+  const paths = resolveDesktopTargetBuildPaths()
       const sign = createWindowsTokenSigner({ certificateFile, signTool: process.env.DSH_DESKTOP_WINDOWS_SIGNTOOL,
         keyContainer: process.env.DSH_DESKTOP_WINDOWS_KEY_CONTAINER, tokenPin: process.env.DSH_DESKTOP_WINDOWS_TOKEN_PIN })
       const identity = await signatureCacheIdentity([

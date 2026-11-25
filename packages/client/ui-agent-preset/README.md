@@ -33,6 +33,8 @@ The composer picker and Settings roster always offer Standard, Creator, PTC, Min
 
 The composer tool row carries an execution-backend chip beside the preset chip. It lists DSH, Pi and ZCode with the installed version of each and whether it can start a session at all. A backend without an installed runtime stays visible and is refused with the Host's reason instead of falling back silently.
 
+Settings → Execution backends is where a deployment names the runtime an upstream runs on: one row per runtime, with its state, the reason it cannot start a session, and the executable it probes. An empty executable keeps the upstream's own command on the PATH; naming one writes it into the deployment's configuration, and the host re-probes that runtime at once. A runtime the deployment named but that is not installed keeps its row, and the composer chip explains the gap rather than hiding it.
+
 Known shipped presets offer mode details and usage examples in a read-only dialog. Its tabs preserve each page's scroll position; closing returns focus to the opening action. Help does not change the new-task default. The default badge replaces the card's group badge, and the preset id appears beside the title. Guide copy and examples belong to this package.
 
 **Let the agent create a plugin** in the Plugins page's **Add plugin** arrow menu enters the same Creator flow as Settings. It submits no message and preserves unsent drafts. While the roster loads or Creator is unavailable, the menu item is disabled with an explanation. Both entries show a Toast with the reason if the Host refuses the preset switch.
@@ -72,7 +74,7 @@ Selection changes affect only later tasks; existing plugins and prompts remain u
 <a id="known-limitations-and-deferred-work"></a>
 
 - Web creates and edits no preset: the configuration viewer is read-only, and a bundle installed through Creator mode declares a new preset or overrides a shipped one by row id, replacing its complete child list.
-- The backend chip names the backends the deployment offers. Sessions still bind to DSH, so a registered external runtime is refused with an explicit reason rather than bound to a session.
+- The backend chip names the backends the deployment offers, and the Execution backends page names the executable each external runtime runs on. What the page does not do is install a runtime: Pi and ZCode are found on the machine, never fetched, so a deployment that wants one installs it from the upstream repository.
 
 <a id="dev-note"></a>
 ### Dev Note

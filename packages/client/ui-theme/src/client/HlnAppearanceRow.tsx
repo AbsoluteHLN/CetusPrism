@@ -107,7 +107,7 @@ export function HlnAppearanceRow(
   { t, useStore, setHlnTheme, setHlnFont, setHlnCjk, setHlnBgMotion }: HlnRowComponentProps,
 ) {
   const selection = useStore(s => s)
-  const motionScope = useHlnEnterMotion('item')
+  const motionScope = useHlnEnterMotion('item', 'rise')
   return (
     <div className={css.group} data-hln-appearance ref={motionScope}>
       <div className={css.title}>{t('hln.title')}</div>

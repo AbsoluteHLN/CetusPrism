@@ -39,6 +39,13 @@ export type AgentPresetSettingsKey =
   | 'backendUnconfigured'
   | 'backendIncompatible'
   | 'backendSwitchRefused'
+  | 'runtimeNav'
+  | 'runtimeSectionIntro'
+  | 'runtimeCommandLabel'
+  | 'runtimeCommandHint'
+  | 'runtimeSave'
+  | 'runtimeReset'
+  | 'runtimeUnavailable'
 
 /** English copy. */
 export const en: Record<AgentPresetSettingsKey, string> = {
@@ -91,6 +98,15 @@ export const en: Record<AgentPresetSettingsKey, string> = {
 
   backendSwitchRefused: 'Could not switch the execution backend: {reason}',
 
+  runtimeNav: 'Execution backends',
+  runtimeSectionIntro:
+    'Pi and ZCode can run the agent on their own runtime. CetusPrism looks for them on PATH; name the executable here when it lives somewhere else. DSH itself always stays available.',
+  runtimeCommandLabel: 'Executable',
+  runtimeCommandHint: 'Leave empty to look up {command} on PATH',
+  runtimeSave: 'Save',
+  runtimeReset: 'Use the default',
+  runtimeUnavailable: 'This deployment offers no external runtime.',
+
 }
 
 /** Simplified Chinese copy. */
@@ -139,6 +155,15 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   backendIncompatible: '已安装的运行时与当前版本不兼容',
 
   backendSwitchRefused: '无法切换执行底座：{reason}',
+
+  runtimeNav: '执行底座',
+  runtimeSectionIntro:
+    'Pi 与 ZCode 可以用自己的运行时执行 Agent。CetusPrism 默认在 PATH 中查找；若运行时装在其他位置，请在此填写可执行文件路径。DSH 自身始终可用。',
+  runtimeCommandLabel: '可执行文件',
+  runtimeCommandHint: '留空则从 PATH 查找 {command}',
+  runtimeSave: '保存',
+  runtimeReset: '恢复默认',
+  runtimeUnavailable: '当前部署没有提供外部运行时。',
 
 }
 

@@ -18,6 +18,7 @@ import type { WorkspaceFileWatchFrame } from '@deepseek-ai/dsh-api-workspace-fil
 import { languageForPath } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { IdeTreeNode } from './ide-model.ts'
+import { ideMimeType, ideViewKind, ideViewUsesTextRead } from './ide-view-kind.ts'
 
 /** Lines one read page asks for; the Host caps a page at its configured maximum. */
 const PAGE_LINES = 5000
@@ -37,6 +38,16 @@ export interface IdeFileContent {
    * A write names the version it saw, so a file the Agent rewrote under the
    * editor is never silently overwritten.
    */
+  readonly version?: string | undefined
+}
+
+/** One file's bytes after a binary read. */
+export interface IdeFileBytes {
+  /** The complete file bytes for preview. */
+  readonly data: Uint8Array
+  /** MIME type for a blob URL. */
+  readonly mime: string
+  /** The file's version token at the read. */
   readonly version?: string | undefined
 }
 
@@ -98,6 +109,18 @@ export interface IdeFilesPort {
     signal: AbortSignal,
   ) => Promise<IdeFileContent>
   /**
+   * Read one file's bytes for preview.
+   * @param sessionId - the Session whose workspace the file belongs to.
+   * @param path - the file's absolute path.
+   * @param signal - the caller's cancellation.
+   * @returns the file bytes and MIME type.
+   */
+  readonly readBytes?: (
+    sessionId: SessionId,
+    path: string,
+    signal: AbortSignal,
+  ) => Promise<IdeFileBytes>
+  /**
    * Write one file's text back to disk.
    * @param sessionId - the Session whose workspace the file belongs to.
    * @param path - the file's absolute path.
@@ -148,8 +171,11 @@ export interface IdeFilesRemote {
    */
   readonly $stream: ClientRemote['$stream']
   /** The `workspaceFiles` namespace. */
-  readonly workspaceFiles: Pick<ClientRemote['workspaceFiles'], 'list' | 'read' | 'write' | 'changes'>
+  readonly workspaceFiles: Pick<ClientRemote['workspaceFiles'], 'list' | 'read' | 'readBytes' | 'write' | 'changes'>
 }
+
+/** Re-export for workspace routing. */
+export { ideViewKind, ideViewUsesTextRead }
 
 /**
  * The absolute path of one child entry.
@@ -188,6 +214,15 @@ export function createFilesPort(remote: IdeFilesRemote): IdeFilesPort {
         path: childPath(path, entry.name),
         kind: entry.type === 'directory' ? 'directory' : 'file',
       }))
+    },
+    async readBytes(sessionId, path, signal) {
+      const result = await remote.workspaceFiles.readBytes(sessionId, path, {}, signal)
+      if (!result.ok) throw new Error(result.error.message)
+      return {
+        data: result.value.data,
+        mime: ideMimeType(path),
+        version: result.value.version,
+      }
     },
     async read(sessionId, path, signal) {
       const pages: string[] = []

@@ -8,16 +8,18 @@ import { fileURLToPath } from 'node:url'
 import { createDevelopmentProjectMetadata, createPluginProfile } from '../src/project-manager.ts'
 import { removeOwnedDirectory } from '../src/owned-directory.ts'
 import { DESKTOP_HOST_PROTOCOL_VERSION } from '../src/host-protocol.ts'
-import { desktopTargetPlatform, developmentRuntimeDirectory, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
+import { ensureDesktopBuildLink } from './desktop-build-cache.mjs'
+import { desktopBuildRoot, desktopTargetPlatform, developmentRuntimeDirectory, resolveDesktopBuildTarget } from './desktop-build-paths.mjs'
 
 const repo = resolve(import.meta.dirname, '../../..')
 const interactive = process.argv.includes('--interactive')
 if (process.argv.slice(2).some(argument => argument !== '--interactive')) throw new Error('Expected only --interactive')
-const evidence = join(repo, 'apps/desktop/.desktop-build/qualification')
+ensureDesktopBuildLink()
+const evidence = join(desktopBuildRoot(), 'qualification')
 await mkdir(evidence, { recursive: true })
 const root = await mkdtemp(join(evidence, 'electron-workspace-updates-'))
 const application = join(root, 'app')
-const project = join(application, '.desktop-build/development/project')
+const project = join(application, '.build-cache/development/project')
 const profile = join(root, 'home/profiles/desktop')
 const manifest = JSON.parse(await readFile(join(repo, 'apps/desktop/package.json'), 'utf8')) as { version: string }
 const pnpm = JSON.parse(await readFile(join(repo, 'apps/desktop/node_modules/pnpm/package.json'), 'utf8')) as { version: string }
@@ -45,9 +47,9 @@ try {
   for (const owner of [application, project]) {
     await symlink(join(repo, 'node_modules/.pnpm/node_modules'), join(owner, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir')
   }
-  const targetRoot = join(application, '.desktop-build/targets', target)
+  const targetRoot = join(application, '.build-cache/targets', target)
   await mkdir(targetRoot, { recursive: true })
-  await symlink(join(repo, 'apps/desktop/.desktop-build/targets', target, 'runtime'), join(targetRoot, 'runtime'),
+  await symlink(join(desktopBuildRoot(), 'targets', target, 'runtime'), join(targetRoot, 'runtime'),
     process.platform === 'win32' ? 'junction' : 'dir')
   await writeFile(join(profile, 'cordis.patch.yml'), JSON.stringify([
     { id: 'webserver', config: { host: '127.0.0.1', port: 0 } },

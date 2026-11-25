@@ -71,7 +71,7 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
         <nav className={css.nav}>
           <div className={css.navTitle} id={titleId} tabIndex={-1}
             data-modal-autofocus={active === undefined ? '' : undefined}>{renderSlot('settings.header', {})}</div>
-          <div className={css.navList}>
+          <div className={css.navList} data-hln-ui-scroll="">
             {rows.map(row => (
               <button
                 key={row.id}
@@ -95,7 +95,7 @@ function SettingsPanel({ rows, renderSlot, activeId, onSelect, onClose }: PanelP
               <span className={css.hiddenLabel}>{renderSlot('settings.close', {})}</span>
             </button>
           </div>
-          <div className={css.options}>
+          <div className={css.options} data-hln-ui-scroll="">
             {active !== undefined && renderSlot('settings.section', { close: onClose }, { only: active })}
           </div>
         </div>

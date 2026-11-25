@@ -256,6 +256,30 @@ describe('dsh-tool-team', () => {
     expect(spawn).toHaveBeenCalledTimes(1)
   })
 
+  it('allows spawning teammates inheriting Lead route when modelSelectionSettings is enabled and Team list is empty', async () => {
+    const { ctx } = await setup([], false, true)
+    const selectedLead = await ctx.agentLoop.create(SessionId('authorized-lead'), { provider: 'selected-provider', model: 'selected-model' })
+    const member = {
+      id: SessionId('inherited-member'), name: 'inherited-teammate', role: 'teammate' as const,
+      status: 'provisioning' as const, description: 'inherited model', diagnostics: [],
+    }
+    const spawn = vi.spyOn(ctx.agentTeams, 'spawnTeammate').mockResolvedValue({ member })
+
+    const result = await execute(ctx, selectedLead, 'spawn_teammate', {
+      name: 'inherited-teammate', description: 'inherited model', prompt: 'work',
+    })
+    expect(result.isError, text(result)).toBe(false)
+    expect(spawn).toHaveBeenCalledWith(
+      selectedLead,
+      expect.objectContaining({
+        agentOptions: {
+          provider: 'selected-provider',
+          model: 'selected-model',
+        },
+      }),
+    )
+  })
+
   it.each(['running', 'inactive', 'provisioning', 'failed'] as const)(
     'projects %s members consistently in creation, listing, and schemas', async (status) => {
       const { ctx, lead } = await setup([])
